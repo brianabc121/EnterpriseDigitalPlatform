@@ -1,0 +1,30 @@
+from enum import StrEnum
+from typing import Any
+
+from sqlalchemy import String, UniqueConstraint
+from sqlalchemy.orm import Mapped, mapped_column
+
+from app.db.base import Base, IdMixin, TenantMixin, TimestampMixin
+
+
+class ChannelType(StrEnum):
+    WEB = "web"
+
+
+class ChannelStatus(StrEnum):
+    ACTIVE = "active"
+    DISABLED = "disabled"
+
+
+class ChannelAccount(IdMixin, TimestampMixin, TenantMixin, Base):
+    """渠道账号：一个接入点（某个官网 Widget、某个微信客服账号……）。"""
+
+    __tablename__ = "channel_accounts"
+    __table_args__ = (UniqueConstraint("tenant_id", "id"),)
+
+    type: Mapped[str] = mapped_column(String(16))
+    name: Mapped[str] = mapped_column(String(64))
+    # 公开标识，形如 "{租户代码}.{随机串}"：嵌入网页，用来找到租户和渠道，不是凭证。
+    public_key: Mapped[str] = mapped_column(String(80), unique=True)
+    status: Mapped[str] = mapped_column(String(16), server_default=ChannelStatus.ACTIVE.value)
+    config: Mapped[dict[str, Any]] = mapped_column(server_default="{}")

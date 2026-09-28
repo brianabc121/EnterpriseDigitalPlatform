@@ -22,7 +22,8 @@ from app.main import create_app
 from tests.support import ROLE_PASSWORDS, SUPERUSER_URL, DatabaseUrls, TwoTenants, seed_two_tenants
 
 ALL_TABLES = (
-    "tenants, platform_users, staff, roles, staff_roles, customers, refresh_tokens, audit_logs"
+    "tenants, platform_users, staff, roles, staff_roles, customers, refresh_tokens, audit_logs, "
+    "channel_accounts, customer_identities, rooms, messages"
 )
 BACKEND_DIR = Path(__file__).resolve().parents[1]
 
