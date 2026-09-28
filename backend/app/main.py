@@ -12,6 +12,7 @@ from app.core.ratelimit import RateLimiter
 from app.db.session import Database
 from app.integrations.openim import OpenIMClient
 from app.modules.channels.router import router as channels_router
+from app.modules.conversation.deps import openim_from_settings
 from app.modules.conversation.hooks import router as openim_hooks_router
 from app.modules.conversation.provisioning import IMProvisioner
 from app.modules.customer.router import router as customer_router
@@ -30,11 +31,7 @@ def create_app(settings: Settings | None = None, *, im: OpenIMClient | None = No
     settings = settings or get_settings()
     db = Database(settings)
     redis = Redis.from_url(settings.redis_url)
-    im = im or OpenIMClient(
-        settings.openim_api_url,
-        secret=settings.openim_secret.get_secret_value(),
-        admin_user_id=settings.openim_admin_user_id,
-    )
+    im = im or openim_from_settings(settings)
 
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:

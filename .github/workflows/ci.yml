@@ -22,11 +22,21 @@ jobs:
           --health-interval 2s
           --health-timeout 3s
           --health-retries 30
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 30
     defaults:
       run:
         working-directory: backend
     env:
       EDP_TEST_PG_SUPERUSER_URL: postgresql://postgres:postgres@localhost:5432/postgres
+      EDP_TEST_REDIS_URL: redis://localhost:6379/15
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
