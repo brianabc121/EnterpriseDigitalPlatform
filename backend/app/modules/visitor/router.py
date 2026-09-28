@@ -1,6 +1,7 @@
 from typing import Annotated
+from uuid import UUID
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Query, Request
 
 from app.core.config import Settings
 from app.core.deps import client_ip, get_app_settings, get_database, get_rate_limiter
@@ -10,8 +11,14 @@ from app.db.session import Database
 from app.integrations.openim import OpenIMClient
 from app.modules.conversation.deps import get_im, get_im_provisioner
 from app.modules.conversation.provisioning import IMProvisioner
-from app.modules.visitor import service
-from app.modules.visitor.schemas import VisitorInitRequest, VisitorInitResponse
+from app.modules.visitor import conversation, service
+from app.modules.visitor.deps import CurrentVisitor
+from app.modules.visitor.schemas import (
+    VisitorInitRequest,
+    VisitorInitResponse,
+    VisitorMessagePage,
+    VisitorSessionState,
+)
 
 router = APIRouter(prefix="/api/v1/visitor", tags=["visitor"], responses=ERROR_RESPONSES)
 
@@ -35,3 +42,19 @@ async def init_visitor(
     return await service.init_visitor(
         db, im, provisioner, settings, payload, user_agent=request.headers.get("user-agent")
     )
+
+
+@router.get("/messages", response_model=VisitorMessagePage)
+async def list_messages(
+    visitor: CurrentVisitor,
+    before: Annotated[UUID | None, Query(description="上一页最后一条消息的 id")] = None,
+    limit: Annotated[int, Query(ge=1, le=100)] = 50,
+) -> VisitorMessagePage:
+    """访客自己的消息历史（请求头 X-Visitor-Token）。"""
+    return await conversation.list_messages(visitor, before=before, limit=limit)
+
+
+@router.get("/session", response_model=VisitorSessionState)
+async def session_state(visitor: CurrentVisitor) -> VisitorSessionState:
+    """当前会话状态：排队位置、接待坐席。"""
+    return await conversation.session_state(visitor)

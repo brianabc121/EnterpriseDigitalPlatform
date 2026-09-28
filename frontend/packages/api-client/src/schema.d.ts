@@ -566,6 +566,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/visitor/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Messages
+         * @description 访客自己的消息历史（请求头 X-Visitor-Token）。
+         */
+        get: operations["list_messages_api_v1_visitor_messages_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/visitor/session": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Session State
+         * @description 当前会话状态：排队位置、接待坐席。
+         */
+        get: operations["session_state_api_v1_visitor_session_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/healthz": {
         parameters: {
             query?: never;
@@ -1775,6 +1815,66 @@ export interface components {
             room_id: string;
             /** Visitor Token */
             visitor_token: string;
+        };
+        /** VisitorMessageOut */
+        VisitorMessageOut: {
+            /** Content Type */
+            content_type: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Sender Name */
+            sender_name: string | null;
+            /**
+             * Sender Type
+             * @description customer、agent、bot 或 system
+             */
+            sender_type: string;
+            /**
+             * Sent At
+             * Format: date-time
+             */
+            sent_at: string;
+            /**
+             * Server Msg Id
+             * @description IM 消息 ID，与 Widget 从 IM 收到的消息对齐
+             */
+            server_msg_id: string;
+            /** Text */
+            text: string | null;
+        };
+        /**
+         * VisitorMessagePage
+         * @description 按发送时间倒序（最新的在前）。
+         */
+        VisitorMessagePage: {
+            /** Has More */
+            has_more: boolean;
+            /** Items */
+            items: components["schemas"]["VisitorMessageOut"][];
+        };
+        /** VisitorSessionState */
+        VisitorSessionState: {
+            /** Assignee Name */
+            assignee_name?: string | null;
+            /** Closed At */
+            closed_at?: string | null;
+            /** Csat */
+            csat?: number | null;
+            /**
+             * Queue Position
+             * @description 排队中时为第几位（从 1 开始）
+             */
+            queue_position?: number | null;
+            /** Session Id */
+            session_id?: string | null;
+            /**
+             * Status
+             * @description none（还没有会话）、ai_serving、queued、human_serving、transferring、closed
+             */
+            status: string;
         };
     };
     responses: never;
@@ -4866,6 +4966,164 @@ export interface operations {
             };
             /** @description Service Unavailable */
             503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    list_messages_api_v1_visitor_messages_get: {
+        parameters: {
+            query?: {
+                /** @description 上一页最后一条消息的 id */
+                before?: string | null;
+                limit?: number;
+            };
+            header?: {
+                /** @description 访客初始化返回的 visitor_token */
+                "X-Visitor-Token"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VisitorMessagePage"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    session_state_api_v1_visitor_session_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description 访客初始化返回的 visitor_token */
+                "X-Visitor-Token"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VisitorSessionState"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };

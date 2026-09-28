@@ -25,6 +25,13 @@ type Session = Schemas['SessionOut']
 
 /** 心跳间隔；后端超过 90 秒没有心跳就把坐席置为离线。 */
 export const HEARTBEAT_MS = 30_000
+/** 会话列表和当前会话消息的兜底刷新间隔（信令或 IM 推送丢失时，最多延迟这么久）。 */
+export const POLL_MS = 10_000
+/**
+ * OpenIM 每秒批量上报一次用户上线，推送服务要过一两秒才把刚连上的用户当作在线用户推送。
+ * 连上 IM 后等这么久再把接待状态设为在线，避免分配信令和新消息在这段时间里推送不到。
+ */
+export const IM_ONLINE_GRACE_MS = 2_000
 const HISTORY_PAGE = 50
 
 export const STATUS_LABEL: Record<AgentStatus, string> = {
@@ -58,6 +65,7 @@ export const useWorkbenchStore = defineStore('workbench', () => {
   let systemUserId = ''
   let myImUser = ''
   let timer: ReturnType<typeof setInterval> | null = null
+  let pollTimer: ReturnType<typeof setInterval> | null = null
   let starting: Promise<void> | null = null
   const unsubscribe: (() => void)[] = []
 
@@ -88,26 +96,38 @@ export const useWorkbenchStore = defineStore('workbench', () => {
 
   // ---- 启动与停止 ----
 
-  /** 进入工作台时调用（只执行一次）：上线、连接 IM、加载会话、开始心跳。 */
+  /** 进入工作台时调用（只执行一次）：连接 IM、上线、加载会话、开始心跳和兜底刷新。 */
   function start(): Promise<void> {
     starting ??= (async () => {
       error.value = null
       try {
-        await setStatus('online')
         await connectIm()
+        await new Promise((resolve) => setTimeout(resolve, IM_ONLINE_GRACE_MS))
+        await setStatus('online')
       } catch (e) {
         error.value = e instanceof Error ? e.message : String(e)
       }
       timer = setInterval(() => void heartbeat(), HEARTBEAT_MS)
+      pollTimer = setInterval(() => void poll(), POLL_MS)
     })()
     return starting
+  }
+
+  /** 兜底刷新：会话列表和当前会话最近的消息以平台接口为准。 */
+  async function poll(): Promise<void> {
+    await loadSessions()
+    if (active.value) {
+      await loadHistory(active.value.room_id, undefined, false).catch(() => undefined)
+    }
   }
 
   /** 退出登录时调用：离线（未回复的会话立即退回队列）并断开 IM。 */
   async function stop(): Promise<void> {
     if (!starting) return
     if (timer) clearInterval(timer)
+    if (pollTimer) clearInterval(pollTimer)
     timer = null
+    pollTimer = null
     starting = null
     await api.PUT('/api/v1/agent/state', { body: { status: 'offline' } }).catch(() => undefined)
     unsubscribe.splice(0).forEach((off) => off())
@@ -128,7 +148,12 @@ export const useWorkbenchStore = defineStore('workbench', () => {
     myImUser = data.user_id
     im = createImClient()
     unsubscribe.push(
-      im.onState((state) => (imState.value = state)),
+      im.onState((state) => {
+        // 断线重连后，期间的分配和消息可能没有推送到：从平台接口补齐。
+        const recovered = state === 'connected' && imState.value === 'reconnecting'
+        imState.value = state
+        if (recovered) void poll()
+      }),
       im.onMessage(onImMessage),
       im.onSignal(onSignal),
     )
@@ -178,7 +203,7 @@ export const useWorkbenchStore = defineStore('workbench', () => {
     await loadHistory(session.room_id)
   }
 
-  async function loadHistory(roomId: string, before?: string): Promise<void> {
+  async function loadHistory(roomId: string, before?: string, updateMore = true): Promise<void> {
     const { data, error: err } = await api.GET('/api/v1/rooms/{room_id}/messages', {
       params: { path: { room_id: roomId }, query: { limit: HISTORY_PAGE, before } },
     })
@@ -187,7 +212,7 @@ export const useWorkbenchStore = defineStore('workbench', () => {
       ...messages.value,
       [roomId]: mergeMessages(messages.value[roomId] ?? [], data.items.map(fromApi)),
     }
-    hasMore.value = { ...hasMore.value, [roomId]: data.has_more }
+    if (updateMore) hasMore.value = { ...hasMore.value, [roomId]: data.has_more }
   }
 
   async function loadOlder(): Promise<void> {

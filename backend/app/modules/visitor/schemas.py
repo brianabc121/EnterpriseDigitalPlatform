@@ -1,3 +1,4 @@
+from datetime import datetime
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -30,3 +31,31 @@ class VisitorInitResponse(BaseModel):
     visitor_token: str
     room_id: UUID
     im: IMCredentials
+
+
+class VisitorMessageOut(BaseModel):
+    id: UUID
+    server_msg_id: str = Field(description="IM 消息 ID，与 Widget 从 IM 收到的消息对齐")
+    sender_type: str = Field(description="customer、agent、bot 或 system")
+    sender_name: str | None
+    content_type: str
+    text: str | None
+    sent_at: datetime
+
+
+class VisitorMessagePage(BaseModel):
+    """按发送时间倒序（最新的在前）。"""
+
+    items: list[VisitorMessageOut]
+    has_more: bool
+
+
+class VisitorSessionState(BaseModel):
+    status: str = Field(
+        description="none（还没有会话）、ai_serving、queued、human_serving、transferring、closed"
+    )
+    session_id: UUID | None = None
+    queue_position: int | None = Field(default=None, description="排队中时为第几位（从 1 开始）")
+    assignee_name: str | None = None
+    closed_at: datetime | None = None
+    csat: int | None = None

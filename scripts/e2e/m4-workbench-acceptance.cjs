@@ -133,8 +133,13 @@ async function run(browser) {
   const agent = await agentCtx.newPage()
   watchErrors(agent, 'console')
   await agentLogin(agent)
-  const status = (await agent.locator('[data-testid="agent-status"]').innerText()).trim()
-  check('坐席进入工作台后自动上线并连接 IM', status === '在线', status)
+  // IM 连上后稍等一会儿才上线（见 stores/workbench.ts 的 IM_ONLINE_GRACE_MS）。
+  const online = await agent
+    .locator('[data-testid="agent-status"]', { hasText: '在线' })
+    .waitFor({ timeout: 10000 })
+    .then(() => true)
+    .catch(() => false)
+  check('坐席进入工作台后连接 IM 并自动上线', online)
 
   // 2. 访客打开 Widget 发起咨询
   const visitorCtx = await browser.newContext({ viewport: { width: 420, height: 720 }, locale: 'zh-CN' })
