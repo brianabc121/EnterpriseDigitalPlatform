@@ -147,6 +147,43 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/rooms": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Rooms
+         * @description 按最近消息时间倒序列出可见的 Room。
+         */
+        get: operations["list_rooms_api_v1_rooms_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/rooms/{room_id}/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Messages */
+        get: operations["list_messages_api_v1_rooms__room_id__messages_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/staff": {
         parameters: {
             query?: never;
@@ -432,6 +469,45 @@ export interface components {
             /** Username */
             username: string;
         };
+        /** MessageOut */
+        MessageOut: {
+            /** Content */
+            content: {
+                [key: string]: unknown;
+            };
+            /** Content Type */
+            content_type: string;
+            /** Direction */
+            direction: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Im Seq */
+            im_seq: number | null;
+            /** Sender Id */
+            sender_id: string | null;
+            /** Sender Type */
+            sender_type: string;
+            /**
+             * Sent At
+             * Format: date-time
+             */
+            sent_at: string;
+            /** Text Plain */
+            text_plain: string | null;
+        };
+        /**
+         * MessagePage
+         * @description 按发送时间倒序（最新的在前）。has_more 为 true 时，用最后一条的 id 作为 before 继续翻页。
+         */
+        MessagePage: {
+            /** Has More */
+            has_more: boolean;
+            /** Items */
+            items: components["schemas"]["MessageOut"][];
+        };
         /**
          * Permission
          * @enum {string}
@@ -489,6 +565,47 @@ export interface components {
             name: string;
             /** Permissions */
             permissions: string[];
+        };
+        /** RoomOut */
+        RoomOut: {
+            /**
+             * Channel Account Id
+             * Format: uuid
+             */
+            channel_account_id: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Customer Display Name */
+            customer_display_name: string;
+            /**
+             * Customer Id
+             * Format: uuid
+             */
+            customer_id: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Im Group Id */
+            im_group_id: string;
+            /**
+             * Last Active At
+             * Format: date-time
+             */
+            last_active_at: string;
+            /** Last Message At */
+            last_message_at: string | null;
+        };
+        /** RoomPage */
+        RoomPage: {
+            /** Items */
+            items: components["schemas"]["RoomOut"][];
+            /** Total */
+            total: number;
         };
         /** StaffCreate */
         StaffCreate: {
@@ -1275,6 +1392,164 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RoleList"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    list_rooms_api_v1_rooms_get: {
+        parameters: {
+            query?: {
+                customer_id?: string | null;
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RoomPage"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    list_messages_api_v1_rooms__room_id__messages_get: {
+        parameters: {
+            query?: {
+                /** @description 上一页最后一条消息的 id */
+                before?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                room_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessagePage"];
                 };
             };
             /** @description Bad Request */
