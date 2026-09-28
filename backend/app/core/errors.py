@@ -18,10 +18,16 @@ class AppError(Exception):
         super().__init__(message)
         self.message = message
 
+    def headers(self) -> dict[str, str] | None:
+        return None
+
 
 class Unauthorized(AppError):
     status_code = 401
     code = "unauthorized"
+
+    def headers(self) -> dict[str, str] | None:
+        return {"WWW-Authenticate": "Bearer"}
 
 
 class Forbidden(AppError):
@@ -42,6 +48,25 @@ class Conflict(AppError):
 class Unprocessable(AppError):
     status_code = 422
     code = "unprocessable"
+
+
+class TooManyRequests(AppError):
+    status_code = 429
+    code = "rate_limited"
+
+    def __init__(self, message: str, *, retry_after: int) -> None:
+        super().__init__(message)
+        self.retry_after = retry_after
+
+    def headers(self) -> dict[str, str] | None:
+        return {"Retry-After": str(self.retry_after)}
+
+
+class ServiceUnavailable(AppError):
+    """依赖的外部服务（如 OpenIM）暂时不可用，客户端可以稍后重试。"""
+
+    status_code = 503
+    code = "service_unavailable"
 
 
 class ErrorDetail(BaseModel):
@@ -67,9 +92,8 @@ def error_body(code: str, message: str, **extra: Any) -> dict[str, Any]:
 def install_error_handlers(app: FastAPI) -> None:
     @app.exception_handler(AppError)
     async def handle_app_error(_: Request, exc: AppError) -> JSONResponse:
-        headers = {"WWW-Authenticate": "Bearer"} if exc.status_code == 401 else None
         return JSONResponse(
-            error_body(exc.code, exc.message), status_code=exc.status_code, headers=headers
+            error_body(exc.code, exc.message), status_code=exc.status_code, headers=exc.headers()
         )
 
     @app.exception_handler(RequestValidationError)

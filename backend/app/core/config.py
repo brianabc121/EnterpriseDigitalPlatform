@@ -7,6 +7,10 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 # 仅供本地开发使用的默认密钥；生产环境必须通过环境变量覆盖（见 _check_prod）。
 _DEV_JWT_SECRET = "dev-only-jwt-secret-change-me-0123456789abcdef"
 _DEV_PLATFORM_JWT_SECRET = "dev-only-platform-jwt-secret-change-me-0123456789"
+_DEV_VISITOR_JWT_SECRET = "dev-only-visitor-jwt-secret-change-me-0123456789a"
+# 与 deploy/compose/openim/docker-compose.yml 的默认值一致。
+_DEV_OPENIM_SECRET = "openim-dev-secret"
+_DEV_OPENIM_WEBHOOK_SECRET = "dev-openim-webhook-secret"
 
 
 class Settings(BaseSettings):
@@ -25,18 +29,44 @@ class Settings(BaseSettings):
     refresh_token_ttl_seconds: int = 7 * 24 * 3600
     platform_token_ttl_seconds: int = 2 * 3600
 
+    visitor_jwt_secret: SecretStr = SecretStr(_DEV_VISITOR_JWT_SECRET)
+    visitor_token_ttl_seconds: int = 365 * 24 * 3600
+
     cookie_secure: bool = False
-    cors_origins: list[str] = ["http://localhost:5173", "http://localhost:5174"]
+    # 5173 控制台、5174 运营后台、5175 访客 Widget（开发环境）
+    cors_origins: list[str] = [
+        "http://localhost:5173",
+        "http://localhost:5174",
+        "http://localhost:5175",
+    ]
+
+    redis_url: str = "redis://localhost:6379/0"
+
+    # OpenIM：平台后端调用 REST 的地址，以及浏览器（SDK）访问的公开地址。
+    openim_api_url: str = "http://localhost:10002"
+    openim_public_api_url: str = "http://localhost:10002"
+    openim_public_ws_url: str = "ws://localhost:10001"
+    openim_secret: SecretStr = SecretStr(_DEV_OPENIM_SECRET)
+    openim_admin_user_id: str = "imAdmin"
+    # OpenIM 回调路径中的共享密钥（OpenIM 回调不签名）。
+    openim_webhook_secret: SecretStr = SecretStr(_DEV_OPENIM_WEBHOOK_SECRET)
 
     @model_validator(mode="after")
     def _check_prod(self) -> "Settings":
         if self.env != "prod":
             return self
-        if (
-            self.jwt_secret.get_secret_value() == _DEV_JWT_SECRET
-            or self.platform_jwt_secret.get_secret_value() == _DEV_PLATFORM_JWT_SECRET
-        ):
-            raise ValueError("EDP_JWT_SECRET and EDP_PLATFORM_JWT_SECRET must be set in prod")
+        dev_defaults = {
+            "EDP_JWT_SECRET": (self.jwt_secret, _DEV_JWT_SECRET),
+            "EDP_PLATFORM_JWT_SECRET": (self.platform_jwt_secret, _DEV_PLATFORM_JWT_SECRET),
+            "EDP_VISITOR_JWT_SECRET": (self.visitor_jwt_secret, _DEV_VISITOR_JWT_SECRET),
+            "EDP_OPENIM_SECRET": (self.openim_secret, _DEV_OPENIM_SECRET),
+            "EDP_OPENIM_WEBHOOK_SECRET": (self.openim_webhook_secret, _DEV_OPENIM_WEBHOOK_SECRET),
+        }
+        unset = [
+            name for name, (value, dev) in dev_defaults.items() if value.get_secret_value() == dev
+        ]
+        if unset:
+            raise ValueError(f"{', '.join(unset)} must be set in prod")
         if not self.cookie_secure:
             raise ValueError("EDP_COOKIE_SECURE must be true in prod")
         return self

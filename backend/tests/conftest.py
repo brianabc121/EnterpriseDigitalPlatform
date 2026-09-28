@@ -3,6 +3,9 @@
 需要一个可以用超级用户连接的 PostgreSQL（默认连本地 `make dev-up` 起的实例，
 也可以用 EDP_TEST_PG_SUPERUSER_URL 指定）。每次测试会话创建一个临时数据库并执行迁移，
 每个测试开始前清空所有表。
+
+限流用到 Redis（默认 `make dev-up` 起的实例的 15 号库，可以用 EDP_TEST_REDIS_URL 指定），
+每个测试开始前清空。OpenIM 用内存版（tests/fake_openim.py）。
 """
 
 import asyncio
@@ -15,11 +18,23 @@ import httpx
 import pytest
 from alembic.config import Config
 from fastapi import FastAPI
+from redis.asyncio import Redis
+from redis.exceptions import RedisError
 
 from alembic import command
 from app.core.config import Settings
+from app.integrations.openim import OpenIMClient
 from app.main import create_app
-from tests.support import ROLE_PASSWORDS, SUPERUSER_URL, DatabaseUrls, TwoTenants, seed_two_tenants
+from tests.fake_openim import SECRET as FAKE_OPENIM_SECRET
+from tests.fake_openim import FakeOpenIM
+from tests.support import (
+    REDIS_URL,
+    ROLE_PASSWORDS,
+    SUPERUSER_URL,
+    DatabaseUrls,
+    TwoTenants,
+    seed_two_tenants,
+)
 
 ALL_TABLES = (
     "tenants, platform_users, staff, roles, staff_roles, customers, refresh_tokens, audit_logs, "
@@ -78,6 +93,21 @@ async def _clean_tables(database_urls: DatabaseUrls) -> None:
         await conn.close()
 
 
+@pytest.fixture(autouse=True)
+async def _clean_redis() -> None:
+    redis = Redis.from_url(REDIS_URL)
+    try:
+        await redis.flushdb()
+    except RedisError as exc:
+        pytest.exit(
+            f"无法连接测试用 Redis（{REDIS_URL}）：{exc}。"
+            "请先执行 `make dev-up`，或设置 EDP_TEST_REDIS_URL。",
+            returncode=2,
+        )
+    finally:
+        await redis.aclose()
+
+
 @pytest.fixture
 async def two_tenants(database_urls: DatabaseUrls) -> TwoTenants:
     return await seed_two_tenants(database_urls.platform_dsn)
@@ -91,13 +121,26 @@ def settings(database_urls: DatabaseUrls) -> Settings:
         database_url_platform=database_urls.platform,
         database_url_owner=database_urls.owner,
         cookie_secure=False,
+        redis_url=REDIS_URL,
+        openim_api_url="http://openim",
+        openim_secret=FAKE_OPENIM_SECRET,
     )
 
 
 @pytest.fixture
-async def app(settings: Settings) -> AsyncIterator[FastAPI]:
-    application = create_app(settings)
+def fake_im() -> FakeOpenIM:
+    return FakeOpenIM()
+
+
+@pytest.fixture
+async def app(settings: Settings, fake_im: FakeOpenIM) -> AsyncIterator[FastAPI]:
+    im = OpenIMClient(
+        settings.openim_api_url, secret=FAKE_OPENIM_SECRET, transport=fake_im.transport()
+    )
+    application = create_app(settings, im=im)
     yield application
+    await im.aclose()
+    await application.state.redis.aclose()
     await application.state.db.dispose()
 
 

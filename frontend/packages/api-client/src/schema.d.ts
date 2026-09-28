@@ -165,6 +165,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/visitor/init": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Init Visitor
+         * @description 访客接入（Widget 调用，无需登录）。返回访客令牌和 OpenIM 登录信息。
+         */
+        post: operations["init_visitor_api_v1_visitor_init_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/healthz": {
         parameters: {
             query?: never;
@@ -362,6 +382,26 @@ export interface components {
         HealthStatus: {
             /** Status */
             status: string;
+        };
+        /**
+         * IMCredentials
+         * @description 访客用 OpenIM SDK 登录所需的信息。
+         */
+        IMCredentials: {
+            /** Api Url */
+            api_url: string;
+            /** Conversation Id */
+            conversation_id: string;
+            /** Group Id */
+            group_id: string;
+            /** Platform Id */
+            platform_id: number;
+            /** Token */
+            token: string;
+            /** User Id */
+            user_id: string;
+            /** Ws Url */
+            ws_url: string;
         };
         /** LoginRequest */
         LoginRequest: {
@@ -570,6 +610,34 @@ export interface components {
              */
             token_type: "bearer";
         };
+        /** VisitorInitRequest */
+        VisitorInitRequest: {
+            /**
+             * Channel Key
+             * @description 渠道公开标识（嵌入代码中）
+             */
+            channel_key: string;
+            /** Page Url */
+            page_url?: string | null;
+            /** Referrer */
+            referrer?: string | null;
+            /**
+             * Visitor Token
+             * @description 上次初始化返回的访客令牌；没有或失效时按新访客处理
+             */
+            visitor_token?: string | null;
+        };
+        /** VisitorInitResponse */
+        VisitorInitResponse: {
+            im: components["schemas"]["IMCredentials"];
+            /**
+             * Room Id
+             * Format: uuid
+             */
+            room_id: string;
+            /** Visitor Token */
+            visitor_token: string;
+        };
     };
     responses: never;
     parameters: never;
@@ -648,6 +716,15 @@ export interface operations {
             };
             /** @description Unprocessable Entity */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -1408,6 +1485,102 @@ export interface operations {
             };
         };
     };
+    init_visitor_api_v1_visitor_init_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VisitorInitRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VisitorInitResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     liveness_healthz_get: {
         parameters: {
             query?: never;
@@ -1497,6 +1670,15 @@ export interface operations {
             };
             /** @description Unprocessable Entity */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };

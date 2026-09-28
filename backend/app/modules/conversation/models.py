@@ -3,7 +3,7 @@ from datetime import datetime
 from enum import StrEnum
 from typing import Any
 
-from sqlalchemy import BigInteger, ForeignKeyConstraint, String, Text, UniqueConstraint
+from sqlalchemy import BigInteger, ForeignKeyConstraint, String, Text, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base, IdMixin, TenantMixin, TimestampMixin
@@ -37,7 +37,7 @@ class Room(IdMixin, TimestampMixin, TenantMixin, Base):
     # 对账游标：不大于它的 seq 都已核对过。
     synced_seq: Mapped[int] = mapped_column(BigInteger, server_default="0")
     last_message_at: Mapped[datetime | None]
-    last_active_at: Mapped[datetime]
+    last_active_at: Mapped[datetime] = mapped_column(server_default=func.now())
 
 
 class Direction(StrEnum):

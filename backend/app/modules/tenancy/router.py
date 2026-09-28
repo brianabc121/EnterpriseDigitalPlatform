@@ -4,8 +4,9 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Request, status
 
 from app.core.config import Settings
-from app.core.deps import client_ip, get_app_settings
-from app.core.errors import ERROR_RESPONSES
+from app.core.deps import client_ip, get_app_settings, get_rate_limiter
+from app.core.errors import ERROR_RESPONSES, ErrorResponse
+from app.core.ratelimit import RateLimiter, login_attempt
 from app.core.security import encode_platform_token
 from app.modules.tenancy import service
 from app.modules.tenancy.deps import CurrentPlatformUser, PlatformDb
@@ -22,15 +23,23 @@ from app.modules.tenancy.schemas import (
 router = APIRouter(prefix="/platform/v1", tags=["platform"], responses=ERROR_RESPONSES)
 
 
-@router.post("/auth/login", response_model=PlatformTokenResponse)
+@router.post(
+    "/auth/login",
+    response_model=PlatformTokenResponse,
+    responses={429: {"model": ErrorResponse}},
+)
 async def platform_login(
     payload: PlatformLoginRequest,
+    request: Request,
     session: PlatformDb,
     settings: Annotated[Settings, Depends(get_app_settings)],
+    limiter: Annotated[RateLimiter, Depends(get_rate_limiter)],
 ) -> PlatformTokenResponse:
-    user = await service.authenticate_platform_user(
-        session, username=payload.username, password=payload.password
-    )
+    account = f"platform:{payload.username}"
+    async with login_attempt(limiter, ip=client_ip(request), account=account):
+        user = await service.authenticate_platform_user(
+            session, username=payload.username, password=payload.password
+        )
     token = encode_platform_token(
         user_id=user.id,
         secret=settings.platform_jwt_secret.get_secret_value(),

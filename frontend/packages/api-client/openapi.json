@@ -219,6 +219,50 @@
         "title": "HealthStatus",
         "type": "object"
       },
+      "IMCredentials": {
+        "description": "访客用 OpenIM SDK 登录所需的信息。",
+        "properties": {
+          "api_url": {
+            "title": "Api Url",
+            "type": "string"
+          },
+          "conversation_id": {
+            "title": "Conversation Id",
+            "type": "string"
+          },
+          "group_id": {
+            "title": "Group Id",
+            "type": "string"
+          },
+          "platform_id": {
+            "title": "Platform Id",
+            "type": "integer"
+          },
+          "token": {
+            "title": "Token",
+            "type": "string"
+          },
+          "user_id": {
+            "title": "User Id",
+            "type": "string"
+          },
+          "ws_url": {
+            "title": "Ws Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id",
+          "token",
+          "group_id",
+          "conversation_id",
+          "api_url",
+          "ws_url",
+          "platform_id"
+        ],
+        "title": "IMCredentials",
+        "type": "object"
+      },
       "LoginRequest": {
         "properties": {
           "password": {
@@ -723,6 +767,82 @@
         ],
         "title": "TokenResponse",
         "type": "object"
+      },
+      "VisitorInitRequest": {
+        "properties": {
+          "channel_key": {
+            "description": "渠道公开标识（嵌入代码中）",
+            "maxLength": 80,
+            "minLength": 5,
+            "title": "Channel Key",
+            "type": "string"
+          },
+          "page_url": {
+            "anyOf": [
+              {
+                "maxLength": 2048,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Page Url"
+          },
+          "referrer": {
+            "anyOf": [
+              {
+                "maxLength": 2048,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Referrer"
+          },
+          "visitor_token": {
+            "anyOf": [
+              {
+                "maxLength": 2048,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "上次初始化返回的访客令牌；没有或失效时按新访客处理",
+            "title": "Visitor Token"
+          }
+        },
+        "required": [
+          "channel_key"
+        ],
+        "title": "VisitorInitRequest",
+        "type": "object"
+      },
+      "VisitorInitResponse": {
+        "properties": {
+          "im": {
+            "$ref": "#/components/schemas/IMCredentials"
+          },
+          "room_id": {
+            "format": "uuid",
+            "title": "Room Id",
+            "type": "string"
+          },
+          "visitor_token": {
+            "title": "Visitor Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "visitor_token",
+          "room_id",
+          "im"
+        ],
+        "title": "VisitorInitResponse",
+        "type": "object"
       }
     },
     "securitySchemes": {
@@ -828,6 +948,16 @@
               }
             },
             "description": "Unprocessable Entity"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Too Many Requests"
           }
         },
         "summary": "Login",
@@ -1733,6 +1863,118 @@
         ]
       }
     },
+    "/api/v1/visitor/init": {
+      "post": {
+        "description": "访客接入（Widget 调用，无需登录）。返回访客令牌和 OpenIM 登录信息。",
+        "operationId": "init_visitor_api_v1_visitor_init_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VisitorInitRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VisitorInitResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Init Visitor",
+        "tags": [
+          "visitor"
+        ]
+      }
+    },
     "/healthz": {
       "get": {
         "operationId": "liveness_healthz_get",
@@ -1837,6 +2079,16 @@
               }
             },
             "description": "Unprocessable Entity"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Too Many Requests"
           }
         },
         "summary": "Platform Login",

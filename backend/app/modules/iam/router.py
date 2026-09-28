@@ -3,9 +3,10 @@ from typing import Annotated
 from fastapi import APIRouter, Cookie, Depends, Request, Response, status
 
 from app.core.config import Settings
-from app.core.deps import client_ip, get_app_settings, get_database
-from app.core.errors import ERROR_RESPONSES, Unauthorized
+from app.core.deps import client_ip, get_app_settings, get_database, get_rate_limiter
+from app.core.errors import ERROR_RESPONSES, ErrorResponse, Unauthorized
 from app.core.permissions import ALL_PERMISSIONS, Permission
+from app.core.ratelimit import RateLimiter, login_attempt
 from app.core.security import RefreshClaims, TokenError, decode_refresh_token
 from app.db.session import Database
 from app.modules.audit.service import record_audit
@@ -32,6 +33,7 @@ router = APIRouter(prefix="/api/v1", tags=["iam"], responses=ERROR_RESPONSES)
 
 SettingsDep = Annotated[Settings, Depends(get_app_settings)]
 DatabaseDep = Annotated[Database, Depends(get_database)]
+LimiterDep = Annotated[RateLimiter, Depends(get_rate_limiter)]
 RefreshCookie = Annotated[str | None, Cookie(alias=REFRESH_COOKIE, include_in_schema=False)]
 
 
@@ -56,16 +58,21 @@ def _decode_refresh(settings: Settings, token: str | None) -> RefreshClaims | No
         return None
 
 
-@auth_router.post("/login", response_model=TokenResponse)
+@auth_router.post("/login", response_model=TokenResponse, responses={429: {"model": ErrorResponse}})
 async def login(
     payload: LoginRequest,
     request: Request,
     response: Response,
     db: DatabaseDep,
     settings: SettingsDep,
+    limiter: LimiterDep,
 ) -> TokenResponse:
     """员工登录。Access Token 在响应体中返回，Refresh Token 写入 httpOnly Cookie。"""
-    async with db.app_sessionmaker() as session:
+    account = f"{payload.tenant_code.lower()}:{payload.username}"
+    async with (
+        db.app_sessionmaker() as session,
+        login_attempt(limiter, ip=client_ip(request), account=account),
+    ):
         staff = await service.authenticate(
             session,
             tenant_code=payload.tenant_code,

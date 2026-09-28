@@ -8,6 +8,7 @@ from sqlalchemy.engine import URL, make_url
 SUPERUSER_URL = os.environ.get(
     "EDP_TEST_PG_SUPERUSER_URL", "postgresql://postgres:postgres@localhost:5432/postgres"
 )
+REDIS_URL = os.environ.get("EDP_TEST_REDIS_URL", "redis://localhost:6379/15")
 ROLE_PASSWORDS = {"edp_app": "edp_app", "edp_platform": "edp_platform"}
 
 
