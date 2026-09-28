@@ -31,7 +31,8 @@ make migrate
 # 3. 安装前端依赖，然后分别在不同终端启动
 make frontend-install
 make backend-dev     # 后端接口：http://localhost:8000/docs（监听 0.0.0.0，供 OpenIM 回调）
-make scheduler-dev   # 调度进程：每分钟按 seq 对账，补录回调丢失的消息
+make worker-dev      # 实时消费进程：消息归入会话、排队与分配
+make scheduler-dev   # 调度进程：按 seq 对账、会话超时与断线处理、IM 操作重试
 make console-dev     # 控制台：http://localhost:5173
 make platform-dev    # 运营后台：http://localhost:5174
 make widget-dev      # 访客 Widget：http://localhost:5175/?key=<渠道 key>
@@ -40,6 +41,10 @@ make widget-dev      # 访客 Widget：http://localhost:5175/?key=<渠道 key>
 在运营后台开通租户（企业代码 + 首个管理员），然后用"企业代码 / 用户名 / 密码"登录控制台。
 控制台"设置"页列出本租户的接入渠道，点"打开访客测试页"即可以访客身份与服务群对话；
 访客消息会进入平台消息库（`GET /api/v1/rooms`、`GET /api/v1/rooms/{id}/messages`）。
+
+访客的第一条消息会开启一个会话，按路由策略排队并分配给在线坐席（`PUT /api/v1/agent/state`
+上线，工作台每 30 秒调用 `POST /api/v1/agent/heartbeat`）。技能组、路由策略（工作时间、排队超时、
+空闲结束）和坐席并发在 `/api/v1/skill-groups`、`/api/v1/routing-policies`、`/api/v1/agents` 配置。
 
 默认配置适用于本地环境；需要修改时，把 `backend/.env.example` 复制为 `backend/.env`。
 OpenIM 的镜像名都可以用环境变量替换（见 `deploy/compose/openim/docker-compose.yml`），便于使用镜像加速地址。

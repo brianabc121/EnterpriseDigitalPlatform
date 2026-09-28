@@ -2,7 +2,7 @@ COMPOSE := docker compose -f deploy/compose/docker-compose.yml
 IM_COMPOSE := docker compose -f deploy/compose/openim/docker-compose.yml
 
 .PHONY: dev-up dev-down dev-reset im-up im-down im-reset \
-	backend-install migrate backend-dev scheduler-dev backend-test backend-lint \
+	backend-install migrate backend-dev worker-dev scheduler-dev backend-test backend-lint \
 	frontend-install console-dev platform-dev widget-dev frontend-test frontend-build \
 	openapi test
 
@@ -38,6 +38,9 @@ backend-dev:
 	cd backend && uv run uvicorn app.main:create_app --factory --reload --host 0.0.0.0 --port 8000
 
 # 调度进程：每分钟按 seq 对账（需要 make im-up）
+worker-dev:
+	cd backend && uv run python -m app.worker
+
 scheduler-dev:
 	cd backend && uv run python -m app.scheduler
 

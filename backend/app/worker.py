@@ -39,6 +39,8 @@ async def _main() -> None:
 
 def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
+    # 每个 HTTP 请求一行的日志太多，只保留警告。
+    logging.getLogger("httpx").setLevel(logging.WARNING)
     asyncio.run(_main())
 
 
