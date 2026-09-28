@@ -4,6 +4,7 @@ import { computed, nextTick, ref, watch } from 'vue'
 
 import { useWorkbenchStore } from '../../stores/workbench'
 import type { WorkbenchMessage } from '../../workbench/messages'
+import { IMAGE_TYPES, MAX_FILE_BYTES, MAX_IMAGE_BYTES } from '../../workbench/upload'
 import QuickReplies from './QuickReplies.vue'
 import TransferDialog from './TransferDialog.vue'
 
@@ -19,7 +20,9 @@ const STATUS_TEXT: Record<string, string> = {
 }
 const draft = ref('')
 const sending = ref(false)
+const uploading = ref(false)
 const scroller = ref<HTMLElement | null>(null)
+const fileInput = ref<HTMLInputElement | null>(null)
 
 const session = computed(() => wb.active)
 const pendingTransfer = computed(() =>
@@ -50,6 +53,13 @@ function senderLabel(m: WorkbenchMessage): string {
   if (m.senderType === 'agent') return m.senderName ?? '客服'
   if (m.senderType === 'customer') return session.value?.customer_display_name ?? LABEL.customer!
   return LABEL[m.senderType] ?? ''
+}
+
+function formatSize(size: number | null): string {
+  if (!size) return ''
+  return size >= 1024 * 1024
+    ? `${(size / 1024 / 1024).toFixed(1)} MB`
+    : `${Math.ceil(size / 1024)} KB`
 }
 
 function time(m: WorkbenchMessage): string {
@@ -117,6 +127,27 @@ async function closeSession(): Promise<void> {
   }
 }
 
+async function onFile(event: Event): Promise<void> {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ''
+  if (!file) return
+  const isImage = IMAGE_TYPES.includes(file.type)
+  const limit = isImage ? MAX_IMAGE_BYTES : MAX_FILE_BYTES
+  if (file.size > limit) {
+    ElMessage.error(`${isImage ? '图片' : '文件'}不能超过 ${limit / 1024 / 1024} MB`)
+    return
+  }
+  uploading.value = true
+  try {
+    await wb.sendFile(file)
+  } catch (e) {
+    ElMessage.error(e instanceof Error ? e.message : String(e))
+  } finally {
+    uploading.value = false
+  }
+}
+
 function insert(text: string): void {
   draft.value = draft.value ? `${draft.value}\n${text}` : text
 }
@@ -174,7 +205,27 @@ function insert(text: string): void {
           <template v-else>
             <div class="meta">{{ senderLabel(m) }} · {{ time(m) }}</div>
             <div class="bubble">
-              <template v-if="m.text !== null">{{ m.text }}</template>
+              <el-image
+                v-if="m.contentType === 'image' && m.attachment"
+                :src="m.attachment.url"
+                :preview-src-list="[m.attachment.url]"
+                preview-teleported
+                fit="contain"
+                class="image"
+                data-testid="message-image"
+              />
+              <a
+                v-else-if="m.contentType === 'file' && m.attachment"
+                :href="m.attachment.url"
+                target="_blank"
+                rel="noopener"
+                class="file"
+                data-testid="message-file"
+              >
+                <span class="file-name">{{ m.attachment.name ?? '文件' }}</span>
+                <small>{{ formatSize(m.attachment.size) }}</small>
+              </a>
+              <template v-else-if="m.text !== null">{{ m.text }}</template>
               <span v-else class="unsupported">[{{ m.contentType }}]</span>
             </div>
             <div v-if="m.status === 'pending'" class="status">发送中…</div>
@@ -189,6 +240,22 @@ function insert(text: string): void {
       <footer v-if="replyable" class="composer">
         <div class="tools">
           <QuickReplies @pick="insert" />
+          <el-button
+            size="small"
+            :loading="uploading"
+            data-testid="attach-button"
+            @click="fileInput?.click()"
+          >
+            图片/文件
+          </el-button>
+          <input
+            ref="fileInput"
+            type="file"
+            hidden
+            accept="image/png,image/jpeg,image/gif,image/webp,.pdf,.txt,.zip,.doc,.docx,.xls,.xlsx,.ppt,.pptx"
+            data-testid="attach-input"
+            @change="onFile"
+          />
         </div>
         <el-input
           v-model="draft"
@@ -320,7 +387,33 @@ function insert(text: string): void {
 }
 
 .tools {
+  display: flex;
+  gap: 8px;
   margin-bottom: 6px;
+}
+
+.image {
+  display: block;
+  max-width: 240px;
+  max-height: 240px;
+  cursor: zoom-in;
+}
+
+.file {
+  display: flex;
+  flex-direction: column;
+  min-width: 160px;
+  color: var(--el-color-primary);
+  text-decoration: none;
+}
+
+.file-name {
+  font-weight: 500;
+  word-break: break-all;
+}
+
+.file small {
+  color: var(--el-text-color-secondary);
 }
 
 .actions {

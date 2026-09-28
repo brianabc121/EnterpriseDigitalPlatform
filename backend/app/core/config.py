@@ -11,7 +11,7 @@ _DEV_VISITOR_JWT_SECRET = "dev-only-visitor-jwt-secret-change-me-0123456789a"
 # 与 deploy/compose/openim/docker-compose.yml 的默认值一致。
 _DEV_OPENIM_SECRET = "openim-dev-secret"
 _DEV_OPENIM_WEBHOOK_SECRET = "dev-openim-webhook-secret"
-_DEV_STORAGE_SECRET_KEY = "openim-dev-secret"
+_DEV_STORAGE_SECRET_KEY = "edp-dev-storage-secret"  # 与 deploy/compose/docker-compose.yml 一致
 _DEV_FILE_URL_SECRET = "dev-only-file-url-secret-change-me-0123456789abc"
 
 
@@ -53,10 +53,11 @@ class Settings(BaseSettings):
     # OpenIM 回调路径中的共享密钥（OpenIM 回调不签名）。
     openim_webhook_secret: SecretStr = SecretStr(_DEV_OPENIM_WEBHOOK_SECRET)
 
-    # S3 兼容对象存储（开发环境复用 OpenIM 依赖里的 MinIO）。
-    storage_endpoint: str = "http://localhost:10005"
-    storage_public_endpoint: str = "http://localhost:10005"
-    storage_access_key: str = "openim"
+    # S3 兼容对象存储（开发环境为 deploy/compose 里的 MinIO）。storage_endpoint 供后端访问，
+    # storage_public_endpoint 用于签发给浏览器的上传、下载地址。
+    storage_endpoint: str = "http://localhost:9000"
+    storage_public_endpoint: str = "http://localhost:9000"
+    storage_access_key: str = "edp"
     storage_secret_key: SecretStr = SecretStr(_DEV_STORAGE_SECRET_KEY)
     storage_bucket: str = "edp-files"
     storage_region: str = "us-east-1"

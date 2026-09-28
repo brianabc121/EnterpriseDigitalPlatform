@@ -134,6 +134,8 @@ async def test_csat_after_the_session_ends(desk: Desk) -> None:
     assert (rated.status_code, again.status_code) == (204, 409)
     chat = await desk.session_of(visitor)
     assert (chat["csat"], chat["csat_comment"]) == (5, "很专业")
+    detail = await desk.client.get(f"/api/v1/sessions/{chat['id']}", headers=alice.headers)
+    assert (detail.json()["csat"], detail.json()["csat_comment"]) == (5, "很专业")
     state = await desk.client.get("/api/v1/visitor/session", headers=headers(visitor))
     assert state.json()["csat"] == 5
     other = await desk.visitor()

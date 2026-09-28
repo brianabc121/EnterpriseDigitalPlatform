@@ -113,6 +113,8 @@ def _session_out(
         "handoff_reason": chat.handoff_reason,
         "last_customer_message_at": chat.last_customer_message_at,
         "last_agent_message_at": chat.last_agent_message_at,
+        "csat": chat.csat,
+        "csat_comment": chat.csat_comment,
         "created_at": chat.created_at,
     }
 

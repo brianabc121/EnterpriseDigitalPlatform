@@ -16,7 +16,8 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
-    # 会话续接（设计文档 §8.2）：会话结束后这么多分钟内客户再来咨询，优先分配给上次接待的坐席；0 表示关闭。
+    # 会话续接（设计文档 §8.2）：会话结束后这么多分钟内客户再来咨询，
+    # 优先分配给上次接待的坐席；0 表示关闭。
     op.execute(
         "ALTER TABLE routing_policies ADD COLUMN resume_window_minutes integer NOT NULL DEFAULT 10"
     )

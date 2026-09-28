@@ -32,6 +32,8 @@ class SessionOut(BaseModel):
     handoff_reason: str | None
     last_customer_message_at: datetime | None
     last_agent_message_at: datetime | None
+    csat: int | None = Field(default=None, description="客户满意度评分（1-5），未评价为空")
+    csat_comment: str | None = None
     created_at: datetime
 
 

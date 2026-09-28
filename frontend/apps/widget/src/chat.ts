@@ -20,7 +20,16 @@ export interface WidgetMessage {
   role: SenderRole
   senderName: string | null
   text: string | null
+  attachment: Attachment | null
   sendTime: number
+}
+
+export interface Attachment {
+  url: string
+  name: string | null
+  size: number | null
+  width: number | null
+  height: number | null
 }
 
 /** 按平台的 IM ID 约定判断发送者（见实施计划 §7.2）。 */
@@ -40,6 +49,7 @@ export function fromIm(m: ChatMessage, myUserID: string): WidgetMessage {
     role: senderRole(m.sendID, myUserID),
     senderName: m.senderNickname || null,
     text: m.text,
+    attachment: m.attachment,
     sendTime: m.sendTime,
   }
 }
@@ -59,6 +69,15 @@ export function fromApi(m: Schemas['VisitorMessageOut']): WidgetMessage {
     role: API_ROLE[m.sender_type] ?? 'other',
     senderName: m.sender_name,
     text: m.text,
+    attachment: m.attachment
+      ? {
+          url: m.attachment.url,
+          name: m.attachment.name ?? null,
+          size: m.attachment.size ?? null,
+          width: m.attachment.width ?? null,
+          height: m.attachment.height ?? null,
+        }
+      : null,
     sendTime: Date.parse(m.sent_at),
   }
 }

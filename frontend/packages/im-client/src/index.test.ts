@@ -1,11 +1,12 @@
 import { CbEvents, getSDK } from '@openim/client-sdk'
-import type { MessageItem } from '@openim/client-sdk'
+import type { MessageItem, PicBaseInfo } from '@openim/client-sdk'
 import { describe, expect, it } from 'vitest'
 
 import {
   createImClient,
   guardReadSeqCache,
   SIGNAL_DESCRIPTION,
+  toChatMessage,
   toSignal,
   type ConnectionState,
   type ImLogin,
@@ -40,6 +41,7 @@ class FakeSdk implements SdkLike {
   handlers = new Map<CbEvents, Set<(event: { data: unknown }) => void>>()
   loginError: Error | null = null
   sent: { groupID: string; message: MessageItem }[] = []
+  sentNotOss: { groupID: string; message: MessageItem }[] = []
   history: MessageItem[] = []
 
   on(event: CbEvents, handler: (event: { data: unknown }) => void): void {
@@ -74,6 +76,43 @@ class FakeSdk implements SdkLike {
     return { data: item({ clientMsgID: 'new', serverMsgID: '', textElem: { content: text } }) }
   }
 
+  async createImageMessageByURL(params: {
+    sourcePicture: PicBaseInfo
+  }): Promise<{ data: MessageItem }> {
+    return {
+      data: item({
+        clientMsgID: 'img',
+        serverMsgID: '',
+        contentType: 102,
+        textElem: undefined,
+        pictureElem: {
+          sourcePath: '',
+          sourcePicture: params.sourcePicture,
+          bigPicture: params.sourcePicture,
+          snapshotPicture: params.sourcePicture,
+        },
+      } as Partial<MessageItem>),
+    }
+  }
+
+  async createFileMessageByURL(params: {
+    fileName: string
+    sourceUrl: string
+    fileSize: number
+    uuid: string
+    filePath: string
+  }): Promise<{ data: MessageItem }> {
+    return {
+      data: item({
+        clientMsgID: 'file',
+        serverMsgID: '',
+        contentType: 105,
+        textElem: undefined,
+        fileElem: { ...params },
+      } as Partial<MessageItem>),
+    }
+  }
+
   async sendMessage(params: {
     recvID: string
     groupID: string
@@ -81,6 +120,15 @@ class FakeSdk implements SdkLike {
   }): Promise<{ data: MessageItem }> {
     this.sent.push(params)
     return { data: { ...params.message, serverMsgID: 'srv', groupID: params.groupID, seq: 7 } }
+  }
+
+  async sendMessageNotOss(params: {
+    recvID: string
+    groupID: string
+    message: MessageItem
+  }): Promise<{ data: MessageItem }> {
+    this.sentNotOss.push(params)
+    return { data: { ...params.message, serverMsgID: 'srv', groupID: params.groupID, seq: 8 } }
   }
 
   async getAdvancedHistoryMessageList(): Promise<{
@@ -182,6 +230,41 @@ describe('createImClient', () => {
 
     expect(client.state).toBe('idle')
     expect(received).toEqual([])
+  })
+})
+
+describe('attachments', () => {
+  it('sends images and files by URL and reads them back', async () => {
+    const sdk = new FakeSdk()
+    const client = createImClient(sdk)
+    await client.connect(LOGIN)
+
+    const image = await client.sendImage('acme_r_1', {
+      url: 'https://api/files/a.png?sig=1',
+      type: 'image/png',
+      size: 100,
+      width: 40,
+      height: 30,
+    })
+    const file = await client.sendFile('acme_r_1', {
+      url: 'https://api/files/b.pdf?sig=2',
+      name: 'b.pdf',
+      size: 200,
+      type: 'application/pdf',
+    })
+
+    expect(image.attachment).toEqual({
+      url: 'https://api/files/a.png?sig=1',
+      name: null,
+      size: 100,
+      width: 40,
+      height: 30,
+    })
+    expect(file.attachment).toMatchObject({ url: 'https://api/files/b.pdf?sig=2', name: 'b.pdf' })
+    expect(toChatMessage(item({})).attachment).toBeNull()
+    // 文件已经在对象存储里：不能走 sendMessage，否则 SDK 会尝试从本地路径重新上传而失败。
+    expect(sdk.sent).toEqual([])
+    expect(sdk.sentNotOss.map((s) => s.message.contentType)).toEqual([102, 105])
   })
 })
 

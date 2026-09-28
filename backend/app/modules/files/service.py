@@ -26,6 +26,7 @@ FILE_TYPES = {
     "application/pdf",
     "text/plain",
     "application/zip",
+    "application/x-zip-compressed",
     "application/msword",
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     "application/vnd.ms-excel",

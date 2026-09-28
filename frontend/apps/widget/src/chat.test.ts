@@ -22,6 +22,7 @@ function im(
     sendTime,
     contentType: 101,
     text: clientMsgID,
+    attachment: null,
     ex: '',
     ...overrides,
   }
@@ -39,6 +40,7 @@ function api(
     sender_name: null,
     content_type: 'text',
     text: serverMsgID,
+    attachment: null,
     sent_at: sentAt,
     ...overrides,
   }

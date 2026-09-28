@@ -6,7 +6,7 @@
  * 纯 JS SDK 不在浏览器落盘，转接后旧坐席的电脑上不会残留聊天记录。
  */
 import { CbEvents, getSDK } from '@openim/client-sdk'
-import type { MessageItem } from '@openim/client-sdk'
+import type { MessageItem, PicBaseInfo } from '@openim/client-sdk'
 
 export type ConnectionState =
   | 'idle'
@@ -26,6 +26,15 @@ export interface ImLogin {
   platformID: number
 }
 
+/** 图片或文件（URL 指向平台签发的文件链接）。 */
+export interface Attachment {
+  url: string
+  name: string | null
+  size: number | null
+  width: number | null
+  height: number | null
+}
+
 export interface ChatMessage {
   clientMsgID: string
   serverMsgID: string
@@ -37,7 +46,24 @@ export interface ChatMessage {
   contentType: number
   /** 文本类消息的正文；图片、文件等其他类型为 null。 */
   text: string | null
+  /** 图片、文件消息的附件；其他类型为 null。 */
+  attachment: Attachment | null
   ex: string
+}
+
+export interface ImageToSend {
+  url: string
+  type: string
+  size: number
+  width: number
+  height: number
+}
+
+export interface FileToSend {
+  url: string
+  name: string
+  size: number
+  type: string
 }
 
 /** 平台发给员工的在线信令（系统用户以在线自定义消息发送，description 为 edp.signal）。 */
@@ -57,7 +83,27 @@ export interface SdkLike {
   on(event: CbEvents, handler: (event: { data: unknown }) => void): void
   off(event: CbEvents, handler: (event: { data: unknown }) => void): void
   createTextMessage(text: string): Promise<{ data: MessageItem }>
+  createImageMessageByURL(params: {
+    sourcePicture: PicBaseInfo
+    bigPicture: PicBaseInfo
+    snapshotPicture: PicBaseInfo
+    sourcePath: string
+  }): Promise<{ data: MessageItem }>
+  createFileMessageByURL(params: {
+    filePath: string
+    fileName: string
+    uuid: string
+    sourceUrl: string
+    fileSize: number
+    fileType?: string
+  }): Promise<{ data: MessageItem }>
   sendMessage(params: {
+    recvID: string
+    groupID: string
+    message: MessageItem
+  }): Promise<{ data: MessageItem }>
+  /** 发送已有 URL 的图片、文件消息：sendMessage 会尝试从本地路径上传文件，这里不上传。 */
+  sendMessageNotOss(params: {
     recvID: string
     groupID: string
     message: MessageItem
@@ -74,6 +120,8 @@ export interface ImClient {
   connect(login: ImLogin): Promise<void>
   disconnect(): Promise<void>
   sendText(groupID: string, text: string): Promise<ChatMessage>
+  sendImage(groupID: string, image: ImageToSend): Promise<ChatMessage>
+  sendFile(groupID: string, file: FileToSend): Promise<ChatMessage>
   /** 会话中最近的消息（按时间升序）。 */
   history(conversationID: string, count: number): Promise<ChatMessage[]>
   onMessage(listener: (message: ChatMessage) => void): () => void
@@ -82,12 +130,38 @@ export interface ImClient {
 }
 
 const TYPING = 113
+const PICTURE = 102
+const FILE = 105
 const NOTIFICATION_BEGIN = 1000
 /** 等待登录后首次同步的上限；超时后照常继续，只是历史消息可能要稍后才能拉到。 */
 export const SYNC_TIMEOUT_MS = 5000
 
 export function isChatContent(contentType: number): boolean {
   return contentType !== TYPING && contentType < NOTIFICATION_BEGIN
+}
+
+function attachmentOf(item: MessageItem): Attachment | null {
+  const picture = item.pictureElem?.sourcePicture ?? item.pictureElem?.bigPicture
+  if (item.contentType === PICTURE && picture?.url) {
+    return {
+      url: picture.url,
+      name: null,
+      size: picture.size || null,
+      width: picture.width || null,
+      height: picture.height || null,
+    }
+  }
+  const file = item.fileElem
+  if (item.contentType === FILE && file?.sourceUrl) {
+    return {
+      url: file.sourceUrl,
+      name: file.fileName || null,
+      size: file.fileSize || null,
+      width: null,
+      height: null,
+    }
+  }
+  return null
 }
 
 export function toChatMessage(item: MessageItem): ChatMessage {
@@ -102,6 +176,7 @@ export function toChatMessage(item: MessageItem): ChatMessage {
     sendTime: item.sendTime,
     contentType: item.contentType,
     text,
+    attachment: attachmentOf(item),
     ex: item.ex,
   }
 }
@@ -244,6 +319,31 @@ export function createImClient(sdk: SdkLike = defaultSdk()): ImClient {
     async sendText(groupID, text) {
       const { data: message } = await sdk.createTextMessage(text)
       const { data: sent } = await sdk.sendMessage({ recvID: '', groupID, message })
+      return toChatMessage(sent)
+    },
+
+    async sendImage(groupID, image) {
+      const picture: PicBaseInfo = { uuid: crypto.randomUUID(), ...image }
+      const { data: message } = await sdk.createImageMessageByURL({
+        sourcePicture: picture,
+        bigPicture: picture,
+        snapshotPicture: picture,
+        sourcePath: '',
+      })
+      const { data: sent } = await sdk.sendMessageNotOss({ recvID: '', groupID, message })
+      return toChatMessage(sent)
+    },
+
+    async sendFile(groupID, file) {
+      const { data: message } = await sdk.createFileMessageByURL({
+        filePath: '',
+        fileName: file.name,
+        uuid: crypto.randomUUID(),
+        sourceUrl: file.url,
+        fileSize: file.size,
+        fileType: file.type,
+      })
+      const { data: sent } = await sdk.sendMessageNotOss({ recvID: '', groupID, message })
       return toChatMessage(sent)
     },
 

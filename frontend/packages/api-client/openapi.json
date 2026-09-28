@@ -2243,6 +2243,29 @@
             "title": "Created At",
             "type": "string"
           },
+          "csat": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "客户满意度评分（1-5），未评价为空",
+            "title": "Csat"
+          },
+          "csat_comment": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Csat Comment"
+          },
           "customer_display_name": {
             "title": "Customer Display Name",
             "type": "string"
@@ -2496,6 +2519,29 @@
             "format": "date-time",
             "title": "Created At",
             "type": "string"
+          },
+          "csat": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "客户满意度评分（1-5），未评价为空",
+            "title": "Csat"
+          },
+          "csat_comment": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Csat Comment"
           },
           "customer_display_name": {
             "title": "Customer Display Name",

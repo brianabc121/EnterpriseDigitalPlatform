@@ -1,5 +1,5 @@
-# 开发环境依赖：PostgreSQL（含 pgvector）与 Redis。
-# OpenIM 在 P1 M1 接入；对象存储在 P1 M6 选型后接入。
+# 开发环境依赖：PostgreSQL（含 pgvector）、Redis 与对象存储（MinIO）。
+# OpenIM 单独启动，见 openim/docker-compose.yml（make im-up）。
 name: edp
 
 services:
@@ -30,5 +30,24 @@ services:
       timeout: 3s
       retries: 30
 
+  # 平台自己的对象存储（S3 兼容），保存聊天中的图片和文件；与 OpenIM 自带的 MinIO 相互独立。
+  # 生产环境使用云厂商的 S3 兼容对象存储，见实施计划 §12。启动时自动创建 edp-files 桶。
+  minio:
+    image: ${EDP_MINIO_IMAGE:-bitnamilegacy/minio:2024.1.11}
+    environment:
+      MINIO_ROOT_USER: edp
+      MINIO_ROOT_PASSWORD: edp-dev-storage-secret
+      MINIO_DEFAULT_BUCKETS: edp-files
+    ports:
+      - "${EDP_MINIO_PORT:-9000}:9000"
+    volumes:
+      - minio:/bitnami/minio/data
+    healthcheck:
+      test: ["CMD", "curl", "-fs", "http://localhost:9000/minio/health/live"]
+      interval: 3s
+      timeout: 5s
+      retries: 30
+
 volumes:
   pgdata:
+  minio:

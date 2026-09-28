@@ -20,7 +20,7 @@
 
 ```bash
 # 1. 启动依赖，安装后端依赖并执行迁移
-make dev-up          # PostgreSQL（含 pgvector）和 Redis
+make dev-up          # PostgreSQL（含 pgvector）、Redis 和对象存储 MinIO（自动创建 edp-files 桶）
 make im-up           # OpenIM 及其依赖（MongoDB、Kafka、etcd、MinIO）；首次需要拉取约 3 GB 镜像
 make backend-install
 make migrate
@@ -41,6 +41,18 @@ make widget-dev      # 访客 Widget：http://localhost:5175/?key=<渠道 key>
 在运营后台开通租户（企业代码 + 首个管理员），然后用"企业代码 / 用户名 / 密码"登录控制台。
 控制台"设置"页列出本租户的接入渠道，点"打开访客测试页"即可以访客身份与服务群对话；
 访客消息会进入平台消息库（`GET /api/v1/rooms`、`GET /api/v1/rooms/{id}/messages`）。
+
+在网站中嵌入访客 Widget：在"设置 → 接入渠道 → 设置"中复制嵌入代码，放到页面的 `</body>` 之前：
+
+```html
+<script src="http://localhost:5175/embed.js" data-key="<渠道 key>" async></script>
+```
+
+同一处可以设置窗口标题、欢迎语、隐私提示和允许嵌入的网站，并启用实名访客：网站后端用渠道的签名密钥
+为登录用户计算 `HMAC-SHA256(密钥, "<external_id>:<name>:<timestamp>")`，在加载 `embed.js` 之前设置
+`window.EDPWidgetConfig = { user: { external_id, name, timestamp, signature } }`（示例代码见设置页）。
+聊天中的图片和文件保存在对象存储里；其他环境首次部署时执行
+`cd backend && uv run python -m app.cli storage-init` 创建存储桶。
 
 访客的第一条消息会开启一个会话，按路由策略排队并分配给在线坐席：坐席登录控制台后进入"工作台"即自动上线，
 在工作台里接待、使用快捷话术、编辑客户资料、转接或结束会话。技能组、路由策略（工作时间、排队超时、
@@ -63,7 +75,7 @@ make frontend-build
 
 ### 浏览器验收
 
-先安装 Playwright：`npm i -g playwright && playwright install chromium`。两个脚本每次运行都会开通新的租户，可以重复执行；
+先安装 Playwright：`npm i -g playwright && playwright install chromium`。脚本每次运行都会开通新的租户，可以重复执行；
 截图和 `summary.json` 写入 `e2e-shots/`，任一检查失败时以非 0 退出。
 
 - **P0**（`scripts/e2e/p0-acceptance.cjs`）：开通两个租户；管理员创建坐席和客户；坐席只看到自己的菜单和客户；
@@ -78,10 +90,14 @@ make frontend-build
   Widget 和 OpenIM。
 - **P1 M5**（`scripts/e2e/m5-transfer-acceptance.cjs`）：坐席 A 把会话转接给坐席 B，B 接受后看到完整历史，
   A 不再看到这个客户、已被移出服务群。前置同上。
+- **P1 M3**（`scripts/e2e/m3-widget-acceptance.cjs`）：管理员在控制台完成 Widget 设置；脚本起一个"客户网站"
+  （端口 5176）用 `embed.js` 嵌入 Widget 并为会员签名。检查实名访客与换设备续接、欢迎语与隐私提示、
+  双方收发图片和文件、收起时的未读角标、满意度评价、留言、未授权网站被拒绝。前置同上，另需 MinIO。
 
   ```bash
   NODE_PATH=$(npm root -g) PLATFORM_PASSWORD=<平台账号密码> node scripts/e2e/m4-workbench-acceptance.cjs
   NODE_PATH=$(npm root -g) PLATFORM_PASSWORD=<平台账号密码> node scripts/e2e/m5-transfer-acceptance.cjs
+  NODE_PATH=$(npm root -g) PLATFORM_PASSWORD=<平台账号密码> node scripts/e2e/m3-widget-acceptance.cjs
   ```
 
 - **P1 M1**（`scripts/e2e/m1-im-acceptance.cjs`）：访客在 Widget 里发消息、实时收到机器人回复，消息经回调入库；

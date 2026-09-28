@@ -7,9 +7,12 @@ import {
   fromIm,
   mergeMessages,
   objectIdOf,
+  outgoingOf,
   pendingMessage,
   pmidOf,
+  sendBody,
   senderTypeOf,
+  type Outgoing,
 } from './messages'
 
 const STAFF = '0190a3b2c4d5e6f708192a3b4c5d6e7f'
@@ -47,10 +50,13 @@ function im(overrides: Partial<ChatMessage>): ChatMessage {
     sendTime: Date.parse('2026-09-28T10:00:00Z'),
     contentType: 101,
     text: '你好',
+    attachment: null,
     ex: '',
     ...overrides,
   }
 }
+
+const text = (t: string): Outgoing => ({ type: 'text', text: t })
 
 describe('ids', () => {
   it('reads the sender from the IM user id', () => {
@@ -80,7 +86,7 @@ describe('mergeMessages', () => {
 
   it('merges an agent message whose IM echo arrives before the send response', () => {
     const me = { id: STAFF_ID, name: 'Alice' }
-    let list = mergeMessages([], [pendingMessage('cm1', '您好', me)])
+    let list = mergeMessages([], [pendingMessage('cm1', text('您好'), me)])
     expect(list[0]!.status).toBe('pending')
 
     // IM 推送先到：ex 里带 pmid，但还不知道它对应哪个占位消息。
@@ -125,7 +131,7 @@ describe('mergeMessages', () => {
 
   it('merges pending, response and echo into one when the response comes first', () => {
     const me = { id: STAFF_ID, name: 'Alice' }
-    let list = mergeMessages([], [pendingMessage('cm1', '您好', me)])
+    let list = mergeMessages([], [pendingMessage('cm1', text('您好'), me)])
     list = mergeMessages(list, [
       fromApi(
         api({
@@ -151,7 +157,7 @@ describe('mergeMessages', () => {
 
   it('marks a failed send and replaces it on a successful retry', () => {
     const me = { id: STAFF_ID, name: 'Alice' }
-    let list = mergeMessages([], [pendingMessage('cm1', '在吗', me)])
+    let list = mergeMessages([], [pendingMessage('cm1', text('在吗'), me)])
     list = mergeMessages(list, [{ ...list[0]!, status: 'failed' }])
     expect(list).toHaveLength(1)
     expect(list[0]!.status).toBe('failed')
@@ -177,5 +183,108 @@ describe('mergeMessages', () => {
       [fromApi(api({ id: 'a', channel_msg_id: 'sa', sent_at: '2026-09-28T10:00:01Z' }))],
     )
     expect(list.map((m) => m.id)).toEqual(['a', 'b'])
+  })
+})
+
+describe('attachments', () => {
+  const FILE_URL = 'http://localhost:8000/api/v1/files/acme/2026/09/x/a.png?sig=abc'
+  const image: Outgoing = {
+    type: 'image',
+    attachment: {
+      url: FILE_URL,
+      name: 'a.png',
+      size: 2048,
+      mime: 'image/png',
+      width: 800,
+      height: 600,
+    },
+  }
+
+  it('reads image and file content from the platform', () => {
+    const m = fromApi(
+      api({
+        content_type: 'file',
+        text_plain: null,
+        content: { url: FILE_URL, name: 'b.pdf', size: 99, width: null, height: null, mime: null },
+      }),
+    )
+    expect(m.attachment).toEqual({
+      url: FILE_URL,
+      name: 'b.pdf',
+      size: 99,
+      width: null,
+      height: null,
+      mime: null,
+    })
+    expect(fromApi(api({})).attachment).toBeNull()
+  })
+
+  it('builds the send request and restores it for a retry', () => {
+    const pending = pendingMessage('cm1', image, { id: STAFF_ID, name: 'Alice' })
+    expect(pending).toMatchObject({ contentType: 'image', text: null, status: 'pending' })
+    expect(sendBody('cm1', image)).toEqual({
+      client_msg_id: 'cm1',
+      type: 'image',
+      attachment: {
+        url: FILE_URL,
+        name: 'a.png',
+        size: 2048,
+        content_type: 'image/png',
+        width: 800,
+        height: 600,
+      },
+    })
+    expect(outgoingOf(pending)).toEqual(image)
+    expect(sendBody('cm2', text('hi'))).toEqual({ client_msg_id: 'cm2', type: 'text', text: 'hi' })
+    // IM 推送的文件消息没有 MIME 类型，不能据此重发。
+    const echo = fromIm(
+      im({
+        contentType: 105,
+        text: null,
+        attachment: { url: FILE_URL, name: 'b.pdf', size: 9, width: null, height: null },
+      }),
+    )
+    expect(outgoingOf(echo)).toBeNull()
+  })
+
+  it('keeps the MIME type when the IM echo merges into the sent message', () => {
+    let list = mergeMessages([], [pendingMessage('cm1', image, { id: STAFF_ID, name: 'Alice' })])
+    list = mergeMessages(list, [
+      fromIm(
+        im({
+          serverMsgID: 'srv9',
+          sendID: `acme_s_${STAFF}`,
+          contentType: 102,
+          text: null,
+          attachment: { url: FILE_URL, name: null, size: 2048, width: 800, height: 600 },
+          ex: '{"pmid":"p9"}',
+        }),
+      ),
+    ])
+    expect(list).toHaveLength(2)
+    list = mergeMessages(list, [
+      fromApi(
+        api({
+          id: 'p9',
+          sender_type: 'agent',
+          channel_msg_id: 'srv9',
+          client_msg_id: 'cm1',
+          source: 'api',
+          send_status: 'sent',
+          content_type: 'image',
+          text_plain: null,
+          content: {
+            url: FILE_URL,
+            name: 'a.png',
+            size: 2048,
+            width: 800,
+            height: 600,
+            mime: 'image/png',
+          },
+        }),
+      ),
+    ])
+    expect(list).toHaveLength(1)
+    expect(list[0]!.attachment).toMatchObject({ url: FILE_URL, mime: 'image/png' })
   })
 })

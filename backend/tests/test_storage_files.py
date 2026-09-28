@@ -37,7 +37,7 @@ def test_presign_matches_the_aws_example() -> None:
 def test_presign_uses_path_style_and_encodes_keys() -> None:
     config = StorageConfig(
         endpoint="http://minio:9000",
-        public_endpoint="http://localhost:10005",
+        public_endpoint="http://localhost:9000",
         access_key="k",
         secret_key="s",
         bucket="edp-files",
@@ -46,7 +46,7 @@ def test_presign_uses_path_style_and_encodes_keys() -> None:
     url = presign(config, "PUT", "acme/2026/09/abc/报价 单.pdf", expires=600)
 
     parts = urlsplit(url)
-    assert (parts.scheme, parts.netloc) == ("http", "localhost:10005")
+    assert (parts.scheme, parts.netloc) == ("http", "localhost:9000")
     assert parts.path == "/edp-files/acme/2026/09/abc/%E6%8A%A5%E4%BB%B7%20%E5%8D%95.pdf"
     query = parse_qs(parts.query)
     assert query["X-Amz-Expires"] == ["600"]

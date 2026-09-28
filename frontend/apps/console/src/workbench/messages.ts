@@ -12,6 +12,17 @@ import type { ChatMessage } from '@edp/im-client'
 export type SenderType = 'customer' | 'agent' | 'bot' | 'system'
 export type SendStatus = 'pending' | 'sent' | 'failed'
 
+/** 图片或文件消息的附件（url 是平台签发的文件链接）。 */
+export interface Attachment {
+  url: string
+  name: string | null
+  size: number | null
+  width: number | null
+  height: number | null
+  /** MIME 类型；IM 推送的文件消息里没有。 */
+  mime: string | null
+}
+
 export interface WorkbenchMessage {
   /** 列表中的唯一键。 */
   key: string
@@ -26,6 +37,7 @@ export interface WorkbenchMessage {
   senderName: string | null
   text: string | null
   contentType: string
+  attachment: Attachment | null
   sentAt: number
   status: SendStatus | null
 }
@@ -41,6 +53,25 @@ const CONTENT_TYPES: Record<number, string> = {
   110: 'custom',
 }
 
+const num = (v: unknown): number | null => (typeof v === 'number' ? v : null)
+const str = (v: unknown): string | null => (typeof v === 'string' && v ? v : null)
+
+/** 平台保存的图片、文件消息内容：{url, name, size, width, height, mime}（见后端 ingest.attachment_of）。 */
+export function attachmentOf(
+  contentType: string,
+  content: Record<string, unknown>,
+): Attachment | null {
+  if (!['image', 'file'].includes(contentType) || typeof content.url !== 'string') return null
+  return {
+    url: content.url,
+    name: str(content.name),
+    size: num(content.size),
+    width: num(content.width),
+    height: num(content.height),
+    mime: str(content.mime),
+  }
+}
+
 export function fromApi(m: Schemas['MessageOut']): WorkbenchMessage {
   return {
     key: m.channel_msg_id ?? m.id,
@@ -52,6 +83,7 @@ export function fromApi(m: Schemas['MessageOut']): WorkbenchMessage {
     senderName: m.sender_name ?? null,
     text: m.text_plain,
     contentType: m.content_type,
+    attachment: attachmentOf(m.content_type, m.content),
     sentAt: Date.parse(m.sent_at),
     status: (m.send_status as SendStatus | null) ?? null,
   }
@@ -95,15 +127,45 @@ export function fromIm(m: ChatMessage): WorkbenchMessage {
     senderName: senderType === 'agent' ? m.senderNickname || null : null,
     text: m.text,
     contentType: CONTENT_TYPES[m.contentType] ?? 'other',
+    attachment: m.attachment ? { ...m.attachment, mime: null } : null,
     sentAt: m.sendTime,
     status: null,
   }
 }
 
+/** 坐席要发送的内容：文本，或已上传的图片、文件。 */
+export type Outgoing =
+  | { type: 'text'; text: string }
+  | {
+      type: 'image' | 'file'
+      attachment: Attachment & { name: string; size: number; mime: string }
+    }
+
+/** 发送接口的请求体。 */
+export function sendBody(clientMsgID: string, out: Outgoing): Schemas['SendMessageRequest'] {
+  if (out.type === 'text') return { client_msg_id: clientMsgID, type: 'text', text: out.text }
+  const { url, name, size, mime, width, height } = out.attachment
+  return {
+    client_msg_id: clientMsgID,
+    type: out.type,
+    attachment: { url, name, size, content_type: mime, width, height },
+  }
+}
+
+/** 从已有消息还原发送内容（重试用）；不能还原时返回 null。 */
+export function outgoingOf(m: WorkbenchMessage): Outgoing | null {
+  if (m.contentType === 'text' && m.text) return { type: 'text', text: m.text }
+  const a = m.attachment
+  if ((m.contentType === 'image' || m.contentType === 'file') && a?.name && a.size && a.mime) {
+    return { type: m.contentType, attachment: { ...a, name: a.name, size: a.size, mime: a.mime } }
+  }
+  return null
+}
+
 /** 坐席刚提交、尚未得到接口响应的消息。 */
 export function pendingMessage(
   clientMsgID: string,
-  text: string,
+  out: Outgoing,
   me: { id: string; name: string },
 ): WorkbenchMessage {
   return {
@@ -114,8 +176,9 @@ export function pendingMessage(
     senderType: 'agent',
     senderID: me.id,
     senderName: me.name,
-    text,
-    contentType: 'text',
+    text: out.type === 'text' ? out.text : null,
+    contentType: out.type,
+    attachment: out.type === 'text' ? null : out.attachment,
     sentAt: Date.now(),
     status: 'pending',
   }
@@ -146,6 +209,13 @@ function combine(current: WorkbenchMessage, incoming: WorkbenchMessage): Workben
     clientMsgID: incoming.clientMsgID ?? current.clientMsgID,
     senderID: incoming.senderID ?? current.senderID,
     senderName: incoming.senderName ?? current.senderName,
+    // IM 推送的附件没有 MIME 类型，保留平台记录里的。
+    attachment: incoming.attachment
+      ? {
+          ...incoming.attachment,
+          mime: incoming.attachment.mime ?? current.attachment?.mime ?? null,
+        }
+      : current.attachment,
     status,
   }
 }

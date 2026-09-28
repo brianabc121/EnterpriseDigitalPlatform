@@ -15,9 +15,13 @@ import {
   fromApi,
   fromIm,
   mergeMessages,
+  outgoingOf,
   pendingMessage,
+  sendBody,
+  type Outgoing,
   type WorkbenchMessage,
 } from '../workbench/messages'
+import { uploadFile } from '../workbench/upload'
 import { useAuthStore } from './auth'
 
 export type AgentStatus = Schemas['AgentStatus']
@@ -235,16 +239,20 @@ export const useWorkbenchStore = defineStore('workbench', () => {
     }
   }
 
-  async function send(text: string, clientMsgID: string = crypto.randomUUID()): Promise<void> {
+  async function send(
+    out: Outgoing | string,
+    clientMsgID: string = crypto.randomUUID(),
+  ): Promise<void> {
     const session = active.value
     const me = auth.me
     if (!session || !me) return
+    const content: Outgoing = typeof out === 'string' ? { type: 'text', text: out } : out
     addMessages(session.room_id, [
-      pendingMessage(clientMsgID, text, { id: me.id, name: me.display_name }),
+      pendingMessage(clientMsgID, content, { id: me.id, name: me.display_name }),
     ])
     const { data, error: err } = await api.POST('/api/v1/sessions/{session_id}/messages', {
       params: { path: { session_id: session.id } },
-      body: { client_msg_id: clientMsgID, text },
+      body: sendBody(clientMsgID, content),
     })
     if (data) {
       addMessages(session.room_id, [fromApi(data)])
@@ -255,8 +263,15 @@ export const useWorkbenchStore = defineStore('workbench', () => {
     throw new Error(errorMessage(err, '发送失败，请重试'))
   }
 
+  /** 上传图片或文件后发送。上传失败时不产生消息。 */
+  async function sendFile(file: File): Promise<void> {
+    const uploaded = await uploadFile(file)
+    await send({ type: uploaded.kind, attachment: uploaded.attachment })
+  }
+
   async function retry(message: WorkbenchMessage): Promise<void> {
-    if (message.clientMsgID && message.text) await send(message.text, message.clientMsgID)
+    const out = outgoingOf(message)
+    if (message.clientMsgID && out) await send(out, message.clientMsgID)
   }
 
   async function close(session: Session): Promise<void> {
@@ -375,6 +390,7 @@ export const useWorkbenchStore = defineStore('workbench', () => {
     open,
     loadOlder,
     send,
+    sendFile,
     retry,
     close,
     requestTransfer,

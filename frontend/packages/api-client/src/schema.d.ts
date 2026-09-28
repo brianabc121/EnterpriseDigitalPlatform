@@ -1861,6 +1861,13 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+            /**
+             * Csat
+             * @description 客户满意度评分（1-5），未评价为空
+             */
+            csat?: number | null;
+            /** Csat Comment */
+            csat_comment?: string | null;
             /** Customer Display Name */
             customer_display_name: string;
             /**
@@ -1943,6 +1950,13 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+            /**
+             * Csat
+             * @description 客户满意度评分（1-5），未评价为空
+             */
+            csat?: number | null;
+            /** Csat Comment */
+            csat_comment?: string | null;
             /** Customer Display Name */
             customer_display_name: string;
             /**
