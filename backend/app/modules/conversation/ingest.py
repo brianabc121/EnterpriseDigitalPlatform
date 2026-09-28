@@ -3,6 +3,8 @@
 - 只处理平台服务群（{t}_r_{roomId}）里的消息；群通知、平台自己的在线信令不入库。
 - 按 (渠道账号, serverMsgID) 幂等：回调重复或对账重复拉取都只会有一行。
 - 回调里拿不到 seq；对账拉到同一条消息时回填 im_seq。
+- 新写入的消息提交后发布 message.received 事件（按 Room 分区），由实时消费进程归入会话。
+  事件发布失败时，调度进程会把长时间没有归入会话的消息重新发布。
 """
 
 import json
@@ -17,6 +19,7 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import Database
+from app.events.bus import Event, EventBus, EventType
 from app.integrations.openim import ContentType
 from app.modules.conversation import imids
 from app.modules.conversation.models import (
@@ -56,12 +59,29 @@ class IMGroupMessage:
     seq: int | None = None
 
 
+@dataclass(frozen=True)
+class NewMessage:
+    tenant_id: UUID
+    room_id: UUID
+    message_id: UUID
+
+
 @dataclass
 class IngestResult:
     inserted: int = 0
     duplicates: int = 0
     skipped: int = 0
     rooms_touched: set[UUID] = field(default_factory=set)
+    new_messages: list[NewMessage] = field(default_factory=list)
+
+
+def message_received(tenant_id: UUID, room_id: UUID, message_id: UUID) -> Event:
+    return Event(
+        type=EventType.MESSAGE_RECEIVED,
+        tenant_id=tenant_id,
+        key=str(room_id),
+        data={"message_id": str(message_id)},
+    )
 
 
 @dataclass(frozen=True)
@@ -72,7 +92,11 @@ class _Sender:
 
 
 async def ingest_messages(
-    db: Database, messages: list[IMGroupMessage], *, source: MessageSource
+    db: Database,
+    messages: list[IMGroupMessage],
+    *,
+    source: MessageSource,
+    bus: EventBus | None = None,
 ) -> IngestResult:
     """写入一批消息。消息可以来自不同租户、不同服务群；每个租户一个事务。"""
     result = IngestResult()
@@ -90,11 +114,23 @@ async def ingest_messages(
         if tenant_id is None:
             result.skipped += len(items)
             continue
+        first_new = len(result.new_messages)
         async with db.tenant_session(tenant_id) as session:
             for _, msg in items:
                 await _ingest_one(session, tenant_code, msg, source, result)
             await session.commit()
+        if bus is not None:
+            await _publish(bus, result.new_messages[first_new:])
     return result
+
+
+async def _publish(bus: EventBus, new_messages: list[NewMessage]) -> None:
+    for new in new_messages:
+        try:
+            await bus.publish(message_received(new.tenant_id, new.room_id, new.message_id))
+        except Exception:
+            # 消息已经入库；没有归入会话的消息会被调度进程重新发布。
+            logger.exception("publishing message.received for %s failed", new.message_id)
 
 
 async def _ingest_one(
@@ -132,13 +168,14 @@ async def _ingest_one(
     stmt = values.on_conflict_do_update(
         constraint="uq_messages_channel_msg",
         set_={"im_seq": func.coalesce(Message.im_seq, values.excluded.im_seq)},
-    ).returning(literal_column("xmax = 0", Boolean))
-    inserted = bool(await session.scalar(stmt))
+    ).returning(Message.id, literal_column("xmax = 0", Boolean))
+    message_id, inserted = (await session.execute(stmt)).one()
     if not inserted:
         result.duplicates += 1
         return
     result.inserted += 1
     result.rooms_touched.add(room.id)
+    result.new_messages.append(NewMessage(room.tenant_id, room.id, message_id))
     await session.execute(
         update(Room)
         .where(Room.id == room.id)

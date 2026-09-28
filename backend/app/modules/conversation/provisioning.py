@@ -6,6 +6,7 @@
 
 import json
 from datetime import UTC, datetime
+from uuid import UUID
 
 from app.integrations.openim import IMUser, OpenIMClient
 from app.modules.conversation import imids
@@ -19,8 +20,9 @@ BOT_NICKNAME = "智能客服"
 class IMProvisioner:
     def __init__(self, im: OpenIMClient) -> None:
         self._im = im
-        # 本进程内已确认开通系统用户的租户，避免每次访客初始化都多两次 REST 调用。
+        # 本进程内已确认开通的租户系统用户和员工，避免重复的 REST 调用。
         self._ready_tenants: set[str] = set()
+        self._ready_staff: set[str] = set()
 
     async def ensure_tenant_users(self, tenant_code: str) -> None:
         if tenant_code in self._ready_tenants:
@@ -54,3 +56,14 @@ class IMProvisioner:
             ex=json.dumps({"room_id": str(room.id)}),
         )
         room.im_ready_at = datetime.now(UTC)
+
+    async def ensure_staff(self, tenant_code: str, staff_id: UUID, *, nickname: str) -> str:
+        """员工的 IM 用户：注册，并与租户系统用户互为好友（单聊开启了好友校验，信令才能送达）。"""
+        user_id = imids.staff_user(tenant_code, staff_id)
+        if user_id in self._ready_staff:
+            return user_id
+        await self.ensure_tenant_users(tenant_code)
+        await self._im.ensure_users([IMUser(user_id, nickname)])
+        await self._im.import_friends(imids.system_user(tenant_code), [user_id])
+        self._ready_staff.add(user_id)
+        return user_id

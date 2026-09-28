@@ -4,8 +4,13 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.errors import NotFound, Unprocessable
 from app.core.ids import new_id
+from app.modules.audit.service import record_audit
 from app.modules.channels.models import ChannelAccount, ChannelType
+from app.modules.channels.schemas import ChannelUpdate
+from app.modules.iam.principal import Principal
+from app.modules.routing.models import RoutingPolicy
 
 DEFAULT_WEB_CHANNEL_NAME = "官网"
 
@@ -35,3 +40,37 @@ async def list_channels(session: AsyncSession) -> list[ChannelAccount]:
         select(ChannelAccount).order_by(ChannelAccount.created_at, ChannelAccount.id)
     )
     return list(rows.all())
+
+
+async def update_channel(
+    session: AsyncSession,
+    principal: Principal,
+    channel_id: UUID,
+    payload: ChannelUpdate,
+    *,
+    ip: str | None,
+) -> ChannelAccount:
+    channel = await session.get(ChannelAccount, channel_id)
+    if channel is None:
+        raise NotFound("渠道不存在")
+    changes = payload.model_dump(exclude_unset=True)
+    policy_id = changes.get("routing_policy_id")
+    if policy_id is not None and await session.get(RoutingPolicy, policy_id) is None:
+        raise Unprocessable("路由策略不存在")
+    for field, value in changes.items():
+        if value is None and field != "routing_policy_id":
+            continue
+        setattr(channel, field, value)
+    record_audit(
+        session,
+        action="channel.update",
+        actor_type="staff",
+        actor_id=principal.staff_id,
+        tenant_id=principal.tenant_id,
+        resource_type="channel",
+        resource_id=str(channel.id),
+        detail=payload.model_dump(mode="json", exclude_unset=True),
+        ip=ip,
+    )
+    await session.commit()
+    return channel

@@ -9,10 +9,10 @@ import os
 import sys
 from pathlib import Path
 
+from app.context import AppContext
 from app.core.config import Settings, get_settings
 from app.db.session import Database
 from app.main import create_app
-from app.modules.conversation.deps import openim_from_settings
 from app.modules.conversation.reconcile import ReconcileReport, reconcile_all
 from app.modules.tenancy import service as tenancy
 from app.modules.tenancy.schemas import TenantAdminCreate, TenantCreate
@@ -50,13 +50,11 @@ async def provision_tenant(settings: Settings, payload: TenantCreate) -> str:
 
 
 async def im_reconcile(settings: Settings) -> ReconcileReport:
-    db = Database(settings)
-    im = openim_from_settings(settings)
+    ctx = AppContext.create(settings)
     try:
-        return await reconcile_all(db, im)
+        return await reconcile_all(ctx.db, ctx.im, bus=ctx.bus)
     finally:
-        await im.aclose()
-        await db.dispose()
+        await ctx.aclose()
 
 
 def export_openapi(output: Path | None) -> None:

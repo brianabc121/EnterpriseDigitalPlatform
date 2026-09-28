@@ -6,6 +6,7 @@ from typing import Any
 from sqlalchemy import (
     BigInteger,
     ForeignKeyConstraint,
+    Identity,
     SmallInteger,
     String,
     Text,
@@ -121,8 +122,8 @@ class CloseReason(StrEnum):
     AI_RESOLVED = "ai_resolved"  # AI 接待结束（P3）
 
 
-class Session(IdMixin, TimestampMixin, TenantMixin, Base):
-    """Room 中的一次服务过程。同一个 Room 同时只有一个未结束的会话。"""
+class ChatSession(IdMixin, TimestampMixin, TenantMixin, Base):
+    """会话：Room 中的一次服务过程。同一个 Room 同时只有一个未结束的会话。"""
 
     __tablename__ = "sessions"
     __table_args__ = (
@@ -209,3 +210,36 @@ class Ticket(IdMixin, TimestampMixin, TenantMixin, Base):
     assignee_id: Mapped[uuid.UUID | None]
     skill_group_id: Mapped[uuid.UUID | None]
     closed_at: Mapped[datetime | None]
+
+
+class ImOpType(StrEnum):
+    INVITE = "invite"  # payload: staff_id, nickname
+    KICK = "kick"  # payload: staff_id
+    NOTICE = "notice"  # payload: text（系统用户发到服务群，客户可见）
+    SIGNAL = "signal"  # payload: staff_id, signal（在线信令，失败不重试）
+
+
+class ImOpStatus(StrEnum):
+    PENDING = "pending"
+    DONE = "done"
+    FAILED = "failed"
+
+
+class ImOp(TenantMixin, Base):
+    """待执行的 IM 操作（发件箱）。与业务状态在同一个事务里写入，提交后按 Room 顺序执行。"""
+
+    __tablename__ = "im_ops"
+    __table_args__ = (
+        ForeignKeyConstraint(["tenant_id", "room_id"], ["rooms.tenant_id", "rooms.id"]),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, Identity(always=True), primary_key=True)
+    room_id: Mapped[uuid.UUID]
+    op: Mapped[str] = mapped_column(String(16))
+    payload: Mapped[dict[str, Any]] = mapped_column(server_default="{}")
+    status: Mapped[str] = mapped_column(String(16), server_default=ImOpStatus.PENDING.value)
+    attempts: Mapped[int] = mapped_column(server_default="0")
+    next_attempt_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    last_error: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    done_at: Mapped[datetime | None]

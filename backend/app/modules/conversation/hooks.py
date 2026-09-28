@@ -13,9 +13,9 @@ from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse, PlainTextResponse, Response
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
+from app.context import AppContext
 from app.core.config import Settings
-from app.core.deps import get_app_settings, get_database
-from app.db.session import Database
+from app.core.deps import get_app_settings, get_context
 from app.modules.conversation import imids
 from app.modules.conversation.ingest import IMGroupMessage, ingest_messages
 from app.modules.conversation.models import MessageSource
@@ -73,7 +73,7 @@ async def openim_callback(
     secret: str,
     command: str,
     request: Request,
-    db: Annotated[Database, Depends(get_database)],
+    ctx: Annotated[AppContext, Depends(get_context)],
     settings: Annotated[Settings, Depends(get_app_settings)],
 ) -> Response:
     expected = settings.openim_webhook_secret.get_secret_value()
@@ -87,7 +87,7 @@ async def openim_callback(
     if command == BEFORE_CREATE_GROUP:
         return JSONResponse(_before_create_group(body))
     if command == AFTER_SEND_GROUP_MSG:
-        await _after_send_group_msg(db, body)
+        await _after_send_group_msg(ctx, body)
     return JSONResponse(_allow())
 
 
@@ -110,14 +110,14 @@ def _before_create_group(body: Any) -> dict[str, Any]:
     return _allow()
 
 
-async def _after_send_group_msg(db: Database, body: Any) -> None:
+async def _after_send_group_msg(ctx: AppContext, body: Any) -> None:
     try:
         payload = AfterSendGroupMsg.model_validate(body)
     except ValidationError as exc:
         logger.warning("openim afterSendGroupMsg: invalid payload: %s", exc)
         return
     await ingest_messages(
-        db,
+        ctx.db,
         [
             IMGroupMessage(
                 server_msg_id=payload.server_msg_id,
@@ -130,4 +130,5 @@ async def _after_send_group_msg(db: Database, body: Any) -> None:
             )
         ],
         source=MessageSource.WEBHOOK,
+        bus=ctx.bus,
     )

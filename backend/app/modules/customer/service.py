@@ -1,26 +1,53 @@
 from uuid import UUID
 
-from sqlalchemy import ColumnElement, Select, and_, func, select, true
+from sqlalchemy import ColumnElement, Select, and_, func, or_, select, true
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import Forbidden, NotFound, Unprocessable
 from app.core.permissions import Permission
 from app.modules.audit.service import record_audit
+from app.modules.conversation.models import ChatSession, SessionStatus
 from app.modules.customer.models import Customer
 from app.modules.customer.schemas import CustomerCreate, CustomerOut, CustomerPage
 from app.modules.iam.models import Staff, StaffStatus
 from app.modules.iam.principal import Principal
+from app.modules.routing.scope import team_members
 
 
 def visible_to(principal: Principal) -> ColumnElement[bool]:
-    """数据范围（DataScope）：坐席只能看到归属自己的客户；有 customer:read_all 的角色看全部。
+    """数据范围（DataScope，设计文档 §13.2）。
+
+    - customer:read_all 或 session:read_all：本租户全部客户；
+    - 否则：归属自己的客户，加上当前有会话分配给自己的客户（服务期间临时可见，能看到完整历史）；
+    - 另有 session:read_team 时：组员名下的客户、组员正在接待的客户。
 
     租户之间的隔离由数据库 RLS 保证，这里只处理租户内部的可见性。
-    P1 会加入"当前分配给我的会话中的客户"。
     """
-    if principal.has(Permission.CUSTOMER_READ_ALL):
+    if principal.has(Permission.CUSTOMER_READ_ALL) or principal.has(Permission.SESSION_READ_ALL):
         return true()
-    return Customer.owner_id == principal.staff_id
+    me = principal.staff_id
+    conditions: list[ColumnElement[bool]] = [
+        Customer.owner_id == me,
+        _serving(ChatSession.assignee_id == me),
+    ]
+    if principal.has(Permission.SESSION_READ_TEAM):
+        team = team_members(me)
+        conditions += [Customer.owner_id.in_(team), _serving(ChatSession.assignee_id.in_(team))]
+    return or_(*conditions)
+
+
+def _serving(assignee: ColumnElement[bool]) -> ColumnElement[bool]:
+    """客户有未结束的会话，且接待人满足条件。"""
+    return (
+        select(ChatSession.id)
+        .where(
+            ChatSession.tenant_id == Customer.tenant_id,
+            ChatSession.customer_id == Customer.id,
+            ChatSession.status != SessionStatus.CLOSED,
+            assignee,
+        )
+        .exists()
+    )
 
 
 def _with_owner() -> Select[Customer, str]:

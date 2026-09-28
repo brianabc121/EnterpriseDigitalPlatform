@@ -1,5 +1,6 @@
 from fastapi import Request
 
+from app.context import AppContext
 from app.core.config import Settings
 from app.core.ratelimit import RateLimiter
 from app.db.session import Database
@@ -22,3 +23,8 @@ def client_ip(request: Request) -> str | None:
 def get_rate_limiter(request: Request) -> RateLimiter:
     limiter: RateLimiter = request.app.state.rate_limiter
     return limiter
+
+
+def get_context(request: Request) -> AppContext:
+    ctx: AppContext = request.app.state.ctx
+    return ctx

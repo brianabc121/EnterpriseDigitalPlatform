@@ -16,6 +16,7 @@ from uuid import UUID
 from sqlalchemy import func, or_, select, update
 
 from app.db.session import Database
+from app.events.bus import EventBus
 from app.integrations.openim import OpenIMClient, OpenIMError, SeqRange, group_conversation_id
 from app.modules.conversation import imids
 from app.modules.conversation.ingest import IMGroupMessage, ingest_messages
@@ -47,7 +48,11 @@ class _RoomCursor:
 
 
 async def reconcile_all(
-    db: Database, im: OpenIMClient, *, now: datetime | None = None
+    db: Database,
+    im: OpenIMClient,
+    *,
+    now: datetime | None = None,
+    bus: EventBus | None = None,
 ) -> ReconcileReport:
     report = ReconcileReport()
     async with db.app_sessionmaker() as session:
@@ -55,7 +60,7 @@ async def reconcile_all(
     for tenant_id, tenant_code in tenants:
         report.tenants += 1
         try:
-            await reconcile_tenant(db, im, tenant_id, tenant_code, report, now=now)
+            await reconcile_tenant(db, im, tenant_id, tenant_code, report, now=now, bus=bus)
         except OpenIMError as exc:
             # 一个租户失败不影响其他租户；下一轮会从各 Room 的 synced_seq 继续。
             report.errors += 1
@@ -71,6 +76,7 @@ async def reconcile_tenant(
     report: ReconcileReport,
     *,
     now: datetime | None = None,
+    bus: EventBus | None = None,
 ) -> None:
     cutoff = (now or datetime.now(UTC)) - ACTIVE_WINDOW
     async with db.tenant_session(tenant_id) as session:
@@ -94,7 +100,7 @@ async def reconcile_tenant(
             if max_seq > room.synced_seq:
                 report.rooms_behind += 1
                 await _sync_room(
-                    db, im, tenant_id, system_user, room, conversation_id, max_seq, report
+                    db, im, tenant_id, system_user, room, conversation_id, max_seq, report, bus
                 )
 
 
@@ -107,6 +113,7 @@ async def _sync_room(
     conversation_id: str,
     max_seq: int,
     report: ReconcileReport,
+    bus: EventBus | None,
 ) -> None:
     synced = room.synced_seq
     while synced < max_seq:
@@ -129,7 +136,7 @@ async def _sync_room(
             if not m.is_notification and not m.is_deleted
         ]
         if batch:
-            result = await ingest_messages(db, batch, source=MessageSource.RECONCILE)
+            result = await ingest_messages(db, batch, source=MessageSource.RECONCILE, bus=bus)
             report.recovered += result.inserted
             report.backfilled += result.duplicates
         highest = max(m.seq for m in pulled.messages)
