@@ -54,6 +54,11 @@ export function createPlatformApi(options: ClientOptions): ApiClient {
   })
 }
 
+/** 访客 Widget 使用的客户端：不需要登录，访客身份由请求体中的访客令牌表示。 */
+export function createVisitorApi(baseUrl = ''): ApiClient {
+  return createClient<paths>({ baseUrl })
+}
+
 /** 从后端统一错误结构 {"error": {"message": ...}} 中取出提示文案。 */
 export function errorMessage(error: unknown, fallback = '请求失败，请稍后重试'): string {
   if (typeof error === 'object' && error !== null && 'error' in error) {
