@@ -57,6 +57,9 @@ async def update_channel(
     policy_id = changes.get("routing_policy_id")
     if policy_id is not None and await session.get(RoutingPolicy, policy_id) is None:
         raise Unprocessable("路由策略不存在")
+    widget = changes.pop("widget", None)
+    if widget is not None:
+        channel.config = {**(channel.config or {}), "widget": widget}
     for field, value in changes.items():
         if value is None and field != "routing_policy_id":
             continue
@@ -70,6 +73,28 @@ async def update_channel(
         resource_type="channel",
         resource_id=str(channel.id),
         detail=payload.model_dump(mode="json", exclude_unset=True),
+        ip=ip,
+    )
+    await session.commit()
+    return channel
+
+
+async def rotate_identity_secret(
+    session: AsyncSession, principal: Principal, channel_id: UUID, *, ip: str | None
+) -> ChannelAccount:
+    """生成新的实名访客签名密钥；旧密钥签的身份立即失效。"""
+    channel = await session.get(ChannelAccount, channel_id)
+    if channel is None:
+        raise NotFound("渠道不存在")
+    channel.config = {**(channel.config or {}), "identity_secret": secrets.token_hex(32)}
+    record_audit(
+        session,
+        action="channel.rotate_identity_secret",
+        actor_type="staff",
+        actor_id=principal.staff_id,
+        tenant_id=principal.tenant_id,
+        resource_type="channel",
+        resource_id=str(channel.id),
         ip=ip,
     )
     await session.commit()

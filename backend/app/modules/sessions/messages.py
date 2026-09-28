@@ -7,13 +7,14 @@
 
 import json
 from datetime import UTC, datetime
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy import or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.context import AppContext
-from app.core.errors import Conflict, Forbidden, ServiceUnavailable
+from app.core.errors import Conflict, Forbidden, ServiceUnavailable, Unprocessable
 from app.core.ids import new_id
 from app.integrations.openim import ContentType, OpenIMError
 from app.modules.conversation import imids, outbox
@@ -28,6 +29,7 @@ from app.modules.conversation.models import (
 )
 from app.modules.conversation.schemas import MessageOut
 from app.modules.conversation.service import messages_out
+from app.modules.files.service import IMAGE_TYPES
 from app.modules.iam.principal import Principal
 from app.modules.sessions.engine import touch_session
 from app.modules.sessions.schemas import SendMessageRequest
@@ -62,6 +64,7 @@ async def send_message(
     )
     if message is None:
         now = datetime.now(UTC)
+        content_type, content, text = _content(ctx, payload)
         message = Message(
             id=new_id(),
             tenant_id=chat.tenant_id,
@@ -71,9 +74,9 @@ async def send_message(
             direction=Direction.OUT,
             sender_type=SenderType.AGENT,
             sender_id=principal.staff_id,
-            content_type="text",
-            content={"text": payload.text},
-            text_plain=payload.text,
+            content_type=content_type,
+            content=content,
+            text_plain=text,
             client_msg_id=payload.client_msg_id,
             source=MessageSource.API,
             send_status=SendStatus.PENDING,
@@ -89,12 +92,13 @@ async def send_message(
     assert room is not None
     # 分配时的拉人操作可能还没执行（OpenIM 短暂不可用）：先把这个 Room 的待执行操作执行完。
     await outbox.flush_rooms(ctx, chat.tenant_id, [room.id])
+    im_type, im_content = im_payload(message)
     try:
         sent = await ctx.im.send_group_message(
             send_id=imids.staff_user(principal.tenant_code, principal.staff_id),
             group_id=room.im_group_id,
-            content_type=ContentType.TEXT,
-            content={"content": message.text_plain or ""},
+            content_type=im_type,
+            content=im_content,
             sender_nickname=principal.display_name,
             ex=json.dumps({"pmid": str(message.id)}),
         )
@@ -124,3 +128,59 @@ async def send_message(
     await session.commit()
     await session.refresh(message)
     return (await messages_out(session, [message]))[0]
+
+
+def _content(
+    ctx: AppContext, payload: SendMessageRequest
+) -> tuple[str, dict[str, Any], str | None]:
+    """消息在平台里保存的类型、内容和纯文本（与回调入库的格式一致，见 conversation/ingest.py）。"""
+    if payload.type == "text":
+        assert payload.text is not None
+        return "text", {"text": payload.text}, payload.text
+    attachment = payload.attachment
+    assert attachment is not None
+    prefix = f"{ctx.settings.public_api_url.rstrip('/')}/api/v1/files/"
+    if not attachment.url.startswith(prefix):
+        raise Unprocessable("附件必须先通过上传接口上传")
+    if payload.type == "image" and attachment.content_type not in IMAGE_TYPES:
+        raise Unprocessable("不支持的图片类型")
+    return (
+        payload.type,
+        {
+            "url": attachment.url,
+            "name": attachment.name,
+            "size": attachment.size,
+            "width": attachment.width,
+            "height": attachment.height,
+            "mime": attachment.content_type,
+        },
+        None,
+    )
+
+
+def im_payload(message: Message) -> tuple[int, dict[str, Any]]:
+    """按平台保存的消息生成 OpenIM 的消息类型和内容。"""
+    content = message.content
+    if message.content_type == "image":
+        picture = {
+            "uuid": str(message.id),
+            "type": content.get("mime") or "",
+            "size": content.get("size") or 0,
+            "width": content.get("width") or 0,
+            "height": content.get("height") or 0,
+            "url": content["url"],
+        }
+        return ContentType.PICTURE, {
+            "sourcePicture": picture,
+            "bigPicture": picture,
+            "snapshotPicture": picture,
+        }
+    if message.content_type == "file":
+        return ContentType.FILE, {
+            "uuid": str(message.id),
+            "sourceUrl": content["url"],
+            "fileName": content.get("name") or "file",
+            "fileSize": content.get("size") or 0,
+            "fileType": content.get("mime") or "",
+        }
+    return ContentType.TEXT, {"content": message.text_plain or ""}

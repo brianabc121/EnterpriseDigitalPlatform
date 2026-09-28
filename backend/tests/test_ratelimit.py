@@ -93,6 +93,8 @@ def test_prod_settings_require_real_secrets() -> None:
         "EDP_VISITOR_JWT_SECRET",
         "EDP_OPENIM_SECRET",
         "EDP_OPENIM_WEBHOOK_SECRET",
+        "EDP_STORAGE_SECRET_KEY",
+        "EDP_FILE_URL_SECRET",
     ):
         assert name in message
 
@@ -104,4 +106,6 @@ def test_prod_settings_require_real_secrets() -> None:
         visitor_jwt_secret="c" * 40,
         openim_secret="d" * 40,
         openim_webhook_secret="e" * 40,
+        storage_secret_key="f" * 40,
+        file_url_secret="g" * 40,
     )

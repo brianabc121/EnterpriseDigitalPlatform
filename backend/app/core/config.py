@@ -11,6 +11,8 @@ _DEV_VISITOR_JWT_SECRET = "dev-only-visitor-jwt-secret-change-me-0123456789a"
 # 与 deploy/compose/openim/docker-compose.yml 的默认值一致。
 _DEV_OPENIM_SECRET = "openim-dev-secret"
 _DEV_OPENIM_WEBHOOK_SECRET = "dev-openim-webhook-secret"
+_DEV_STORAGE_SECRET_KEY = "openim-dev-secret"
+_DEV_FILE_URL_SECRET = "dev-only-file-url-secret-change-me-0123456789abc"
 
 
 class Settings(BaseSettings):
@@ -51,6 +53,20 @@ class Settings(BaseSettings):
     # OpenIM 回调路径中的共享密钥（OpenIM 回调不签名）。
     openim_webhook_secret: SecretStr = SecretStr(_DEV_OPENIM_WEBHOOK_SECRET)
 
+    # S3 兼容对象存储（开发环境复用 OpenIM 依赖里的 MinIO）。
+    storage_endpoint: str = "http://localhost:10005"
+    storage_public_endpoint: str = "http://localhost:10005"
+    storage_access_key: str = "openim"
+    storage_secret_key: SecretStr = SecretStr(_DEV_STORAGE_SECRET_KEY)
+    storage_bucket: str = "edp-files"
+    storage_region: str = "us-east-1"
+    # 平台签发的文件链接（/api/v1/files/...）的签名密钥。
+    file_url_secret: SecretStr = SecretStr(_DEV_FILE_URL_SECRET)
+    # 平台对外地址，用于拼接文件链接。
+    public_api_url: str = "http://localhost:8000"
+    # 访客 Widget 的地址：它自己的来源总是允许接入（渠道设置了允许嵌入的网站时）。
+    widget_public_url: str = "http://localhost:5175"
+
     @model_validator(mode="after")
     def _check_prod(self) -> "Settings":
         if self.env != "prod":
@@ -61,6 +77,8 @@ class Settings(BaseSettings):
             "EDP_VISITOR_JWT_SECRET": (self.visitor_jwt_secret, _DEV_VISITOR_JWT_SECRET),
             "EDP_OPENIM_SECRET": (self.openim_secret, _DEV_OPENIM_SECRET),
             "EDP_OPENIM_WEBHOOK_SECRET": (self.openim_webhook_secret, _DEV_OPENIM_WEBHOOK_SECRET),
+            "EDP_STORAGE_SECRET_KEY": (self.storage_secret_key, _DEV_STORAGE_SECRET_KEY),
+            "EDP_FILE_URL_SECRET": (self.file_url_secret, _DEV_FILE_URL_SECRET),
         }
         unset = [
             name for name, (value, dev) in dev_defaults.items() if value.get_secret_value() == dev

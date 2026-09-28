@@ -259,4 +259,35 @@ def _normalize(msg: IMGroupMessage) -> tuple[str, dict[str, Any], str | None]:
         text = body.get("content") if msg.content_type == ContentType.TEXT else body.get("text")
         text = text if isinstance(text, str) else ""
         return kind, {"text": text}, text
+    attachment = attachment_of(msg.content_type, body)
+    if attachment is not None:
+        return kind, attachment, None
     return kind, {"im_content_type": msg.content_type, "body": body}, None
+
+
+def attachment_of(content_type: int, body: dict[str, Any]) -> dict[str, Any] | None:
+    """图片、文件消息统一成 {url, name, size, width, height, mime}，方便各端展示。"""
+    if content_type == ContentType.PICTURE:
+        picture = body.get("sourcePicture") or body.get("bigPicture") or {}
+        if not isinstance(picture, dict) or not picture.get("url"):
+            return None
+        return {
+            "url": picture["url"],
+            "name": None,
+            "size": picture.get("size"),
+            "width": picture.get("width"),
+            "height": picture.get("height"),
+            "mime": picture.get("type"),
+        }
+    if content_type == ContentType.FILE:
+        if not body.get("sourceUrl"):
+            return None
+        return {
+            "url": body["sourceUrl"],
+            "name": body.get("fileName"),
+            "size": body.get("fileSize"),
+            "width": None,
+            "height": None,
+            "mime": body.get("fileType"),
+        }
+    return None

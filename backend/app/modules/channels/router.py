@@ -19,7 +19,7 @@ CanManage = Annotated[Principal, Depends(require_permission(Permission.SETTINGS_
 @router.get("", response_model=ChannelList)
 async def list_channels(session: TenantDb, _: CanManage) -> ChannelList:
     channels = await service.list_channels(session)
-    return ChannelList(items=[ChannelOut.model_validate(c) for c in channels])
+    return ChannelList(items=[ChannelOut.of(c) for c in channels])
 
 
 @router.patch("/{channel_id}", response_model=ChannelOut)
@@ -33,4 +33,15 @@ async def update_channel(
     channel = await service.update_channel(
         session, principal, channel_id, payload, ip=client_ip(request)
     )
-    return ChannelOut.model_validate(channel)
+    return ChannelOut.of(channel)
+
+
+@router.post("/{channel_id}/identity-secret", response_model=ChannelOut)
+async def rotate_identity_secret(
+    channel_id: UUID, request: Request, session: TenantDb, principal: CanManage
+) -> ChannelOut:
+    """生成（或更换）实名访客签名密钥。网站后端用它为登录用户签名，Widget 据此识别为实名访客。"""
+    channel = await service.rotate_identity_secret(
+        session, principal, channel_id, ip=client_ip(request)
+    )
+    return ChannelOut.of(channel)

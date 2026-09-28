@@ -44,15 +44,19 @@ def pick_agent(
     *,
     owner_id: uuid.UUID | None,
     skill_group_id: uuid.UUID | None,
+    previous_id: uuid.UUID | None = None,
 ) -> tuple[AgentSlot, str] | None:
     """返回 (坐席, 分配依据)；没有可接待的坐席时返回 None。
 
-    分配依据：owner（归属坐席）、group（技能组）、any（未指定技能组，在全部坐席中分配）。
+    分配依据：previous（续接：上次接待的坐席）、owner（归属坐席）、group（技能组）、
+    any（未指定技能组，在全部坐席中分配）。
     """
-    if owner_id is not None:
-        owner = agents.get(owner_id)
-        if owner is not None and owner.has_capacity:
-            return owner, "owner"
+    for preferred, via in ((previous_id, "previous"), (owner_id, "owner")):
+        if preferred is None:
+            continue
+        agent = agents.get(preferred)
+        if agent is not None and agent.has_capacity:
+            return agent, via
     candidates = [
         a
         for a in agents.values()
@@ -119,6 +123,7 @@ def fallback_policy() -> RoutingPolicy:
         owner_first=True,
         max_wait_seconds=300,
         idle_close_minutes=30,
+        resume_window_minutes=10,
         business_hours=None,
     )
 

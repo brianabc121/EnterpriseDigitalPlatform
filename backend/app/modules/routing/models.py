@@ -60,6 +60,8 @@ class RoutingPolicy(IdMixin, TimestampMixin, TenantMixin, Base):
     max_wait_seconds: Mapped[int] = mapped_column(server_default="300")
     # 人工接待中的会话超过这个时间没有新消息，自动结束。
     idle_close_minutes: Mapped[int] = mapped_column(server_default="30")
+    # 会话结束后这么多分钟内客户再来咨询，优先分配给上次接待的坐席；0 表示关闭。
+    resume_window_minutes: Mapped[int] = mapped_column(server_default="10")
     # 为空表示全天服务；否则形如 {"tz": "Asia/Shanghai", "days": {"1": [["09:00", "18:00"]]}}。
     business_hours: Mapped[dict[str, Any] | None]
 

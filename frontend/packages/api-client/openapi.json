@@ -170,6 +170,121 @@
         "title": "AgentUpdate",
         "type": "object"
       },
+      "Attachment": {
+        "properties": {
+          "content_type": {
+            "maxLength": 120,
+            "title": "Content Type",
+            "type": "string"
+          },
+          "height": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Height"
+          },
+          "name": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "size": {
+            "exclusiveMinimum": 0.0,
+            "title": "Size",
+            "type": "integer"
+          },
+          "url": {
+            "description": "上传接口返回的 file_url",
+            "maxLength": 2048,
+            "title": "Url",
+            "type": "string"
+          },
+          "width": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Width"
+          }
+        },
+        "required": [
+          "url",
+          "name",
+          "size",
+          "content_type"
+        ],
+        "title": "Attachment",
+        "type": "object"
+      },
+      "AttachmentOut": {
+        "properties": {
+          "height": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Height"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "size": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Size"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          },
+          "width": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Width"
+          }
+        },
+        "required": [
+          "url"
+        ],
+        "title": "AttachmentOut",
+        "type": "object"
+      },
       "ChannelList": {
         "properties": {
           "items": {
@@ -197,6 +312,18 @@
             "format": "uuid",
             "title": "Id",
             "type": "string"
+          },
+          "identity_secret": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "实名访客签名密钥（HMAC-SHA256）；为空表示未启用实名访客",
+            "title": "Identity Secret"
           },
           "name": {
             "title": "Name",
@@ -226,6 +353,9 @@
           "type": {
             "title": "Type",
             "type": "string"
+          },
+          "widget": {
+            "$ref": "#/components/schemas/WidgetSettings"
           }
         },
         "required": [
@@ -235,6 +365,8 @@
           "public_key",
           "status",
           "routing_policy_id",
+          "widget",
+          "identity_secret",
           "created_at"
         ],
         "title": "ChannelOut",
@@ -285,9 +417,53 @@
                 "type": "null"
               }
             ]
+          },
+          "widget": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/WidgetSettings"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "title": "ChannelUpdate",
+        "type": "object"
+      },
+      "CsatRequest": {
+        "properties": {
+          "comment": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Comment"
+          },
+          "score": {
+            "description": "1 到 5 分",
+            "maximum": 5.0,
+            "minimum": 1.0,
+            "title": "Score",
+            "type": "integer"
+          },
+          "session_id": {
+            "format": "uuid",
+            "title": "Session Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "session_id",
+          "score"
+        ],
+        "title": "CsatRequest",
         "type": "object"
       },
       "CustomerCreate": {
@@ -783,6 +959,34 @@
           "platform_id"
         ],
         "title": "IMCredentials",
+        "type": "object"
+      },
+      "LeaveMessageRequest": {
+        "properties": {
+          "contact": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "手机号、邮箱等联系方式",
+            "title": "Contact"
+          },
+          "content": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Content",
+            "type": "string"
+          }
+        },
+        "required": [
+          "content"
+        ],
+        "title": "LeaveMessageRequest",
         "type": "object"
       },
       "LoginRequest": {
@@ -1663,6 +1867,14 @@
             "default": true,
             "title": "Owner First",
             "type": "boolean"
+          },
+          "resume_window_minutes": {
+            "default": 10,
+            "description": "会话结束后多少分钟内再来咨询优先分配给上次的坐席；0 关闭",
+            "maximum": 1440.0,
+            "minimum": 0.0,
+            "title": "Resume Window Minutes",
+            "type": "integer"
           }
         },
         "required": [
@@ -1754,6 +1966,10 @@
           "owner_first": {
             "title": "Owner First",
             "type": "boolean"
+          },
+          "resume_window_minutes": {
+            "title": "Resume Window Minutes",
+            "type": "integer"
           }
         },
         "required": [
@@ -1765,6 +1981,7 @@
           "owner_first",
           "max_wait_seconds",
           "idle_close_minutes",
+          "resume_window_minutes",
           "business_hours",
           "channel_ids",
           "created_at"
@@ -1888,6 +2105,19 @@
               }
             ],
             "title": "Owner First"
+          },
+          "resume_window_minutes": {
+            "anyOf": [
+              {
+                "maximum": 1440.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resume Window Minutes"
           }
         },
         "title": "RoutingPolicyUpdate",
@@ -1895,6 +2125,17 @@
       },
       "SendMessageRequest": {
         "properties": {
+          "attachment": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Attachment"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "图片或文件（type 为 image、file 时）"
+          },
           "client_msg_id": {
             "description": "客户端生成的唯一 ID，重试时保持不变（幂等键）",
             "maxLength": 64,
@@ -1903,15 +2144,31 @@
             "type": "string"
           },
           "text": {
-            "maxLength": 4000,
-            "minLength": 1,
-            "title": "Text",
+            "anyOf": [
+              {
+                "maxLength": 4000,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Text"
+          },
+          "type": {
+            "default": "text",
+            "enum": [
+              "text",
+              "image",
+              "file"
+            ],
+            "title": "Type",
             "type": "string"
           }
         },
         "required": [
-          "client_msg_id",
-          "text"
+          "client_msg_id"
         ],
         "title": "SendMessageRequest",
         "type": "object"
@@ -3290,6 +3547,106 @@
         "title": "TransferTargets",
         "type": "object"
       },
+      "UploadOut": {
+        "description": "用 PUT 把文件上传到 upload_url（Content-Type 与申请时一致），上传后在消息里引用 file_url。",
+        "properties": {
+          "expires_in": {
+            "title": "Expires In",
+            "type": "integer"
+          },
+          "file_url": {
+            "title": "File Url",
+            "type": "string"
+          },
+          "kind": {
+            "description": "image 或 file",
+            "title": "Kind",
+            "type": "string"
+          },
+          "upload_url": {
+            "title": "Upload Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "upload_url",
+          "file_url",
+          "kind",
+          "expires_in"
+        ],
+        "title": "UploadOut",
+        "type": "object"
+      },
+      "UploadRequest": {
+        "properties": {
+          "content_type": {
+            "maxLength": 120,
+            "minLength": 3,
+            "title": "Content Type",
+            "type": "string"
+          },
+          "filename": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Filename",
+            "type": "string"
+          },
+          "size": {
+            "description": "字节数",
+            "exclusiveMinimum": 0.0,
+            "title": "Size",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "filename",
+          "content_type",
+          "size"
+        ],
+        "title": "UploadRequest",
+        "type": "object"
+      },
+      "VisitorIdentity": {
+        "description": "实名访客：网站后端用渠道的签名密钥为当前登录用户签名。\n\nsignature = HMAC-SHA256(identity_secret, f\"{external_id}:{name}:{timestamp}\") 的十六进制，\nname 为空时写空字符串；timestamp 为 Unix 秒，与服务器时间相差不超过 10 分钟。",
+        "properties": {
+          "external_id": {
+            "description": "网站自己的用户 ID",
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "External Id",
+            "type": "string"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "signature": {
+            "maxLength": 64,
+            "minLength": 64,
+            "title": "Signature",
+            "type": "string"
+          },
+          "timestamp": {
+            "title": "Timestamp",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "external_id",
+          "timestamp",
+          "signature"
+        ],
+        "title": "VisitorIdentity",
+        "type": "object"
+      },
       "VisitorInitRequest": {
         "properties": {
           "channel_key": {
@@ -3298,6 +3655,30 @@
             "minLength": 5,
             "title": "Channel Key",
             "type": "string"
+          },
+          "embed_origin": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "嵌入 Widget 的网站来源（渠道限制了来源时校验）",
+            "title": "Embed Origin"
+          },
+          "identity": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/VisitorIdentity"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "实名访客的签名身份；提供时优先于 visitor_token"
           },
           "page_url": {
             "anyOf": [
@@ -3345,6 +3726,10 @@
       },
       "VisitorInitResponse": {
         "properties": {
+          "customer_name": {
+            "title": "Customer Name",
+            "type": "string"
+          },
           "im": {
             "$ref": "#/components/schemas/IMCredentials"
           },
@@ -3353,14 +3738,25 @@
             "title": "Room Id",
             "type": "string"
           },
+          "verified": {
+            "description": "是否为实名访客",
+            "title": "Verified",
+            "type": "boolean"
+          },
           "visitor_token": {
             "title": "Visitor Token",
             "type": "string"
+          },
+          "widget": {
+            "$ref": "#/components/schemas/WidgetView"
           }
         },
         "required": [
           "visitor_token",
           "room_id",
+          "customer_name",
+          "verified",
+          "widget",
           "im"
         ],
         "title": "VisitorInitResponse",
@@ -3368,6 +3764,17 @@
       },
       "VisitorMessageOut": {
         "properties": {
+          "attachment": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AttachmentOut"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "图片或文件"
+          },
           "content_type": {
             "title": "Content Type",
             "type": "string"
@@ -3519,6 +3926,92 @@
           "status"
         ],
         "title": "VisitorSessionState",
+        "type": "object"
+      },
+      "WidgetSettings": {
+        "description": "访客 Widget 的展示与接入设置（保存在渠道配置中）。",
+        "properties": {
+          "allowed_origins": {
+            "description": "允许嵌入 Widget 的网站（如 https://www.example.com）；为空表示不限制",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 50,
+            "title": "Allowed Origins",
+            "type": "array"
+          },
+          "privacy_notice": {
+            "anyOf": [
+              {
+                "maxLength": 1000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "隐私提示，访客发送第一条消息前展示",
+            "title": "Privacy Notice"
+          },
+          "title": {
+            "default": "在线客服",
+            "maxLength": 32,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          },
+          "welcome_message": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "访客打开 Widget 时看到的欢迎语",
+            "title": "Welcome Message"
+          }
+        },
+        "title": "WidgetSettings",
+        "type": "object"
+      },
+      "WidgetView": {
+        "properties": {
+          "privacy_notice": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Privacy Notice"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "welcome_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Welcome Message"
+          }
+        },
+        "required": [
+          "title",
+          "welcome_message",
+          "privacy_notice"
+        ],
+        "title": "WidgetView",
         "type": "object"
       }
     },
@@ -4530,6 +5023,105 @@
           }
         ],
         "summary": "Update Channel",
+        "tags": [
+          "channels"
+        ]
+      }
+    },
+    "/api/v1/channels/{channel_id}/identity-secret": {
+      "post": {
+        "description": "生成（或更换）实名访客签名密钥。网站后端用它为登录用户签名，Widget 据此识别为实名访客。",
+        "operationId": "rotate_identity_secret_api_v1_channels__channel_id__identity_secret_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "channel_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Channel Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChannelOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Rotate Identity Secret",
         "tags": [
           "channels"
         ]
@@ -8266,6 +8858,310 @@
         ]
       }
     },
+    "/api/v1/uploads": {
+      "post": {
+        "description": "坐席上传图片或文件：返回预签名上传 URL 和发送消息时引用的文件链接。",
+        "operationId": "create_upload_api_v1_uploads_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UploadRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Create Upload",
+        "tags": [
+          "files"
+        ]
+      }
+    },
+    "/api/v1/visitor/csat": {
+      "post": {
+        "description": "对已结束的会话评价（每个会话一次，结束后 7 天内）。",
+        "operationId": "rate_api_v1_visitor_csat_post",
+        "parameters": [
+          {
+            "description": "访客初始化返回的 visitor_token",
+            "in": "header",
+            "name": "X-Visitor-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "访客初始化返回的 visitor_token",
+              "title": "X-Visitor-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CsatRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "summary": "Rate",
+        "tags": [
+          "visitor"
+        ]
+      }
+    },
+    "/api/v1/visitor/handoff": {
+      "post": {
+        "description": "请求人工客服：AI 接待中的会话转入排队；还没有会话时开始排队。",
+        "operationId": "request_human_api_v1_visitor_handoff_post",
+        "parameters": [
+          {
+            "description": "访客初始化返回的 visitor_token",
+            "in": "header",
+            "name": "X-Visitor-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "访客初始化返回的 visitor_token",
+              "title": "X-Visitor-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VisitorSessionState"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "summary": "Request Human",
+        "tags": [
+          "visitor"
+        ]
+      }
+    },
     "/api/v1/visitor/init": {
       "post": {
         "description": "访客接入（Widget 调用，无需登录）。返回访客令牌和 OpenIM 登录信息。",
@@ -8608,6 +9504,223 @@
           }
         },
         "summary": "Session State",
+        "tags": [
+          "visitor"
+        ]
+      }
+    },
+    "/api/v1/visitor/tickets": {
+      "post": {
+        "description": "留言：客服不在线或非工作时间时，访客留下问题和联系方式。",
+        "operationId": "leave_message_api_v1_visitor_tickets_post",
+        "parameters": [
+          {
+            "description": "访客初始化返回的 visitor_token",
+            "in": "header",
+            "name": "X-Visitor-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "访客初始化返回的 visitor_token",
+              "title": "X-Visitor-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LeaveMessageRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "summary": "Leave Message",
+        "tags": [
+          "visitor"
+        ]
+      }
+    },
+    "/api/v1/visitor/uploads": {
+      "post": {
+        "description": "上传图片或文件：返回预签名上传 URL 和发送消息时引用的文件链接。",
+        "operationId": "create_upload_api_v1_visitor_uploads_post",
+        "parameters": [
+          {
+            "description": "访客初始化返回的 visitor_token",
+            "in": "header",
+            "name": "X-Visitor-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "访客初始化返回的 visitor_token",
+              "title": "X-Visitor-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UploadRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "summary": "Create Upload",
         "tags": [
           "visitor"
         ]

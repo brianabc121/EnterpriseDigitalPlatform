@@ -69,6 +69,7 @@ class RoutingPolicyOut(BaseModel):
     owner_first: bool
     max_wait_seconds: int
     idle_close_minutes: int
+    resume_window_minutes: int
     business_hours: dict[str, Any] | None
     channel_ids: list[UUID] = Field(description="使用这套策略的渠道账号")
     created_at: datetime
@@ -88,6 +89,12 @@ class RoutingPolicyCreate(BaseModel):
     owner_first: bool = True
     max_wait_seconds: int = Field(default=300, ge=10, le=86400)
     idle_close_minutes: int = Field(default=30, ge=1, le=1440)
+    resume_window_minutes: int = Field(
+        default=10,
+        ge=0,
+        le=1440,
+        description="会话结束后多少分钟内再来咨询优先分配给上次的坐席；0 关闭",
+    )
     business_hours: BusinessHours = None
 
 
@@ -101,6 +108,7 @@ class RoutingPolicyUpdate(BaseModel):
     owner_first: bool | None = None
     max_wait_seconds: int | None = Field(default=None, ge=10, le=86400)
     idle_close_minutes: int | None = Field(default=None, ge=1, le=1440)
+    resume_window_minutes: int | None = Field(default=None, ge=0, le=1440)
     business_hours: BusinessHours = None
 
 

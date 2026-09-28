@@ -12,8 +12,10 @@ from pathlib import Path
 from app.context import AppContext
 from app.core.config import Settings, get_settings
 from app.db.session import Database
+from app.integrations.storage import ensure_bucket
 from app.main import create_app
 from app.modules.conversation.reconcile import ReconcileReport, reconcile_all
+from app.modules.files.service import storage_config
 from app.modules.tenancy import service as tenancy
 from app.modules.tenancy.schemas import TenantAdminCreate, TenantCreate
 
@@ -57,6 +59,10 @@ async def im_reconcile(settings: Settings) -> ReconcileReport:
         await ctx.aclose()
 
 
+async def storage_init(settings: Settings) -> bool:
+    return await ensure_bucket(storage_config(settings))
+
+
 def export_openapi(output: Path | None) -> None:
     schema = create_app(get_settings()).openapi()
     text = json.dumps(schema, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
@@ -83,6 +89,7 @@ def main(argv: list[str] | None = None) -> int:
     tenant.add_argument("--admin-password", help="不填时读取 EDP_BOOTSTRAP_PASSWORD 或交互输入")
 
     commands.add_parser("im-reconcile", help="立即按 seq 对账一次（补录回调丢失的消息）")
+    commands.add_parser("storage-init", help="创建对象存储桶（已存在时跳过）")
 
     openapi = commands.add_parser("export-openapi", help="导出 OpenAPI 描述（供前端生成类型）")
     openapi.add_argument("output", nargs="?", type=Path)
@@ -113,6 +120,9 @@ def main(argv: list[str] | None = None) -> int:
     elif args.command == "im-reconcile":
         report = asyncio.run(im_reconcile(get_settings()))
         print(json.dumps(dataclasses.asdict(report), ensure_ascii=False))
+    elif args.command == "storage-init":
+        created = asyncio.run(storage_init(get_settings()))
+        print("已创建存储桶" if created else "存储桶已存在")
     elif args.command == "export-openapi":
         export_openapi(args.output)
     return 0

@@ -14,6 +14,7 @@ from app.modules.channels.router import router as channels_router
 from app.modules.conversation.hooks import router as openim_hooks_router
 from app.modules.conversation.router import router as conversation_router
 from app.modules.customer.router import router as customer_router
+from app.modules.files.router import router as files_router
 from app.modules.health.router import router as health_router
 from app.modules.iam.router import auth_router
 from app.modules.iam.router import router as iam_router
@@ -63,6 +64,7 @@ def create_app(settings: Settings | None = None, *, im: OpenIMClient | None = No
     app.include_router(sessions_router)
     app.include_router(routing_router)
     app.include_router(quick_reply_router)
+    app.include_router(files_router)
     app.include_router(visitor_router)
     app.include_router(openim_hooks_router)
     app.include_router(platform_router)

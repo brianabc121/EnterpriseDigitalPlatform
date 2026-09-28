@@ -21,6 +21,7 @@ from app.modules.conversation.provisioning import BOT_NICKNAME
 from app.modules.iam.models import Staff
 from app.modules.visitor.deps import VisitorContext
 from app.modules.visitor.schemas import (
+    AttachmentOut,
     VisitorMessageOut,
     VisitorMessagePage,
     VisitorSessionState,
@@ -82,6 +83,11 @@ async def list_messages(
                 ),
                 content_type=m.content_type,
                 text=m.text_plain,
+                attachment=(
+                    AttachmentOut.model_validate(m.content)
+                    if m.content_type in ("image", "file") and m.content.get("url")
+                    else None
+                ),
                 sent_at=m.sent_at,
             )
             for m in messages

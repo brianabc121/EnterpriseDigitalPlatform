@@ -237,6 +237,7 @@ def _policy_out(policy: RoutingPolicy, channel_ids: list[UUID]) -> RoutingPolicy
         owner_first=policy.owner_first,
         max_wait_seconds=policy.max_wait_seconds,
         idle_close_minutes=policy.idle_close_minutes,
+        resume_window_minutes=policy.resume_window_minutes,
         business_hours=policy.business_hours,
         channel_ids=channel_ids,
         created_at=policy.created_at,

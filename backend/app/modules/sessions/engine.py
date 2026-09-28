@@ -14,6 +14,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from sqlalchemy import func, select, union, update
+from sqlalchemy.dialects.postgresql import distinct_on
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.context import AppContext
@@ -145,7 +146,9 @@ async def on_message_received(ctx: AppContext, event: Event) -> None:
         chat = await open_session_of_room(session, room.id)
         if chat is None:
             if message.sender_type == SenderType.CUSTOMER:
-                chat = await _start_session(session, room, message, now, todo)
+                chat = await start_session(
+                    session, room, now, todo, text=_message_text(message), reason="human_first"
+                )
             else:
                 # 系统提示、结束后坐席补发的消息等，归入这个 Room 最近的会话。
                 chat = await session.scalar(
@@ -187,13 +190,20 @@ def _later(current: datetime | None, candidate: datetime) -> datetime:
     return candidate if current is None or candidate > current else current
 
 
-async def _start_session(
-    session: AsyncSession, room: Room, message: Message, now: datetime, todo: _AfterCommit
+async def start_session(
+    session: AsyncSession,
+    room: Room,
+    now: datetime,
+    todo: _AfterCommit,
+    *,
+    text: str,
+    reason: str,
 ) -> ChatSession:
+    """客户发起新的服务过程：工作时间内进入排队，非工作时间转为留言。text 用于留言内容。"""
     policy = await PolicyResolver(session).for_channel(room.channel_account_id)
     if not in_business_hours(policy.business_hours, now):
         return await _leave_off_hours_message(
-            session, room, message, now, todo, policy.default_skill_group_id
+            session, room, text, now, todo, policy.default_skill_group_id
         )
 
     # AI 接待（P3）接入后：策略为 AI 优先且租户启用了 AI 时，会话从 ai_serving 开始。
@@ -210,7 +220,7 @@ async def _start_session(
     session.add(chat)
     await session.flush()
     record_event(session, chat, "created", actor_type=ActorType.VISITOR)
-    record_event(session, chat, "queued", payload={"reason": "human_first"})
+    record_event(session, chat, "queued", payload={"reason": reason})
     todo.assign = True
     todo.newly_queued.add(chat.id)
     return chat
@@ -219,7 +229,7 @@ async def _start_session(
 async def _leave_off_hours_message(
     session: AsyncSession,
     room: Room,
-    message: Message,
+    text: str,
     now: datetime,
     todo: _AfterCommit,
     skill_group_id: uuid.UUID | None,
@@ -241,7 +251,7 @@ async def _leave_off_hours_message(
     ).first()
     if row is not None:
         ticket, chat = row
-        ticket.content = _clip(f"{ticket.content}\n{_message_text(message)}")
+        ticket.content = _clip(f"{ticket.content}\n{text}")
         return chat
 
     chat = ChatSession(
@@ -267,13 +277,45 @@ async def _leave_off_hours_message(
             customer_id=room.customer_id,
             session_id=chat.id,
             source=TicketSource.OFF_HOURS,
-            content=_message_text(message),
+            content=_clip(text),
             assignee_id=await _owner_of(session, room.customer_id),
             skill_group_id=skill_group_id,
         )
     )
     outbox.enqueue_notice(session, room.id, Notice.OFF_HOURS)
     todo.rooms.add(room.id)
+    return chat
+
+
+async def request_handoff(
+    ctx: AppContext, tenant_id: uuid.UUID, room_id: uuid.UUID, *, reason: str, actor_type: str
+) -> ChatSession | None:
+    """请求人工：AI 接待中的会话转入排队；还没有会话时直接开始排队（非工作时间转为留言）。
+
+    已在排队或人工接待中时不做任何改变。访客点"转人工"、AI 决定转人工（P3）都走这里。
+    """
+    todo = _AfterCommit()
+    now = utcnow()
+    async with ctx.db.tenant_session(tenant_id) as session:
+        room = await session.scalar(select(Room).where(Room.id == room_id).with_for_update())
+        if room is None:
+            return None
+        chat = await open_session_of_room(session, room.id)
+        if chat is None:
+            chat = await start_session(
+                session, room, now, todo, text="（访客请求人工服务）", reason=reason
+            )
+        elif chat.status == SessionStatus.AI_SERVING:
+            chat.status = SessionStatus.QUEUED
+            chat.queued_at = now
+            chat.handoff_reason = reason
+            record_event(
+                session, chat, "handoff", actor_type=actor_type, payload={"reason": reason}
+            )
+            todo.assign = True
+            todo.newly_queued.add(chat.id)
+        await session.commit()
+    await _run_after_commit(ctx, tenant_id, todo)
     return chat
 
 
@@ -325,6 +367,7 @@ async def assign_queued(
             return 0
         agents = await available_agents(session, now)
         owners: dict[uuid.UUID, uuid.UUID | None] = {}
+        previous: dict[uuid.UUID, tuple[uuid.UUID, datetime]] = {}
         if agents:
             rows = await session.execute(
                 select(Customer.id, Customer.owner_id).where(
@@ -332,16 +375,26 @@ async def assign_queued(
                 )
             )
             owners = {customer_id: owner_id for customer_id, owner_id in rows}
+            previous = await _previous_assignees(session, {c.room_id for c in queued})
         policies = PolicyResolver(session)
         waiting: list[ChatSession] = []
         for chat in queued:
             picked = None
             if agents:
                 policy = await policies.for_channel(chat.channel_account_id)
+                last = previous.get(chat.room_id)
+                resume = (
+                    last[0]
+                    if last is not None
+                    and policy.resume_window_minutes > 0
+                    and last[1] >= now - timedelta(minutes=policy.resume_window_minutes)
+                    else None
+                )
                 picked = pick_agent(
                     agents,
                     owner_id=owners.get(chat.customer_id) if policy.owner_first else None,
                     skill_group_id=chat.skill_group_id or policy.default_skill_group_id,
+                    previous_id=resume,
                 )
             if picked is None:
                 waiting.append(chat)
@@ -357,6 +410,28 @@ async def assign_queued(
         await session.commit()
     await outbox.flush_rooms(ctx, tenant_id, rooms)
     return assigned
+
+
+async def _previous_assignees(
+    session: AsyncSession, room_ids: set[uuid.UUID]
+) -> dict[uuid.UUID, tuple[uuid.UUID, datetime]]:
+    """各 Room 最近一次由坐席接待并结束的会话：(坐席, 结束时间)。用于会话续接。"""
+    rows = await session.execute(
+        select(ChatSession.room_id, ChatSession.assignee_id, ChatSession.closed_at)
+        .where(
+            ChatSession.room_id.in_(room_ids),
+            ChatSession.status == SessionStatus.CLOSED,
+            ChatSession.assignee_id.is_not(None),
+            ChatSession.close_reason.in_((CloseReason.AGENT, CloseReason.IDLE_TIMEOUT)),
+        )
+        .order_by(ChatSession.room_id, ChatSession.closed_at.desc())
+        .ext(distinct_on(ChatSession.room_id))
+    )
+    return {
+        room_id: (assignee_id, closed_at)
+        for room_id, assignee_id, closed_at in rows
+        if assignee_id is not None and closed_at is not None
+    }
 
 
 async def lock_tenant_routing(session: AsyncSession, tenant_id: uuid.UUID) -> None:

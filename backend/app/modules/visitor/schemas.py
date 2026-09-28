@@ -4,12 +4,31 @@ from uuid import UUID
 from pydantic import BaseModel, Field
 
 
+class VisitorIdentity(BaseModel):
+    """实名访客：网站后端用渠道的签名密钥为当前登录用户签名。
+
+    signature = HMAC-SHA256(identity_secret, f"{external_id}:{name}:{timestamp}") 的十六进制，
+    name 为空时写空字符串；timestamp 为 Unix 秒，与服务器时间相差不超过 10 分钟。
+    """
+
+    external_id: str = Field(min_length=1, max_length=100, description="网站自己的用户 ID")
+    name: str | None = Field(default=None, max_length=64)
+    timestamp: int
+    signature: str = Field(min_length=64, max_length=64)
+
+
 class VisitorInitRequest(BaseModel):
     channel_key: str = Field(min_length=5, max_length=80, description="渠道公开标识（嵌入代码中）")
     visitor_token: str | None = Field(
         default=None,
         max_length=2048,
         description="上次初始化返回的访客令牌；没有或失效时按新访客处理",
+    )
+    identity: VisitorIdentity | None = Field(
+        default=None, description="实名访客的签名身份；提供时优先于 visitor_token"
+    )
+    embed_origin: str | None = Field(
+        default=None, max_length=255, description="嵌入 Widget 的网站来源（渠道限制了来源时校验）"
     )
     page_url: str | None = Field(default=None, max_length=2048)
     referrer: str | None = Field(default=None, max_length=2048)
@@ -27,10 +46,27 @@ class IMCredentials(BaseModel):
     platform_id: int
 
 
+class WidgetView(BaseModel):
+    title: str
+    welcome_message: str | None
+    privacy_notice: str | None
+
+
 class VisitorInitResponse(BaseModel):
     visitor_token: str
     room_id: UUID
+    customer_name: str
+    verified: bool = Field(description="是否为实名访客")
+    widget: WidgetView
     im: IMCredentials
+
+
+class AttachmentOut(BaseModel):
+    url: str
+    name: str | None = None
+    size: int | None = None
+    width: int | None = None
+    height: int | None = None
 
 
 class VisitorMessageOut(BaseModel):
@@ -40,6 +76,7 @@ class VisitorMessageOut(BaseModel):
     sender_name: str | None
     content_type: str
     text: str | None
+    attachment: AttachmentOut | None = Field(default=None, description="图片或文件")
     sent_at: datetime
 
 
@@ -59,3 +96,14 @@ class VisitorSessionState(BaseModel):
     assignee_name: str | None = None
     closed_at: datetime | None = None
     csat: int | None = None
+
+
+class CsatRequest(BaseModel):
+    session_id: UUID
+    score: int = Field(ge=1, le=5, description="1 到 5 分")
+    comment: str | None = Field(default=None, max_length=500)
+
+
+class LeaveMessageRequest(BaseModel):
+    content: str = Field(min_length=1, max_length=2000)
+    contact: str | None = Field(default=None, max_length=128, description="手机号、邮箱等联系方式")

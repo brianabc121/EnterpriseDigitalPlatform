@@ -1,8 +1,8 @@
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from app.modules.conversation.models import (
     SessionStatus,
@@ -73,11 +73,32 @@ class TicketPage(BaseModel):
     total: int
 
 
+class Attachment(BaseModel):
+    url: str = Field(max_length=2048, description="上传接口返回的 file_url")
+    name: str = Field(min_length=1, max_length=200)
+    size: int = Field(gt=0)
+    content_type: str = Field(max_length=120)
+    width: int | None = Field(default=None, ge=0)
+    height: int | None = Field(default=None, ge=0)
+
+
 class SendMessageRequest(BaseModel):
     client_msg_id: str = Field(
         min_length=8, max_length=64, description="客户端生成的唯一 ID，重试时保持不变（幂等键）"
     )
-    text: str = Field(min_length=1, max_length=4000)
+    type: Literal["text", "image", "file"] = "text"
+    text: str | None = Field(default=None, min_length=1, max_length=4000)
+    attachment: Attachment | None = Field(
+        default=None, description="图片或文件（type 为 image、file 时）"
+    )
+
+    @model_validator(mode="after")
+    def _check(self) -> "SendMessageRequest":
+        if self.type == "text" and not self.text:
+            raise ValueError("文本消息需要 text")
+        if self.type != "text" and self.attachment is None:
+            raise ValueError("图片或文件消息需要 attachment")
+        return self
 
 
 class TransferRequest(BaseModel):

@@ -190,6 +190,26 @@ export interface paths {
         patch: operations["update_channel_api_v1_channels__channel_id__patch"];
         trace?: never;
     };
+    "/api/v1/channels/{channel_id}/identity-secret": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Rotate Identity Secret
+         * @description 生成（或更换）实名访客签名密钥。网站后端用它为登录用户签名，Widget 据此识别为实名访客。
+         */
+        post: operations["rotate_identity_secret_api_v1_channels__channel_id__identity_secret_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/customers": {
         parameters: {
             query?: never;
@@ -720,6 +740,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/uploads": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create Upload
+         * @description 坐席上传图片或文件：返回预签名上传 URL 和发送消息时引用的文件链接。
+         */
+        post: operations["create_upload_api_v1_uploads_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/visitor/csat": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Rate
+         * @description 对已结束的会话评价（每个会话一次，结束后 7 天内）。
+         */
+        post: operations["rate_api_v1_visitor_csat_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/visitor/handoff": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Request Human
+         * @description 请求人工客服：AI 接待中的会话转入排队；还没有会话时开始排队。
+         */
+        post: operations["request_human_api_v1_visitor_handoff_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/visitor/init": {
         parameters: {
             query?: never;
@@ -774,6 +854,46 @@ export interface paths {
         get: operations["session_state_api_v1_visitor_session_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/visitor/tickets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Leave Message
+         * @description 留言：客服不在线或非工作时间时，访客留下问题和联系方式。
+         */
+        post: operations["leave_message_api_v1_visitor_tickets_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/visitor/uploads": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create Upload
+         * @description 上传图片或文件：返回预签名上传 URL 和发送消息时引用的文件链接。
+         */
+        post: operations["create_upload_api_v1_visitor_uploads_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -965,6 +1085,37 @@ export interface components {
             /** Max Concurrency */
             max_concurrency: number;
         };
+        /** Attachment */
+        Attachment: {
+            /** Content Type */
+            content_type: string;
+            /** Height */
+            height?: number | null;
+            /** Name */
+            name: string;
+            /** Size */
+            size: number;
+            /**
+             * Url
+             * @description 上传接口返回的 file_url
+             */
+            url: string;
+            /** Width */
+            width?: number | null;
+        };
+        /** AttachmentOut */
+        AttachmentOut: {
+            /** Height */
+            height?: number | null;
+            /** Name */
+            name?: string | null;
+            /** Size */
+            size?: number | null;
+            /** Url */
+            url: string;
+            /** Width */
+            width?: number | null;
+        };
         /** ChannelList */
         ChannelList: {
             /** Items */
@@ -982,6 +1133,11 @@ export interface components {
              * Format: uuid
              */
             id: string;
+            /**
+             * Identity Secret
+             * @description 实名访客签名密钥（HMAC-SHA256）；为空表示未启用实名访客
+             */
+            identity_secret: string | null;
             /** Name */
             name: string;
             /** Public Key */
@@ -995,6 +1151,7 @@ export interface components {
             status: string;
             /** Type */
             type: string;
+            widget: components["schemas"]["WidgetSettings"];
         };
         /**
          * ChannelStatus
@@ -1011,6 +1168,22 @@ export interface components {
              */
             routing_policy_id?: string | null;
             status?: components["schemas"]["ChannelStatus"] | null;
+            widget?: components["schemas"]["WidgetSettings"] | null;
+        };
+        /** CsatRequest */
+        CsatRequest: {
+            /** Comment */
+            comment?: string | null;
+            /**
+             * Score
+             * @description 1 到 5 分
+             */
+            score: number;
+            /**
+             * Session Id
+             * Format: uuid
+             */
+            session_id: string;
         };
         /** CustomerCreate */
         CustomerCreate: {
@@ -1187,6 +1360,16 @@ export interface components {
             user_id: string;
             /** Ws Url */
             ws_url: string;
+        };
+        /** LeaveMessageRequest */
+        LeaveMessageRequest: {
+            /**
+             * Contact
+             * @description 手机号、邮箱等联系方式
+             */
+            contact?: string | null;
+            /** Content */
+            content: string;
         };
         /** LoginRequest */
         LoginRequest: {
@@ -1546,6 +1729,12 @@ export interface components {
              * @default true
              */
             owner_first: boolean;
+            /**
+             * Resume Window Minutes
+             * @description 会话结束后多少分钟内再来咨询优先分配给上次的坐席；0 关闭
+             * @default 10
+             */
+            resume_window_minutes: number;
         };
         /** RoutingPolicyList */
         RoutingPolicyList: {
@@ -1586,6 +1775,8 @@ export interface components {
             name: string;
             /** Owner First */
             owner_first: boolean;
+            /** Resume Window Minutes */
+            resume_window_minutes: number;
         };
         /** RoutingPolicyUpdate */
         RoutingPolicyUpdate: {
@@ -1627,16 +1818,26 @@ export interface components {
             name?: string | null;
             /** Owner First */
             owner_first?: boolean | null;
+            /** Resume Window Minutes */
+            resume_window_minutes?: number | null;
         };
         /** SendMessageRequest */
         SendMessageRequest: {
+            /** @description 图片或文件（type 为 image、file 时） */
+            attachment?: components["schemas"]["Attachment"] | null;
             /**
              * Client Msg Id
              * @description 客户端生成的唯一 ID，重试时保持不变（幂等键）
              */
             client_msg_id: string;
             /** Text */
-            text: string;
+            text?: string | null;
+            /**
+             * Type
+             * @default text
+             * @enum {string}
+             */
+            type: "text" | "image" | "file";
         };
         /** SessionDetail */
         SessionDetail: {
@@ -2142,6 +2343,55 @@ export interface components {
             /** Groups */
             groups: components["schemas"]["TransferGroup"][];
         };
+        /**
+         * UploadOut
+         * @description 用 PUT 把文件上传到 upload_url（Content-Type 与申请时一致），上传后在消息里引用 file_url。
+         */
+        UploadOut: {
+            /** Expires In */
+            expires_in: number;
+            /** File Url */
+            file_url: string;
+            /**
+             * Kind
+             * @description image 或 file
+             */
+            kind: string;
+            /** Upload Url */
+            upload_url: string;
+        };
+        /** UploadRequest */
+        UploadRequest: {
+            /** Content Type */
+            content_type: string;
+            /** Filename */
+            filename: string;
+            /**
+             * Size
+             * @description 字节数
+             */
+            size: number;
+        };
+        /**
+         * VisitorIdentity
+         * @description 实名访客：网站后端用渠道的签名密钥为当前登录用户签名。
+         *
+         *     signature = HMAC-SHA256(identity_secret, f"{external_id}:{name}:{timestamp}") 的十六进制，
+         *     name 为空时写空字符串；timestamp 为 Unix 秒，与服务器时间相差不超过 10 分钟。
+         */
+        VisitorIdentity: {
+            /**
+             * External Id
+             * @description 网站自己的用户 ID
+             */
+            external_id: string;
+            /** Name */
+            name?: string | null;
+            /** Signature */
+            signature: string;
+            /** Timestamp */
+            timestamp: number;
+        };
         /** VisitorInitRequest */
         VisitorInitRequest: {
             /**
@@ -2149,6 +2399,13 @@ export interface components {
              * @description 渠道公开标识（嵌入代码中）
              */
             channel_key: string;
+            /**
+             * Embed Origin
+             * @description 嵌入 Widget 的网站来源（渠道限制了来源时校验）
+             */
+            embed_origin?: string | null;
+            /** @description 实名访客的签名身份；提供时优先于 visitor_token */
+            identity?: components["schemas"]["VisitorIdentity"] | null;
             /** Page Url */
             page_url?: string | null;
             /** Referrer */
@@ -2161,17 +2418,27 @@ export interface components {
         };
         /** VisitorInitResponse */
         VisitorInitResponse: {
+            /** Customer Name */
+            customer_name: string;
             im: components["schemas"]["IMCredentials"];
             /**
              * Room Id
              * Format: uuid
              */
             room_id: string;
+            /**
+             * Verified
+             * @description 是否为实名访客
+             */
+            verified: boolean;
             /** Visitor Token */
             visitor_token: string;
+            widget: components["schemas"]["WidgetView"];
         };
         /** VisitorMessageOut */
         VisitorMessageOut: {
+            /** @description 图片或文件 */
+            attachment?: components["schemas"]["AttachmentOut"] | null;
             /** Content Type */
             content_type: string;
             /**
@@ -2229,6 +2496,41 @@ export interface components {
              * @description none（还没有会话）、ai_serving、queued、human_serving、transferring、closed
              */
             status: string;
+        };
+        /**
+         * WidgetSettings
+         * @description 访客 Widget 的展示与接入设置（保存在渠道配置中）。
+         */
+        WidgetSettings: {
+            /**
+             * Allowed Origins
+             * @description 允许嵌入 Widget 的网站（如 https://www.example.com）；为空表示不限制
+             */
+            allowed_origins?: string[];
+            /**
+             * Privacy Notice
+             * @description 隐私提示，访客发送第一条消息前展示
+             */
+            privacy_notice?: string | null;
+            /**
+             * Title
+             * @default 在线客服
+             */
+            title: string;
+            /**
+             * Welcome Message
+             * @description 访客打开 Widget 时看到的欢迎语
+             */
+            welcome_message?: string | null;
+        };
+        /** WidgetView */
+        WidgetView: {
+            /** Privacy Notice */
+            privacy_notice: string | null;
+            /** Title */
+            title: string;
+            /** Welcome Message */
+            welcome_message: string | null;
         };
     };
     responses: never;
@@ -3012,6 +3314,82 @@ export interface operations {
                 "application/json": components["schemas"]["ChannelUpdate"];
             };
         };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChannelOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    rotate_identity_secret_api_v1_channels__channel_id__identity_secret_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                channel_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             200: {
@@ -5923,6 +6301,240 @@ export interface operations {
             };
         };
     };
+    create_upload_api_v1_uploads_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UploadRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UploadOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    rate_api_v1_visitor_csat_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description 访客初始化返回的 visitor_token */
+                "X-Visitor-Token"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CsatRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    request_human_api_v1_visitor_handoff_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description 访客初始化返回的 visitor_token */
+                "X-Visitor-Token"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VisitorSessionState"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     init_visitor_api_v1_visitor_init_post: {
         parameters: {
             query?: never;
@@ -6119,6 +6731,166 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["VisitorSessionState"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    leave_message_api_v1_visitor_tickets_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description 访客初始化返回的 visitor_token */
+                "X-Visitor-Token"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LeaveMessageRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    create_upload_api_v1_visitor_uploads_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description 访客初始化返回的 visitor_token */
+                "X-Visitor-Token"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UploadRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UploadOut"];
                 };
             };
             /** @description Bad Request */

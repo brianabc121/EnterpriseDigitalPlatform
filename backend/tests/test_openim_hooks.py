@@ -104,7 +104,7 @@ async def test_bot_and_system_messages_are_stored_but_signalling_is_not(
     assert [tuple(r) for r in stored] == [("bot", "out", "您好"), ("system", "out", "已转接")]
 
 
-async def test_non_text_messages_keep_their_body(
+async def test_images_and_files_are_normalized_other_types_keep_their_body(
     app: FastAPI,
     client: httpx.AsyncClient,
     fake_im: FakeOpenIM,
@@ -112,16 +112,56 @@ async def test_non_text_messages_keep_their_body(
     database_urls: DatabaseUrls,
 ) -> None:
     visitor = await new_visitor(app, client)
-    picture = {"sourcePicture": {"url": "https://example.com/a.png", "width": 10, "height": 10}}
-    fake_im.send_as(visitor["im"]["user_id"], visitor["im"]["group_id"], "x")
-    body = fake_im.callbacks[-1] | {"contentType": 102, "content": json.dumps(picture)}
+    picture = {
+        "sourcePicture": {
+            "url": "https://example.com/a.png",
+            "width": 10,
+            "height": 20,
+            "size": 300,
+            "type": "image/png",
+        }
+    }
+    file = {"sourceUrl": "https://example.com/b.pdf", "fileName": "b.pdf", "fileSize": 99}
+    voice = {"sourceUrl": "https://example.com/c.amr", "duration": 3}
+    bodies = []
+    for content_type, content in ((102, picture), (105, file), (103, voice)):
+        fake_im.send_as(visitor["im"]["user_id"], visitor["im"]["group_id"], "x")
+        bodies.append(
+            fake_im.callbacks[-1] | {"contentType": content_type, "content": json.dumps(content)}
+        )
 
-    await deliver(client, settings, [body])
+    await deliver(client, settings, bodies)
 
-    [msg] = await rows(database_urls, "SELECT content_type, content, text_plain FROM messages")
-    assert msg["content_type"] == "image"
-    assert json.loads(msg["content"]) == {"im_content_type": 102, "body": picture}
-    assert msg["text_plain"] is None
+    stored = await rows(
+        database_urls, "SELECT content_type, content, text_plain FROM messages ORDER BY sent_at"
+    )
+    assert [(m["content_type"], json.loads(m["content"]), m["text_plain"]) for m in stored] == [
+        (
+            "image",
+            {
+                "url": "https://example.com/a.png",
+                "name": None,
+                "size": 300,
+                "width": 10,
+                "height": 20,
+                "mime": "image/png",
+            },
+            None,
+        ),
+        (
+            "file",
+            {
+                "url": "https://example.com/b.pdf",
+                "name": "b.pdf",
+                "size": 99,
+                "width": None,
+                "height": None,
+                "mime": None,
+            },
+            None,
+        ),
+        ("voice", {"im_content_type": 103, "body": voice}, None),
+    ]
 
 
 async def test_messages_outside_service_rooms_are_ignored(
