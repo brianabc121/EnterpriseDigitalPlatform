@@ -4,6 +4,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.core.permissions import Permission
+
 USERNAME_PATTERN = r"^[A-Za-z0-9_.-]{3,64}$"
 
 
@@ -31,7 +33,8 @@ class MeResponse(BaseModel):
     display_name: str
     tenant: TenantBrief
     roles: list[str]
-    permissions: list[str]
+    # 使用枚举类型：生成的前端类型会包含全部权限点，菜单配置写错会在编译期报错。
+    permissions: list[Permission]
 
 
 class RoleOut(BaseModel):

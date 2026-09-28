@@ -5,7 +5,7 @@ from fastapi import APIRouter, Cookie, Depends, Request, Response, status
 from app.core.config import Settings
 from app.core.deps import client_ip, get_app_settings, get_database
 from app.core.errors import ERROR_RESPONSES, Unauthorized
-from app.core.permissions import Permission
+from app.core.permissions import ALL_PERMISSIONS, Permission
 from app.core.security import RefreshClaims, TokenError, decode_refresh_token
 from app.db.session import Database
 from app.modules.audit.service import record_audit
@@ -132,7 +132,8 @@ async def me(principal: CurrentPrincipal) -> MeResponse:
             id=principal.tenant_id, code=principal.tenant_code, name=principal.tenant_name
         ),
         roles=list(principal.role_codes),
-        permissions=sorted(principal.permissions),
+        # 自定义角色里可能残留已下线的权限点，只返回当前版本认识的。
+        permissions=sorted(Permission(p) for p in principal.permissions if p in ALL_PERMISSIONS),
     )
 
 
