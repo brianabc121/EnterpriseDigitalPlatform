@@ -1,6 +1,8 @@
 import { createStaffApi, memoryTokenStore } from '@edp/api-client'
 
 export const apiBase = import.meta.env.VITE_API_BASE ?? ''
+/** 访客 Widget 的地址，用于"打开访客测试页"。 */
+export const widgetBase = import.meta.env.VITE_WIDGET_URL ?? 'http://localhost:5175'
 export const tokens = memoryTokenStore()
 
 let unauthorizedHandler: () => void = () => {}

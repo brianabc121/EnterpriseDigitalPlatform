@@ -3,7 +3,7 @@ IM_COMPOSE := docker compose -f deploy/compose/openim/docker-compose.yml
 
 .PHONY: dev-up dev-down dev-reset im-up im-down im-reset \
 	backend-install migrate backend-dev scheduler-dev backend-test backend-lint \
-	frontend-install console-dev platform-dev frontend-test frontend-build \
+	frontend-install console-dev platform-dev widget-dev frontend-test frontend-build \
 	openapi test
 
 # ---- 开发环境 ----
@@ -56,6 +56,10 @@ console-dev:
 
 platform-dev:
 	cd frontend && pnpm --filter @edp/platform-admin dev
+
+# 访客 Widget：http://localhost:5175/?key=<渠道 key>（控制台"设置"页可直接打开）
+widget-dev:
+	cd frontend && pnpm --filter @edp/widget dev
 
 frontend-test:
 	cd frontend && pnpm -r test
