@@ -4,6 +4,7 @@ import { ElMessage } from 'element-plus'
 import { computed, onMounted, reactive, ref } from 'vue'
 
 import { api, formatDateTime } from '../api'
+import HandoverDialog from '../components/customers/HandoverDialog.vue'
 import { useAuthStore } from '../stores/auth'
 
 const auth = useAuthStore()
@@ -11,6 +12,14 @@ const staff = ref<Schemas['StaffOut'][]>([])
 const roles = ref<Schemas['RoleOut'][]>([])
 const loading = ref(false)
 const canManage = computed(() => auth.can('staff:manage'))
+const canHandover = computed(() => auth.can('customer:assign'))
+const handoverOpen = ref(false)
+const handoverFrom = ref<Schemas['StaffOut'] | null>(null)
+
+function openHandover(member: Schemas['StaffOut']): void {
+  handoverFrom.value = member
+  handoverOpen.value = true
+}
 const roleNames = computed(() => new Map(roles.value.map((r) => [r.code, r.name])))
 
 const dialogVisible = ref(false)
@@ -84,7 +93,15 @@ onMounted(load)
       <el-table-column label="创建时间" width="200">
         <template #default="{ row }">{{ formatDateTime(row.created_at) }}</template>
       </el-table-column>
+      <el-table-column v-if="canHandover" label="" width="110">
+        <template #default="{ row }">
+          <el-button link type="primary" size="small" @click="openHandover(row)">
+            交接客户
+          </el-button>
+        </template>
+      </el-table-column>
     </el-table>
+    <HandoverDialog v-model="handoverOpen" :from="handoverFrom" :staff="staff" />
 
     <el-dialog v-model="dialogVisible" title="新建员工" width="480px">
       <el-form label-width="84px" @submit.prevent="create">

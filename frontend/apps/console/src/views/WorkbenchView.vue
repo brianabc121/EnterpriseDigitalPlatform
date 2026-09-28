@@ -5,6 +5,7 @@ import { computed, onMounted, ref } from 'vue'
 
 import ChatPanel from '../components/workbench/ChatPanel.vue'
 import CustomerPanel from '../components/workbench/CustomerPanel.vue'
+import IncomingTransfer from '../components/workbench/IncomingTransfer.vue'
 import { STATUS_LABEL, useWorkbenchStore, type AgentStatus } from '../stores/workbench'
 
 const wb = useWorkbenchStore()
@@ -119,6 +120,7 @@ onMounted(() => void wb.start())
     </aside>
 
     <ChatPanel class="chat" />
+    <IncomingTransfer />
 
     <CustomerPanel
       v-if="wb.active"

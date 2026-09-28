@@ -2,6 +2,7 @@
 
 - 按 seq 对账，补录回调丢失的消息（每分钟）；
 - 会话定时处理：断线坐席下线、排队超时转留言、空闲会话结束、分配排队会话（每 10 秒）；
+- 超时未接受的会话转接退回原坐席（每 5 秒）；
 - 执行到期的 IM 发件箱操作（每 5 秒）；
 - 重新发布没有归入会话的消息事件（每 30 秒）。
 
@@ -24,6 +25,7 @@ from app.events.lease import Lease
 from app.modules.conversation.outbox import dispatch_due
 from app.modules.conversation.reconcile import reconcile_all
 from app.modules.sessions.engine import republish_orphans, run_session_timers
+from app.modules.sessions.transfer import run_transfer_timers
 
 logger = logging.getLogger("app.scheduler")
 
@@ -44,6 +46,7 @@ async def _reconcile(ctx: AppContext) -> object:
 JOBS = (
     Job("reconcile", 60, _reconcile),
     Job("session-timers", 10, run_session_timers),
+    Job("transfer-timers", 5, run_transfer_timers),
     Job("im-ops", 5, dispatch_due),
     Job("orphan-messages", 30, republish_orphans),
 )

@@ -1,8 +1,9 @@
 import uuid
 from datetime import datetime
+from enum import StrEnum
 from typing import Any
 
-from sqlalchemy import ForeignKeyConstraint, String, Text, UniqueConstraint
+from sqlalchemy import ForeignKeyConstraint, String, Text, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base, IdMixin, TenantMixin, TimestampMixin
@@ -52,3 +53,26 @@ class CustomerIdentity(IdMixin, TimestampMixin, TenantMixin, Base):
     profile: Mapped[dict[str, Any]] = mapped_column(server_default="{}")
     verified: Mapped[bool] = mapped_column(server_default="false")
     last_seen_at: Mapped[datetime | None]
+
+
+class OwnerChangeReason(StrEnum):
+    SESSION_TRANSFER = "session_transfer"  # 会话转接时勾选了同时转移归属
+    MANUAL = "manual"  # 管理员转移
+    HANDOVER = "handover"  # 离职或调岗交接
+
+
+class CustomerOwnerHistory(IdMixin, TenantMixin, Base):
+    """客户归属变更记录。"""
+
+    __tablename__ = "customer_owner_history"
+    __table_args__ = (
+        ForeignKeyConstraint(["tenant_id", "customer_id"], ["customers.tenant_id", "customers.id"]),
+    )
+
+    customer_id: Mapped[uuid.UUID]
+    from_owner_id: Mapped[uuid.UUID | None]
+    to_owner_id: Mapped[uuid.UUID | None]
+    actor_id: Mapped[uuid.UUID | None]
+    reason: Mapped[str] = mapped_column(String(32))
+    note: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())

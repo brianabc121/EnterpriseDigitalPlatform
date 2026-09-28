@@ -39,7 +39,8 @@ from tests.support import (
 ALL_TABLES = (
     "tenants, platform_users, staff, roles, staff_roles, customers, refresh_tokens, audit_logs, "
     "channel_accounts, customer_identities, rooms, messages, skill_groups, skill_group_members, "
-    "routing_policies, agent_states, sessions, session_events, tickets, im_ops, quick_replies"
+    "routing_policies, agent_states, sessions, session_events, tickets, im_ops, quick_replies, "
+    "session_transfers, customer_owner_history"
 )
 BACKEND_DIR = Path(__file__).resolve().parents[1]
 

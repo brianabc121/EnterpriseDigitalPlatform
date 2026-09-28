@@ -59,6 +59,10 @@ export const useWorkbenchStore = defineStore('workbench', () => {
   const hasMore = ref<Record<string, boolean>>({})
   const unread = ref<Record<string, number>>({})
   const imState = ref<ConnectionState>('idle')
+  /** 发给我、等待确认的转接。 */
+  const incoming = ref<Schemas['TransferOut'][]>([])
+  /** 我发起、等待对方确认的转接（按会话）。 */
+  const outgoing = ref<Record<string, Schemas['TransferOut']>>({})
   const error = ref<string | null>(null)
 
   let im: ImClient | null = null
@@ -104,6 +108,7 @@ export const useWorkbenchStore = defineStore('workbench', () => {
         await connectIm()
         await new Promise((resolve) => setTimeout(resolve, IM_ONLINE_GRACE_MS))
         await setStatus('online')
+        await loadIncoming()
       } catch (e) {
         error.value = e instanceof Error ? e.message : String(e)
       }
@@ -115,7 +120,7 @@ export const useWorkbenchStore = defineStore('workbench', () => {
 
   /** 兜底刷新：会话列表和当前会话最近的消息以平台接口为准。 */
   async function poll(): Promise<void> {
-    await loadSessions()
+    await Promise.all([loadSessions(), loadIncoming()])
     if (active.value) {
       await loadHistory(active.value.room_id, undefined, false).catch(() => undefined)
     }
@@ -135,6 +140,8 @@ export const useWorkbenchStore = defineStore('workbench', () => {
     im = null
     sessions.value = []
     queued.value = []
+    incoming.value = []
+    outgoing.value = {}
     active.value = null
     messages.value = {}
     unread.value = {}
@@ -278,10 +285,70 @@ export const useWorkbenchStore = defineStore('workbench', () => {
     }
   }
 
+  // ---- 转接 ----
+
+  /** 发给我、等待确认的转接。 */
+  async function loadIncoming(): Promise<void> {
+    const { data } = await api.GET('/api/v1/transfers/pending')
+    if (data) incoming.value = data.items
+  }
+
+  async function requestTransfer(
+    session: Session,
+    body: Schemas['TransferRequest'],
+  ): Promise<Schemas['TransferOut']> {
+    const { data, error: err } = await api.POST('/api/v1/sessions/{session_id}/transfer', {
+      params: { path: { session_id: session.id } },
+      body,
+    })
+    if (!data) throw new Error(errorMessage(err))
+    if (data.status === 'pending') outgoing.value = { ...outgoing.value, [session.id]: data }
+    await loadSessions()
+    return data
+  }
+
+  async function decideTransfer(
+    transfer: Schemas['TransferOut'],
+    decision: 'accept' | 'reject' | 'cancel',
+  ): Promise<void> {
+    const path = `/api/v1/transfers/{transfer_id}/${decision}` as const
+    const { data, error: err } = await api.POST(path, {
+      params: { path: { transfer_id: transfer.id } },
+    })
+    incoming.value = incoming.value.filter((t) => t.id !== transfer.id)
+    forgetOutgoing(transfer.id)
+    if (!data) throw new Error(errorMessage(err))
+    await loadSessions()
+    if (decision === 'accept') {
+      const session = sessions.value.find((s) => s.id === transfer.session_id)
+      if (session) await open(session)
+    }
+  }
+
+  function forgetOutgoing(transferId: unknown): void {
+    outgoing.value = Object.fromEntries(
+      Object.entries(outgoing.value).filter(([, t]) => t.id !== transferId),
+    )
+  }
+
+  const TRANSFER_RESULT: Record<string, [string, 'success' | 'warning' | 'info']> = {
+    'transfer.accepted': ['对方已接受转接', 'success'],
+    'transfer.rejected': ['对方拒绝了转接，会话仍由您接待', 'warning'],
+    'transfer.expired': ['对方未及时接受，会话仍由您接待', 'warning'],
+  }
+
   function onSignal(signal: ImSignal): void {
     if (signal.sendID !== systemUserId) return
-    if (signal.type === 'session.assigned') {
+    if (signal.type === 'session.assigned' && !signal.data.transfer_id) {
       ElNotification({ title: '新会话', message: '有新的客户分配给您', type: 'info' })
+    }
+    if (signal.type === 'transfer.requested' || signal.type === 'transfer.cancelled') {
+      void loadIncoming()
+    }
+    const result = TRANSFER_RESULT[signal.type]
+    if (result) {
+      forgetOutgoing(signal.data.transfer_id)
+      ElNotification({ title: '转接', message: result[0], type: result[1] })
     }
     void loadSessions()
   }
@@ -295,6 +362,8 @@ export const useWorkbenchStore = defineStore('workbench', () => {
     hasMore,
     unread,
     imState,
+    incoming,
+    outgoing,
     error,
     canSeeQueue,
     canManageOthers,
@@ -308,5 +377,7 @@ export const useWorkbenchStore = defineStore('workbench', () => {
     send,
     retry,
     close,
+    requestTransfer,
+    decideTransfer,
   }
 })

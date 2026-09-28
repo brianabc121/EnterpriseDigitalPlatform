@@ -84,6 +84,9 @@ class Desk:
         token = await login(self.client, self.code, username, STAFF_PASSWORD)
         agent = Agent(staff_id, username, token, imids.staff_user(self.code, staff_id))
         if online:
+            # 与工作台一致：先开通 IM（注册用户、与系统用户互为好友，才能收到信令），再上线。
+            response = await self.client.post("/api/v1/agent/im-token", headers=agent.headers)
+            assert response.status_code == 200, response.text
             await self.set_status(agent, "online")
         return agent
 

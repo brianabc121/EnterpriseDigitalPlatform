@@ -5,13 +5,39 @@ import { computed, nextTick, ref, watch } from 'vue'
 import { useWorkbenchStore } from '../../stores/workbench'
 import type { WorkbenchMessage } from '../../workbench/messages'
 import QuickReplies from './QuickReplies.vue'
+import TransferDialog from './TransferDialog.vue'
 
 const wb = useWorkbenchStore()
+const transferOpen = ref(false)
+
+const STATUS_TEXT: Record<string, string> = {
+  queued: '排队中',
+  human_serving: '接待中',
+  transferring: '转接中',
+  ai_serving: 'AI 接待',
+  closed: '已结束',
+}
 const draft = ref('')
 const sending = ref(false)
 const scroller = ref<HTMLElement | null>(null)
 
 const session = computed(() => wb.active)
+const pendingTransfer = computed(() =>
+  session.value ? (wb.outgoing[session.value.id] ?? null) : null,
+)
+const canTransfer = computed(
+  () => !!session.value && (wb.isMine(session.value) || wb.canManageOthers),
+)
+
+async function cancelTransfer(): Promise<void> {
+  if (!pendingTransfer.value) return
+  try {
+    await wb.decideTransfer(pendingTransfer.value, 'cancel')
+    ElMessage.info('已撤回转接')
+  } catch (e) {
+    ElMessage.error(e instanceof Error ? e.message : String(e))
+  }
+}
 // 只有接待这个会话的坐席可以回复；主管查看他人的会话时只读。
 const replyable = computed(() => {
   const s = session.value
@@ -103,24 +129,33 @@ function insert(text: string): void {
         <div>
           <span class="title" data-testid="chat-title">{{ session.customer_display_name }}</span>
           <el-tag size="small" :type="session.status === 'closed' ? 'info' : 'success'" class="tag">
-            {{
-              session.status === 'closed'
-                ? '已结束'
-                : session.status === 'queued'
-                  ? '排队中'
-                  : '接待中'
-            }}
+            {{ STATUS_TEXT[session.status] ?? session.status }}
           </el-tag>
+          <span v-if="pendingTransfer" class="transferring" data-testid="transfer-pending">
+            等待对方接受转接
+            <el-button link type="primary" size="small" @click="cancelTransfer">撤回</el-button>
+          </span>
         </div>
-        <el-button
-          v-if="session.status !== 'closed' && (wb.isMine(session) || wb.canManageOthers)"
-          size="small"
-          data-testid="close-session"
-          @click="closeSession"
-        >
-          结束会话
-        </el-button>
+        <div class="header-actions">
+          <el-button
+            v-if="session.status === 'human_serving' && canTransfer"
+            size="small"
+            data-testid="transfer-session"
+            @click="transferOpen = true"
+          >
+            转接
+          </el-button>
+          <el-button
+            v-if="session.status !== 'closed' && (wb.isMine(session) || wb.canManageOthers)"
+            size="small"
+            data-testid="close-session"
+            @click="closeSession"
+          >
+            结束会话
+          </el-button>
+        </div>
       </header>
+      <TransferDialog v-model="transferOpen" :session="session" />
 
       <div ref="scroller" class="messages" data-testid="chat-messages">
         <div v-if="wb.hasMore[session.room_id]" class="more">
@@ -198,6 +233,17 @@ function insert(text: string): void {
 
 .tag {
   margin-left: 8px;
+}
+
+.transferring {
+  margin-left: 8px;
+  font-size: 12px;
+  color: var(--el-color-warning);
+}
+
+.header-actions {
+  display: flex;
+  gap: 8px;
 }
 
 .messages {

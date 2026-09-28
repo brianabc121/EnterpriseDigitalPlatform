@@ -252,3 +252,38 @@ class ImOp(TenantMixin, Base):
     last_error: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
     done_at: Mapped[datetime | None]
+
+
+class TransferStatus(StrEnum):
+    PENDING = "pending"  # 等待目标坐席接受
+    ACCEPTED = "accepted"
+    REJECTED = "rejected"
+    EXPIRED = "expired"  # 超时未接受，会话留在原坐席
+    CANCELLED = "cancelled"  # 发起人撤回，或会话已结束
+    COMPLETED = "completed"  # 转给技能组或强制转接，立即生效
+
+
+class SessionTransfer(IdMixin, TimestampMixin, TenantMixin, Base):
+    """会话转接记录（设计文档 §14.2）。"""
+
+    __tablename__ = "session_transfers"
+    __table_args__ = (
+        ForeignKeyConstraint(["tenant_id", "session_id"], ["sessions.tenant_id", "sessions.id"]),
+        ForeignKeyConstraint(["tenant_id", "from_staff_id"], ["staff.tenant_id", "staff.id"]),
+        ForeignKeyConstraint(["tenant_id", "to_staff_id"], ["staff.tenant_id", "staff.id"]),
+        ForeignKeyConstraint(
+            ["tenant_id", "to_group_id"], ["skill_groups.tenant_id", "skill_groups.id"]
+        ),
+    )
+
+    session_id: Mapped[uuid.UUID]
+    from_staff_id: Mapped[uuid.UUID | None]
+    to_staff_id: Mapped[uuid.UUID | None]
+    to_group_id: Mapped[uuid.UUID | None]
+    note: Mapped[str | None] = mapped_column(Text)
+    forced: Mapped[bool] = mapped_column(server_default="false")
+    transfer_ownership: Mapped[bool] = mapped_column(server_default="false")
+    status: Mapped[str] = mapped_column(String(16), server_default=TransferStatus.PENDING.value)
+    expires_at: Mapped[datetime | None]
+    decided_at: Mapped[datetime | None]
+    created_by: Mapped[uuid.UUID | None]

@@ -11,7 +11,7 @@ from app.modules.conversation.models import SessionStatus, TicketStatus
 from app.modules.conversation.schemas import MessageOut
 from app.modules.iam.deps import TenantDb, require_permission
 from app.modules.iam.principal import Principal
-from app.modules.sessions import messages, service
+from app.modules.sessions import messages, service, transfer
 from app.modules.sessions.schemas import (
     SendMessageRequest,
     SessionDetail,
@@ -19,6 +19,10 @@ from app.modules.sessions.schemas import (
     SessionPage,
     TicketOut,
     TicketPage,
+    TransferList,
+    TransferOut,
+    TransferRequest,
+    TransferTargets,
 )
 
 router = APIRouter(prefix="/api/v1", tags=["sessions"], responses=ERROR_RESPONSES)
@@ -92,3 +96,49 @@ async def list_tickets(
 @router.post("/tickets/{ticket_id}/done", response_model=TicketOut)
 async def complete_ticket(ticket_id: UUID, session: TenantDb, principal: CanServe) -> TicketOut:
     return await service.complete_ticket(session, principal, ticket_id)
+
+
+@router.post("/sessions/{session_id}/transfer", response_model=TransferOut)
+async def transfer_session(
+    session_id: UUID,
+    payload: TransferRequest,
+    ctx: Context,
+    session: TenantDb,
+    principal: CanServe,
+) -> TransferOut:
+    """转接会话：转给坐席需要对方在 60 秒内接受；转给技能组或强制转接立即生效。"""
+    return await transfer.request_transfer(ctx, session, principal, session_id, payload)
+
+
+@router.get("/transfers/pending", response_model=TransferList)
+async def pending_transfers(session: TenantDb, principal: CanServe) -> TransferList:
+    """发给我、等待确认的转接。"""
+    return TransferList(items=await transfer.list_pending_for_me(session, principal))
+
+
+@router.post("/transfers/{transfer_id}/accept", response_model=TransferOut)
+async def accept_transfer(
+    transfer_id: UUID, ctx: Context, session: TenantDb, principal: CanServe
+) -> TransferOut:
+    return await transfer.accept_transfer(ctx, session, principal, transfer_id)
+
+
+@router.post("/transfers/{transfer_id}/reject", response_model=TransferOut)
+async def reject_transfer(
+    transfer_id: UUID, ctx: Context, session: TenantDb, principal: CanServe
+) -> TransferOut:
+    return await transfer.reject_transfer(ctx, session, principal, transfer_id)
+
+
+@router.post("/transfers/{transfer_id}/cancel", response_model=TransferOut)
+async def cancel_transfer(
+    transfer_id: UUID, ctx: Context, session: TenantDb, principal: CanServe
+) -> TransferOut:
+    """发起人撤回待确认的转接。"""
+    return await transfer.cancel_transfer(ctx, session, principal, transfer_id)
+
+
+@router.get("/transfer-targets", response_model=TransferTargets)
+async def transfer_targets(session: TenantDb, principal: CanServe) -> TransferTargets:
+    """可以转给的在线坐席和技能组。"""
+    return await transfer.transfer_targets(session, principal)

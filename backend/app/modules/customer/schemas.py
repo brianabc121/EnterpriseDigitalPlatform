@@ -50,3 +50,35 @@ class CustomerCreate(BaseModel):
     owner_id: UUID | None = Field(
         default=None, description="归属坐席；不填时归属创建者。指定他人需要 customer:assign 权限"
     )
+
+
+class CustomerTransferRequest(BaseModel):
+    customer_ids: list[UUID] = Field(min_length=1, max_length=500)
+    to_owner_id: UUID | None = Field(description="新的归属坐席；为空表示取消归属")
+    note: str | None = Field(default=None, max_length=500)
+
+
+class HandoverRequest(BaseModel):
+    to_owner_id: UUID | None = Field(default=None, description="接手的员工")
+    to_group_id: UUID | None = Field(default=None, description="或平均分给这个技能组的成员")
+    note: str | None = Field(default=None, max_length=500)
+
+
+class TransferResult(BaseModel):
+    transferred: int
+
+
+class OwnerHistoryOut(BaseModel):
+    id: UUID
+    from_owner_id: UUID | None
+    from_owner_name: str | None
+    to_owner_id: UUID | None
+    to_owner_name: str | None
+    actor_name: str | None
+    reason: str = Field(description="session_transfer、manual 或 handover")
+    note: str | None
+    created_at: datetime
+
+
+class OwnerHistoryList(BaseModel):
+    items: list[OwnerHistoryOut]

@@ -42,8 +42,8 @@ make widget-dev      # 访客 Widget：http://localhost:5175/?key=<渠道 key>
 控制台"设置"页列出本租户的接入渠道，点"打开访客测试页"即可以访客身份与服务群对话；
 访客消息会进入平台消息库（`GET /api/v1/rooms`、`GET /api/v1/rooms/{id}/messages`）。
 
-访客的第一条消息会开启一个会话，按路由策略排队并分配给在线坐席（`PUT /api/v1/agent/state`
-上线，工作台每 30 秒调用 `POST /api/v1/agent/heartbeat`）。技能组、路由策略（工作时间、排队超时、
+访客的第一条消息会开启一个会话，按路由策略排队并分配给在线坐席：坐席登录控制台后进入"工作台"即自动上线，
+在工作台里接待、使用快捷话术、编辑客户资料、转接或结束会话。技能组、路由策略（工作时间、排队超时、
 空闲结束）和坐席并发在 `/api/v1/skill-groups`、`/api/v1/routing-policies`、`/api/v1/agents` 配置。
 
 默认配置适用于本地环境；需要修改时，把 `backend/.env.example` 复制为 `backend/.env`。
@@ -71,6 +71,17 @@ make frontend-build
 
   ```bash
   NODE_PATH=$(npm root -g) PLATFORM_PASSWORD=<平台账号密码> node scripts/e2e/p0-acceptance.cjs
+  ```
+
+- **P1 M4**（`scripts/e2e/m4-workbench-acceptance.cjs`）：访客在 Widget 里咨询，会话实时分配给工作台里的坐席，
+  双方实时对话、快捷话术、客户面板、结束会话，并检查消息入库不重复。需要后端、实时消费进程、调度进程、控制台、
+  Widget 和 OpenIM。
+- **P1 M5**（`scripts/e2e/m5-transfer-acceptance.cjs`）：坐席 A 把会话转接给坐席 B，B 接受后看到完整历史，
+  A 不再看到这个客户、已被移出服务群。前置同上。
+
+  ```bash
+  NODE_PATH=$(npm root -g) PLATFORM_PASSWORD=<平台账号密码> node scripts/e2e/m4-workbench-acceptance.cjs
+  NODE_PATH=$(npm root -g) PLATFORM_PASSWORD=<平台账号密码> node scripts/e2e/m5-transfer-acceptance.cjs
   ```
 
 - **P1 M1**（`scripts/e2e/m1-im-acceptance.cjs`）：访客在 Widget 里发消息、实时收到机器人回复，消息经回调入库；

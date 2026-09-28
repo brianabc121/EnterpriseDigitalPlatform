@@ -8,9 +8,10 @@ from app.modules.conversation.models import (
     Message,
     Room,
     SessionEvent,
+    SessionTransfer,
     Ticket,
 )
-from app.modules.customer.models import Customer, CustomerIdentity
+from app.modules.customer.models import Customer, CustomerIdentity, CustomerOwnerHistory
 from app.modules.iam.models import RefreshToken, Role, Staff, StaffRole
 from app.modules.quickreply.models import QuickReply
 from app.modules.routing.models import AgentState, RoutingPolicy, SkillGroup, SkillGroupMember
@@ -23,6 +24,7 @@ __all__ = [
     "ChatSession",
     "Customer",
     "CustomerIdentity",
+    "CustomerOwnerHistory",
     "ImOp",
     "Message",
     "PlatformUser",
@@ -32,6 +34,7 @@ __all__ = [
     "Room",
     "RoutingPolicy",
     "SessionEvent",
+    "SessionTransfer",
     "SkillGroup",
     "SkillGroupMember",
     "Staff",

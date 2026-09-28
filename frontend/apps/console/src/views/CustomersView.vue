@@ -4,6 +4,8 @@ import { ElMessage } from 'element-plus'
 import { computed, onMounted, reactive, ref } from 'vue'
 
 import { api, formatDateTime } from '../api'
+import OwnerHistoryDrawer from '../components/customers/OwnerHistoryDrawer.vue'
+import OwnerTransferDialog from '../components/customers/OwnerTransferDialog.vue'
 import { useAuthStore } from '../stores/auth'
 
 const PAGE_SIZE = 20
@@ -17,6 +19,17 @@ const loading = ref(false)
 const canCreate = computed(() => auth.can('customer:create'))
 const canAssign = computed(() => auth.can('customer:assign') && auth.can('staff:read'))
 const seesAll = computed(() => auth.can('customer:read_all'))
+const canTransfer = computed(() => auth.can('customer:assign'))
+
+const selected = ref<Schemas['CustomerOut'][]>([])
+const transferOpen = ref(false)
+const historyOpen = ref(false)
+const historyOf = ref<Schemas['CustomerOut'] | null>(null)
+
+function showHistory(customer: Schemas['CustomerOut']): void {
+  historyOf.value = customer
+  historyOpen.value = true
+}
 
 const dialogVisible = ref(false)
 const saving = ref(false)
@@ -77,7 +90,17 @@ onMounted(load)
   <div>
     <div class="page-header">
       <h2>客户</h2>
-      <el-button v-if="canCreate" type="primary" @click="openCreate">新建客户</el-button>
+      <div>
+        <el-button
+          v-if="canTransfer"
+          :disabled="selected.length === 0"
+          data-testid="transfer-owner"
+          @click="transferOpen = true"
+        >
+          转移归属
+        </el-button>
+        <el-button v-if="canCreate" type="primary" @click="openCreate">新建客户</el-button>
+      </div>
     </div>
     <el-alert
       v-if="!seesAll"
@@ -87,16 +110,39 @@ onMounted(load)
       title="只显示归属于你的客户"
       class="scope-tip"
     />
-    <el-table v-loading="loading" :data="items" data-testid="customer-table" empty-text="暂无客户">
+    <el-table
+      v-loading="loading"
+      :data="items"
+      data-testid="customer-table"
+      empty-text="暂无客户"
+      @selection-change="(rows: Schemas['CustomerOut'][]) => (selected = rows)"
+    >
+      <el-table-column v-if="canTransfer" type="selection" width="44" />
       <el-table-column prop="display_name" label="客户名称" min-width="180" />
       <el-table-column label="归属坐席" min-width="120">
         <template #default="{ row }">{{ row.owner_display_name ?? '—' }}</template>
       </el-table-column>
       <el-table-column prop="source_channel" label="来源" width="120" />
+      <el-table-column label="标签" min-width="160">
+        <template #default="{ row }">
+          <el-tag v-for="tag in row.tags" :key="tag" size="small" class="tag">{{ tag }}</el-tag>
+        </template>
+      </el-table-column>
       <el-table-column label="创建时间" width="200">
         <template #default="{ row }">{{ formatDateTime(row.created_at) }}</template>
       </el-table-column>
+      <el-table-column label="" width="100">
+        <template #default="{ row }">
+          <el-button link type="primary" size="small" @click="showHistory(row)">归属记录</el-button>
+        </template>
+      </el-table-column>
     </el-table>
+    <OwnerTransferDialog
+      v-model="transferOpen"
+      :customer-ids="selected.map((c) => c.id)"
+      @done="load"
+    />
+    <OwnerHistoryDrawer v-model="historyOpen" :customer="historyOf" />
     <div class="page-footer">
       <el-pagination
         v-model:current-page="page"
@@ -129,5 +175,9 @@ onMounted(load)
 <style scoped>
 .scope-tip {
   margin-bottom: 12px;
+}
+
+.tag {
+  margin-right: 4px;
 }
 </style>

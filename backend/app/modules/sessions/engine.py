@@ -13,7 +13,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from sqlalchemy import func, select, union
+from sqlalchemy import func, select, union, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.context import AppContext
@@ -29,9 +29,11 @@ from app.modules.conversation.models import (
     SenderType,
     SessionEvent,
     SessionStatus,
+    SessionTransfer,
     Ticket,
     TicketSource,
     TicketStatus,
+    TransferStatus,
 )
 from app.modules.customer.models import Customer
 from app.modules.routing.assign import (
@@ -421,7 +423,7 @@ async def close_session(
         )
         if chat is None or chat.status == SessionStatus.CLOSED:
             return chat
-        mark_closed(
+        await mark_closed(
             session,
             chat,
             now,
@@ -435,7 +437,7 @@ async def close_session(
     return chat
 
 
-def mark_closed(
+async def mark_closed(
     session: AsyncSession,
     chat: ChatSession,
     now: datetime,
@@ -448,6 +450,15 @@ def mark_closed(
     chat.status = SessionStatus.CLOSED
     chat.closed_at = now
     chat.close_reason = reason
+    # 会话结束时，待确认的转接一并撤销。
+    await session.execute(
+        update(SessionTransfer)
+        .where(
+            SessionTransfer.session_id == chat.id,
+            SessionTransfer.status == TransferStatus.PENDING,
+        )
+        .values(status=TransferStatus.CANCELLED, decided_at=now)
+    )
     record_event(
         session,
         chat,
@@ -594,7 +605,7 @@ async def _run_tenant_timers(
                     if t is not None
                 )
                 if last <= now - timedelta(minutes=policy.idle_close_minutes):
-                    mark_closed(
+                    await mark_closed(
                         session,
                         chat,
                         now,
@@ -633,7 +644,7 @@ async def _queue_timeout(session: AsyncSession, chat: ChatSession, now: datetime
             skill_group_id=chat.skill_group_id,
         )
     )
-    mark_closed(
+    await mark_closed(
         session,
         chat,
         now,
