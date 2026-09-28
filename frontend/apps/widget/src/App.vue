@@ -33,6 +33,12 @@ function roleOf(message: ChatMessage): SenderRole {
   return senderRole(message.sendID, session.value?.im.user_id ?? '')
 }
 
+/** 人工客服显示坐席姓名（发送时带的昵称），其他发送者显示固定称呼。 */
+function senderLabel(message: ChatMessage): string {
+  const role = roleOf(message)
+  return role === 'agent' && message.senderNickname ? message.senderNickname : SENDER_LABEL[role]
+}
+
 function receive(incoming: ChatMessage[]): void {
   messages.value = mergeMessages(messages.value, incoming)
   void nextTick(() => list.value?.scrollTo({ top: list.value.scrollHeight }))
@@ -96,7 +102,7 @@ onBeforeUnmount(() => void im.disconnect())
         :class="roleOf(m)"
         data-testid="message"
       >
-        <span v-if="roleOf(m) !== 'me'" class="sender">{{ SENDER_LABEL[roleOf(m)] }}</span>
+        <span v-if="roleOf(m) !== 'me'" class="sender">{{ senderLabel(m) }}</span>
         <span class="bubble">{{ m.text ?? '[暂不支持显示的消息]' }}</span>
       </li>
     </ol>

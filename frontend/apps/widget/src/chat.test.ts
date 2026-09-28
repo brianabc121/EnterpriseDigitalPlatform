@@ -10,6 +10,7 @@ function msg(clientMsgID: string, sendTime: number, text = clientMsgID): ChatMes
     clientMsgID,
     serverMsgID: `s-${clientMsgID}`,
     sendID: ME,
+    senderNickname: '',
     groupID: 'acme_r_1',
     seq: 0,
     sendTime,

@@ -13,6 +13,9 @@ importers:
       '@edp/api-client':
         specifier: workspace:*
         version: link:../../packages/api-client
+      '@edp/im-client':
+        specifier: workspace:*
+        version: link:../../packages/im-client
       '@element-plus/icons-vue':
         specifier: ^2.3.2
         version: 2.3.2(vue@3.5.43(typescript@5.9.3))

@@ -5,8 +5,11 @@ import { describe, expect, it } from 'vitest'
 import {
   createImClient,
   guardReadSeqCache,
+  SIGNAL_DESCRIPTION,
+  toSignal,
   type ConnectionState,
   type ImLogin,
+  type ImSignal,
   type SdkLike,
 } from './index'
 
@@ -179,6 +182,39 @@ describe('createImClient', () => {
 
     expect(client.state).toBe('idle')
     expect(received).toEqual([])
+  })
+})
+
+describe('signals', () => {
+  it('delivers platform signals from online-only custom messages', async () => {
+    const sdk = new FakeSdk()
+    const client = createImClient(sdk)
+    const signals: ImSignal[] = []
+    client.onSignal((s) => signals.push(s))
+    await client.connect(LOGIN)
+
+    const signal = (data: string, description = SIGNAL_DESCRIPTION): MessageItem =>
+      item({
+        sendID: 'acme_sys',
+        contentType: 110,
+        textElem: undefined,
+        customElem: { data, description, extension: '' },
+      })
+    sdk.emit(CbEvents.OnRecvOnlineOnlyMessages, [
+      signal('{"type":"session.assigned","session_id":"s1"}'),
+      signal('{"type":"x"}', 'other'),
+      signal('not json'),
+      signal('{"no_type":1}'),
+    ])
+    sdk.emit(CbEvents.OnRecvOnlineOnlyMessage, signal('{"type":"session.closed"}'))
+
+    expect(signals.map((s) => [s.sendID, s.type])).toEqual([
+      ['acme_sys', 'session.assigned'],
+      ['acme_sys', 'session.closed'],
+    ])
+    expect(signals[0]!.data.session_id).toBe('s1')
+    // 信令不会当作聊天消息送出。
+    expect(toSignal(item({}))).toBeNull()
   })
 })
 

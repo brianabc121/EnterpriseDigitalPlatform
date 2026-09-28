@@ -30,6 +30,7 @@ export interface ChatMessage {
   clientMsgID: string
   serverMsgID: string
   sendID: string
+  senderNickname: string
   groupID: string
   seq: number
   sendTime: number
@@ -38,6 +39,16 @@ export interface ChatMessage {
   text: string | null
   ex: string
 }
+
+/** 平台发给员工的在线信令（系统用户以在线自定义消息发送，description 为 edp.signal）。 */
+export interface ImSignal {
+  sendID: string
+  type: string
+  data: Record<string, unknown>
+}
+
+export const SIGNAL_DESCRIPTION = 'edp.signal'
+const CUSTOM = 110
 
 /** 本封装用到的 SDK 能力，测试时可以替换。 */
 export interface SdkLike {
@@ -66,6 +77,7 @@ export interface ImClient {
   /** 会话中最近的消息（按时间升序）。 */
   history(conversationID: string, count: number): Promise<ChatMessage[]>
   onMessage(listener: (message: ChatMessage) => void): () => void
+  onSignal(listener: (signal: ImSignal) => void): () => void
   onState(listener: (state: ConnectionState) => void): () => void
 }
 
@@ -84,6 +96,7 @@ export function toChatMessage(item: MessageItem): ChatMessage {
     clientMsgID: item.clientMsgID,
     serverMsgID: item.serverMsgID,
     sendID: item.sendID,
+    senderNickname: item.senderNickname ?? '',
     groupID: item.groupID,
     seq: item.seq,
     sendTime: item.sendTime,
@@ -120,6 +133,19 @@ export function guardReadSeqCache(sdk: object): boolean {
   return true
 }
 
+/** 解析平台信令；不是平台信令时返回 null。 */
+export function toSignal(item: MessageItem): ImSignal | null {
+  const elem = item.customElem
+  if (item.contentType !== CUSTOM || !elem || elem.description !== SIGNAL_DESCRIPTION) return null
+  try {
+    const data = JSON.parse(elem.data) as Record<string, unknown>
+    if (typeof data !== 'object' || data === null || typeof data.type !== 'string') return null
+    return { sendID: item.sendID, type: data.type, data }
+  } catch {
+    return null
+  }
+}
+
 function defaultSdk(): SdkLike {
   const sdk = getSDK()
   guardReadSeqCache(sdk)
@@ -145,7 +171,16 @@ function waitForSync(sdk: SdkLike): { promise: Promise<void>; cancel: () => void
 export function createImClient(sdk: SdkLike = defaultSdk()): ImClient {
   let state: ConnectionState = 'idle'
   const messageListeners = new Set<(message: ChatMessage) => void>()
+  const signalListeners = new Set<(signal: ImSignal) => void>()
   const stateListeners = new Set<(state: ConnectionState) => void>()
+
+  const emitSignals = (items: MessageItem[]): void => {
+    for (const item of items) {
+      const signal = toSignal(item)
+      if (!signal) continue
+      for (const listener of signalListeners) listener(signal)
+    }
+  }
 
   const setState = (next: ConnectionState): void => {
     if (next === state) return
@@ -170,6 +205,9 @@ export function createImClient(sdk: SdkLike = defaultSdk()): ImClient {
         }
       },
     ],
+    // 在线信令不落库、不占 seq，只在对方在线时通过这个事件送达。
+    [CbEvents.OnRecvOnlineOnlyMessages, ({ data }) => emitSignals(data as MessageItem[])],
+    [CbEvents.OnRecvOnlineOnlyMessage, ({ data }) => emitSignals([data as MessageItem])],
   ]
   const attach = (): void => handlers.forEach(([event, handler]) => sdk.on(event, handler))
   const detach = (): void => handlers.forEach(([event, handler]) => sdk.off(event, handler))
@@ -221,6 +259,11 @@ export function createImClient(sdk: SdkLike = defaultSdk()): ImClient {
     onMessage(listener) {
       messageListeners.add(listener)
       return () => messageListeners.delete(listener)
+    },
+
+    onSignal(listener) {
+      signalListeners.add(listener)
+      return () => signalListeners.delete(listener)
     },
 
     onState(listener) {

@@ -19,6 +19,7 @@ type LazyView = () => Promise<RouteComponent>
 const Placeholder: LazyView = () => import('./views/PlaceholderView.vue')
 const VIEWS: Record<string, LazyView> = {
   dashboard: () => import('./views/DashboardView.vue'),
+  workbench: () => import('./views/WorkbenchView.vue'),
   customers: () => import('./views/CustomersView.vue'),
   staff: () => import('./views/StaffView.vue'),
   settings: () => import('./views/SettingsView.vue'),

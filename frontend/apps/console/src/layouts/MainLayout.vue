@@ -14,6 +14,7 @@ import { useRoute, useRouter } from 'vue-router'
 
 import { visibleMenus, type MenuIcon } from '../menu'
 import { useAuthStore } from '../stores/auth'
+import { useWorkbenchStore } from '../stores/workbench'
 
 const auth = useAuthStore()
 const route = useRoute()
@@ -31,6 +32,8 @@ const icons: Record<MenuIcon, Component> = {
 const menus = computed(() => visibleMenus(auth.permissions))
 
 async function logout(): Promise<void> {
+  // 先离线：分配给自己但还没回复的会话立即退回队列，不必等心跳超时。
+  await useWorkbenchStore().stop()
   await auth.logout()
   await router.push({ name: 'login' })
 }
