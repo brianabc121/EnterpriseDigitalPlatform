@@ -12,6 +12,7 @@ from app.core.ratelimit import RateLimiter
 from app.db.session import Database
 from app.integrations.openim import OpenIMClient
 from app.modules.channels.router import router as channels_router
+from app.modules.conversation.hooks import router as openim_hooks_router
 from app.modules.conversation.provisioning import IMProvisioner
 from app.modules.customer.router import router as customer_router
 from app.modules.health.router import router as health_router
@@ -65,5 +66,6 @@ def create_app(settings: Settings | None = None, *, im: OpenIMClient | None = No
     app.include_router(customer_router)
     app.include_router(channels_router)
     app.include_router(visitor_router)
+    app.include_router(openim_hooks_router)
     app.include_router(platform_router)
     return app
