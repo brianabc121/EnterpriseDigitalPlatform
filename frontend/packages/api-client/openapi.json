@@ -391,6 +391,11 @@
             "title": "Sent At",
             "type": "string"
           },
+          "source": {
+            "description": "入库途径：webhook（发送后回调）、reconcile（对账补录）、api",
+            "title": "Source",
+            "type": "string"
+          },
           "text_plain": {
             "anyOf": [
               {
@@ -412,6 +417,7 @@
           "content",
           "text_plain",
           "im_seq",
+          "source",
           "sent_at"
         ],
         "title": "MessageOut",

@@ -495,6 +495,11 @@ export interface components {
              * Format: date-time
              */
             sent_at: string;
+            /**
+             * Source
+             * @description 入库途径：webhook（发送后回调）、reconcile（对账补录）、api
+             */
+            source: string;
             /** Text Plain */
             text_plain: string | null;
         };

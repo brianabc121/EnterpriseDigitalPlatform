@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class RoomOut(BaseModel):
@@ -30,6 +30,7 @@ class MessageOut(BaseModel):
     content: dict[str, Any]
     text_plain: str | None
     im_seq: int | None
+    source: str = Field(description="入库途径：webhook（发送后回调）、reconcile（对账补录）、api")
     sent_at: datetime
 
 
