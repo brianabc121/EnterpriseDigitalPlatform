@@ -42,6 +42,7 @@ class AfterSendGroupMsg(_Payload):
     content_type: int = Field(alias="contentType")
     content: str = ""
     send_time: int = Field(alias="sendTime")
+    ex: str = ""
 
 
 class _InitMember(_Payload):
@@ -127,6 +128,7 @@ async def _after_send_group_msg(ctx: AppContext, body: Any) -> None:
                 content_type=payload.content_type,
                 content=payload.content,
                 send_time_ms=payload.send_time,
+                ex=payload.ex,
             )
         ],
         source=MessageSource.WEBHOOK,

@@ -7,7 +7,13 @@ from app.core.deps import client_ip
 from app.core.errors import ERROR_RESPONSES
 from app.core.permissions import Permission
 from app.modules.customer import service
-from app.modules.customer.schemas import CustomerCreate, CustomerOut, CustomerPage
+from app.modules.customer.schemas import (
+    CustomerCreate,
+    CustomerDetail,
+    CustomerOut,
+    CustomerPage,
+    CustomerUpdate,
+)
 from app.modules.iam.deps import TenantDb, require_permission
 from app.modules.iam.principal import Principal
 
@@ -34,6 +40,21 @@ async def create_customer(
     return await service.create_customer(session, principal, payload, ip=client_ip(request))
 
 
-@router.get("/{customer_id}", response_model=CustomerOut)
-async def get_customer(customer_id: UUID, session: TenantDb, principal: CanRead) -> CustomerOut:
-    return await service.get_customer(session, principal, customer_id)
+@router.get("/{customer_id}", response_model=CustomerDetail)
+async def get_customer(customer_id: UUID, session: TenantDb, principal: CanRead) -> CustomerDetail:
+    """客户档案、备注、标签和各渠道身份（工作台客户面板使用）。"""
+    return await service.get_customer_detail(session, principal, customer_id)
+
+
+@router.patch("/{customer_id}", response_model=CustomerDetail)
+async def update_customer(
+    customer_id: UUID,
+    payload: CustomerUpdate,
+    request: Request,
+    session: TenantDb,
+    principal: CanRead,
+) -> CustomerDetail:
+    """修改客户名称、备注和标签（能看到这个客户的员工都可以修改）。"""
+    return await service.update_customer(
+        session, principal, customer_id, payload, ip=client_ip(request)
+    )

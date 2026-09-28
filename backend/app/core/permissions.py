@@ -18,6 +18,7 @@ class Permission(StrEnum):
     ROUTING_MANAGE = "routing:manage"  # 技能组、路由策略、坐席并发
     STAFF_READ = "staff:read"
     STAFF_MANAGE = "staff:manage"
+    QUICK_REPLY_MANAGE = "quick_reply:manage"  # 维护全员共享的快捷话术
     KB_READ = "kb:read"
     KB_MANAGE = "kb:manage"
     KB_PUBLISH = "kb:publish"
@@ -67,6 +68,7 @@ DEFAULT_ROLES: tuple[RoleSpec, ...] = (
                 Permission.SESSION_READ_TEAM,
                 Permission.SESSION_TRANSFER,
                 Permission.SESSION_TRANSFER_ANY,
+                Permission.QUICK_REPLY_MANAGE,
             }
         ),
     ),

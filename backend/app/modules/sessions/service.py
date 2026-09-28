@@ -151,7 +151,7 @@ async def list_sessions(
     return SessionPage(items=[SessionOut(**_session_out(*row)) for row in rows], total=total or 0)
 
 
-async def _visible_session(
+async def visible_session(
     session: AsyncSession, principal: Principal, session_id: UUID
 ) -> tuple[ChatSession, str, str | None, str]:
     row = (await session.execute(_sessions(principal).where(ChatSession.id == session_id))).first()
@@ -164,7 +164,7 @@ async def _visible_session(
 async def get_session(
     session: AsyncSession, principal: Principal, session_id: UUID
 ) -> SessionDetail:
-    row = await _visible_session(session, principal, session_id)
+    row = await visible_session(session, principal, session_id)
     events = (
         await session.scalars(
             select(SessionEvent)
@@ -192,7 +192,7 @@ async def close_session(
     ctx: AppContext, session: AsyncSession, principal: Principal, session_id: UUID
 ) -> SessionOut:
     """坐席结束自己接待的会话；有 session:transfer_any 的人可以结束可见范围内的任意会话。"""
-    chat, *_ = await _visible_session(session, principal, session_id)
+    chat, *_ = await visible_session(session, principal, session_id)
     if chat.assignee_id != principal.staff_id and not principal.has(
         Permission.SESSION_TRANSFER_ANY
     ):
@@ -207,7 +207,7 @@ async def close_session(
         actor_id=principal.staff_id,
     )
     session.expire_all()
-    return SessionOut(**_session_out(*await _visible_session(session, principal, session_id)))
+    return SessionOut(**_session_out(*await visible_session(session, principal, session_id)))
 
 
 # ---- 留言 ----

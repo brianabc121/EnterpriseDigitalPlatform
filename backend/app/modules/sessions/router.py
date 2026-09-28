@@ -8,10 +8,12 @@ from app.core.deps import get_context
 from app.core.errors import ERROR_RESPONSES
 from app.core.permissions import Permission
 from app.modules.conversation.models import SessionStatus, TicketStatus
+from app.modules.conversation.schemas import MessageOut
 from app.modules.iam.deps import TenantDb, require_permission
 from app.modules.iam.principal import Principal
-from app.modules.sessions import service
+from app.modules.sessions import messages, service
 from app.modules.sessions.schemas import (
+    SendMessageRequest,
     SessionDetail,
     SessionOut,
     SessionPage,
@@ -61,6 +63,18 @@ async def close_session(
 ) -> SessionOut:
     """结束会话（已结束时直接返回）。坐席被移出服务群，客户收到结束提示。"""
     return await service.close_session(ctx, session, principal, session_id)
+
+
+@router.post("/sessions/{session_id}/messages", response_model=MessageOut)
+async def send_message(
+    session_id: UUID,
+    payload: SendMessageRequest,
+    ctx: Context,
+    session: TenantDb,
+    principal: CanServe,
+) -> MessageOut:
+    """接待中的坐席回复客户。先写库再发往 IM；同一个 client_msg_id 重复提交是幂等的。"""
+    return await messages.send_message(ctx, session, principal, session_id, payload)
 
 
 @router.get("/tickets", response_model=TicketPage)

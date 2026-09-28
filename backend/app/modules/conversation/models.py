@@ -97,6 +97,15 @@ class Message(IdMixin, TimestampMixin, TenantMixin, Base):
     im_seq: Mapped[int | None] = mapped_column(BigInteger)
     source: Mapped[str] = mapped_column(String(16))
     sent_at: Mapped[datetime]
+    # 平台经 API 发出的消息：pending → sent / failed；回调和对账入库的消息为空。
+    send_status: Mapped[str | None] = mapped_column(String(16))
+    send_error: Mapped[str | None] = mapped_column(Text)
+
+
+class SendStatus(StrEnum):
+    PENDING = "pending"
+    SENT = "sent"
+    FAILED = "failed"
 
 
 class SessionStatus(StrEnum):

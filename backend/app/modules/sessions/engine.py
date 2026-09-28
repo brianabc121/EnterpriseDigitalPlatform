@@ -154,7 +154,7 @@ async def on_message_received(ctx: AppContext, event: Event) -> None:
                 )
         if chat is not None:
             message.session_id = chat.id
-            _touch(chat, message)
+            touch_session(chat, message)
         await session.commit()
     await _run_after_commit(ctx, event.tenant_id, todo)
 
@@ -167,7 +167,8 @@ async def open_session_of_room(session: AsyncSession, room_id: uuid.UUID) -> Cha
     )
 
 
-def _touch(chat: ChatSession, message: Message) -> None:
+def touch_session(chat: ChatSession, message: Message) -> None:
+    """按新消息更新会话的最近消息时间和首次响应时间。"""
     if message.sender_type == SenderType.CUSTOMER:
         chat.last_customer_message_at = _later(chat.last_customer_message_at, message.sent_at)
     elif message.sender_type == SenderType.AGENT:

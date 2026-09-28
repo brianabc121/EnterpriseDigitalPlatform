@@ -12,6 +12,7 @@ from app.modules.conversation.models import (
 )
 from app.modules.customer.models import Customer, CustomerIdentity
 from app.modules.iam.models import RefreshToken, Role, Staff, StaffRole
+from app.modules.quickreply.models import QuickReply
 from app.modules.routing.models import AgentState, RoutingPolicy, SkillGroup, SkillGroupMember
 from app.modules.tenancy.models import PlatformUser, Tenant
 
@@ -25,6 +26,7 @@ __all__ = [
     "ImOp",
     "Message",
     "PlatformUser",
+    "QuickReply",
     "RefreshToken",
     "Role",
     "Room",

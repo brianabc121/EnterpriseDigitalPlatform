@@ -215,14 +215,21 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get Customer */
+        /**
+         * Get Customer
+         * @description 客户档案、备注、标签和各渠道身份（工作台客户面板使用）。
+         */
         get: operations["get_customer_api_v1_customers__customer_id__get"];
         put?: never;
         post?: never;
         delete?: never;
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Update Customer
+         * @description 修改客户名称、备注和标签（能看到这个客户的员工都可以修改）。
+         */
+        patch: operations["update_customer_api_v1_customers__customer_id__patch"];
         trace?: never;
     };
     "/api/v1/me": {
@@ -240,6 +247,45 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/api/v1/quick-replies": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Replies
+         * @description 全员共享的话术和自己的话术。
+         */
+        get: operations["list_replies_api_v1_quick_replies_get"];
+        put?: never;
+        /** Create Reply */
+        post: operations["create_reply_api_v1_quick_replies_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/quick-replies/{reply_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Reply */
+        delete: operations["delete_reply_api_v1_quick_replies__reply_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update Reply */
+        patch: operations["update_reply_api_v1_quick_replies__reply_id__patch"];
         trace?: never;
     };
     "/api/v1/roles": {
@@ -383,6 +429,26 @@ export interface paths {
          * @description 结束会话（已结束时直接返回）。坐席被移出服务群，客户收到结束提示。
          */
         post: operations["close_session_api_v1_sessions__session_id__close_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sessions/{session_id}/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send Message
+         * @description 接待中的坐席回复客户。先写库再发往 IM；同一个 client_msg_id 重复提交是幂等的。
+         */
+        post: operations["send_message_api_v1_sessions__session_id__messages_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -742,6 +808,66 @@ export interface components {
              */
             owner_id?: string | null;
         };
+        /** CustomerDetail */
+        CustomerDetail: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Display Name */
+            display_name: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Identities */
+            identities: components["schemas"]["CustomerIdentityOut"][];
+            /** Notes */
+            notes: string | null;
+            /** Owner Display Name */
+            owner_display_name: string | null;
+            /** Owner Id */
+            owner_id: string | null;
+            /** Source Channel */
+            source_channel: string;
+            /** Tags */
+            tags: string[];
+        };
+        /** CustomerIdentityOut */
+        CustomerIdentityOut: {
+            /**
+             * Channel Account Id
+             * Format: uuid
+             */
+            channel_account_id: string;
+            /** Channel Name */
+            channel_name: string;
+            /** Channel Type */
+            channel_type: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Last Seen At */
+            last_seen_at: string | null;
+            /**
+             * Profile
+             * @description 渠道提供的资料，例如访客的来源页面和浏览器
+             */
+            profile: {
+                [key: string]: unknown;
+            };
+            /** Verified */
+            verified: boolean;
+        };
         /** CustomerOut */
         CustomerOut: {
             /**
@@ -762,6 +888,8 @@ export interface components {
             owner_id: string | null;
             /** Source Channel */
             source_channel: string;
+            /** Tags */
+            tags: string[];
         };
         /** CustomerPage */
         CustomerPage: {
@@ -769,6 +897,15 @@ export interface components {
             items: components["schemas"]["CustomerOut"][];
             /** Total */
             total: number;
+        };
+        /** CustomerUpdate */
+        CustomerUpdate: {
+            /** Display Name */
+            display_name?: string | null;
+            /** Notes */
+            notes?: string | null;
+            /** Tags */
+            tags?: string[] | null;
         };
         /** ErrorDetail */
         ErrorDetail: {
@@ -841,6 +978,13 @@ export interface components {
         };
         /** MessageOut */
         MessageOut: {
+            /**
+             * Channel Msg Id
+             * @description IM 消息 ID（OpenIM serverMsgID）
+             */
+            channel_msg_id: string | null;
+            /** Client Msg Id */
+            client_msg_id: string | null;
             /** Content */
             content: {
                 [key: string]: unknown;
@@ -856,8 +1000,18 @@ export interface components {
             id: string;
             /** Im Seq */
             im_seq: number | null;
+            /**
+             * Send Status
+             * @description 经 API 发出的消息：pending、sent、failed；其他消息为空
+             */
+            send_status?: string | null;
             /** Sender Id */
             sender_id: string | null;
+            /**
+             * Sender Name
+             * @description 坐席消息为坐席姓名
+             */
+            sender_name?: string | null;
             /** Sender Type */
             sender_type: string;
             /**
@@ -865,6 +1019,8 @@ export interface components {
              * Format: date-time
              */
             sent_at: string;
+            /** Session Id */
+            session_id: string | null;
             /**
              * Source
              * @description 入库途径：webhook（发送后回调）、reconcile（对账补录）、api
@@ -901,7 +1057,7 @@ export interface components {
          * Permission
          * @enum {string}
          */
-        Permission: "dashboard:view" | "workbench:use" | "customer:read" | "customer:read_all" | "customer:create" | "customer:assign" | "session:read_all" | "session:read_team" | "session:transfer" | "session:transfer_any" | "routing:manage" | "staff:read" | "staff:manage" | "kb:read" | "kb:manage" | "kb:publish" | "report:view" | "settings:manage";
+        Permission: "dashboard:view" | "workbench:use" | "customer:read" | "customer:read_all" | "customer:create" | "customer:assign" | "session:read_all" | "session:read_team" | "session:transfer" | "session:transfer_any" | "routing:manage" | "staff:read" | "staff:manage" | "quick_reply:manage" | "kb:read" | "kb:manage" | "kb:publish" | "report:view" | "settings:manage";
         /** PlatformLoginRequest */
         PlatformLoginRequest: {
             /** Password */
@@ -933,6 +1089,71 @@ export interface components {
              * @constant
              */
             token_type: "bearer";
+        };
+        /** QuickReplyCreate */
+        QuickReplyCreate: {
+            /**
+             * Category
+             * @default
+             */
+            category: string;
+            /** Content */
+            content: string;
+            /**
+             * Shared
+             * @description 全员共享需要 quick_reply:manage 权限
+             * @default false
+             */
+            shared: boolean;
+            /**
+             * Sort
+             * @default 0
+             */
+            sort: number;
+            /** Title */
+            title: string;
+        };
+        /** QuickReplyList */
+        QuickReplyList: {
+            /** Items */
+            items: components["schemas"]["QuickReplyOut"][];
+        };
+        /** QuickReplyOut */
+        QuickReplyOut: {
+            /** Category */
+            category: string;
+            /** Content */
+            content: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Shared
+             * @description 全员共享（true）或个人话术（false）
+             */
+            shared: boolean;
+            /** Sort */
+            sort: number;
+            /** Title */
+            title: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** QuickReplyUpdate */
+        QuickReplyUpdate: {
+            /** Category */
+            category?: string | null;
+            /** Content */
+            content?: string | null;
+            /** Sort */
+            sort?: number | null;
+            /** Title */
+            title?: string | null;
         };
         /** RoleList */
         RoleList: {
@@ -1130,6 +1351,16 @@ export interface components {
             name?: string | null;
             /** Owner First */
             owner_first?: boolean | null;
+        };
+        /** SendMessageRequest */
+        SendMessageRequest: {
+            /**
+             * Client Msg Id
+             * @description 客户端生成的唯一 ID，重试时保持不变（幂等键）
+             */
+            client_msg_id: string;
+            /** Text */
+            text: string;
         };
         /** SessionDetail */
         SessionDetail: {
@@ -2565,7 +2796,87 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["CustomerOut"];
+                    "application/json": components["schemas"]["CustomerDetail"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    update_customer_api_v1_customers__customer_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                customer_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CustomerUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomerDetail"];
                 };
             };
             /** @description Bad Request */
@@ -2640,6 +2951,312 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MeResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    list_replies_api_v1_quick_replies_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QuickReplyList"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    create_reply_api_v1_quick_replies_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["QuickReplyCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QuickReplyOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    delete_reply_api_v1_quick_replies__reply_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                reply_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    update_reply_api_v1_quick_replies__reply_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                reply_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["QuickReplyUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QuickReplyOut"];
                 };
             };
             /** @description Bad Request */
@@ -3412,6 +4029,86 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SessionOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    send_message_api_v1_sessions__session_id__messages_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SendMessageRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageOut"];
                 };
             };
             /** @description Bad Request */

@@ -17,6 +17,7 @@ from app.modules.customer.router import router as customer_router
 from app.modules.health.router import router as health_router
 from app.modules.iam.router import auth_router
 from app.modules.iam.router import router as iam_router
+from app.modules.quickreply.router import router as quick_reply_router
 from app.modules.routing.router import router as routing_router
 from app.modules.sessions.router import router as sessions_router
 from app.modules.tenancy.router import router as platform_router
@@ -61,6 +62,7 @@ def create_app(settings: Settings | None = None, *, im: OpenIMClient | None = No
     app.include_router(conversation_router)
     app.include_router(sessions_router)
     app.include_router(routing_router)
+    app.include_router(quick_reply_router)
     app.include_router(visitor_router)
     app.include_router(openim_hooks_router)
     app.include_router(platform_router)

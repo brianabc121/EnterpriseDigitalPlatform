@@ -6,9 +6,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.errors import Forbidden, NotFound, Unprocessable
 from app.core.permissions import Permission
 from app.modules.audit.service import record_audit
+from app.modules.channels.models import ChannelAccount
 from app.modules.conversation.models import ChatSession, SessionStatus
-from app.modules.customer.models import Customer
-from app.modules.customer.schemas import CustomerCreate, CustomerOut, CustomerPage
+from app.modules.customer.models import Customer, CustomerIdentity
+from app.modules.customer.schemas import (
+    CustomerCreate,
+    CustomerDetail,
+    CustomerIdentityOut,
+    CustomerOut,
+    CustomerPage,
+    CustomerUpdate,
+)
 from app.modules.iam.models import Staff, StaffStatus
 from app.modules.iam.principal import Principal
 from app.modules.routing.scope import team_members
@@ -64,6 +72,7 @@ def _to_out(customer: Customer, owner_name: str | None) -> CustomerOut:
         owner_id=customer.owner_id,
         owner_display_name=owner_name,
         source_channel=customer.source_channel,
+        tags=list(customer.tags or []),
         created_at=customer.created_at,
     )
 
@@ -86,6 +95,13 @@ async def list_customers(
 async def get_customer(
     session: AsyncSession, principal: Principal, customer_id: UUID
 ) -> CustomerOut:
+    customer, owner_name = await _visible_customer(session, principal, customer_id)
+    return _to_out(customer, owner_name)
+
+
+async def _visible_customer(
+    session: AsyncSession, principal: Principal, customer_id: UUID
+) -> tuple[Customer, str | None]:
     row = (
         await session.execute(
             _with_owner().where(Customer.id == customer_id, visible_to(principal))
@@ -95,7 +111,75 @@ async def get_customer(
     if row is None:
         raise NotFound("客户不存在")
     customer, owner_name = row
-    return _to_out(customer, owner_name)
+    return customer, owner_name
+
+
+async def get_customer_detail(
+    session: AsyncSession, principal: Principal, customer_id: UUID
+) -> CustomerDetail:
+    """客户面板：档案、备注、标签和各渠道身份。"""
+    customer, owner_name = await _visible_customer(session, principal, customer_id)
+    rows = await session.execute(
+        select(CustomerIdentity, ChannelAccount.type, ChannelAccount.name)
+        .join(
+            ChannelAccount,
+            and_(
+                ChannelAccount.tenant_id == CustomerIdentity.tenant_id,
+                ChannelAccount.id == CustomerIdentity.channel_account_id,
+            ),
+        )
+        .where(CustomerIdentity.customer_id == customer_id)
+        .order_by(CustomerIdentity.created_at)
+    )
+    return CustomerDetail(
+        **_to_out(customer, owner_name).model_dump(),
+        notes=customer.notes,
+        identities=[
+            CustomerIdentityOut(
+                id=identity.id,
+                channel_account_id=identity.channel_account_id,
+                channel_type=channel_type,
+                channel_name=channel_name,
+                verified=identity.verified,
+                profile=identity.profile,
+                last_seen_at=identity.last_seen_at,
+                created_at=identity.created_at,
+            )
+            for identity, channel_type, channel_name in rows
+        ],
+    )
+
+
+async def update_customer(
+    session: AsyncSession,
+    principal: Principal,
+    customer_id: UUID,
+    payload: CustomerUpdate,
+    *,
+    ip: str | None,
+) -> CustomerDetail:
+    """能看到客户的员工（归属坐席、正在接待的坐席、主管、管理员）可以修改名称、备注和标签。"""
+    customer, _ = await _visible_customer(session, principal, customer_id)
+    changes = payload.model_dump(exclude_unset=True)
+    if changes.get("display_name") is not None:
+        customer.display_name = changes["display_name"]
+    if "notes" in changes:
+        customer.notes = changes["notes"] or None
+    if changes.get("tags") is not None:
+        customer.tags = list(dict.fromkeys(changes["tags"]))
+    record_audit(
+        session,
+        action="customer.update",
+        actor_type="staff",
+        actor_id=principal.staff_id,
+        tenant_id=principal.tenant_id,
+        resource_type="customer",
+        resource_id=str(customer.id),
+        detail={"fields": sorted(changes)},
+        ip=ip,
+    )
+    await session.commit()
+    return await get_customer_detail(session, principal, customer_id)
 
 
 async def create_customer(

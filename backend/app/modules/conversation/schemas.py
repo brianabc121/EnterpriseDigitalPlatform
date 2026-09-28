@@ -23,14 +23,21 @@ class RoomPage(BaseModel):
 
 class MessageOut(BaseModel):
     id: UUID
+    session_id: UUID | None
     direction: str
     sender_type: str
     sender_id: UUID | None
+    sender_name: str | None = Field(default=None, description="坐席消息为坐席姓名")
     content_type: str
     content: dict[str, Any]
     text_plain: str | None
+    channel_msg_id: str | None = Field(description="IM 消息 ID（OpenIM serverMsgID）")
+    client_msg_id: str | None
     im_seq: int | None
     source: str = Field(description="入库途径：webhook（发送后回调）、reconcile（对账补录）、api")
+    send_status: str | None = Field(
+        default=None, description="经 API 发出的消息：pending、sent、failed；其他消息为空"
+    )
     sent_at: datetime
 
 

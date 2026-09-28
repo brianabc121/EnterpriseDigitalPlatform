@@ -6,10 +6,11 @@ from sqlalchemy import Select, and_, func, or_, select, tuple_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import NotFound
-from app.modules.conversation.models import Message, Room
+from app.modules.conversation.models import Message, Room, SenderType
 from app.modules.conversation.schemas import MessageOut, MessagePage, RoomOut, RoomPage
 from app.modules.customer.models import Customer
 from app.modules.customer.service import visible_to
+from app.modules.iam.models import Staff
 from app.modules.iam.principal import Principal
 
 ROOM_NOT_FOUND = "会话不存在"
@@ -89,6 +90,22 @@ async def list_messages(
     )
     messages = list(rows.all())
     return MessagePage(
-        items=[MessageOut.model_validate(m, from_attributes=True) for m in messages[:limit]],
-        has_more=len(messages) > limit,
+        items=await messages_out(session, messages[:limit]), has_more=len(messages) > limit
     )
+
+
+async def messages_out(session: AsyncSession, messages: list[Message]) -> list[MessageOut]:
+    """转换为接口格式，并补上坐席姓名。"""
+    staff_ids = {m.sender_id for m in messages if m.sender_type == SenderType.AGENT and m.sender_id}
+    names: dict[UUID, str] = {}
+    if staff_ids:
+        rows = await session.execute(
+            select(Staff.id, Staff.display_name).where(Staff.id.in_(staff_ids))
+        )
+        names = {staff_id: name for staff_id, name in rows}
+    return [
+        MessageOut.model_validate(m, from_attributes=True).model_copy(
+            update={"sender_name": names.get(m.sender_id) if m.sender_id else None}
+        )
+        for m in messages
+    ]

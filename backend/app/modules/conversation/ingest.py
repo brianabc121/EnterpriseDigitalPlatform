@@ -3,6 +3,8 @@
 - 只处理平台服务群（{t}_r_{roomId}）里的消息；群通知、平台自己的在线信令不入库。
 - 按 (渠道账号, serverMsgID) 幂等：回调重复或对账重复拉取都只会有一行。
 - 回调里拿不到 seq；对账拉到同一条消息时回填 im_seq。
+- 平台经 API 发出的消息先写库、再发往 IM，消息的 ex 带平台消息 ID（pmid）；回调或对账拿到
+  这条消息时关联到已有的行，不重复入库。
 - 新写入的消息提交后发布 message.received 事件（按 Room 分区），由实时消费进程归入会话。
   事件发布失败时，调度进程会把长时间没有归入会话的消息重新发布。
 """
@@ -14,7 +16,7 @@ from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import Boolean, func, literal_column, select, update
+from sqlalchemy import Boolean, func, literal_column, or_, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -28,6 +30,7 @@ from app.modules.conversation.models import (
     MessageSource,
     Room,
     SenderType,
+    SendStatus,
 )
 from app.modules.tenancy.models import Tenant
 
@@ -57,6 +60,7 @@ class IMGroupMessage:
     content: str
     send_time_ms: int
     seq: int | None = None
+    ex: str = ""
 
 
 @dataclass(frozen=True)
@@ -146,8 +150,13 @@ async def _ingest_one(
         result.skipped += 1
         return
 
-    content_type, content, text = _normalize(msg)
     sent_at = datetime.fromtimestamp(msg.send_time_ms / 1000, UTC)
+    pmid = platform_message_id(msg.ex) if sender.type != SenderType.CUSTOMER else None
+    if pmid is not None and await _link_platform_message(session, room, pmid, msg, sent_at):
+        result.duplicates += 1
+        return
+
+    content_type, content, text = _normalize(msg)
     values = insert(Message).values(
         tenant_id=room.tenant_id,
         room_id=room.id,
@@ -183,6 +192,41 @@ async def _ingest_one(
             last_message_at=func.greatest(func.coalesce(Room.last_message_at, sent_at), sent_at)
         )
     )
+
+
+def platform_message_id(ex: str) -> UUID | None:
+    """从消息的 ex 中取出平台消息 ID（pmid）。"""
+    if not ex:
+        return None
+    try:
+        data = json.loads(ex)
+        return UUID(str(data["pmid"])) if isinstance(data, dict) and "pmid" in data else None
+    except (ValueError, TypeError):
+        return None
+
+
+async def _link_platform_message(
+    session: AsyncSession, room: Room, pmid: UUID, msg: IMGroupMessage, sent_at: datetime
+) -> bool:
+    """平台先写库再发出的消息：补上 IM 的消息 ID、seq 和发送时间。已关联到别的 IM 消息时
+    （例如重试发送产生了第二条），返回 False，按新消息入库。"""
+    linked = await session.scalar(
+        update(Message)
+        .where(
+            Message.id == pmid,
+            Message.room_id == room.id,
+            or_(Message.channel_msg_id.is_(None), Message.channel_msg_id == msg.server_msg_id),
+        )
+        .values(
+            channel_msg_id=msg.server_msg_id,
+            im_seq=func.coalesce(Message.im_seq, msg.seq),
+            send_status=SendStatus.SENT,
+            send_error=None,
+            sent_at=sent_at,
+        )
+        .returning(Message.id)
+    )
+    return linked is not None
 
 
 def _classify_sender(tenant_code: str, room: Room, msg: IMGroupMessage) -> _Sender | None:

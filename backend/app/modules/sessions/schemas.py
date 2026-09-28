@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.modules.conversation.models import SessionStatus, TicketSource, TicketStatus
 
@@ -66,3 +66,10 @@ class TicketOut(BaseModel):
 class TicketPage(BaseModel):
     items: list[TicketOut]
     total: int
+
+
+class SendMessageRequest(BaseModel):
+    client_msg_id: str = Field(
+        min_length=8, max_length=64, description="客户端生成的唯一 ID，重试时保持不变（幂等键）"
+    )
+    text: str = Field(min_length=1, max_length=4000)

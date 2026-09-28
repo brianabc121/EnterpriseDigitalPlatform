@@ -131,6 +131,7 @@ async def _sync_room(
                 content=m.content,
                 send_time_ms=m.send_time,
                 seq=m.seq,
+                ex=m.ex,
             )
             for m in pulled.messages
             if not m.is_notification and not m.is_deleted

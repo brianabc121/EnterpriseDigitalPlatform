@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import ForeignKeyConstraint, String, UniqueConstraint
+from sqlalchemy import ForeignKeyConstraint, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base, IdMixin, TenantMixin, TimestampMixin
@@ -23,6 +23,8 @@ class Customer(IdMixin, TimestampMixin, TenantMixin, Base):
     display_name: Mapped[str] = mapped_column(String(128))
     owner_id: Mapped[uuid.UUID | None]
     source_channel: Mapped[str] = mapped_column(String(32), server_default="manual")
+    notes: Mapped[str | None] = mapped_column(Text)
+    tags: Mapped[list[str]] = mapped_column(server_default="{}")
 
 
 class CustomerIdentity(IdMixin, TimestampMixin, TenantMixin, Base):
