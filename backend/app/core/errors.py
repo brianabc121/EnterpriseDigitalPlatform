@@ -4,6 +4,7 @@ from fastapi import FastAPI, Request
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 
@@ -41,6 +42,22 @@ class Conflict(AppError):
 class Unprocessable(AppError):
     status_code = 422
     code = "unprocessable"
+
+
+class ErrorDetail(BaseModel):
+    code: str
+    message: str
+    details: list[dict[str, Any]] | None = None
+
+
+class ErrorResponse(BaseModel):
+    error: ErrorDetail
+
+
+# 各路由声明的错误响应，使 OpenAPI（以及生成的前端类型）包含统一的错误结构。
+ERROR_RESPONSES: dict[int | str, dict[str, Any]] = {
+    status: {"model": ErrorResponse} for status in (400, 401, 403, 404, 409, 422)
+}
 
 
 def error_body(code: str, message: str, **extra: Any) -> dict[str, Any]:

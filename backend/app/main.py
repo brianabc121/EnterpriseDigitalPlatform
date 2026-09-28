@@ -8,7 +8,11 @@ import app.db.models  # noqa: F401  注册全部模型，保证 ORM 能解析跨
 from app.core.config import Settings, get_settings
 from app.core.errors import install_error_handlers
 from app.db.session import Database
+from app.modules.customer.router import router as customer_router
 from app.modules.health.router import router as health_router
+from app.modules.iam.router import auth_router
+from app.modules.iam.router import router as iam_router
+from app.modules.tenancy.router import router as platform_router
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -35,4 +39,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     )
 
     app.include_router(health_router)
+    app.include_router(auth_router)
+    app.include_router(iam_router)
+    app.include_router(customer_router)
+    app.include_router(platform_router)
     return app

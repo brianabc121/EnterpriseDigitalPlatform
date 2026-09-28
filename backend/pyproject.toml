@@ -52,5 +52,5 @@ plugins = ["pydantic.mypy"]
 exclude = ["alembic/"]
 
 [[tool.mypy.overrides]]
-module = ["uuid_utils.*"]
+module = ["uuid_utils.*", "asyncpg.*"]
 ignore_missing_imports = true
