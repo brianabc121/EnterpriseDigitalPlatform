@@ -1,0 +1,33 @@
+from app.integrations.openim.client import (
+    GROUP_SESSION_TYPE,
+    WEB_PLATFORM_ID,
+    ContentType,
+    ErrCode,
+    IMMessage,
+    IMUser,
+    OpenIMClient,
+    OpenIMError,
+    OpenIMUnavailable,
+    PulledConversation,
+    SentMessage,
+    SeqRange,
+    UserToken,
+    group_conversation_id,
+)
+
+__all__ = [
+    "GROUP_SESSION_TYPE",
+    "WEB_PLATFORM_ID",
+    "ContentType",
+    "ErrCode",
+    "IMMessage",
+    "IMUser",
+    "OpenIMClient",
+    "OpenIMError",
+    "OpenIMUnavailable",
+    "PulledConversation",
+    "SentMessage",
+    "SeqRange",
+    "UserToken",
+    "group_conversation_id",
+]
