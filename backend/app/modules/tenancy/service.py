@@ -14,6 +14,7 @@ from app.db.errors import violated_unique_constraint
 from app.modules.audit.service import record_audit
 from app.modules.channels.service import default_web_channel
 from app.modules.iam.models import Role, Staff, StaffRole
+from app.modules.routing.models import RoutingPolicy
 from app.modules.tenancy.models import PlatformUser, PlatformUserStatus, Tenant
 from app.modules.tenancy.schemas import TenantCreate, TenantUpdate
 
@@ -50,7 +51,7 @@ async def create_platform_user(
 async def provision_tenant(
     session: AsyncSession, payload: TenantCreate, *, actor_id: UUID | None, ip: str | None
 ) -> Tenant:
-    """在一个事务里创建租户、系统角色、默认 Web 渠道和首个租户管理员。
+    """在一个事务里创建租户、系统角色、默认 Web 渠道、默认路由策略和首个租户管理员。
 
     模型之间没有声明 relationship，ORM 不会按外键排序 INSERT，所以按依赖顺序逐步 flush。
     """
@@ -80,6 +81,7 @@ async def provision_tenant(
     }
     session.add_all(roles.values())
     session.add(default_web_channel(tenant.id, tenant.code))
+    session.add(RoutingPolicy(id=new_id(), tenant_id=tenant.id, name="默认策略", is_default=True))
     admin = Staff(
         id=new_id(),
         tenant_id=tenant.id,

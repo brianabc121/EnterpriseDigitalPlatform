@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import Settings
 from app.core.errors import Conflict, Forbidden, Unauthorized, Unprocessable
 from app.core.ids import new_id
+from app.core.permissions import DEFAULT_ROLES
 from app.core.security import (
     AccessClaims,
     RefreshClaims,
@@ -25,6 +26,16 @@ from app.modules.iam.models import RefreshToken, Role, Staff, StaffRole, StaffSt
 from app.modules.iam.principal import Principal
 from app.modules.iam.schemas import StaffCreate, StaffOut
 from app.modules.tenancy.models import Tenant, TenantStatus
+
+_SYSTEM_ROLES = {spec.code: spec for spec in DEFAULT_ROLES}
+
+
+def role_permissions(role: Role) -> frozenset[str]:
+    """角色的有效权限：系统角色以代码中的定义为准（新增权限点后现有租户自动生效），
+    自定义角色以数据库中保存的为准。"""
+    spec = _SYSTEM_ROLES.get(role.code) if role.is_system else None
+    return frozenset(spec.permissions) if spec else frozenset(role.permissions)
+
 
 INVALID_CREDENTIALS = "企业代码、用户名或密码错误"
 SESSION_EXPIRED = "登录已过期，请重新登录"
@@ -171,7 +182,7 @@ async def load_principal(session: AsyncSession, claims: AccessClaims) -> Princip
         username=staff.username,
         display_name=staff.display_name,
         role_codes=tuple(role.code for role in roles),
-        permissions=frozenset(p for role in roles for p in role.permissions),
+        permissions=frozenset(p for role in roles for p in role_permissions(role)),
     )
 
 
@@ -209,7 +220,7 @@ async def create_staff(
     if missing:
         raise Unprocessable(f"角色不存在：{'、'.join(sorted(missing))}")
     # 不能把超出自己权限的角色分配给别人（防止越权提权）。
-    if any(not set(role.permissions) <= principal.permissions for role in roles):
+    if any(not role_permissions(role) <= principal.permissions for role in roles):
         raise Forbidden("不能分配超出自身权限的角色")
     if await session.scalar(select(Staff.id).where(Staff.username == payload.username)):
         raise Conflict("用户名已存在")

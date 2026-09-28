@@ -1,5 +1,6 @@
 import uuid
 
+import asyncpg
 import httpx
 from fastapi import FastAPI
 
@@ -7,6 +8,7 @@ from app.core.permissions import DEFAULT_ROLES, Permission
 from app.db.session import Database
 from app.modules.iam.models import Role, StaffRole
 from tests.factories import STAFF_PASSWORD, bearer, create_staff, login, provision
+from tests.support import DatabaseUrls
 
 STAFF = "/api/v1/staff"
 AGENT_PERMISSIONS = next(r.permissions for r in DEFAULT_ROLES if r.code == "agent")
@@ -104,3 +106,27 @@ async def test_cannot_grant_a_role_with_more_permissions_than_you_have(
     response = await client.post(STAFF, headers=bearer(hr), json=_payload("boss", ["tenant_admin"]))
 
     assert response.status_code == 403
+
+
+async def test_system_role_permissions_come_from_code(
+    app: FastAPI, client: httpx.AsyncClient, database_urls: DatabaseUrls
+) -> None:
+    # 迁移为已有租户补建的主管角色在数据库里没有保存权限点：系统角色的权限以代码为准。
+    await provision(app, "acme")
+    conn = await asyncpg.connect(database_urls.platform_dsn)
+    try:
+        await conn.execute("UPDATE roles SET permissions = '{}' WHERE code = 'supervisor'")
+    finally:
+        await conn.close()
+    admin = await login(client, "acme")
+    await create_staff(client, admin, "lead", roles=["supervisor"])
+    lead = await login(client, "acme", "lead", STAFF_PASSWORD)
+
+    me = (await client.get("/api/v1/me", headers=bearer(lead))).json()
+    roles = (await client.get("/api/v1/roles", headers=bearer(admin))).json()["items"]
+
+    supervisor = next(r for r in DEFAULT_ROLES if r.code == "supervisor")
+    assert set(me["permissions"]) == set(supervisor.permissions)
+    assert Permission.SESSION_READ_TEAM in me["permissions"]
+    listed = next(r for r in roles if r["code"] == "supervisor")
+    assert set(listed["permissions"]) == set(supervisor.permissions)

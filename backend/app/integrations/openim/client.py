@@ -18,6 +18,8 @@ from typing import Any
 import httpx
 
 WEB_PLATFORM_ID = 5
+# 单聊会话，平台只用来给员工发在线信令。
+SINGLE_SESSION_TYPE = 1
 # 工作群会话（OpenIM 的 ReadGroupChatType），服务群都是这种类型。
 GROUP_SESSION_TYPE = 3
 _WORKING_GROUP = 2
@@ -225,7 +227,71 @@ class OpenIMClient:
             raise
         return True
 
+    async def group_member_ids(self, group_id: str, user_ids: Sequence[str]) -> set[str]:
+        """user_ids 中已经是群成员的用户。"""
+        data = await self._admin_call(
+            "/group/get_group_members_info", {"groupID": group_id, "userIDs": list(user_ids)}
+        )
+        return {m["userID"] for m in data.get("members") or []}
+
+    async def add_group_members(self, group_id: str, user_ids: Sequence[str]) -> None:
+        """把用户拉进群。实测：邀请已是成员的用户会返回 500，所以只邀请还不在群里的用户。"""
+        present = await self.group_member_ids(group_id, user_ids)
+        missing = [u for u in user_ids if u not in present]
+        if missing:
+            await self._admin_call(
+                "/group/invite_user_to_group",
+                {"groupID": group_id, "invitedUserIDs": missing, "reason": ""},
+            )
+
+    async def remove_group_members(self, group_id: str, user_ids: Sequence[str]) -> None:
+        """把用户移出群。
+
+        实测：被移出的用户从未同步过这个会话时，OpenIM 已经移除成员，却返回
+        1001 "maxSeq is invalid"。所以出错时以成员列表为准。
+        """
+        present = await self.group_member_ids(group_id, user_ids)
+        if not present:
+            return
+        try:
+            await self._admin_call(
+                "/group/kick_group",
+                {"groupID": group_id, "kickedUserIDs": sorted(present), "reason": ""},
+            )
+        except OpenIMError as exc:
+            if exc.code != ErrCode.ARGS or await self.group_member_ids(group_id, sorted(present)):
+                raise
+
+    # ---- 好友 ----
+
+    async def import_friends(self, owner_user_id: str, friend_user_ids: Sequence[str]) -> None:
+        """直接建立好友关系（幂等）。单聊开启了好友校验，信令发送方必须是员工的好友。"""
+        await self._admin_call(
+            "/friend/import_friend",
+            {"ownerUserID": owner_user_id, "friendUserIDs": list(friend_user_ids)},
+        )
+
     # ---- 消息 ----
+
+    async def send_online_only(
+        self, *, send_id: str, recv_id: str, content: dict[str, Any]
+    ) -> SentMessage:
+        """单聊在线消息（不落库、不占 seq）。接收方离线时直接丢弃，用于实时信令。"""
+        body = {
+            "sendID": send_id,
+            "recvID": recv_id,
+            "senderPlatformID": WEB_PLATFORM_ID,
+            "content": content,
+            "contentType": ContentType.CUSTOM,
+            "sessionType": SINGLE_SESSION_TYPE,
+            "isOnlineOnly": True,
+        }
+        data = await self._admin_call("/msg/send_msg", body)
+        return SentMessage(
+            server_msg_id=data["serverMsgID"],
+            client_msg_id=data["clientMsgID"],
+            send_time=int(data["sendTime"]),
+        )
 
     async def send_group_message(
         self,

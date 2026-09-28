@@ -176,6 +176,41 @@ async def test_non_members_see_max_seq_but_pull_nothing(backend: Backend) -> Non
     assert pulled.messages == []
 
 
+async def test_group_membership_changes(backend: Backend) -> None:
+    group_id = await _room(backend)
+    staff = backend.uid("s_" + "1" * 32)
+    await backend.client.ensure_users([IMUser(staff, "坐席")])
+
+    await backend.client.add_group_members(group_id, [staff])
+    # 已在群里时再次邀请不应出错（直接邀请会得到 500）。
+    await backend.client.add_group_members(group_id, [staff, backend.uid("c")])
+    assert await backend.client.group_member_ids(group_id, [staff]) == {staff}
+
+    # 员工从未同步过这个会话：真实 OpenIM 会返回 1001，但成员已被移除。
+    await backend.client.remove_group_members(group_id, [staff])
+    assert await backend.client.group_member_ids(group_id, [staff]) == set()
+    await backend.client.remove_group_members(group_id, [staff])
+
+
+async def test_online_signals_need_friendship(backend: Backend) -> None:
+    staff = backend.uid("s_" + "2" * 32)
+    await backend.client.ensure_users([IMUser(backend.uid("sys"), "系统"), IMUser(staff, "坐席")])
+    signal = {"data": "{}", "description": "edp.signal", "extension": ""}
+
+    with pytest.raises(OpenIMError) as excinfo:
+        await backend.client.send_online_only(
+            send_id=backend.uid("sys"), recv_id=staff, content=signal
+        )
+    assert excinfo.value.code == 1303
+
+    await backend.client.import_friends(backend.uid("sys"), [staff])
+    await backend.client.import_friends(backend.uid("sys"), [staff])
+    sent = await backend.client.send_online_only(
+        send_id=backend.uid("sys"), recv_id=staff, content=signal
+    )
+    assert sent.server_msg_id
+
+
 async def test_errors_carry_openim_codes(backend: Backend) -> None:
     with pytest.raises(OpenIMError) as excinfo:
         await backend.client.get_user_token(backend.uid("nobody"))

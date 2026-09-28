@@ -1,7 +1,8 @@
+import uuid
 from enum import StrEnum
 from typing import Any
 
-from sqlalchemy import String, UniqueConstraint
+from sqlalchemy import ForeignKeyConstraint, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base, IdMixin, TenantMixin, TimestampMixin
@@ -20,7 +21,13 @@ class ChannelAccount(IdMixin, TimestampMixin, TenantMixin, Base):
     """渠道账号：一个接入点（某个官网 Widget、某个微信客服账号……）。"""
 
     __tablename__ = "channel_accounts"
-    __table_args__ = (UniqueConstraint("tenant_id", "id"),)
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "id"),
+        ForeignKeyConstraint(
+            ["tenant_id", "routing_policy_id"],
+            ["routing_policies.tenant_id", "routing_policies.id"],
+        ),
+    )
 
     type: Mapped[str] = mapped_column(String(16))
     name: Mapped[str] = mapped_column(String(64))
@@ -28,3 +35,5 @@ class ChannelAccount(IdMixin, TimestampMixin, TenantMixin, Base):
     public_key: Mapped[str] = mapped_column(String(80), unique=True)
     status: Mapped[str] = mapped_column(String(16), server_default=ChannelStatus.ACTIVE.value)
     config: Mapped[dict[str, Any]] = mapped_column(server_default="{}")
+    # 为空时使用租户的默认路由策略。
+    routing_policy_id: Mapped[uuid.UUID | None]

@@ -150,7 +150,18 @@ async def list_roles(
     _: Annotated[Principal, Depends(require_permission(Permission.STAFF_READ))],
 ) -> RoleList:
     roles = await service.list_roles(session)
-    return RoleList(items=[RoleOut.model_validate(role) for role in roles])
+    return RoleList(
+        items=[
+            RoleOut(
+                id=role.id,
+                code=role.code,
+                name=role.name,
+                permissions=sorted(service.role_permissions(role)),
+                is_system=role.is_system,
+            )
+            for role in roles
+        ]
+    )
 
 
 @router.get("/staff", response_model=StaffList)

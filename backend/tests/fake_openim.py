@@ -4,6 +4,8 @@
 - 建群会产生一条群通知并占用 seq；在线信令不占 seq；回调里的 seq 为 0。
 - 发送消息后把 afterSendGroupMsg 回调放进 callbacks，测试决定是否投递给平台
   （不投递就相当于回调丢失）。
+- 单聊只用于在线信令：发送方必须是接收方的好友（管理员除外），信令记录在 signals 里。
+- 踢人时与实测一致：成员被移除，但返回 1001 "maxSeq is invalid"（kick_quirk 可关闭）。
 - tests/test_openim_contract.py 用同一组断言分别验证它和真实 OpenIM，保证两者一致。
 """
 
@@ -22,6 +24,8 @@ import httpx
 ADMIN_USER_ID = "imAdmin"
 SECRET = "fake-openim-secret"
 GROUP_CREATED_NOTIFICATION = 1501
+MEMBER_KICKED_NOTIFICATION = 1508
+MEMBER_INVITED_NOTIFICATION = 1509
 # 实测：用户 ID 只能包含字母、数字和下划线。
 _USER_ID = re.compile(r"[A-Za-z0-9_]+")
 
@@ -58,6 +62,9 @@ class FakeOpenIM:
         self.groups: dict[str, _Group] = {}
         self.tokens: dict[str, str] = {}
         self.callbacks: list[dict[str, Any]] = []
+        self.friends: set[frozenset[str]] = set()
+        self.signals: list[dict[str, Any]] = []
+        self.kick_quirk = True
         self.down = False
         self.calls: list[str] = []
         self._counter = itertools.count(1)
@@ -72,6 +79,10 @@ class FakeOpenIM:
 
     def seqs(self, group_id: str) -> list[int]:
         return [m.seq for m in self.groups[group_id].messages]
+
+    def signals_to(self, user_id: str) -> list[dict[str, Any]]:
+        """发给某个用户的在线信令（解析后的 data）。"""
+        return [json.loads(s["content"]["data"]) for s in self.signals if s["recv_id"] == user_id]
 
     def send_as(self, send_id: str, group_id: str, text: str, *, msg_from: int = 100) -> _Message:
         """模拟某个用户通过 SDK 发群消息（msgFrom=100）。"""
@@ -102,6 +113,10 @@ class FakeOpenIM:
             "/user/user_register": self._user_register,
             "/auth/get_user_token": self._get_user_token,
             "/group/create_group": self._create_group,
+            "/group/get_group_members_info": self._members_info,
+            "/group/invite_user_to_group": self._invite,
+            "/group/kick_group": self._kick,
+            "/friend/import_friend": self._import_friend,
             "/msg/send_msg": self._send_msg,
             "/msg/get_conversations_has_read_and_max_seq": self._max_seq,
             "/msg/pull_msg_by_seq": self._pull,
@@ -167,7 +182,51 @@ class FakeOpenIM:
         )
         return _ok({"groupInfo": {"groupID": group_id, "ownerUserID": owner}})
 
-    def _send_msg(self, body: dict[str, Any], _: str) -> httpx.Response:
+    def _members_info(self, body: dict[str, Any], _: str) -> httpx.Response:
+        group = self.groups.get(body["groupID"])
+        if group is None:
+            return _error(1201, "GroupIDNotFoundError")
+        members = [{"userID": u, "roleLevel": 20} for u in body["userIDs"] if u in group.members]
+        return _ok({"members": members or None})
+
+    def _invite(self, body: dict[str, Any], _: str) -> httpx.Response:
+        group = self.groups.get(body["groupID"])
+        if group is None:
+            return _error(1201, "GroupIDNotFoundError")
+        invited = body["invitedUserIDs"]
+        if any(u not in self.users for u in invited):
+            return _error(1101, "UserIDNotFoundError")
+        if any(u in group.members for u in invited):
+            # 实测：邀请已是成员的用户返回 500。
+            return _error(500, "mongo insert many", "mongo insert many")
+        group.members.update(invited)
+        self._notify(group.group_id, MEMBER_INVITED_NOTIFICATION)
+        return _ok(None)
+
+    def _kick(self, body: dict[str, Any], _: str) -> httpx.Response:
+        group = self.groups.get(body["groupID"])
+        if group is None:
+            return _error(1201, "GroupIDNotFoundError")
+        kicked = body["kickedUserIDs"]
+        if any(u not in group.members for u in kicked):
+            return _error(1101, "UserIDNotFoundError", kicked[0])
+        group.members.difference_update(kicked)
+        self._notify(group.group_id, MEMBER_KICKED_NOTIFICATION)
+        if self.kick_quirk:
+            return _error(1001, "ArgsError", "maxSeq is invalid")
+        return _ok(None)
+
+    def _import_friend(self, body: dict[str, Any], _: str) -> httpx.Response:
+        owner = body["ownerUserID"]
+        if any(u not in self.users for u in [owner, *body["friendUserIDs"]]):
+            return _error(1101, "UserIDNotFoundError")
+        for friend in body["friendUserIDs"]:
+            self.friends.add(frozenset((owner, friend)))
+        return _ok(None)
+
+    def _send_msg(self, body: dict[str, Any], caller: str) -> httpx.Response:
+        if body["sessionType"] == 1:
+            return self._send_single(body)
         group = self.groups.get(body["groupID"])
         if group is None:
             return _error(1201, "GroupIDNotFoundError")
@@ -189,6 +248,18 @@ class FakeOpenIM:
                 "clientMsgID": msg.client_msg_id,
                 "sendTime": msg.send_time,
             }
+        )
+
+    def _send_single(self, body: dict[str, Any]) -> httpx.Response:
+        send_id, recv_id = body["sendID"], body["recvID"]
+        if send_id != ADMIN_USER_ID and frozenset((send_id, recv_id)) not in self.friends:
+            return _error(1303, "NotPeersFriend", "NotPeersFriend")
+        if not body.get("isOnlineOnly"):
+            raise NotImplementedError("平台只用单聊发在线信令")
+        self.signals.append({"send_id": send_id, "recv_id": recv_id, "content": body["content"]})
+        now = int(time.time() * 1000) + next(self._counter)
+        return _ok(
+            {"serverMsgID": uuid.uuid4().hex, "clientMsgID": uuid.uuid4().hex, "sendTime": now}
         )
 
     def _max_seq(self, body: dict[str, Any], _: str) -> httpx.Response:
@@ -218,6 +289,18 @@ class FakeOpenIM:
         return _ok({"msgs": result, "notificationMsgs": None})
 
     # ---- 存储 ----
+
+    def _notify(self, group_id: str, content_type: int) -> None:
+        self._store(
+            send_id=ADMIN_USER_ID,
+            group_id=group_id,
+            content_type=content_type,
+            content=json.dumps({"detail": "{}"}),
+            ex="",
+            msg_from=200,
+            nickname="",
+            callback=False,
+        )
 
     def _store(
         self,

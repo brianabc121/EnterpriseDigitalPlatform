@@ -63,6 +63,7 @@ async def test_provisioned_tenant_admin_can_log_in_and_sees_system_roles(
     assert {r["code"] for r in roles.json()["items"]} == {
         "tenant_admin",
         "agent",
+        "supervisor",
         "knowledge_manager",
     }
 

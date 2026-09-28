@@ -517,7 +517,7 @@ export interface components {
          * Permission
          * @enum {string}
          */
-        Permission: "dashboard:view" | "workbench:use" | "customer:read" | "customer:read_all" | "customer:create" | "customer:assign" | "staff:read" | "staff:manage" | "kb:read" | "kb:manage" | "kb:publish" | "report:view" | "settings:manage";
+        Permission: "dashboard:view" | "workbench:use" | "customer:read" | "customer:read_all" | "customer:create" | "customer:assign" | "session:read_all" | "session:read_team" | "session:transfer" | "session:transfer_any" | "routing:manage" | "staff:read" | "staff:manage" | "kb:read" | "kb:manage" | "kb:publish" | "report:view" | "settings:manage";
         /** PlatformLoginRequest */
         PlatformLoginRequest: {
             /** Password */
