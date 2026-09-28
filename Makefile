@@ -23,7 +23,7 @@ migrate:
 	cd backend && uv run alembic upgrade head
 
 backend-dev:
-	cd backend && uv run uvicorn app.main:app --reload --port 8000
+	cd backend && uv run uvicorn app.main:create_app --factory --reload --port 8000
 
 backend-test:
 	cd backend && uv run pytest
