@@ -7,6 +7,7 @@ import httpx
 from fastapi import FastAPI
 
 from app.core.config import Settings
+from app.modules.conversation.reconcile import reconcile_all
 from tests.factories import provision
 from tests.fake_openim import FakeOpenIM
 from tests.support import DatabaseUrls
@@ -202,3 +203,29 @@ async def test_other_callbacks_are_acknowledged(
         "errDlt": "",
         "nextCode": 0,
     }
+
+
+async def test_hyphenated_tenant_codes_work_end_to_end(
+    app: FastAPI,
+    client: httpx.AsyncClient,
+    fake_im: FakeOpenIM,
+    settings: Settings,
+    database_urls: DatabaseUrls,
+) -> None:
+    # OpenIM 的 ID 不接受 "-"：租户代码里的 "-" 在 IM ID 中写作 "X"。
+    visitor = await new_visitor(app, client, "acme-co")
+    im = visitor["im"]
+    assert im["user_id"].startswith("acmeXco_c_")
+    assert fake_im.groups[im["group_id"]].owner == "acmeXco_sys"
+
+    fake_im.send_as(im["user_id"], im["group_id"], "来自带连字符的租户")
+    await deliver(client, settings, fake_im.callbacks)
+    fake_im.send_as(im["user_id"], im["group_id"], "回调丢失")
+    report = await reconcile_all(app.state.db, app.state.im)
+
+    stored = await rows(database_urls, "SELECT text_plain, source FROM messages ORDER BY im_seq")
+    assert [tuple(r) for r in stored] == [
+        ("来自带连字符的租户", "webhook"),
+        ("回调丢失", "reconcile"),
+    ]
+    assert report.errors == 0

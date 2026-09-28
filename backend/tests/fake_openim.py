@@ -10,6 +10,7 @@
 import base64
 import itertools
 import json
+import re
 import secrets
 import time
 import uuid
@@ -21,6 +22,8 @@ import httpx
 ADMIN_USER_ID = "imAdmin"
 SECRET = "fake-openim-secret"
 GROUP_CREATED_NOTIFICATION = 1501
+# 实测：用户 ID 只能包含字母、数字和下划线。
+_USER_ID = re.compile(r"[A-Za-z0-9_]+")
 
 
 @dataclass
@@ -125,6 +128,8 @@ class FakeOpenIM:
 
     def _user_register(self, body: dict[str, Any], _: str) -> httpx.Response:
         users = body["users"]
+        if any(not _USER_ID.fullmatch(u["userID"]) for u in users):
+            return _error(1001, "ArgsError")
         if any(u["userID"] in self.users for u in users):
             return _error(1102, "RegisteredAlreadyError", "userID registered already")
         for u in users:

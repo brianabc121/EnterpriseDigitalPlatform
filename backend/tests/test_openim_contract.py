@@ -38,6 +38,11 @@ class Backend:
     def uid(self, name: str) -> str:
         return f"{self.prefix}_{name}"
 
+    @property
+    def room(self) -> str:
+        # 符合平台服务群约定（{t}_r_{32 位十六进制}），开发环境的建群回调才会放行。
+        return f"{self.prefix}_r_{'0' * 32}"
+
 
 @pytest.fixture(
     params=[
@@ -65,7 +70,7 @@ async def _room(b: Backend) -> str:
     await b.client.ensure_users(
         [IMUser(b.uid("sys"), "系统"), IMUser(b.uid("bot"), "AI"), IMUser(b.uid("c"), "访客")]
     )
-    group_id = b.uid("r")
+    group_id = b.room
     await b.client.ensure_group(
         group_id=group_id,
         name="服务群",
@@ -89,10 +94,18 @@ async def test_ensure_users_is_idempotent_and_tolerates_partial_batches(backend:
     assert token.expires_in > 0
 
 
+async def test_user_ids_only_accept_letters_digits_and_underscores(backend: Backend) -> None:
+    await backend.client.ensure_users([IMUser(backend.uid("Ok_09"), "ok")])
+    for bad in ("with-hyphen", "with.dot", "with:colon"):
+        with pytest.raises(OpenIMError) as excinfo:
+            await backend.client.ensure_users([IMUser(backend.uid(bad), "bad")])
+        assert excinfo.value.code == ErrCode.ARGS
+
+
 async def test_ensure_group_is_idempotent(backend: Backend) -> None:
     await _room(backend)
     created_again = await backend.client.ensure_group(
-        group_id=backend.uid("r"),
+        group_id=backend.room,
         name="服务群",
         owner_user_id=backend.uid("sys"),
         member_user_ids=[backend.uid("c")],
