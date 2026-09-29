@@ -72,3 +72,42 @@ def split_passages(text: str, size: int = CHUNK_SIZE, overlap: int = CHUNK_OVERL
         else:
             merged.append(piece)
     return merged
+
+
+_HEADING = re.compile(r"^(#{1,6})\s+(.+?)\s*#*\s*$")
+
+
+def split_sections(text: str) -> list[tuple[list[str], str]]:
+    """按 Markdown 标题（# 到 ######）分节：返回（各级标题, 小节正文）。标题之前的内容标题为空。"""
+    path: list[tuple[int, str]] = []
+    sections: list[tuple[list[str], str]] = []
+    lines: list[str] = []
+
+    def flush() -> None:
+        body = "\n".join(lines).strip()
+        if body:
+            sections.append(([name for _, name in path], body))
+        lines.clear()
+
+    for line in text.splitlines():
+        match = _HEADING.match(line.strip())
+        if match:
+            flush()
+            level = len(match.group(1))
+            path = [p for p in path if p[0] < level] + [(level, match.group(2))]
+        else:
+            lines.append(line)
+    flush()
+    return sections
+
+
+def chunk_document(
+    title: str, text: str, size: int = CHUNK_SIZE, overlap: int = CHUNK_OVERLAP
+) -> list[str]:
+    """文档切片（设计文档 §12.1）：先按标题分节，每节再按段落和句子切；每片开头带上
+    "文档标题 > 各级标题"，检索和回答时知道这段话在讲什么。"""
+    chunks: list[str] = []
+    for path, body in split_sections(text):
+        prefix = " > ".join([title, *path])
+        chunks.extend(f"{prefix}\n{piece}" for piece in split_passages(body, size, overlap))
+    return chunks

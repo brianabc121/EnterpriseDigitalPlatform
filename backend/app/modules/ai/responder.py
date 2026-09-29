@@ -21,6 +21,8 @@ from app.modules.ai import pipeline
 from app.modules.ai import service as ai_service
 from app.modules.ai.models import AiDecision, AiSessionState, DecisionAction
 from app.modules.ai.prompts import Turn
+from app.modules.ai.segments import split_reply
+from app.modules.channels.models import ChannelAccount, ChannelType
 from app.modules.conversation import outbox
 from app.modules.conversation.models import (
     ChatSession,
@@ -50,6 +52,26 @@ _ROLES: dict[str, str] = {
 
 def _text(message: Message) -> str:
     return message.text_plain or _PLACEHOLDER.get(message.content_type, "[消息]")
+
+
+def channel_ai(channel: ChannelAccount | None) -> pipeline.ChannelAi:
+    """渠道的 AI 参数覆盖和知识空间范围。"""
+    if channel is None:
+        return pipeline.ChannelAi()
+    overrides = channel.ai_overrides or {}
+    spaces = channel.kb_space_ids
+
+    def number(key: str) -> float | None:
+        value = overrides.get(key)
+        return float(value) if isinstance(value, int | float) else None
+
+    turns = overrides.get("max_turns")
+    return pipeline.ChannelAi(
+        handoff_threshold=number("handoff_threshold"),
+        relevance_threshold=number("relevance_threshold"),
+        max_turns=int(turns) if isinstance(turns, int) else None,
+        space_ids=list(spaces or []),
+    )
 
 
 async def claim(
@@ -156,9 +178,19 @@ async def respond(
             turns=state.turns,
             guard_failures=state.guard_failures,
         )
+        account = await session.get(ChannelAccount, chat.channel_account_id)
+        channel = channel_ai(account)
+        # 网页 Widget：生成回答期间显示"正在输入"，较长的回答分段发送。
+        web = account is not None and account.type == ChannelType.WEB
+        segmented = web and settings.segment_replies and not unavailable
+        if segmented:
+            outbox.enqueue_typing(session, chat.room_id)
+        customer_id = chat.customer_id
         room_id = chat.room_id
         answered_until = pending[-1].sent_at
         await session.commit()
+    if segmented:
+        await outbox.flush_rooms(ctx, tenant_id, [room_id])
 
     # 2. 判定
     if unavailable:
@@ -172,9 +204,11 @@ async def respond(
             company=company,
             session_id=session_id,
             intents=intents,
+            channel=channel,
+            customer_id=customer_id,
         )
-    summary = None
-    if outcome.action == DecisionAction.HANDOFF and not queued:
+    summary = outcome.summary
+    if outcome.action == DecisionAction.HANDOFF and not queued and summary is None:
         summary = await pipeline.summarize(
             ctx,
             tenant_id,
@@ -228,9 +262,16 @@ async def respond(
                 kf = await menus.kf_settings(session, chat.channel_account_id)
                 if kf is not None and kf.kf_handoff_menu:
                     menu = menus.handoff_menu()
-            outbox.enqueue_bot_message(
-                session, room_id, outcome.reply, settings.bot_name, menu=menu
+            texts = (
+                split_reply(outcome.reply)
+                if segmented and outcome.action == DecisionAction.REPLY
+                else [outcome.reply]
             )
+            for index, text in enumerate(texts):
+                last = index == len(texts) - 1
+                outbox.enqueue_bot_message(
+                    session, room_id, text, settings.bot_name, menu=menu if last else None
+                )
         if outcome.action == DecisionAction.REPLY and outcome.used_items:
             await session.execute(
                 update(KbItem)

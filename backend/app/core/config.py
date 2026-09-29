@@ -94,8 +94,26 @@ class Settings(BaseSettings):
     # 接口支持 dimensions 参数时（如 text-embedding-v3、embedding-3）设为 true。
     llm_embed_send_dimensions: bool = False
     llm_timeout_seconds: float = 30.0
+    # 价格（每千 tokens 多少分），用于估算费用；向量模型按输入价格计。
+    llm_price_input: float = 0.0
+    llm_price_output: float = 0.0
+    llm_embed_price: float = 0.0
+    # 对话模型支持函数调用（tools）时设为 true，AI 接待才会让模型调用工具。
+    llm_supports_tools: bool = False
+    # 重排序模型（/rerank，如 bge-reranker-v2-m3）；为空时不重排。接口地址默认与向量模型相同。
+    llm_rerank_model: str = ""
+    llm_rerank_base_url: str = ""
+    llm_rerank_api_key: SecretStr = SecretStr("")
+    # 每个租户同时进行的大模型调用上限（平台可以按租户调整），超出时最多排队这么多秒。
+    llm_tenant_concurrency: int = 8
+    llm_queue_seconds: float = 10.0
     # 客户连续发消息时，等这么久没有新消息再合并回复。
     ai_debounce_seconds: float = 2.0
+    # 知识导入：上传文件的大小上限，抓取帮助中心时每个网页的超时与大小上限、最多抓取的页数。
+    kb_import_max_bytes: int = 20 * 1024 * 1024
+    kb_crawl_timeout_seconds: float = 10.0
+    kb_crawl_max_page_bytes: int = 2 * 1024 * 1024
+    kb_crawl_max_pages: int = 100
     # 语音转文字（OpenAI 兼容的 /audio/transcriptions）；为空时不转写，AI 只知道客户发了语音。
     asr_base_url: str = ""
     asr_api_key: SecretStr = SecretStr("")

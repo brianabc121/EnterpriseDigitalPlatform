@@ -24,6 +24,7 @@ class Base(DeclarativeBase):
     type_annotation_map = {  # noqa: RUF012  SQLAlchemy 约定的类属性
         dict[str, Any]: JSONB,
         list[str]: ARRAY(Text),
+        list[uuid.UUID]: ARRAY(PG_UUID(as_uuid=True)),
         datetime: DateTime(timezone=True),
         uuid.UUID: PG_UUID(as_uuid=True),
     }

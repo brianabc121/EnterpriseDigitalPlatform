@@ -44,6 +44,15 @@ class LlmPrices(BaseModel):
     output: float = Field(default=0, ge=0, le=100_000, description="输出每千 tokens 的价格（分）")
 
 
+class LlmCapabilities(BaseModel):
+    """模型的能力标签（设计文档 §11.5）：网关按场景需要选择可用的能力。"""
+
+    tools: bool = Field(default=False, description="支持函数调用（tools），AI 接待可以调用工具")
+    json_schema: bool = Field(default=False, description="支持 JSON Schema 结构化输出")
+    context_tokens: int = Field(default=0, ge=0, le=10_000_000, description="上下文长度，0 为未知")
+    batch: bool = Field(default=False, description="提供批量接口（离线知识提炼可以使用）")
+
+
 BaseUrl = Annotated[str, Field(min_length=8, max_length=500, pattern=r"^https?://\S+$")]
 
 
@@ -56,7 +65,9 @@ class LlmProviderCreate(BaseModel):
     embed_model: str = Field(default="", max_length=128)
     embed_dim: int = Field(default=1024, ge=1, le=8192)
     send_dimensions: bool = False
+    rerank_model: str = Field(default="", max_length=128, description="重排序模型（/rerank）")
     prices: LlmPrices = Field(default_factory=LlmPrices)
+    capabilities: LlmCapabilities = Field(default_factory=LlmCapabilities)
     is_default: bool = False
     enabled: bool = True
 
@@ -70,7 +81,9 @@ class LlmProviderUpdate(BaseModel):
     embed_model: str | None = Field(default=None, max_length=128)
     embed_dim: int | None = Field(default=None, ge=1, le=8192)
     send_dimensions: bool | None = None
+    rerank_model: str | None = Field(default=None, max_length=128)
     prices: LlmPrices | None = None
+    capabilities: LlmCapabilities | None = None
     is_default: bool | None = None
     enabled: bool | None = None
 
@@ -86,7 +99,9 @@ class LlmProviderOut(BaseModel):
     embed_model: str
     embed_dim: int
     send_dimensions: bool
+    rerank_model: str
     prices: LlmPrices
+    capabilities: LlmCapabilities
     is_default: bool
     enabled: bool
     tenants: int = Field(description="指定使用这个供应商的租户数")
@@ -121,12 +136,40 @@ class LlmRoutesUpdate(BaseModel):
 
 class TenantLlmAssign(BaseModel):
     provider_id: UUID | None = Field(description="为空表示使用平台默认供应商")
+    concurrency: int | None = Field(
+        default=None,
+        ge=1,
+        le=200,
+        description="同时进行的大模型调用上限；为空表示平台默认值。不传表示不修改",
+    )
 
 
 class TenantLlmOut(BaseModel):
     provider_id: UUID | None
     source: str = Field(description="tenant 自带密钥、provider 指定供应商、default 默认、env、none")
     provider_name: str | None
+    concurrency: int | None = Field(default=None, description="单独设置的并发上限")
+    default_concurrency: int = Field(description="平台默认的并发上限")
+    in_use: int = Field(default=0, description="正在进行的调用数")
+
+
+class LlmUsageRow(BaseModel):
+    key: str = Field(description="供应商/模型，或租户代码")
+    label: str
+    calls: int
+    errors: int
+    tokens: int
+    cost: float = Field(description="估算费用（分）")
+
+
+class LlmUsage(BaseModel):
+    days: int
+    total_calls: int
+    total_tokens: int
+    total_cost: float
+    by_model: list[LlmUsageRow]
+    by_tenant: list[LlmUsageRow]
+    by_scene: list[LlmUsageRow]
 
 
 # ---- 系统健康 ----
@@ -198,3 +241,37 @@ class TenantChannels(BaseModel):
 class ChannelOverview(BaseModel):
     wecom_configured: bool = Field(description="平台是否配置了企业微信服务商")
     items: list[TenantChannels]
+
+
+# ---- 提示词版本 ----
+
+
+class PromptVersionOut(BaseModel):
+    version: int
+    content: str
+    note: str | None
+    active: bool
+    created_at: datetime
+
+
+class PromptOut(BaseModel):
+    key: str
+    name: str
+    variables: list[str] = Field(description="模板里可以使用的变量，写成 {name}")
+    builtin: str = Field(description="内置模板")
+    active_version: int | None = Field(description="启用的版本；为空表示使用内置模板")
+    versions: list[PromptVersionOut]
+
+
+class PromptList(BaseModel):
+    items: list[PromptOut]
+
+
+class PromptVersionCreate(BaseModel):
+    content: str = Field(min_length=10, max_length=8000)
+    note: str | None = Field(default=None, max_length=200, description="这个版本改了什么")
+    activate: bool = Field(default=False, description="保存后立即启用")
+
+
+class PromptActivate(BaseModel):
+    version: int | None = Field(description="要启用的版本；为空表示改回内置模板")

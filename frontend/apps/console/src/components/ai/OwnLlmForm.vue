@@ -17,7 +17,14 @@ const config = ref<Schemas['TenantLlmConfig'] | null>(null)
 const editing = ref(false)
 const saving = ref(false)
 const result = ref('')
-const form = reactive({ baseUrl: '', apiKey: '', chatModel: '', fastModel: '', enabled: true })
+const form = reactive({
+  baseUrl: '',
+  apiKey: '',
+  chatModel: '',
+  fastModel: '',
+  supportsTools: false,
+  enabled: true,
+})
 
 async function load(): Promise<void> {
   const { data, error } = await api.GET('/api/v1/ai/llm')
@@ -35,6 +42,7 @@ function edit(): void {
     apiKey: '',
     chatModel: own?.chat_model ?? '',
     fastModel: own?.fast_model ?? '',
+    supportsTools: own?.supports_tools ?? false,
     enabled: own?.enabled ?? true,
   })
   editing.value = true
@@ -48,6 +56,7 @@ async function save(): Promise<void> {
       api_key: form.apiKey ? form.apiKey : undefined,
       chat_model: form.chatModel.trim(),
       fast_model: form.fastModel.trim(),
+      supports_tools: form.supportsTools,
       enabled: form.enabled,
     },
   })
@@ -130,6 +139,10 @@ onMounted(load)
       <el-form-item label="轻量模型">
         <el-input v-model="form.fastModel" placeholder="摘要等轻量任务，可不填" />
       </el-form-item>
+      <el-form-item label="工具调用">
+        <el-switch v-model="form.supportsTools" data-testid="own-llm-tools" />
+        <span class="sub hint">模型支持函数调用（tools）时打开，AI 接待才能查档案、登记线索、转人工</span>
+      </el-form-item>
       <el-form-item label="启用"><el-switch v-model="form.enabled" /></el-form-item>
       <el-form-item>
         <el-button type="primary" :loading="saving" data-testid="own-llm-save" @click="save">保存</el-button>
@@ -155,5 +168,9 @@ onMounted(load)
 .sub {
   font-size: 12px;
   color: var(--el-text-color-secondary);
+}
+
+.hint {
+  margin-left: 8px;
 }
 </style>

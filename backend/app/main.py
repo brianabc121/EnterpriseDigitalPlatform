@@ -28,6 +28,7 @@ from app.modules.kb.router import router as kb_router
 from app.modules.lifecycle.router import platform_router as platform_lifecycle_router
 from app.modules.lifecycle.router import public_router as signup_router
 from app.modules.lifecycle.router import router as tenant_router
+from app.modules.notifications.router import router as notifications_router
 from app.modules.platform.router import router as platform_ops_router
 from app.modules.quickreply.router import router as quick_reply_router
 from app.modules.reports.router import router as reports_router
@@ -51,6 +52,7 @@ def create_app(
     wecom_transport: httpx.AsyncBaseTransport | None = None,
     storage_transport: httpx.AsyncBaseTransport | None = None,
     llm_transport: httpx.AsyncBaseTransport | None = None,
+    web_transport: httpx.AsyncBaseTransport | None = None,
 ) -> FastAPI:
     """应用工厂。开发环境：uvicorn app.main:create_app --factory --reload。
 
@@ -64,6 +66,7 @@ def create_app(
         wecom_transport=wecom_transport,
         storage_transport=storage_transport,
         llm_transport=llm_transport,
+        web_transport=web_transport,
     )
 
     @asynccontextmanager
@@ -99,6 +102,7 @@ def create_app(
     app.include_router(routing_router)
     app.include_router(quick_reply_router)
     app.include_router(kb_router)
+    app.include_router(notifications_router)
     app.include_router(ai_router)
     app.include_router(files_router)
     app.include_router(visitor_router)

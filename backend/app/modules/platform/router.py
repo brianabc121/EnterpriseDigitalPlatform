@@ -8,7 +8,7 @@ from app.context import AppContext
 from app.core.deps import client_ip, get_context
 from app.core.errors import ERROR_RESPONSES
 from app.modules.audit.service import record_audit
-from app.modules.platform import llm, ops
+from app.modules.platform import llm, ops, prompts
 from app.modules.platform import settings as platform_settings
 from app.modules.platform.content import CONTENT_POLICY, content_policy
 from app.modules.platform.schemas import (
@@ -22,7 +22,12 @@ from app.modules.platform.schemas import (
     LlmRoutesOut,
     LlmRoutesUpdate,
     LlmTestResult,
+    LlmUsage,
     PlatformAuditList,
+    PromptActivate,
+    PromptList,
+    PromptOut,
+    PromptVersionCreate,
     TenantLlmAssign,
     TenantLlmOut,
 )
@@ -196,8 +201,60 @@ async def assign_tenant_llm(
     user: CurrentPlatformUser,
     ctx: ContextDep,
 ) -> TenantLlmOut:
-    """给租户指定供应商（大客户专属模型等）；为空表示用平台默认。租户自带密钥时以租户的为准。"""
+    """给租户指定供应商（大客户专属模型等）和大模型并发上限；供应商为空表示用平台默认。
+    租户自带密钥时以租户的为准。"""
     await tenancy.get_tenant(session, tenant_id)
     return await llm.assign_tenant_llm(
-        ctx, session, tenant_id, payload.provider_id, actor_id=user.id, ip=client_ip(request)
+        ctx, session, tenant_id, payload, actor_id=user.id, ip=client_ip(request)
+    )
+
+
+@router.get("/llm-usage", response_model=LlmUsage)
+async def llm_usage(
+    session: PlatformDb,
+    _: CurrentPlatformUser,
+    days: Annotated[int, Query(ge=1, le=90)] = 30,
+) -> LlmUsage:
+    """近若干天的大模型调用量、tokens 与估算费用（按模型、租户、场景）。"""
+    return await llm.usage(session, days=days)
+
+
+# ---- 提示词版本 ----
+
+
+@router.get("/prompts", response_model=PromptList)
+async def list_prompts(session: PlatformDb, _: CurrentPlatformUser) -> PromptList:
+    """各场景的提示词：内置模板、启用的版本和全部历史版本。"""
+    return PromptList(items=await prompts.list_prompts(session))
+
+
+@router.post(
+    "/prompts/{key}/versions", response_model=PromptOut, status_code=status.HTTP_201_CREATED
+)
+async def create_prompt_version(
+    key: str,
+    payload: PromptVersionCreate,
+    request: Request,
+    session: PlatformDb,
+    user: CurrentPlatformUser,
+    ctx: ContextDep,
+) -> PromptOut:
+    """保存新版本（可以立即启用）。模板只能使用这个场景提供的变量。"""
+    return await prompts.create_version(
+        ctx, session, key, payload, actor_id=user.id, ip=client_ip(request)
+    )
+
+
+@router.post("/prompts/{key}/activate", response_model=PromptOut)
+async def activate_prompt(
+    key: str,
+    payload: PromptActivate,
+    request: Request,
+    session: PlatformDb,
+    user: CurrentPlatformUser,
+    ctx: ContextDep,
+) -> PromptOut:
+    """启用某个版本（回滚）；version 为空时改回内置模板。"""
+    return await prompts.activate(
+        ctx, session, key, payload.version, actor_id=user.id, ip=client_ip(request)
     )

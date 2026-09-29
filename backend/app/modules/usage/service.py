@@ -122,10 +122,18 @@ async def compute(
             AiDecision.action == DecisionAction.HANDOFF
         )
     )
+    in_calls = (
+        LlmCall.tenant_id == tenant_id,
+        LlmCall.created_at >= start,
+        LlmCall.created_at < end,
+    )
     values[Metric.LLM_TOKENS] = await count(
         select(func.coalesce(func.sum(LlmCall.prompt_tokens + LlmCall.completion_tokens), 0)).where(
-            LlmCall.tenant_id == tenant_id, LlmCall.created_at >= start, LlmCall.created_at < end
+            *in_calls
         )
+    )
+    values[Metric.LLM_COST] = await count(
+        select(func.round(func.coalesce(func.sum(LlmCall.cost), 0))).where(*in_calls)
     )
 
     if snapshots:

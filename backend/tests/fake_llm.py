@@ -3,10 +3,15 @@
 - /v1/embeddings：按词项（中文二元组）哈希到 1024 维再归一化，意思相近的问题向量相近。
 - /v1/chat/completions：按系统提示第一行的任务名作答：
   - 在线客服回复：取【参考资料】第一条的答案作为回复（有资料时把握 0.9）；
-    没有资料时回复无法回答并请求转人工。
+    没有资料时回复无法回答并请求转人工。请求带了工具且 tool_plan 里有安排时，先返回工具调用，
+    拿到工具结果后再回复（工具查到的资料也可以作为答案）。
+  - 问题改写：按问号、分号、换行拆开，去掉寒暄；有上文且问题很短时补上上一句客户消息。
   - 转人工摘要：概括最后几句客户消息。
   - 坐席建议回复：把参考资料的答案作为建议。
+  - 会话小结：客户说过的话作为诉求，带"退"字时标签为售后。
   - 知识提炼：客户的问题与紧跟的客服回答组成问答；客服没能解答的问题记为缺口。
+  - 优秀话术：坐席说的较长的话。
+- /v1/rerank：问题词项被文档覆盖的比例作为相关度。
 - /v1/audio/transcriptions：语音转文字。音频内容里带 "text=..." 时返回这段文字（测试和验收
   发的"语音"里写好要转写的内容），否则返回固定的文字。
 - 可以切换模式模拟故障：down（503）、bad_json（不是 JSON）、promise（回复里带承诺类话术）、
@@ -28,7 +33,10 @@ import httpx
 from app.modules.ai.prompts import (
     NO_REFERENCE,
     TASK_EXTRACT,
+    TASK_PHRASE,
     TASK_REPLY,
+    TASK_REWRITE,
+    TASK_SESSION_SUMMARY,
     TASK_SUGGEST,
     TASK_SUMMARY,
 )
@@ -111,12 +119,59 @@ def _extract(transcript: str) -> str:
     return json.dumps({"qa_pairs": pairs, "unresolved_questions": unresolved}, ensure_ascii=False)
 
 
+_GREETINGS = re.compile(r"^(你好|您好|在吗|请问|哈喽|hi|hello)[，,！!。\s]*", re.IGNORECASE)
+_REFERENCE_WORDS = ("那", "它", "这个", "那个")
+
+
+def _rewrite(content: str) -> str:
+    """问题改写：拆开多个问题、去掉寒暄；有上文且问题很短时补上上一句客户消息。"""
+    history, _, latest = content.partition("客户最新的消息：\n")
+    previous = [
+        line.removeprefix("客户：") for line in history.splitlines() if line.startswith("客户：")
+    ]
+    parts = []
+    for part in re.split(r"[？?；;\n]", latest):
+        part = _GREETINGS.sub("", part.strip()).strip("，,。 ")
+        if not part:
+            continue
+        if previous and (len(part) < 6 or part.startswith(_REFERENCE_WORDS)):
+            part = f"{previous[-1].rstrip('？?')} {part.lstrip('那它这个')}"
+        parts.append(part)
+    return json.dumps({"queries": parts[:3] or [latest.strip()]}, ensure_ascii=False)
+
+
+def _session_summary(transcript: str) -> str:
+    said = [
+        line.split("：", 1)[1]
+        for line in transcript.splitlines()
+        if line.startswith("客户：") and "：" in line
+    ]
+    text = "；".join(said)[:100]
+    tags = ["售后"] if "退" in text else ["咨询"]
+    return json.dumps({"summary": f"客户咨询：{text}。", "tags": tags}, ensure_ascii=False)
+
+
+def _phrases(transcript: str) -> str:
+    lines = re.findall(r"(?m)^\[\d+\] 坐席：(.+)$", transcript)
+    phrases = [{"title": line[:8], "content": line} for line in lines if len(line) >= 10][:3]
+    return json.dumps({"phrases": phrases}, ensure_ascii=False)
+
+
+def rerank_score(query: str, document: str) -> float:
+    wanted = set(terms(query))
+    if not wanted:
+        return 0.0
+    return round(len(wanted & set(terms(document))) / len(wanted), 4)
+
+
 @dataclass
 class FakeLLM:
     mode: str = "normal"
     requests: list[dict[str, Any]] = field(default_factory=list)
     # 回复里带的意图（提示词要求判断意图时）。
     intent: str | None = None
+    # 请求带工具时按顺序返回的工具调用：(工具名, 参数)。
+    tool_plan: list[tuple[str, dict[str, Any]]] = field(default_factory=list)
 
     def chat(self, body: dict[str, Any]) -> tuple[int, dict[str, Any]]:
         self.requests.append(body)
@@ -126,8 +181,34 @@ class FakeLLM:
         system = next((m["content"] for m in messages if m.get("role") == "system"), "")
         last_user = next((m["content"] for m in reversed(messages) if m.get("role") == "user"), "")
         task = system.split("\n", 1)[0]
+        if task == TASK_REPLY and body.get("tools") and self.tool_plan:
+            name, arguments = self.tool_plan.pop(0)
+            return 200, self._completion(
+                body,
+                messages,
+                None,
+                tool_calls=[
+                    {
+                        "id": f"call_{len(self.requests)}",
+                        "type": "function",
+                        "function": {
+                            "name": name,
+                            "arguments": json.dumps(arguments, ensure_ascii=False),
+                        },
+                    }
+                ],
+            )
         if task == TASK_REPLY:
-            content = self._reply(system, last_user)
+            tool_results = "\n".join(
+                str(m.get("content") or "") for m in messages if m.get("role") == "tool"
+            )
+            content = self._reply(system, last_user, tool_results)
+        elif task == TASK_REWRITE:
+            content = _rewrite(last_user)
+        elif task == TASK_SESSION_SUMMARY:
+            content = _session_summary(last_user)
+        elif task == TASK_PHRASE:
+            content = _phrases(last_user)
         elif task == TASK_SUMMARY:
             customer = [
                 line.removeprefix("客户：")
@@ -142,29 +223,45 @@ class FakeLLM:
             content = json.dumps({"suggestions": answers[:3]}, ensure_ascii=False)
         else:
             content = "好的。"
-        prompt = sum(len(str(m.get("content", ""))) for m in messages)
-        return 200, {
+        return 200, self._completion(body, messages, content)
+
+    def _completion(
+        self,
+        body: dict[str, Any],
+        messages: list[dict[str, Any]],
+        content: str | None,
+        *,
+        tool_calls: list[dict[str, Any]] | None = None,
+    ) -> dict[str, Any]:
+        prompt = sum(len(str(m.get("content") or "")) for m in messages)
+        message: dict[str, Any] = {"role": "assistant", "content": content}
+        if tool_calls:
+            message["tool_calls"] = tool_calls
+        completion = len(content or "") // 2 + (20 if tool_calls else 0)
+        return {
             "id": "fake",
             "object": "chat.completion",
             "model": body.get("model") or MODEL,
             "choices": [
                 {
                     "index": 0,
-                    "message": {"role": "assistant", "content": content},
-                    "finish_reason": "stop",
+                    "message": message,
+                    "finish_reason": "tool_calls" if tool_calls else "stop",
                 }
             ],
             "usage": {
                 "prompt_tokens": prompt // 2,
-                "completion_tokens": len(content) // 2,
-                "total_tokens": prompt // 2 + len(content) // 2,
+                "completion_tokens": completion,
+                "total_tokens": prompt // 2 + completion,
             },
         }
 
-    def _reply(self, system: str, question: str) -> str:
+    def _reply(self, system: str, question: str, tool_results: str = "") -> str:
         if self.mode == "bad_json":
             return "这不是 JSON"
         answers = _answers(system)
+        if not answers and "答：" in tool_results:
+            answers = [tool_results.split("答：", 1)[1].split("\n", 1)[0].strip()]
         if self.mode == "handoff":
             reply = {
                 "reply": "这个问题需要人工处理。",
@@ -216,11 +313,26 @@ class FakeLLM:
         text = match.group(1).decode(errors="ignore") if match else "（语音内容）"
         return 200, {"text": text}
 
+    def rerank(self, body: dict[str, Any]) -> tuple[int, dict[str, Any]]:
+        self.requests.append(body)
+        if self.mode == "down":
+            return 503, {"error": {"message": "service unavailable"}}
+        query = str(body.get("query") or "")
+        documents = [str(d) for d in body.get("documents") or []]
+        results = [
+            {"index": i, "relevance_score": rerank_score(query, doc)}
+            for i, doc in enumerate(documents)
+        ]
+        results.sort(key=lambda r: r["relevance_score"], reverse=True)
+        return 200, {"model": body.get("model") or "fake-rerank", "results": results}
+
     def handle(self, method: str, path: str, body: dict[str, Any]) -> tuple[int, dict[str, Any]]:
         if method == "POST" and path.endswith("/chat/completions"):
             return self.chat(body)
         if method == "POST" and path.endswith("/embeddings"):
             return self.embeddings(body)
+        if method == "POST" and path.endswith("/rerank"):
+            return self.rerank(body)
         if method == "POST" and path.endswith("/_control"):
             self.mode = str(body.get("mode") or "normal")
             return 200, {"mode": self.mode}

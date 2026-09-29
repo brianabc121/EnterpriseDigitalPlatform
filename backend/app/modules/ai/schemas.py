@@ -22,6 +22,13 @@ class AiSettingsOut(BaseModel):
     auto_merge_similar: bool = Field(
         description="相似问法证据足够多（3 条以上）时自动并入原问答，不经审核"
     )
+    rewrite_enabled: bool = Field(description="检索前改写问题：补全指代、拆分多个问题")
+    answer_cache: bool = Field(description="相同的问题直接用之前的回答（知识变化后自动失效）")
+    tools_enabled: bool = Field(
+        description="允许 AI 调用工具：再次检索、查看客户档案、登记线索、转人工、登记留言"
+    )
+    segment_replies: bool = Field(description="较长的回答分段发送，发送前显示正在输入")
+    tools_supported: bool = Field(description="当前使用的模型是否支持工具调用")
     llm_configured: bool = Field(description="平台是否配置了大模型")
     embeddings_configured: bool = Field(description="平台是否配置了向量模型（语义检索）")
     monthly_quota: int | None = Field(description="每月 AI 回复条数上限（套餐额度），空为不限")
@@ -39,6 +46,10 @@ class AiSettingsUpdate(BaseModel):
     sensitive_keywords: list[Keyword] | None = Field(default=None, max_length=200)
     extraction_enabled: bool | None = None
     auto_merge_similar: bool | None = None
+    rewrite_enabled: bool | None = None
+    answer_cache: bool | None = None
+    tools_enabled: bool | None = None
+    segment_replies: bool | None = None
 
 
 class KnowledgeRef(BaseModel):
@@ -126,6 +137,7 @@ class OwnLlmOut(BaseModel):
     fast_model: str
     enabled: bool
     api_key_set: bool
+    supports_tools: bool = False
 
 
 class TenantLlmConfig(BaseModel):
@@ -144,3 +156,36 @@ class OwnLlmUpdate(BaseModel):
     chat_model: str = Field(min_length=1, max_length=128)
     fast_model: str = Field(default="", max_length=128)
     enabled: bool = True
+    supports_tools: bool = Field(default=False, description="模型支持函数调用（tools）")
+
+
+# ---- 会话小结与坐席助手提醒 ----
+
+
+class SessionSummaryOut(BaseModel):
+    session_id: UUID
+    customer_id: UUID
+    summary: str
+    tags: list[str]
+    status: str = Field(description="draft（待确认）、confirmed（已写入客户档案）、discarded")
+    generated_at: datetime
+    confirmed_by: UUID | None
+    confirmed_at: datetime | None
+
+
+class SummaryConfirm(BaseModel):
+    summary: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=500)]
+    tags: list[Keyword] = Field(default_factory=list, max_length=5)
+
+
+class CopilotAlertOut(BaseModel):
+    id: UUID
+    kind: str = Field(description="negative、escalation、sensitive_info、promise")
+    text: str
+    staff_id: UUID | None = Field(description="提醒给哪位员工")
+    message_id: UUID | None
+    created_at: datetime
+
+
+class CopilotAlertList(BaseModel):
+    items: list[CopilotAlertOut]

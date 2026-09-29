@@ -1,6 +1,7 @@
 from datetime import UTC, datetime
 from typing import Annotated
 from uuid import UUID
+from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, Query, Request, status
 from sqlalchemy import select
@@ -10,9 +11,9 @@ from app.core.deps import client_ip, get_context
 from app.core.errors import ERROR_RESPONSES, NotFound
 from app.core.permissions import Permission
 from app.core.urls import check_outbound_url
-from app.modules.ai import assist, evaluation, pipeline
+from app.modules.ai import assist, evaluation, pipeline, summaries
 from app.modules.ai import service as ai_service
-from app.modules.ai.models import AiDecision, AiEvalRun, AiSettings
+from app.modules.ai.models import AiDecision, AiEvalRun, AiSettings, CopilotAlert
 from app.modules.ai.schemas import (
     AiDecisionList,
     AiDecisionOut,
@@ -20,13 +21,17 @@ from app.modules.ai.schemas import (
     AiSettingsOut,
     AiSettingsUpdate,
     AiTestRequest,
+    CopilotAlertList,
+    CopilotAlertOut,
     EvalRequest,
     EvalRunList,
     EvalRunOut,
     KnowledgeRef,
     OwnLlmOut,
     OwnLlmUpdate,
+    SessionSummaryOut,
     SuggestionList,
+    SummaryConfirm,
     TenantLlmConfig,
 )
 from app.modules.audit.service import record_audit
@@ -138,6 +143,77 @@ async def suggestions(
     return await assist.suggest(ctx, session, principal, session_id)
 
 
+@router.get("/sessions/{session_id}/alerts", response_model=CopilotAlertList)
+async def session_alerts(
+    session_id: UUID, session: TenantDb, principal: CanServe
+) -> CopilotAlertList:
+    """坐席助手在这个会话里给出的实时提醒（客户情绪、敏感信息、承诺类用语），留痕用于质检。"""
+    await visible_session(session, principal, session_id)
+    rows = await session.scalars(
+        select(CopilotAlert)
+        .where(CopilotAlert.session_id == session_id)
+        .order_by(CopilotAlert.created_at, CopilotAlert.id)
+    )
+    return CopilotAlertList(
+        items=[
+            CopilotAlertOut(
+                id=a.id,
+                kind=a.kind,
+                text=str(a.detail.get("text", "")),
+                staff_id=a.staff_id,
+                message_id=a.message_id,
+                created_at=a.created_at,
+            )
+            for a in rows.all()
+        ]
+    )
+
+
+@router.get("/sessions/{session_id}/summary", response_model=SessionSummaryOut | None)
+async def session_summary(
+    session_id: UUID, session: TenantDb, principal: CanServe
+) -> SessionSummaryOut | None:
+    """会话小结（没有时为空）。人工接待的会话结束后自动生成草稿，坐席确认后写入客户档案。"""
+    return await summaries.get_for(session, principal, session_id)
+
+
+@router.post("/sessions/{session_id}/summary", response_model=SessionSummaryOut)
+async def generate_summary(
+    session_id: UUID, ctx: Context, session: TenantDb, principal: CanServe
+) -> SessionSummaryOut:
+    """立即生成（或重新生成）小结草稿，会话结束后可用。已确认的小结不能重新生成。"""
+    return await summaries.generate_for(ctx, session, principal, session_id)
+
+
+@router.post("/sessions/{session_id}/summary/confirm", response_model=SessionSummaryOut)
+async def confirm_summary(
+    session_id: UUID,
+    payload: SummaryConfirm,
+    request: Request,
+    ctx: Context,
+    session: TenantDb,
+    principal: CanServe,
+) -> SessionSummaryOut:
+    """确认小结（可以先修改）：标签并入客户标签，小结记到客户备注的最前面。"""
+    return await summaries.confirm_for(
+        session,
+        principal,
+        session_id,
+        text=payload.summary,
+        tags=payload.tags,
+        tz=ZoneInfo(ctx.settings.usage_timezone),
+        ip=client_ip(request),
+    )
+
+
+@router.post("/sessions/{session_id}/summary/discard", response_model=SessionSummaryOut)
+async def discard_summary(
+    session_id: UUID, session: TenantDb, principal: CanServe
+) -> SessionSummaryOut:
+    """不需要这份小结（不写入客户档案）。之后仍可以重新生成。"""
+    return await summaries.discard_for(session, principal, session_id)
+
+
 @router.post("/ai/evaluations", response_model=EvalRunOut, status_code=status.HTTP_201_CREATED)
 async def create_evaluation(
     payload: EvalRequest, ctx: Context, session: TenantDb, principal: CanManage
@@ -175,6 +251,7 @@ async def _llm_config(ctx: AppContext, session: TenantDb, tenant_id: UUID) -> Te
             fast_model=str(own.get("fast_model") or ""),
             enabled=bool(own.get("enabled", True)),
             api_key_set=bool(own.get("api_key_enc")),
+            supports_tools=bool(own.get("supports_tools")),
         )
         if own
         else None,
@@ -213,6 +290,7 @@ async def put_own_llm(
         "chat_model": payload.chat_model.strip(),
         "fast_model": payload.fast_model.strip(),
         "enabled": payload.enabled,
+        "supports_tools": payload.supports_tools,
     }
     record_audit(
         session,

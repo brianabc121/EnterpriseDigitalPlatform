@@ -11,6 +11,7 @@ from app.modules.billing.entitlements import check_limit
 from app.modules.channels.models import ChannelAccount, ChannelStatus, ChannelType
 from app.modules.channels.schemas import ChannelUpdate
 from app.modules.iam.principal import Principal
+from app.modules.kb.models import KbSpace
 from app.modules.routing.models import RoutingPolicy
 
 DEFAULT_WEB_CHANNEL_NAME = "官网"
@@ -63,6 +64,15 @@ async def update_channel(
     widget = changes.pop("widget", None)
     if widget is not None:
         channel.config = {**(channel.config or {}), "widget": widget}
+    ai = changes.pop("ai", None)
+    if ai is not None:
+        channel.ai_overrides = {k: v for k, v in ai.items() if v is not None}
+    spaces = changes.pop("kb_space_ids", None)
+    if spaces is not None:
+        found = set((await session.scalars(select(KbSpace.id).where(KbSpace.id.in_(spaces)))).all())
+        if len(found) != len(set(spaces)):
+            raise Unprocessable("知识空间不存在")
+        channel.kb_space_ids = list(dict.fromkeys(spaces))
     kf = changes.pop("kf", None)
     if kf is not None:
         config = channel.config or {}

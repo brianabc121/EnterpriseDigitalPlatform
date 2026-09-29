@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -102,6 +103,13 @@ class CsatRequest(BaseModel):
     session_id: UUID
     score: int = Field(ge=1, le=5, description="1 到 5 分")
     comment: str | None = Field(default=None, max_length=500)
+
+
+class AiFeedbackRequest(BaseModel):
+    server_msg_id: str = Field(
+        min_length=1, max_length=128, description="智能客服那条回答的 IM 消息 ID"
+    )
+    value: Literal[1, -1] = Field(description="1 有用，-1 没用")
 
 
 class LeaveMessageRequest(BaseModel):

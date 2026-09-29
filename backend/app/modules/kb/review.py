@@ -40,6 +40,7 @@ from app.modules.kb.schemas import (
 )
 from app.modules.kb.search import search
 from app.modules.kb.text import normalize
+from app.modules.quickreply.models import QuickReply
 
 RECENT = timedelta(days=7)
 CANDIDATE_NOT_FOUND = "候选不存在"
@@ -287,7 +288,28 @@ async def approve(
         if candidate.target_item_id
         else None
     )
-    if candidate.kind == CandidateKind.SIMILAR and target is not None:
+    if candidate.kind == CandidateKind.PHRASE:
+        # 优秀话术：通过后成为共享快捷话术（不进入知识库）。
+        if not answer:
+            raise Unprocessable("请填写话术内容")
+        session.add(
+            QuickReply(
+                tenant_id=candidate.tenant_id,
+                owner_id=None,
+                category=(payload.category or candidate.category or "优秀话术")[:32],
+                title=question[:64],
+                content=answer,
+            )
+        )
+        _reviewed(
+            session,
+            principal,
+            candidate,
+            CandidateStatus.APPROVED,
+            item=None,
+            note="已加入共享话术",
+        )
+    elif candidate.kind == CandidateKind.SIMILAR and target is not None:
         await revise(
             ctx,
             session,
@@ -346,6 +368,8 @@ async def merge(
     """合并到审核人选定的已有知识：并入问法，可以同时替换答案。"""
     candidate = await _get(session, candidate_id, lock=True)
     _pending(candidate)
+    if candidate.kind == CandidateKind.PHRASE:
+        raise Unprocessable("话术候选不能合并到知识，请直接通过或驳回")
     item = await session.get(KbItem, payload.item_id, with_for_update=True)
     if item is None:
         raise NotFound(service.ITEM_NOT_FOUND)

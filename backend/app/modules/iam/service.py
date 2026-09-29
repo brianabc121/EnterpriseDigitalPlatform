@@ -161,10 +161,15 @@ async def revoke_session(session: AsyncSession, claims: RefreshClaims) -> None:
 
 
 async def load_principal(session: AsyncSession, claims: AccessClaims) -> Principal | None:
-    tenant = await session.get(Tenant, claims.tenant_id)
+    return await principal_for(session, claims.tenant_id, claims.staff_id)
+
+
+async def principal_for(session: AsyncSession, tenant_id: UUID, staff_id: UUID) -> Principal | None:
+    """员工当前的身份与权限（后台任务以发起人的身份执行时也用它）。停用或租户不可用时为空。"""
+    tenant = await session.get(Tenant, tenant_id)
     if tenant is None or tenant.status != TenantStatus.ACTIVE:
         return None
-    staff = await session.get(Staff, claims.staff_id)
+    staff = await session.get(Staff, staff_id)
     if staff is None or staff.status != StaffStatus.ACTIVE:
         return None
     roles = (

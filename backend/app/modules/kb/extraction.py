@@ -7,6 +7,9 @@
 4. 与已有知识比对：同一问题且答案一致 → 相似问法；答案不一致 → 冲突待审（可能是政策变化）；
    新问题 → 候选；没有解答的问题 → 知识缺口。同类候选按问题相似度聚类并计数。
 比对和聚类只在同一租户内进行，知识不会流入其他租户。每条候选记录提炼用的模型和提示词版本。
+
+客户评价满意的人工会话还会挖掘坐席的优秀回复（话术候选），审核通过后成为共享快捷话术；
+客户在提炼之后才评价的会话，下次运行时补充挖掘。
 """
 
 import json
@@ -39,6 +42,7 @@ from app.modules.kb.models import (
 )
 from app.modules.kb.search import search
 from app.modules.kb.text import normalize, similarity, terms
+from app.modules.quickreply.models import QuickReply
 from app.modules.tenancy.models import Tenant, TenantStatus
 from app.modules.wecom.models import WecomSidebarMessage
 
@@ -57,6 +61,11 @@ AUTO_MERGE_EVIDENCE = 3
 AUTO_MERGE_SIMILARITY = 0.85
 SATISFIED = 4
 GAP_REASONS = ("model_request", "score")
+PHRASE_MIN = 10
+PHRASE_MAX = 500
+MAX_PHRASES = 5
+# 与已有的共享话术相似度达到这个值时不再作为候选。
+SAME_PHRASE = 0.8
 
 ROLE: dict[str, str] = {
     SenderType.CUSTOMER: "客户",
@@ -64,6 +73,7 @@ ROLE: dict[str, str] = {
     SenderType.BOT: "智能客服",
 }
 CUSTOMER = ROLE[SenderType.CUSTOMER]
+AGENT = ROLE[SenderType.AGENT]
 _GREETING = re.compile(
     r"^(你好|您好|hi|hello|在吗|在不在|有人吗|谢谢|多谢|谢谢你|好的|好|嗯|嗯嗯|哦|ok|收到|明白了|"
     r"知道了|再见|拜拜)[\s!！。.~～？?]*$",
@@ -82,6 +92,7 @@ class ExtractionReport:
     gaps: int = 0
     skipped: int = 0
     failed: int = 0
+    phrases: int = 0
 
 
 @dataclass
@@ -163,6 +174,28 @@ def parse(content: str, lines: int) -> tuple[list[Pair], list[str]] | None:
     return pairs, gaps
 
 
+def parse_phrases(content: str) -> list[tuple[str, str]]:
+    """解析优秀话术：（标题, 话术），去掉过短、过长和含个人信息占位符的。"""
+    start, end = content.find("{"), content.rfind("}")
+    if start < 0 or end <= start:
+        return []
+    try:
+        data = json.loads(content[start : end + 1])
+    except json.JSONDecodeError:
+        return []
+    if not isinstance(data, dict):
+        return []
+    found: list[tuple[str, str]] = []
+    for raw in data.get("phrases") or []:
+        if not isinstance(raw, dict):
+            continue
+        text = _clean(raw.get("content"), PHRASE_MAX + 1)
+        if not PHRASE_MIN <= len(text) <= PHRASE_MAX or _PLACEHOLDER.search(text):
+            continue
+        found.append((_clean(raw.get("title"), 32) or text[:12], text))
+    return found[:MAX_PHRASES]
+
+
 def consistent(new: str, old: str) -> bool:
     """同一问题的两个答案是否一致：新答案没有出现旧答案里没有的数字，也没有相反的否定说法。"""
     if set(_NUMBER.findall(new)) - set(_NUMBER.findall(old)):
@@ -239,6 +272,7 @@ async def _upsert(
     score: float | None = None,
     pair: Pair | None = None,
     source: str = CandidateSource.SESSION,
+    prompt_version: str | None = None,
 ) -> KbCandidate:
     """聚类到已有的待审候选（出现次数加一、补充证据），或新建候选。"""
     target_id = target.id if target else None
@@ -273,7 +307,7 @@ async def _upsert(
         first_seen_at=now,
         last_seen_at=now,
         model=model,
-        prompt_version=prompts.EXTRACT_PROMPT_VERSION,
+        prompt_version=prompt_version,
         source=source,
     )
     session.add(candidate)
@@ -311,6 +345,7 @@ async def record_pair(
     model: str,
     auto_merge: bool,
     source: str = CandidateSource.SESSION,
+    prompt_version: str | None = None,
 ) -> KbCandidate | None:
     """一个问答：已有知识里的同一问题 → 相似问法或冲突；否则 → 新问题。问法已存在时不记录。"""
     existing = await _best_existing(ctx, session, tenant_id, pair.question)
@@ -327,6 +362,7 @@ async def record_pair(
             model=model,
             pair=pair,
             source=source,
+            prompt_version=prompt_version,
         )
     item, score = existing
     if consistent(pair.answer, item.content):
@@ -346,6 +382,7 @@ async def record_pair(
             score=score,
             pair=pair,
             source=source,
+            prompt_version=prompt_version,
         )
         if (
             auto_merge
@@ -368,6 +405,7 @@ async def record_pair(
         score=score,
         pair=pair,
         source=source,
+        prompt_version=prompt_version,
     )
 
 
@@ -380,6 +418,7 @@ async def record_gap(
     *,
     now: datetime,
     model: str,
+    prompt_version: str | None = None,
 ) -> KbCandidate | None:
     """没有得到解答的问题。已有知识能回答时不算缺口。"""
     if await _best_existing(ctx, session, tenant_id, question) is not None:
@@ -394,7 +433,166 @@ async def record_gap(
         evidence=evidence,
         now=now,
         model=model,
+        prompt_version=prompt_version,
     )
+
+
+async def record_phrase(
+    session: AsyncSession,
+    tenant_id: uuid.UUID,
+    title: str,
+    content: str,
+    evidence: dict[str, Any],
+    *,
+    now: datetime,
+    model: str,
+    prompt_version: str | None = None,
+) -> KbCandidate | None:
+    """优秀话术候选：已经是共享话术的不记录；与待审的话术相似时归为一类（出现次数加一）。"""
+    shared = (
+        await session.scalars(select(QuickReply.content).where(QuickReply.owner_id.is_(None)))
+    ).all()
+    if any(similarity(content, s) >= SAME_PHRASE for s in shared):
+        return None
+    content_terms = terms(content)
+    rows = (
+        await session.scalars(
+            select(KbCandidate)
+            .where(
+                KbCandidate.status == CandidateStatus.PENDING,
+                KbCandidate.kind == CandidateKind.PHRASE,
+                KbCandidate.terms.overlap(content_terms),
+            )
+            .limit(50)
+            .with_for_update()
+        )
+    ).all()
+    best = max(
+        ((similarity(content, c.answer or ""), c) for c in rows),
+        key=lambda pair: pair[0],
+        default=None,
+    )
+    if best is not None and best[0] >= CLUSTER_SIMILARITY:
+        existing = best[1]
+        existing.occurrences += 1
+        existing.last_seen_at = now
+        existing.evidence = [*existing.evidence, evidence][-MAX_EVIDENCE:]
+        return existing
+    candidate = KbCandidate(
+        tenant_id=tenant_id,
+        kind=CandidateKind.PHRASE,
+        question=title,
+        answer=content,
+        category="优秀话术",
+        terms=content_terms,
+        evidence=[evidence],
+        first_seen_at=now,
+        last_seen_at=now,
+        model=model,
+        prompt_version=prompt_version,
+        source=CandidateSource.SESSION,
+    )
+    session.add(candidate)
+    await session.flush()
+    return candidate
+
+
+async def mine_phrases(
+    ctx: AppContext,
+    tenant_id: uuid.UUID,
+    session_id: uuid.UUID,
+    lines: list[tuple[str, str]],
+    *,
+    now: datetime,
+) -> int | None:
+    """从客户评价满意的会话里挑选坐席的优秀回复，返回记录的候选数；模型不可用时返回 None
+    （下次再试）。处理过的会话记下时间，不再重复挖掘。"""
+    recorded = 0
+    if any(role == AGENT for role, _ in lines):
+        prompt = await ctx.prompts.get("phrase")
+        try:
+            result = await gateway.chat(
+                ctx,
+                tenant_id,
+                prompts.phrase_messages(transcript=lines, template=prompt.content),
+                scene="phrase",
+                json_mode=True,
+                max_tokens=800,
+                session_id=session_id,
+                prompt_version=prompt.version,
+            )
+        except LLMUnavailable as exc:
+            logger.warning("phrase mining failed for session %s: %s", session_id, exc)
+            return None
+        async with ctx.db.tenant_session(tenant_id) as session:
+            for title, content in parse_phrases(result.content):
+                said = [
+                    i
+                    for i, (role, text) in enumerate(lines, 1)
+                    if role == AGENT and (content in text or similarity(content, text) >= 0.5)
+                ]
+                evidence = _evidence(session_id, title, lines, said[:3], now)
+                if await record_phrase(
+                    session,
+                    tenant_id,
+                    title,
+                    content,
+                    evidence,
+                    now=now,
+                    model=result.model,
+                    prompt_version=prompt.version,
+                ):
+                    recorded += 1
+            await session.commit()
+    async with ctx.db.tenant_session(tenant_id) as session:
+        row = await session.get(KbExtraction, session_id)
+        if row is not None:
+            row.phrases_at = now
+        await session.commit()
+    return recorded
+
+
+async def _messages(ctx: AppContext, tenant_id: uuid.UUID, session_id: uuid.UUID) -> list[Message]:
+    async with ctx.db.tenant_session(tenant_id) as session:
+        return list(
+            (
+                await session.scalars(
+                    select(Message)
+                    .where(Message.session_id == session_id)
+                    .order_by(Message.sent_at, Message.id)
+                )
+            ).all()
+        )
+
+
+async def mine_late_phrases(
+    ctx: AppContext, tenant_id: uuid.UUID, *, now: datetime, limit: int = BATCH
+) -> int:
+    """提炼之后客户才评价满意的人工会话：补充挖掘优秀话术。"""
+    async with ctx.db.tenant_session(tenant_id) as session:
+        session_ids = list(
+            (
+                await session.scalars(
+                    select(ChatSession.id)
+                    .join(KbExtraction, KbExtraction.session_id == ChatSession.id)
+                    .where(
+                        ChatSession.status == SessionStatus.CLOSED,
+                        ChatSession.closed_at >= now - LOOKBACK,
+                        ChatSession.csat >= SATISFIED,
+                        ChatSession.assigned_at.is_not(None),
+                        KbExtraction.status.in_(("done", "skipped")),
+                        KbExtraction.phrases_at.is_(None),
+                    )
+                    .order_by(ChatSession.closed_at)
+                    .limit(limit)
+                )
+            ).all()
+        )
+    recorded = 0
+    for session_id in session_ids:
+        lines = transcript(await _messages(ctx, tenant_id, session_id))
+        recorded += await mine_phrases(ctx, tenant_id, session_id, lines, now=now) or 0
+    return recorded
 
 
 # ---- 运行 ----
@@ -460,30 +658,22 @@ async def extract_session(
     now: datetime,
 ) -> tuple[str, int, int]:
     """提炼一个会话，返回（状态, 问答数, 缺口数）。调用模型时不占数据库事务。"""
-    async with ctx.db.tenant_session(tenant_id) as session:
-        messages = list(
-            (
-                await session.scalars(
-                    select(Message)
-                    .where(Message.session_id == session_id)
-                    .order_by(Message.sent_at, Message.id)
-                )
-            ).all()
-        )
-    lines = transcript(messages)
+    lines = transcript(await _messages(ctx, tenant_id, session_id))
     # 只有客户说话的会话也提炼：没有得到解答的问题是知识缺口。
     if all(role != CUSTOMER for role, _ in lines):
         await _mark(ctx, tenant_id, session_id, "skipped")
         return "skipped", 0, 0
+    prompt = await ctx.prompts.get("extract")
     try:
         result = await gateway.chat(
             ctx,
             tenant_id,
-            prompts.extract_messages(transcript=lines),
+            prompts.extract_messages(transcript=lines, template=prompt.content),
             scene="extract",
             json_mode=True,
             max_tokens=1500,
             session_id=session_id,
+            prompt_version=prompt.version,
         )
     except LLMUnavailable as exc:
         await _mark(ctx, tenant_id, session_id, "failed", error=str(exc)[:500])
@@ -506,13 +696,21 @@ async def extract_session(
                 now=now,
                 model=result.model,
                 auto_merge=auto_merge,
+                prompt_version=prompt.version,
             ):
                 recorded_pairs += 1
         for question in gaps:
             asked = [i for i, (role, text) in enumerate(lines, 1) if role == CUSTOMER][-3:]
             evidence = _evidence(session_id, question, lines, asked, now)
             if await record_gap(
-                ctx, session, tenant_id, question, evidence, now=now, model=result.model
+                ctx,
+                session,
+                tenant_id,
+                question,
+                evidence,
+                now=now,
+                model=result.model,
+                prompt_version=prompt.version,
             ):
                 recorded_gaps += 1
         await session.commit()
@@ -545,6 +743,7 @@ async def extract_sidebar(
         ).all()
         items = [(r.id, r.question or "", r.content) for r in rows]
     recorded = 0
+    prompt = await ctx.prompts.get("extract")
     for message_id, question, answer in items:
         mapping: dict[str, str] = {}
         masked_question, mapping = pii.mask(question.strip(), mapping)
@@ -557,10 +756,11 @@ async def extract_sidebar(
                 result = await gateway.chat(
                     ctx,
                     tenant_id,
-                    prompts.extract_messages(transcript=lines),
+                    prompts.extract_messages(transcript=lines, template=prompt.content),
                     scene="extract",
                     json_mode=True,
                     max_tokens=800,
+                    prompt_version=prompt.version,
                 )
             except LLMUnavailable as exc:
                 logger.warning("sidebar extraction failed: %s", exc)
@@ -586,6 +786,7 @@ async def extract_sidebar(
                     model=model,
                     auto_merge=auto_merge,
                     source=CandidateSource.SIDEBAR,
+                    prompt_version=prompt.version,
                 ):
                     recorded += 1
             row = await session.get(WecomSidebarMessage, message_id)
@@ -637,6 +838,11 @@ async def run_extraction(
             report.gaps += gaps
             report.skipped += status == "skipped"
             report.failed += status == "failed"
+        if await ctx.llms.chat_enabled(tenant_id, "phrase"):
+            try:
+                report.phrases += await mine_late_phrases(ctx, tenant_id, now=now, limit=limit)
+            except Exception:
+                logger.exception("phrase mining failed for tenant %s", tenant_id)
         try:
             report.pairs += await extract_sidebar(
                 ctx, tenant_id, auto_merge=settings.auto_merge_similar, now=now, limit=limit

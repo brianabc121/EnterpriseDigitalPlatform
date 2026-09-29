@@ -1,12 +1,16 @@
 """导入全部模型，确保它们注册到 Base.metadata。"""
 
 from app.modules.ai.models import (
+    AiAnswerCache,
     AiDecision,
     AiEvalRun,
+    AiMessageFeedback,
     AiSessionState,
     AiSettings,
     AiSuggestion,
+    CopilotAlert,
     LlmCall,
+    SessionSummary,
 )
 from app.modules.audit.models import AuditLog
 from app.modules.billing.models import Invoice, Plan, Subscription
@@ -24,22 +28,27 @@ from app.modules.conversation.models import (
 from app.modules.customer.models import (
     Customer,
     CustomerIdentity,
+    CustomerLeadDraft,
     CustomerOwnerHistory,
     CustomerTransferRequest,
 )
 from app.modules.iam.models import RefreshToken, Role, Staff, StaffRole
 from app.modules.kb.models import (
     KbCandidate,
+    KbCategory,
     KbChunk,
     KbDigest,
     KbExtraction,
     KbFeedback,
+    KbImportJob,
     KbItem,
     KbItemVersion,
     KbRead,
+    KbSpace,
 )
 from app.modules.lifecycle.models import SupportGrant, TenantDeletion, TenantExport
-from app.modules.platform.models import LlmProvider, PlatformSetting
+from app.modules.notifications.models import StaffNotification
+from app.modules.platform.models import LlmProvider, PlatformSetting, PromptTemplate
 from app.modules.quickreply.models import QuickReply
 from app.modules.routing.models import AgentState, RoutingPolicy, SkillGroup, SkillGroupMember
 from app.modules.security.models import FileScan, PrivacyRequest, TenantKey, TenantSetting
@@ -64,29 +73,36 @@ from app.modules.wecom.models import (
 
 __all__ = [
     "AgentState",
+    "AiAnswerCache",
     "AiDecision",
     "AiEvalRun",
+    "AiMessageFeedback",
     "AiSessionState",
     "AiSettings",
     "AiSuggestion",
     "AuditLog",
     "ChannelAccount",
     "ChatSession",
+    "CopilotAlert",
     "Customer",
     "CustomerIdentity",
+    "CustomerLeadDraft",
     "CustomerOwnerHistory",
     "CustomerTransferRequest",
     "FileScan",
     "ImOp",
     "Invoice",
     "KbCandidate",
+    "KbCategory",
     "KbChunk",
     "KbDigest",
     "KbExtraction",
     "KbFeedback",
+    "KbImportJob",
     "KbItem",
     "KbItemVersion",
     "KbRead",
+    "KbSpace",
     "LlmCall",
     "LlmProvider",
     "Message",
@@ -94,17 +110,20 @@ __all__ = [
     "PlatformSetting",
     "PlatformUser",
     "PrivacyRequest",
+    "PromptTemplate",
     "QuickReply",
     "RefreshToken",
     "Role",
     "Room",
     "RoutingPolicy",
     "SessionEvent",
+    "SessionSummary",
     "SessionTransfer",
     "SessionWatcher",
     "SkillGroup",
     "SkillGroupMember",
     "Staff",
+    "StaffNotification",
     "StaffRole",
     "Subscription",
     "SupportGrant",

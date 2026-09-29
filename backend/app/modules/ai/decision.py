@@ -83,6 +83,16 @@ def _contains(text: str, words: tuple[str, ...] | list[str]) -> str | None:
     return next((w for w in words if w and w in text), None)
 
 
+def is_negative(text: str) -> bool:
+    """客户的话里有负面情绪（生气、失望、连续感叹号等）。"""
+    return bool(_contains(text, NEGATIVE)) or "！！" in text or "!!" in text
+
+
+def promise_word(text: str) -> str | None:
+    """回复里的承诺类用语。"""
+    return _contains(text, PROMISES)
+
+
 def hard_trigger(
     question: str,
     *,
@@ -152,7 +162,7 @@ def signals(
     result = Signals(
         low_relevance=best_relevance < relevance_threshold,
         low_confidence=confidence < LOW_CONFIDENCE,
-        negative=bool(_contains(question, NEGATIVE)) or "！！" in question or "!!" in question,
+        negative=is_negative(question),
         repeated=repeats >= REPEATS_TO_SIGNAL,
         negation=bool(_contains(question, NEGATION)),
         too_many_turns=turns >= max_turns,

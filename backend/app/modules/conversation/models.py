@@ -197,6 +197,7 @@ class TicketSource(StrEnum):
     QUEUE_TIMEOUT = "queue_timeout"
     OFF_HOURS = "off_hours"
     VISITOR = "visitor"
+    AI = "ai"  # AI 接待时调用工具 create_ticket 建的留言
 
 
 class TicketStatus(StrEnum):
@@ -236,6 +237,7 @@ class ImOpType(StrEnum):
     BOT_MESSAGE = "bot_message"  # payload: text, nickname（AI 回复，机器人身份发到服务群）
     CHANNEL_SEND = "channel_send"  # payload: message_id（投递到外部渠道，成功后镜像到服务群）
     MIRROR = "mirror"  # payload: message_id（外部渠道的入站消息以客户身份镜像到服务群）
+    TYPING = "typing"  # 智能客服"正在输入"：服务群里的在线信令，不落库，失败不重试
 
 
 class ImOpStatus(StrEnum):

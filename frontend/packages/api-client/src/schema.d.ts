@@ -730,6 +730,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/customers/lead-drafts/{draft_id}/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirm Lead
+         * @description 确认 AI 登记的线索：写入客户档案（称呼、公司、手机号、邮箱，需求记到备注）。
+         */
+        post: operations["confirm_lead_api_v1_customers_lead_drafts__draft_id__confirm_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/customers/lead-drafts/{draft_id}/discard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Discard Lead
+         * @description 忽略 AI 登记的线索（不写入客户档案）。
+         */
+        post: operations["discard_lead_api_v1_customers_lead_drafts__draft_id__discard_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/customers/privacy-requests": {
         parameters: {
             query?: never;
@@ -893,6 +933,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/customers/{customer_id}/lead-drafts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Lead Drafts
+         * @description AI 接待时登记的线索（待确认的在前面处理），坐席确认后才写入客户档案。
+         */
+        get: operations["lead_drafts_api_v1_customers__customer_id__lead_drafts_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/customers/{customer_id}/merge": {
         parameters: {
             query?: never;
@@ -965,6 +1025,26 @@ export interface paths {
          * @description 查看手机号、邮箱明文（需要 customer:view_sensitive，每次查看记审计）。
          */
         get: operations["reveal_sensitive_api_v1_customers__customer_id__sensitive_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/customers/{customer_id}/summaries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Customer Summaries
+         * @description 已确认的历史会话小结（新的在前）。
+         */
+        get: operations["customer_summaries_api_v1_customers__customer_id__summaries_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1061,7 +1141,8 @@ export interface paths {
         put?: never;
         /**
          * Approve Candidate
-         * @description 通过：新问题和缺口新建为问答并发布；相似问法并入原问答；冲突用新答案更新原问答。
+         * @description 通过：新问题和缺口新建为问答并发布；相似问法并入原问答；冲突用新答案更新原问答；
+         *     优秀话术加入共享快捷话术。
          */
         post: operations["approve_candidate_api_v1_kb_candidates__candidate_id__approve_post"];
         delete?: never;
@@ -1105,6 +1186,50 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/api/v1/kb/categories": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create Category
+         * @description 在空间里新建分类（最多三级）。
+         */
+        post: operations["create_category_api_v1_kb_categories_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/kb/categories/{category_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Category
+         * @description 删除分类及其下级分类，其中的知识保留在空间里。
+         */
+        delete: operations["delete_category_api_v1_kb_categories__category_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Update Category
+         * @description 改名、调整顺序，或移到同一空间的另一个上级分类下。
+         */
+        patch: operations["update_category_api_v1_kb_categories__category_id__patch"];
         trace?: never;
     };
     "/api/v1/kb/digests": {
@@ -1165,6 +1290,69 @@ export interface paths {
          * @description 从 CSV 批量导入 FAQ（冷启动，设计文档 §12.1）。
          */
         post: operations["import_faqs_api_v1_kb_import_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/kb/imports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Imports
+         * @description 最近的导入任务。
+         */
+        get: operations["list_imports_api_v1_kb_imports_get"];
+        put?: never;
+        /**
+         * Upload Import
+         * @description 上传文档（PDF、Word、Markdown、网页、纯文本）或问答表（.xlsx、.csv）导入知识。
+         *     后台执行，完成后在导入记录里查看结果（也会收到站内信）。
+         */
+        post: operations["upload_import_api_v1_kb_imports_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/kb/imports/crawl": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Crawl Import
+         * @description 抓取官网帮助中心：从起始网址出发抓取同一站点、同一目录下的网页，每页生成一条文档知识；
+         *     再次抓取同一网页时更新原来的知识。
+         */
+        post: operations["crawl_import_api_v1_kb_imports_crawl_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/kb/imports/{job_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Import */
+        get: operations["get_import_api_v1_kb_imports__job_id__get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1308,6 +1496,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/kb/items/{item_id}/stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Item Stats
+         * @description 这条知识的引用次数、员工与访客的评价、引用它的 AI 会话的满意度和转人工情况，
+         *     以及是否长期未命中。
+         */
+        get: operations["item_stats_api_v1_kb_items__item_id__stats_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/kb/items/{item_id}/versions": {
         parameters: {
             query?: never;
@@ -1388,6 +1597,48 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/kb/spaces": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Spaces
+         * @description 知识空间和各自的分类（平铺，按 parent_id 组成树），以及各自的知识数。
+         */
+        get: operations["list_spaces_api_v1_kb_spaces_get"];
+        put?: never;
+        /** Create Space */
+        post: operations["create_space_api_v1_kb_spaces_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/kb/spaces/{space_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Space
+         * @description 删除空间：其中的知识保留（移出空间），分类一并删除，渠道不再限定这个空间。
+         */
+        delete: operations["delete_space_api_v1_kb_spaces__space_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update Space */
+        patch: operations["update_space_api_v1_kb_spaces__space_id__patch"];
+        trace?: never;
+    };
     "/api/v1/me": {
         parameters: {
             query?: never;
@@ -1439,6 +1690,60 @@ export interface paths {
          * @description 已登录的员工扫码绑定自己的企业微信账号（之后可以扫码登录、接收应用消息）。
          */
         post: operations["bind_self_api_v1_me_wecom_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/notifications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Notifications
+         * @description 我的站内信（新的在前）和未读数。
+         */
+        get: operations["list_notifications_api_v1_notifications_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/notifications/read-all": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Read All */
+        post: operations["read_all_api_v1_notifications_read_all_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/notifications/{notification_id}/read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Read One */
+        post: operations["read_one_api_v1_notifications__notification_id__read_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1739,6 +2044,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/sessions/{session_id}/alerts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Session Alerts
+         * @description 坐席助手在这个会话里给出的实时提醒（客户情绪、敏感信息、承诺类用语），留痕用于质检。
+         */
+        get: operations["session_alerts_api_v1_sessions__session_id__alerts_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/sessions/{session_id}/assists": {
         parameters: {
             query?: never;
@@ -1898,6 +2223,70 @@ export interface paths {
          * @description 坐席助手：根据对话和知识库给出 1–3 条建议回复（只对坐席可见）。
          */
         post: operations["suggestions_api_v1_sessions__session_id__suggestions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sessions/{session_id}/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Session Summary
+         * @description 会话小结（没有时为空）。人工接待的会话结束后自动生成草稿，坐席确认后写入客户档案。
+         */
+        get: operations["session_summary_api_v1_sessions__session_id__summary_get"];
+        put?: never;
+        /**
+         * Generate Summary
+         * @description 立即生成（或重新生成）小结草稿，会话结束后可用。已确认的小结不能重新生成。
+         */
+        post: operations["generate_summary_api_v1_sessions__session_id__summary_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sessions/{session_id}/summary/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirm Summary
+         * @description 确认小结（可以先修改）：标签并入客户标签，小结记到客户备注的最前面。
+         */
+        post: operations["confirm_summary_api_v1_sessions__session_id__summary_confirm_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sessions/{session_id}/summary/discard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Discard Summary
+         * @description 不需要这份小结（不写入客户档案）。之后仍可以重新生成。
+         */
+        post: operations["discard_summary_api_v1_sessions__session_id__summary_discard_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2498,6 +2887,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/visitor/ai-feedback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Rate Ai Answer
+         * @description 评价智能客服的一条回答：有用或没用（可以改），记到所依据的知识上。
+         */
+        post: operations["rate_ai_answer_api_v1_visitor_ai_feedback_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/visitor/cancel-queue": {
         parameters: {
             query?: never;
@@ -3083,6 +3492,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/platform/v1/llm-usage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Llm Usage
+         * @description 近若干天的大模型调用量、tokens 与估算费用（按模型、租户、场景）。
+         */
+        get: operations["llm_usage_platform_v1_llm_usage_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/platform/v1/me": {
         parameters: {
             query?: never;
@@ -3136,6 +3565,66 @@ export interface paths {
          * @description 修改套餐（已有订阅立即按新的额度和功能生效）；下架后不能用于新订阅。
          */
         patch: operations["update_plan_platform_v1_plans__plan_id__patch"];
+        trace?: never;
+    };
+    "/platform/v1/prompts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Prompts
+         * @description 各场景的提示词：内置模板、启用的版本和全部历史版本。
+         */
+        get: operations["list_prompts_platform_v1_prompts_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platform/v1/prompts/{key}/activate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Activate Prompt
+         * @description 启用某个版本（回滚）；version 为空时改回内置模板。
+         */
+        post: operations["activate_prompt_platform_v1_prompts__key__activate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platform/v1/prompts/{key}/versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create Prompt Version
+         * @description 保存新版本（可以立即启用）。模板只能使用这个场景提供的变量。
+         */
+        post: operations["create_prompt_version_platform_v1_prompts__key__versions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/platform/v1/settings/content-policy": {
@@ -3333,7 +3822,8 @@ export interface paths {
         get: operations["tenant_llm_platform_v1_tenants__tenant_id__llm_get"];
         /**
          * Assign Tenant Llm
-         * @description 给租户指定供应商（大客户专属模型等）；为空表示用平台默认。租户自带密钥时以租户的为准。
+         * @description 给租户指定供应商（大客户专属模型等）和大模型并发上限；供应商为空表示用平台默认。
+         *     租户自带密钥时以租户的为准。
          */
         put: operations["assign_tenant_llm_platform_v1_tenants__tenant_id__llm_put"];
         post?: never;
@@ -3772,6 +4262,20 @@ export interface components {
                 [key: string]: unknown;
             };
         };
+        /** AiFeedbackRequest */
+        AiFeedbackRequest: {
+            /**
+             * Server Msg Id
+             * @description 智能客服那条回答的 IM 消息 ID
+             */
+            server_msg_id: string;
+            /**
+             * Value
+             * @description 1 有用，-1 没用
+             * @enum {integer}
+             */
+            value: 1 | -1;
+        };
         /**
          * AiOutcome
          * @description 一次 AI 判定：回复或转人工，以及依据。
@@ -3808,6 +4312,11 @@ export interface components {
         };
         /** AiSettingsOut */
         AiSettingsOut: {
+            /**
+             * Answer Cache
+             * @description 相同的问题直接用之前的回答（知识变化后自动失效）
+             */
+            answer_cache: boolean;
             /**
              * Auto Merge Similar
              * @description 相似问法证据足够多（3 条以上）时自动并入原问答，不经审核
@@ -3866,15 +4375,37 @@ export interface components {
              */
             relevance_threshold: number;
             /**
+             * Rewrite Enabled
+             * @description 检索前改写问题：补全指代、拆分多个问题
+             */
+            rewrite_enabled: boolean;
+            /**
+             * Segment Replies
+             * @description 较长的回答分段发送，发送前显示正在输入
+             */
+            segment_replies: boolean;
+            /**
              * Sensitive Keywords
              * @description 除内置词外的敏感词：客户提到时转人工，回复里出现时不发送
              */
             sensitive_keywords: string[];
+            /**
+             * Tools Enabled
+             * @description 允许 AI 调用工具：再次检索、查看客户档案、登记线索、转人工、登记留言
+             */
+            tools_enabled: boolean;
+            /**
+             * Tools Supported
+             * @description 当前使用的模型是否支持工具调用
+             */
+            tools_supported: boolean;
             /** Used This Month */
             used_this_month: number;
         };
         /** AiSettingsUpdate */
         AiSettingsUpdate: {
+            /** Answer Cache */
+            answer_cache?: boolean | null;
             /** Auto Merge Similar */
             auto_merge_similar?: boolean | null;
             /** Bot Name */
@@ -3893,8 +4424,14 @@ export interface components {
             persona?: string | null;
             /** Relevance Threshold */
             relevance_threshold?: number | null;
+            /** Rewrite Enabled */
+            rewrite_enabled?: boolean | null;
+            /** Segment Replies */
+            segment_replies?: boolean | null;
             /** Sensitive Keywords */
             sensitive_keywords?: string[] | null;
+            /** Tools Enabled */
+            tools_enabled?: boolean | null;
         };
         /** AiTestRequest */
         AiTestRequest: {
@@ -4225,6 +4762,27 @@ export interface components {
              */
             data: string;
         };
+        /**
+         * ChannelAiOverrides
+         * @description 这个渠道的 AI 参数（设计文档 §11.2：阈值可以按租户和渠道分别配置），为空表示沿用 AI 设置。
+         */
+        ChannelAiOverrides: {
+            /**
+             * Handoff Threshold
+             * @description 软信号得分达到这个值时转人工
+             */
+            handoff_threshold?: number | null;
+            /**
+             * Max Turns
+             * @description AI 接待的最多轮数
+             */
+            max_turns?: number | null;
+            /**
+             * Relevance Threshold
+             * @description 知识相关度低于这个值视为知识缺失
+             */
+            relevance_threshold?: number | null;
+        };
         /** ChannelList */
         ChannelList: {
             /** Items */
@@ -4232,6 +4790,7 @@ export interface components {
         };
         /** ChannelOut */
         ChannelOut: {
+            ai?: components["schemas"]["ChannelAiOverrides"];
             /**
              * Created At
              * Format: date-time
@@ -4247,6 +4806,11 @@ export interface components {
              * @description 实名访客签名密钥（HMAC-SHA256）；为空表示未启用实名访客
              */
             identity_secret: string | null;
+            /**
+             * Kb Space Ids
+             * @description AI 接待只使用这些知识空间；为空表示全部
+             */
+            kb_space_ids?: string[];
             /** @description 微信客服渠道的设置 */
             kf?: components["schemas"]["KfView"] | null;
             /** Name */
@@ -4281,6 +4845,10 @@ export interface components {
         ChannelStatus: "active" | "disabled";
         /** ChannelUpdate */
         ChannelUpdate: {
+            /** @description 整体替换这个渠道的 AI 参数 */
+            ai?: components["schemas"]["ChannelAiOverrides"] | null;
+            /** Kb Space Ids */
+            kb_space_ids?: string[] | null;
             /** @description 只适用于微信客服渠道 */
             kf?: components["schemas"]["KfSettings"] | null;
             /** Name */
@@ -4360,6 +4928,38 @@ export interface components {
              * @description 平台敏感词
              */
             words?: string[];
+        };
+        /** CopilotAlertList */
+        CopilotAlertList: {
+            /** Items */
+            items: components["schemas"]["CopilotAlertOut"][];
+        };
+        /** CopilotAlertOut */
+        CopilotAlertOut: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Kind
+             * @description negative、escalation、sensitive_info、promise
+             */
+            kind: string;
+            /** Message Id */
+            message_id: string | null;
+            /**
+             * Staff Id
+             * @description 提醒给哪位员工
+             */
+            staff_id: string | null;
+            /** Text */
+            text: string;
         };
         /** CorpOut */
         CorpOut: {
@@ -4568,6 +5168,25 @@ export interface components {
             email: string | null;
             /** Phone */
             phone: string | null;
+        };
+        /** CustomerSummaryList */
+        CustomerSummaryList: {
+            /** Items */
+            items: components["schemas"]["CustomerSummaryOut"][];
+        };
+        /** CustomerSummaryOut */
+        CustomerSummaryOut: {
+            /** Confirmed At */
+            confirmed_at: string | null;
+            /**
+             * Session Id
+             * Format: uuid
+             */
+            session_id: string;
+            /** Summary */
+            summary: string;
+            /** Tags */
+            tags: string[];
         };
         /** CustomerTransferRequest */
         CustomerTransferRequest: {
@@ -5267,7 +5886,7 @@ export interface components {
             id: string;
             /**
              * Kind
-             * @description new 新问题、similar 相似问法、conflict 答案冲突、gap 知识缺口
+             * @description new 新问题、similar 相似问法、conflict 答案冲突、gap 知识缺口、phrase 优秀话术（question 为标题，answer 为话术）
              */
             kind: string;
             /**
@@ -5370,7 +5989,7 @@ export interface components {
             id: string;
             /**
              * Kind
-             * @description new 新问题、similar 相似问法、conflict 答案冲突、gap 知识缺口
+             * @description new 新问题、similar 相似问法、conflict 答案冲突、gap 知识缺口、phrase 优秀话术（question 为标题，answer 为话术）
              */
             kind: string;
             /**
@@ -5451,6 +6070,93 @@ export interface components {
              * @description 驳回理由（用于改进提炼）
              */
             reason: string;
+        };
+        /** KbCategoryCreate */
+        KbCategoryCreate: {
+            /** Name */
+            name: string;
+            /**
+             * Parent Id
+             * @description 上级分类，为空表示第一级（最多三级）
+             */
+            parent_id?: string | null;
+            /** Sort */
+            sort?: number | null;
+            /**
+             * Space Id
+             * Format: uuid
+             */
+            space_id: string;
+        };
+        /** KbCategoryOut */
+        KbCategoryOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Items
+             * @description 直接归在这个分类下的知识数
+             */
+            items: number;
+            /** Name */
+            name: string;
+            /** Parent Id */
+            parent_id: string | null;
+            /** Sort */
+            sort: number;
+            /**
+             * Space Id
+             * Format: uuid
+             */
+            space_id: string;
+        };
+        /** KbCategoryUpdate */
+        KbCategoryUpdate: {
+            /** Name */
+            name?: string | null;
+            /**
+             * Parent Id
+             * @description 移动到另一个上级分类（同一空间内）；传 null 表示移到第一级
+             */
+            parent_id?: string | null;
+            /** Sort */
+            sort?: number | null;
+        };
+        /** KbCrawlImport */
+        KbCrawlImport: {
+            /**
+             * Category Id
+             * @description 放入哪个分类
+             */
+            category_id?: string | null;
+            /**
+             * Max Pages
+             * @description 最多抓取的网页数，默认 20
+             */
+            max_pages?: number | null;
+            /**
+             * Publish
+             * @description 导入后立即发布（需要 kb:publish）
+             * @default false
+             */
+            publish: boolean;
+            /**
+             * Space Id
+             * @description 放入哪个知识空间
+             */
+            space_id?: string | null;
+            /**
+             * Url
+             * @description 帮助中心的起始网址：只抓取同一站点、同一目录下的网页
+             */
+            url: string;
+            /**
+             * Visibility
+             * @description 可见范围，默认对客
+             */
+            visibility?: ("public" | "agent" | "admin") | null;
         };
         /** KbDigestList */
         KbDigestList: {
@@ -5570,6 +6276,50 @@ export interface components {
              */
             value: -1 | 0 | 1;
         };
+        /** KbImportJobList */
+        KbImportJobList: {
+            /** Items */
+            items: components["schemas"]["KbImportJobOut"][];
+        };
+        /** KbImportJobOut */
+        KbImportJobOut: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Created By Name */
+            created_by_name: string | null;
+            /** Error */
+            error: string | null;
+            /** Finished At */
+            finished_at: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Kind
+             * @description document、excel、crawl
+             */
+            kind: string;
+            /** Publish */
+            publish: boolean;
+            result: components["schemas"]["KbImportSummary"];
+            /**
+             * Source
+             * @description 文件名或起始网址
+             */
+            source: string;
+            /** Started At */
+            started_at: string | null;
+            /**
+             * Status
+             * @description pending 排队中、running 导入中、done 完成、failed 失败
+             */
+            status: string;
+        };
         /** KbImportRequest */
         KbImportRequest: {
             /**
@@ -5594,13 +6344,54 @@ export interface components {
              */
             errors: string[];
         };
+        /** KbImportSummary */
+        KbImportSummary: {
+            /**
+             * Created
+             * @description 新建的知识数
+             * @default 0
+             */
+            created: number;
+            /** Errors */
+            errors?: string[];
+            /** Item Ids */
+            item_ids?: string[];
+            /**
+             * Pages
+             * @description 抓取到正文的网页数
+             * @default 0
+             */
+            pages: number;
+            /**
+             * Skipped
+             * @description 内容没有变化而跳过的
+             * @default 0
+             */
+            skipped: number;
+            /**
+             * Updated
+             * @description 更新的知识数（再次抓取同一网页）
+             * @default 0
+             */
+            updated: number;
+        };
         /** KbItemCreate */
         KbItemCreate: {
+            /**
+             * Audience Group Ids
+             * @description 推送给哪些技能组（知识动态、必读确认），为空表示全员
+             */
+            audience_group_ids?: string[];
             /**
              * Category
              * @default
              */
             category: string;
+            /**
+             * Category Id
+             * @description 空间内的分类
+             */
+            category_id?: string | null;
             /**
              * Content
              * @description FAQ 的答案，或文档正文
@@ -5619,6 +6410,11 @@ export interface components {
              */
             must_read: boolean;
             /**
+             * Owner Id
+             * @description 负责人：到期前收到提醒
+             */
+            owner_id?: string | null;
+            /**
              * Publish
              * @description 创建后立即发布（需要 kb:publish）
              * @default false
@@ -5629,6 +6425,11 @@ export interface components {
              * @description FAQ 的相似问法
              */
             questions?: string[];
+            /**
+             * Space Id
+             * @description 知识空间；只选分类时取分类所在的空间
+             */
+            space_id?: string | null;
             /** Tags */
             tags?: string[];
             /**
@@ -5652,8 +6453,12 @@ export interface components {
         KbItemOut: {
             /** Archived At */
             archived_at: string | null;
+            /** Audience Group Ids */
+            audience_group_ids: string[];
             /** Category */
             category: string;
+            /** Category Id */
+            category_id: string | null;
             /** Content */
             content: string;
             /**
@@ -5687,12 +6492,21 @@ export interface components {
             likes: number;
             /** Must Read */
             must_read: boolean;
+            /** Owner Id */
+            owner_id: string | null;
             /** Published At */
             published_at: string | null;
             /** Questions */
             questions: string[];
             /** Source */
             source: string;
+            /**
+             * Source Url
+             * @description 导入的文件名或抓取的页面地址
+             */
+            source_url: string | null;
+            /** Space Id */
+            space_id: string | null;
             /**
              * Status
              * @description draft、published 或 archived
@@ -5715,6 +6529,16 @@ export interface components {
             version: number;
             /** Visibility */
             visibility: string;
+            /**
+             * Visitor Dislikes
+             * @description 访客评价依据这条知识的 AI 回答为没用的次数
+             */
+            visitor_dislikes: number;
+            /**
+             * Visitor Likes
+             * @description 访客评价依据这条知识的 AI 回答为有用的次数
+             */
+            visitor_likes: number;
         };
         /** KbItemPage */
         KbItemPage: {
@@ -5738,16 +6562,95 @@ export interface components {
             /** Title */
             title: string;
         };
+        /**
+         * KbItemStats
+         * @description 一条知识的使用与满意度（设计文档 §12.7）。
+         */
+        KbItemStats: {
+            /**
+             * Ai Sessions
+             * @description 最近 90 天 AI 回答时引用了这条知识的会话数
+             */
+            ai_sessions: number;
+            /**
+             * Csat Avg
+             * @description 这些会话的平均满意度（1–5）
+             */
+            csat_avg: number | null;
+            /**
+             * Csat Count
+             * @description 其中有满意度评价的会话数
+             */
+            csat_count: number;
+            /** Dislikes */
+            dislikes: number;
+            /**
+             * Handoff Sessions
+             * @description 其中后来转人工的会话数
+             */
+            handoff_sessions: number;
+            /**
+             * Hits
+             * @description 被 AI 或坐席引用的次数
+             */
+            hits: number;
+            /**
+             * Item Id
+             * Format: uuid
+             */
+            item_id: string;
+            /** Last Hit At */
+            last_hit_at: string | null;
+            /**
+             * Likes
+             * @description 员工评价为有用的人数
+             */
+            likes: number;
+            /** Visitor Dislikes */
+            visitor_dislikes: number;
+            /**
+             * Visitor Likes
+             * @description 访客评价依据这条知识的 AI 回答为有用的次数
+             */
+            visitor_likes: number;
+            /**
+             * Visitor Satisfaction
+             * @description 访客评价中有用的比例
+             */
+            visitor_satisfaction: number | null;
+            /**
+             * Zombie
+             * @description 发布超过 90 天、90 天内没有被引用（长期未命中）
+             */
+            zombie: boolean;
+        };
         /** KbItemUpdate */
         KbItemUpdate: {
+            /** Audience Group Ids */
+            audience_group_ids?: string[] | null;
             /** Category */
             category?: string | null;
+            /**
+             * Category Id
+             * @description 传 null 表示不归入分类
+             */
+            category_id?: string | null;
             /** Content */
             content?: string | null;
             /** Must Read */
             must_read?: boolean | null;
+            /**
+             * Owner Id
+             * @description 传 null 表示不设负责人
+             */
+            owner_id?: string | null;
             /** Questions */
             questions?: string[] | null;
+            /**
+             * Space Id
+             * @description 传 null 表示移出空间
+             */
+            space_id?: string | null;
             /** Tags */
             tags?: string[] | null;
             /** Title */
@@ -5846,6 +6749,11 @@ export interface components {
              * @description AI 引用最多的知识
              */
             top_items: components["schemas"]["KbItemStat"][];
+            /**
+             * Visitor Disliked Items
+             * @description 访客评价 AI 回答没用最多的知识
+             */
+            visitor_disliked_items?: components["schemas"]["KbItemStat"][];
         };
         /** KbReadStats */
         KbReadStats: {
@@ -5860,7 +6768,7 @@ export interface components {
             readers: components["schemas"]["KbReader"][];
             /**
              * Total
-             * @description 需要确认的员工数（有接待权限的在职员工）
+             * @description 需要确认的员工数（有接待权限的在职员工；指定了推送技能组时为组员）
              */
             total: number;
             /** Version */
@@ -5921,6 +6829,98 @@ export interface components {
         KbSearchResult: {
             /** Items */
             items: components["schemas"]["KbSearchHit"][];
+        };
+        /** KbSpaceCreate */
+        KbSpaceCreate: {
+            /** Description */
+            description?: string | null;
+            /** Name */
+            name: string;
+            /**
+             * Sort
+             * @description 越小越靠前
+             */
+            sort?: number | null;
+        };
+        /** KbSpaceList */
+        KbSpaceList: {
+            /** Items */
+            items: components["schemas"]["KbSpaceOut"][];
+            /**
+             * Unassigned
+             * @description 没有归入任何空间的知识数
+             */
+            unassigned: number;
+        };
+        /** KbSpaceOut */
+        KbSpaceOut: {
+            /**
+             * Categories
+             * @description 分类（平铺，按 parent_id 组成树）
+             */
+            categories: components["schemas"]["KbCategoryOut"][];
+            /** Description */
+            description: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Items
+             * @description 空间里的知识数
+             */
+            items: number;
+            /** Name */
+            name: string;
+            /** Sort */
+            sort: number;
+        };
+        /** KbSpaceUpdate */
+        KbSpaceUpdate: {
+            /** Description */
+            description?: string | null;
+            /** Name */
+            name?: string | null;
+            /** Sort */
+            sort?: number | null;
+        };
+        /** KbUploadImport */
+        KbUploadImport: {
+            /**
+             * Category Id
+             * @description 放入哪个分类
+             */
+            category_id?: string | null;
+            /**
+             * Content Base64
+             * @description 文件内容（base64），文件最大 20 MB
+             */
+            content_base64: string;
+            /** Filename */
+            filename: string;
+            /**
+             * Kind
+             * @description document：文档（PDF、Word、Markdown、网页、纯文本）；excel：问答表（.xlsx、.csv）
+             * @enum {string}
+             */
+            kind: "document" | "excel";
+            /**
+             * Publish
+             * @description 导入后立即发布（需要 kb:publish）
+             * @default false
+             */
+            publish: boolean;
+            /**
+             * Space Id
+             * @description 放入哪个知识空间
+             */
+            space_id?: string | null;
+            /**
+             * Visibility
+             * @description 可见范围，默认对客
+             */
+            visibility?: ("public" | "agent" | "admin") | null;
         };
         /** KbVersionList */
         KbVersionList: {
@@ -6037,6 +7037,58 @@ export interface components {
             /** Title */
             title: string;
         };
+        /** LeadDraftList */
+        LeadDraftList: {
+            /** Items */
+            items: components["schemas"]["LeadDraftOut"][];
+        };
+        /** LeadDraftOut */
+        LeadDraftOut: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Customer Id
+             * Format: uuid
+             */
+            customer_id: string;
+            /** Decided At */
+            decided_at: string | null;
+            fields: components["schemas"]["LeadFields"];
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Session Id */
+            session_id: string | null;
+            /**
+             * Status
+             * @description pending、confirmed、discarded
+             */
+            status: string;
+        };
+        /** LeadFields */
+        LeadFields: {
+            /** Company */
+            company?: string | null;
+            /**
+             * Email
+             * @description 掩码
+             */
+            email?: string | null;
+            /** Name */
+            name?: string | null;
+            /**
+             * Phone
+             * @description 掩码
+             */
+            phone?: string | null;
+            /** Requirement */
+            requirement?: string | null;
+        };
         /** LeaveMessageRequest */
         LeaveMessageRequest: {
             /**
@@ -6067,6 +7119,36 @@ export interface components {
             unit: string;
             /** Used */
             used: number;
+        };
+        /**
+         * LlmCapabilities
+         * @description 模型的能力标签（设计文档 §11.5）：网关按场景需要选择可用的能力。
+         */
+        LlmCapabilities: {
+            /**
+             * Batch
+             * @description 提供批量接口（离线知识提炼可以使用）
+             * @default false
+             */
+            batch: boolean;
+            /**
+             * Context Tokens
+             * @description 上下文长度，0 为未知
+             * @default 0
+             */
+            context_tokens: number;
+            /**
+             * Json Schema
+             * @description 支持 JSON Schema 结构化输出
+             * @default false
+             */
+            json_schema: boolean;
+            /**
+             * Tools
+             * @description 支持函数调用（tools），AI 接待可以调用工具
+             * @default false
+             */
+            tools: boolean;
         };
         /** LlmCheck */
         LlmCheck: {
@@ -6106,6 +7188,7 @@ export interface components {
              * @example https://api.deepseek.com/v1
              */
             base_url: string;
+            capabilities?: components["schemas"]["LlmCapabilities"];
             /** Chat Model */
             chat_model: string;
             /**
@@ -6137,6 +7220,12 @@ export interface components {
             name: string;
             prices?: components["schemas"]["LlmPrices"];
             /**
+             * Rerank Model
+             * @description 重排序模型（/rerank）
+             * @default
+             */
+            rerank_model: string;
+            /**
              * Send Dimensions
              * @default false
              */
@@ -6158,6 +7247,7 @@ export interface components {
             api_key_set: boolean;
             /** Base Url */
             base_url: string;
+            capabilities: components["schemas"]["LlmCapabilities"];
             /** Chat Model */
             chat_model: string;
             /**
@@ -6183,6 +7273,8 @@ export interface components {
             /** Name */
             name: string;
             prices: components["schemas"]["LlmPrices"];
+            /** Rerank Model */
+            rerank_model: string;
             /** Send Dimensions */
             send_dimensions: boolean;
             /**
@@ -6205,6 +7297,7 @@ export interface components {
             api_key?: string | null;
             /** Base Url */
             base_url?: string | null;
+            capabilities?: components["schemas"]["LlmCapabilities"] | null;
             /** Chat Model */
             chat_model?: string | null;
             /** Embed Dim */
@@ -6220,6 +7313,8 @@ export interface components {
             /** Name */
             name?: string | null;
             prices?: components["schemas"]["LlmPrices"] | null;
+            /** Rerank Model */
+            rerank_model?: string | null;
             /** Send Dimensions */
             send_dimensions?: boolean | null;
         };
@@ -6252,6 +7347,44 @@ export interface components {
             chat: components["schemas"]["LlmCheck"];
             /** @description 配置了向量模型时检查 */
             embed: components["schemas"]["LlmCheck"] | null;
+        };
+        /** LlmUsage */
+        LlmUsage: {
+            /** By Model */
+            by_model: components["schemas"]["LlmUsageRow"][];
+            /** By Scene */
+            by_scene: components["schemas"]["LlmUsageRow"][];
+            /** By Tenant */
+            by_tenant: components["schemas"]["LlmUsageRow"][];
+            /** Days */
+            days: number;
+            /** Total Calls */
+            total_calls: number;
+            /** Total Cost */
+            total_cost: number;
+            /** Total Tokens */
+            total_tokens: number;
+        };
+        /** LlmUsageRow */
+        LlmUsageRow: {
+            /** Calls */
+            calls: number;
+            /**
+             * Cost
+             * @description 估算费用（分）
+             */
+            cost: number;
+            /** Errors */
+            errors: number;
+            /**
+             * Key
+             * @description 供应商/模型，或租户代码
+             */
+            key: string;
+            /** Label */
+            label: string;
+            /** Tokens */
+            tokens: number;
         };
         /** LoginRequest */
         LoginRequest: {
@@ -6453,6 +7586,45 @@ export interface components {
         MyAgentStatusUpdate: {
             status: components["schemas"]["AgentStatus"];
         };
+        /** NotificationList */
+        NotificationList: {
+            /** Items */
+            items: components["schemas"]["NotificationOut"][];
+            /**
+             * Unread
+             * @description 未读的站内信数
+             */
+            unread: number;
+        };
+        /** NotificationOut */
+        NotificationOut: {
+            /** Body */
+            body: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Kind
+             * @description kb_expiring 知识即将到期、lead_draft 线索待确认、kb_digest 知识周报
+             */
+            kind: string;
+            /**
+             * Link
+             * @description 控制台内的页面路径
+             */
+            link: string | null;
+            /** Read At */
+            read_at: string | null;
+            /** Title */
+            title: string;
+        };
         /** Overview */
         Overview: {
             /** Days */
@@ -6573,6 +7745,11 @@ export interface components {
             enabled: boolean;
             /** Fast Model */
             fast_model: string;
+            /**
+             * Supports Tools
+             * @default false
+             */
+            supports_tools: boolean;
         };
         /**
          * OwnLlmUpdate
@@ -6598,6 +7775,12 @@ export interface components {
              * @default
              */
             fast_model: string;
+            /**
+             * Supports Tools
+             * @description 模型支持函数调用（tools）
+             * @default false
+             */
+            supports_tools: boolean;
         };
         /** OwnerHistoryList */
         OwnerHistoryList: {
@@ -7031,6 +8214,75 @@ export interface components {
             requested_by: string | null;
             /** Requested By Name */
             requested_by_name: string | null;
+        };
+        /** PromptActivate */
+        PromptActivate: {
+            /**
+             * Version
+             * @description 要启用的版本；为空表示改回内置模板
+             */
+            version: number | null;
+        };
+        /** PromptList */
+        PromptList: {
+            /** Items */
+            items: components["schemas"]["PromptOut"][];
+        };
+        /** PromptOut */
+        PromptOut: {
+            /**
+             * Active Version
+             * @description 启用的版本；为空表示使用内置模板
+             */
+            active_version: number | null;
+            /**
+             * Builtin
+             * @description 内置模板
+             */
+            builtin: string;
+            /** Key */
+            key: string;
+            /** Name */
+            name: string;
+            /**
+             * Variables
+             * @description 模板里可以使用的变量，写成 {name}
+             */
+            variables: string[];
+            /** Versions */
+            versions: components["schemas"]["PromptVersionOut"][];
+        };
+        /** PromptVersionCreate */
+        PromptVersionCreate: {
+            /**
+             * Activate
+             * @description 保存后立即启用
+             * @default false
+             */
+            activate: boolean;
+            /** Content */
+            content: string;
+            /**
+             * Note
+             * @description 这个版本改了什么
+             */
+            note?: string | null;
+        };
+        /** PromptVersionOut */
+        PromptVersionOut: {
+            /** Active */
+            active: boolean;
+            /** Content */
+            content: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Note */
+            note: string | null;
+            /** Version */
+            version: number;
         };
         /** PurgeResult */
         PurgeResult: {
@@ -7733,6 +8985,37 @@ export interface components {
          * @enum {string}
          */
         SessionStatus: "ai_serving" | "queued" | "human_serving" | "transferring" | "closed";
+        /** SessionSummaryOut */
+        SessionSummaryOut: {
+            /** Confirmed At */
+            confirmed_at: string | null;
+            /** Confirmed By */
+            confirmed_by: string | null;
+            /**
+             * Customer Id
+             * Format: uuid
+             */
+            customer_id: string;
+            /**
+             * Generated At
+             * Format: date-time
+             */
+            generated_at: string;
+            /**
+             * Session Id
+             * Format: uuid
+             */
+            session_id: string;
+            /**
+             * Status
+             * @description draft（待确认）、confirmed（已写入客户档案）、discarded
+             */
+            status: string;
+            /** Summary */
+            summary: string;
+            /** Tags */
+            tags: string[];
+        };
         /**
          * SidebarContext
          * @description 侧边栏当前聊天的上下文：单聊是一位客户，客户群是群信息和群里的客户。
@@ -8169,6 +9452,13 @@ export interface components {
             /** Suggestions */
             suggestions: string[];
         };
+        /** SummaryConfirm */
+        SummaryConfirm: {
+            /** Summary */
+            summary: string;
+            /** Tags */
+            tags?: string[];
+        };
         /**
          * SupportAccessOut
          * @description 平台运维的一次查看记录。
@@ -8534,6 +9824,11 @@ export interface components {
         /** TenantLlmAssign */
         TenantLlmAssign: {
             /**
+             * Concurrency
+             * @description 同时进行的大模型调用上限；为空表示平台默认值。不传表示不修改
+             */
+            concurrency?: number | null;
+            /**
              * Provider Id
              * @description 为空表示使用平台默认供应商
              */
@@ -8553,6 +9848,22 @@ export interface components {
         };
         /** TenantLlmOut */
         TenantLlmOut: {
+            /**
+             * Concurrency
+             * @description 单独设置的并发上限
+             */
+            concurrency?: number | null;
+            /**
+             * Default Concurrency
+             * @description 平台默认的并发上限
+             */
+            default_concurrency: number;
+            /**
+             * In Use
+             * @description 正在进行的调用数
+             * @default 0
+             */
+            in_use: number;
             /** Provider Id */
             provider_id: string | null;
             /** Provider Name */
@@ -8750,7 +10061,7 @@ export interface components {
          * TicketSource
          * @enum {string}
          */
-        TicketSource: "queue_timeout" | "off_hours" | "visitor";
+        TicketSource: "queue_timeout" | "off_hours" | "visitor" | "ai";
         /**
          * TicketStatus
          * @enum {string}
@@ -12907,6 +14218,158 @@ export interface operations {
             };
         };
     };
+    confirm_lead_api_v1_customers_lead_drafts__draft_id__confirm_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                draft_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LeadDraftOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    discard_lead_api_v1_customers_lead_drafts__draft_id__discard_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                draft_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LeadDraftOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     privacy_requests_api_v1_customers_privacy_requests_get: {
         parameters: {
             query?: never;
@@ -13607,6 +15070,82 @@ export interface operations {
             };
         };
     };
+    lead_drafts_api_v1_customers__customer_id__lead_drafts_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                customer_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LeadDraftList"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     merge_customers_api_v1_customers__customer_id__merge_post: {
         parameters: {
             query?: never;
@@ -13919,6 +15458,82 @@ export interface operations {
             };
         };
     };
+    customer_summaries_api_v1_customers__customer_id__summaries_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                customer_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomerSummaryList"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     request_transfer_api_v1_customers__customer_id__transfer_requests_post: {
         parameters: {
             query?: never;
@@ -14079,7 +15694,7 @@ export interface operations {
         parameters: {
             query?: {
                 status?: "pending" | "approved" | "merged" | "rejected";
-                kind?: ("new" | "similar" | "conflict" | "gap") | null;
+                kind?: ("new" | "similar" | "conflict" | "gap" | "phrase") | null;
                 limit?: number;
                 offset?: number;
             };
@@ -14470,6 +16085,238 @@ export interface operations {
             };
         };
     };
+    create_category_api_v1_kb_categories_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["KbCategoryCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KbCategoryOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    delete_category_api_v1_kb_categories__category_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                category_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    update_category_api_v1_kb_categories__category_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                category_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["KbCategoryUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KbCategoryOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     list_digests_api_v1_kb_digests_get: {
         parameters: {
             query?: {
@@ -14778,6 +16625,312 @@ export interface operations {
             };
         };
     };
+    list_imports_api_v1_kb_imports_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KbImportJobList"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    upload_import_api_v1_kb_imports_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["KbUploadImport"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KbImportJobOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    crawl_import_api_v1_kb_imports_crawl_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["KbCrawlImport"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KbImportJobOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_import_api_v1_kb_imports__job_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KbImportJobOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     list_items_api_v1_kb_items_get: {
         parameters: {
             query?: {
@@ -14789,6 +16942,14 @@ export interface operations {
                 stale?: boolean;
                 /** @description 只看必读知识 */
                 must_read?: boolean;
+                space_id?: string | null;
+                /** @description 包括它的下级分类 */
+                category_id?: string | null;
+                /** @description 只看没有归入空间的 */
+                unassigned?: boolean;
+                owner_id?: string | null;
+                /** @description 只看我负责的 */
+                mine?: boolean;
                 limit?: number;
                 offset?: number;
             };
@@ -15553,6 +17714,82 @@ export interface operations {
             };
         };
     };
+    item_stats_api_v1_kb_items__item_id__stats_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                item_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KbItemStats"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     item_versions_api_v1_kb_items__item_id__versions_get: {
         parameters: {
             query?: never;
@@ -15792,6 +18029,8 @@ export interface operations {
             query: {
                 q: string;
                 limit?: number;
+                /** @description 只在这个知识空间里检索 */
+                space_id?: string | null;
             };
             header?: never;
             path?: never;
@@ -15806,6 +18045,312 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["KbSearchResult"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    list_spaces_api_v1_kb_spaces_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KbSpaceList"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    create_space_api_v1_kb_spaces_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["KbSpaceCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KbSpaceOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    delete_space_api_v1_kb_spaces__space_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                space_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    update_space_api_v1_kb_spaces__space_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                space_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["KbSpaceUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KbSpaceOut"];
                 };
             };
             /** @description Bad Request */
@@ -16037,6 +18582,230 @@ export interface operations {
                 "application/json": components["schemas"]["WecomLoginRequest"];
             };
         };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    list_notifications_api_v1_notifications_get: {
+        parameters: {
+            query?: {
+                /** @description 只看未读的 */
+                unread?: boolean;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationList"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    read_all_api_v1_notifications_read_all_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    read_one_api_v1_notifications__notification_id__read_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                notification_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             204: {
@@ -17723,6 +20492,82 @@ export interface operations {
             };
         };
     };
+    session_alerts_api_v1_sessions__session_id__alerts_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CopilotAlertList"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     invite_assist_api_v1_sessions__session_id__assists_post: {
         parameters: {
             query?: never;
@@ -18359,6 +21204,314 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SuggestionList"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    session_summary_api_v1_sessions__session_id__summary_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionSummaryOut"] | null;
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    generate_summary_api_v1_sessions__session_id__summary_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionSummaryOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    confirm_summary_api_v1_sessions__session_id__summary_confirm_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SummaryConfirm"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionSummaryOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    discard_summary_api_v1_sessions__session_id__summary_discard_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionSummaryOut"];
                 };
             };
             /** @description Bad Request */
@@ -21403,6 +24556,85 @@ export interface operations {
             };
         };
     };
+    rate_ai_answer_api_v1_visitor_ai_feedback_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description 访客初始化返回的 visitor_token */
+                "X-Visitor-Token"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AiFeedbackRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     cancel_queue_api_v1_visitor_cancel_queue_post: {
         parameters: {
             query?: never;
@@ -23911,6 +27143,82 @@ export interface operations {
             };
         };
     };
+    llm_usage_platform_v1_llm_usage_get: {
+        parameters: {
+            query?: {
+                days?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LlmUsage"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     platform_me_platform_v1_me_get: {
         parameters: {
             query?: never;
@@ -24159,6 +27467,240 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PlanOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    list_prompts_platform_v1_prompts_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PromptList"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    activate_prompt_platform_v1_prompts__key__activate_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PromptActivate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PromptOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    create_prompt_version_platform_v1_prompts__key__versions_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PromptVersionCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PromptOut"];
                 };
             };
             /** @description Bad Request */

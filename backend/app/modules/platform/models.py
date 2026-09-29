@@ -34,5 +34,22 @@ class LlmProvider(IdMixin, TimestampMixin, Base):
     send_dimensions: Mapped[bool] = mapped_column(server_default="false")
     # 每千 tokens 的价格（分），用于估算成本：{"input": 0.1, "output": 0.2}。
     prices: Mapped[dict[str, Any]] = mapped_column(server_default="{}")
+    # 重排序模型（与对话、向量模型同一个接口地址）；能力标签：{"tools": true, ...}。
+    rerank_model: Mapped[str] = mapped_column(String(128), server_default="")
+    capabilities: Mapped[dict[str, Any]] = mapped_column(server_default="{}")
     is_default: Mapped[bool] = mapped_column(server_default="false")
     enabled: Mapped[bool] = mapped_column(server_default="true")
+
+
+class PromptTemplate(IdMixin, Base):
+    """平台级表：提示词版本（设计文档 §11.5）。每个场景最多一个启用的版本，没有时用内置提示词。"""
+
+    __tablename__ = "prompt_templates"
+
+    key: Mapped[str] = mapped_column(String(32))
+    version: Mapped[int]
+    content: Mapped[str] = mapped_column(Text)
+    note: Mapped[str | None] = mapped_column(Text)
+    active: Mapped[bool] = mapped_column(server_default="false")
+    created_by: Mapped[uuid.UUID | None]
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())

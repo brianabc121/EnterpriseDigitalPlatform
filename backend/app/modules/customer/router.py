@@ -1,6 +1,7 @@
 from datetime import date
 from typing import Annotated
 from uuid import UUID
+from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, Query, Request, status
 from fastapi.responses import StreamingResponse
@@ -10,8 +11,9 @@ from app.core.deps import client_ip, get_context, get_rate_limiter
 from app.core.errors import ERROR_RESPONSES
 from app.core.permissions import Permission
 from app.core.ratelimit import PASSWORD_CHECK, RateLimiter
+from app.modules.ai import summaries
 from app.modules.audit.service import record_audit
-from app.modules.customer import export, ownership, privacy, requests, service
+from app.modules.customer import export, leads, ownership, privacy, requests, service
 from app.modules.customer.models import CustomerOwnerHistory
 from app.modules.customer.schemas import (
     CustomerCreate,
@@ -21,11 +23,15 @@ from app.modules.customer.schemas import (
     CustomerOut,
     CustomerPage,
     CustomerSensitive,
+    CustomerSummaryList,
+    CustomerSummaryOut,
     CustomerTransferRequest,
     CustomerUpdate,
     ErasureRequest,
     ErasureResult,
     HandoverRequest,
+    LeadDraftList,
+    LeadDraftOut,
     OwnerHistoryList,
     PersonalData,
     PersonalDataRequest,
@@ -178,6 +184,38 @@ async def cancel_transfer_request(
     return await requests.cancel(session, principal, request_id)
 
 
+@router.post("/lead-drafts/{draft_id}/confirm", response_model=LeadDraftOut)
+async def confirm_lead(
+    draft_id: UUID, request: Request, ctx: Context, session: TenantDb, principal: CanRead
+) -> LeadDraftOut:
+    """确认 AI 登记的线索：写入客户档案（称呼、公司、手机号、邮箱，需求记到备注）。"""
+    return await leads.decide(
+        session,
+        ctx.keys,
+        principal,
+        draft_id,
+        confirm=True,
+        tz=ZoneInfo(ctx.settings.usage_timezone),
+        ip=client_ip(request),
+    )
+
+
+@router.post("/lead-drafts/{draft_id}/discard", response_model=LeadDraftOut)
+async def discard_lead(
+    draft_id: UUID, request: Request, ctx: Context, session: TenantDb, principal: CanRead
+) -> LeadDraftOut:
+    """忽略 AI 登记的线索（不写入客户档案）。"""
+    return await leads.decide(
+        session,
+        ctx.keys,
+        principal,
+        draft_id,
+        confirm=False,
+        tz=ZoneInfo(ctx.settings.usage_timezone),
+        ip=client_ip(request),
+    )
+
+
 async def _result(
     ctx: AppContext,
     principal: Principal,
@@ -260,6 +298,32 @@ async def owner_history(
     """客户的归属变更记录（能看到这个客户的员工可以查看）。"""
     await service.ensure_visible(session, principal, customer_id)
     return OwnerHistoryList(items=await ownership.owner_history(session, customer_id))
+
+
+@router.get("/{customer_id}/lead-drafts", response_model=LeadDraftList)
+async def lead_drafts(customer_id: UUID, session: TenantDb, principal: CanRead) -> LeadDraftList:
+    """AI 接待时登记的线索（待确认的在前面处理），坐席确认后才写入客户档案。"""
+    return LeadDraftList(items=await leads.list_drafts(session, principal, customer_id))
+
+
+@router.get("/{customer_id}/summaries", response_model=CustomerSummaryList)
+async def customer_summaries(
+    customer_id: UUID, session: TenantDb, principal: CanRead
+) -> CustomerSummaryList:
+    """已确认的历史会话小结（新的在前）。"""
+    await service.ensure_visible(session, principal, customer_id)
+    rows = await summaries.customer_summaries(session, customer_id)
+    return CustomerSummaryList(
+        items=[
+            CustomerSummaryOut(
+                session_id=r.session_id,
+                summary=r.summary,
+                tags=list(r.tags or []),
+                confirmed_at=r.confirmed_at,
+            )
+            for r in rows
+        ]
+    )
 
 
 @router.post(

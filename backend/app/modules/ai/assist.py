@@ -112,17 +112,22 @@ async def draft(
         Passage(item_id=str(h.item_id), kind=h.kind, title=h.title, text=h.text, score=h.score)
         for h in hits
     ]
+    prompt = await ctx.prompts.get("suggest")
     try:
         result = await gateway.chat(
             ctx,
             principal.tenant_id,
             prompts.suggest_messages(
-                passages=passages, history=masked, question=pii.mask(question, mapping)[0]
+                passages=passages,
+                history=masked,
+                question=pii.mask(question, mapping)[0],
+                template=prompt.content,
             ),
             scene="suggest",
             fast=True,
             json_mode=True,
             session_id=session_id,
+            prompt_version=prompt.version,
         )
     except LLMUnavailable:
         return fallback, knowledge

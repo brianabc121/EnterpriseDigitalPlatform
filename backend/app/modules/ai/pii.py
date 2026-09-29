@@ -37,3 +37,18 @@ def unmask(text: str, mapping: dict[str, str]) -> str:
     for placeholder, value in mapping.items():
         text = text.replace(placeholder, value)
     return text
+
+
+def detect(text: str) -> list[str]:
+    """文本里出现的个人信息种类（邮箱、身份证号、银行卡号、手机号），按上面的顺序去重。"""
+    found: list[str] = []
+    for label, pattern in _PATTERNS:
+        if pattern.search(text):
+            found.append(label)
+            text = pattern.sub(" ", text)
+    return found
+
+
+def strip_placeholders(text: str) -> str:
+    """去掉脱敏占位符（写进档案的小结里不保留个人信息）。"""
+    return re.sub(r"\[(?:邮箱|身份证号|银行卡号|手机号)\d+\]", "", text)

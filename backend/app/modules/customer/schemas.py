@@ -267,3 +267,39 @@ class TransferRequestOut(BaseModel):
 class TransferRequestList(BaseModel):
     items: list[TransferRequestOut]
     pending: int = Field(description="待审批的申请数（有分配权限时为全部待审批数）")
+
+
+# ---- AI 登记的线索 ----
+
+
+class LeadFields(BaseModel):
+    name: str | None = None
+    company: str | None = None
+    phone: str | None = Field(default=None, description="掩码")
+    email: str | None = Field(default=None, description="掩码")
+    requirement: str | None = None
+
+
+class LeadDraftOut(BaseModel):
+    id: UUID
+    customer_id: UUID
+    session_id: UUID | None
+    fields: LeadFields
+    status: str = Field(description="pending、confirmed、discarded")
+    created_at: datetime
+    decided_at: datetime | None
+
+
+class LeadDraftList(BaseModel):
+    items: list[LeadDraftOut]
+
+
+class CustomerSummaryOut(BaseModel):
+    session_id: UUID
+    summary: str
+    tags: list[str]
+    confirmed_at: datetime | None
+
+
+class CustomerSummaryList(BaseModel):
+    items: list[CustomerSummaryOut]

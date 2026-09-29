@@ -17,6 +17,7 @@ from app.modules.files.schemas import UploadOut, UploadRequest
 from app.modules.visitor import actions, conversation, service
 from app.modules.visitor.deps import CurrentVisitor
 from app.modules.visitor.schemas import (
+    AiFeedbackRequest,
     CsatRequest,
     LeaveMessageRequest,
     VisitorInitRequest,
@@ -73,6 +74,13 @@ Limiter = Annotated[RateLimiter, Depends(get_rate_limiter)]
 async def rate(payload: CsatRequest, visitor: CurrentVisitor) -> Response:
     """对已结束的会话评价（每个会话一次，结束后 7 天内）。"""
     await actions.rate(visitor, payload)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post("/ai-feedback", status_code=status.HTTP_204_NO_CONTENT)
+async def rate_ai_answer(payload: AiFeedbackRequest, visitor: CurrentVisitor) -> Response:
+    """评价智能客服的一条回答：有用或没用（可以改），记到所依据的知识上。"""
+    await actions.rate_ai_answer(visitor, payload)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 

@@ -64,6 +64,8 @@ class FakeOpenIM:
         self.callbacks: list[dict[str, Any]] = []
         self.friends: set[frozenset[str]] = set()
         self.signals: list[dict[str, Any]] = []
+        # 服务群里的在线消息（不落库），如智能客服"正在输入"。
+        self.online_messages: list[_Message] = []
         self.logged_out: list[tuple[str, int]] = []
         self.kick_quirk = True
         self.down = False
@@ -80,6 +82,14 @@ class FakeOpenIM:
 
     def seqs(self, group_id: str) -> list[int]:
         return [m.seq for m in self.groups[group_id].messages]
+
+    def group_signals(self, group_id: str) -> list[dict[str, Any]]:
+        """发到某个服务群的在线信令（解析后的 data）。"""
+        return [
+            json.loads(json.loads(m.content)["data"])
+            for m in self.online_messages
+            if m.group_id == group_id and m.content_type == 110
+        ]
 
     def signals_to(self, user_id: str) -> list[dict[str, Any]]:
         """发给某个用户的在线信令（解析后的 data）。"""
@@ -346,6 +356,8 @@ class FakeOpenIM:
         )
         if persist:
             group.messages.append(msg)
+        else:
+            self.online_messages.append(msg)
         if callback:
             self.callbacks.append(_callback(msg))
         return msg

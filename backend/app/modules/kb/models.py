@@ -42,6 +42,8 @@ class ItemSource(StrEnum):
     MANUAL = "manual"
     IMPORT = "import"
     EXTRACTED = "extracted"
+    DOCUMENT = "document"  # 上传的文档（PDF、Word、Markdown、网页）
+    CRAWL = "crawl"  # 抓取的官网帮助中心页面
 
 
 class KbItem(IdMixin, TimestampMixin, TenantMixin, Base):
@@ -72,6 +74,17 @@ class KbItem(IdMixin, TimestampMixin, TenantMixin, Base):
     likes: Mapped[int] = mapped_column(server_default="0")
     dislikes: Mapped[int] = mapped_column(server_default="0")
     archived_at: Mapped[datetime | None]
+    # 访客对依据这条知识的 AI 回答的评价。
+    visitor_likes: Mapped[int] = mapped_column(server_default="0")
+    visitor_dislikes: Mapped[int] = mapped_column(server_default="0")
+    # 知识空间与分类（设计文档 §12.1）、负责人（到期提醒）、推送给哪些技能组（为空表示全员）。
+    space_id: Mapped[uuid.UUID | None]
+    category_id: Mapped[uuid.UUID | None]
+    owner_id: Mapped[uuid.UUID | None]
+    audience_group_ids: Mapped[list[uuid.UUID]] = mapped_column(server_default="{}")
+    expiry_notified_at: Mapped[datetime | None]
+    # 文档的文件名或抓取的页面地址。
+    source_url: Mapped[str | None] = mapped_column(Text)
 
 
 class ChunkKind(StrEnum):
@@ -136,6 +149,7 @@ class CandidateKind(StrEnum):
     SIMILAR = "similar"  # 已有问答的新问法（答案一致）
     CONFLICT = "conflict"  # 同一问题但答案与已有知识不一致（可能是政策变化）
     GAP = "gap"  # 坐席也没能解答的问题（知识缺口）
+    PHRASE = "phrase"  # 高满意度会话里坐席的优秀回复（话术候选）
 
 
 class CandidateStatus(StrEnum):
@@ -197,6 +211,8 @@ class KbExtraction(TenantMixin, Base):
     gaps: Mapped[int] = mapped_column(server_default="0")
     attempts: Mapped[int] = mapped_column(server_default="1")
     error: Mapped[str | None] = mapped_column(Text)
+    # 挖掘优秀话术的时间（客户评价满意的人工会话）。
+    phrases_at: Mapped[datetime | None]
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
 
@@ -241,3 +257,68 @@ class KbDigest(IdMixin, TenantMixin, Base):
     week_start: Mapped[date]
     data: Mapped[dict[str, Any]]
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+
+class KbSpace(IdMixin, TenantMixin, Base):
+    """知识空间：按产品线或部门划分（设计文档 §12.1）。"""
+
+    __tablename__ = "kb_spaces"
+    __table_args__ = (UniqueConstraint("tenant_id", "id"), UniqueConstraint("tenant_id", "name"))
+
+    name: Mapped[str] = mapped_column(String(64))
+    description: Mapped[str | None] = mapped_column(Text)
+    sort: Mapped[int] = mapped_column(server_default="0")
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
+
+
+class KbCategory(IdMixin, TenantMixin, Base):
+    """空间内的分类树。"""
+
+    __tablename__ = "kb_categories"
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "id"),
+        ForeignKeyConstraint(
+            ["tenant_id", "space_id"], ["kb_spaces.tenant_id", "kb_spaces.id"], ondelete="CASCADE"
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "parent_id"],
+            ["kb_categories.tenant_id", "kb_categories.id"],
+            ondelete="CASCADE",
+        ),
+    )
+
+    space_id: Mapped[uuid.UUID]
+    parent_id: Mapped[uuid.UUID | None]
+    name: Mapped[str] = mapped_column(String(64))
+    sort: Mapped[int] = mapped_column(server_default="0")
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+
+class ImportKind(StrEnum):
+    DOCUMENT = "document"
+    EXCEL = "excel"
+    CRAWL = "crawl"
+
+
+class ImportStatus(StrEnum):
+    PENDING = "pending"
+    RUNNING = "running"
+    DONE = "done"
+    FAILED = "failed"
+
+
+class KbImportJob(IdMixin, TenantMixin, Base):
+    """知识导入任务（设计文档 §12.1 冷启动）：上传文档、Excel 问答、抓取官网帮助中心。"""
+
+    __tablename__ = "kb_import_jobs"
+
+    kind: Mapped[str] = mapped_column(String(12))
+    status: Mapped[str] = mapped_column(String(12), server_default=ImportStatus.PENDING.value)
+    params: Mapped[dict[str, Any]] = mapped_column(server_default="{}")
+    result: Mapped[dict[str, Any]] = mapped_column(server_default="{}")
+    error: Mapped[str | None] = mapped_column(Text)
+    created_by: Mapped[uuid.UUID | None]
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    started_at: Mapped[datetime | None]
+    finished_at: Mapped[datetime | None]

@@ -26,8 +26,13 @@ function emptyForm() {
     embedModel: '',
     embedDim: 1024,
     sendDimensions: false,
+    rerankModel: '',
     priceInput: 0,
     priceOutput: 0,
+    tools: false,
+    jsonSchema: false,
+    contextTokens: 0,
+    batch: false,
     isDefault: false,
     enabled: true,
   }
@@ -69,8 +74,13 @@ function openEdit(p: Provider): void {
     embedModel: p.embed_model,
     embedDim: p.embed_dim,
     sendDimensions: p.send_dimensions,
+    rerankModel: p.rerank_model,
     priceInput: p.prices.input,
     priceOutput: p.prices.output,
+    tools: p.capabilities.tools,
+    jsonSchema: p.capabilities.json_schema,
+    contextTokens: p.capabilities.context_tokens,
+    batch: p.capabilities.batch,
     isDefault: p.is_default,
     enabled: p.enabled,
   })
@@ -87,7 +97,14 @@ async function save(): Promise<void> {
     embed_model: form.embedModel.trim(),
     embed_dim: form.embedDim,
     send_dimensions: form.sendDimensions,
+    rerank_model: form.rerankModel.trim(),
     prices: { input: form.priceInput, output: form.priceOutput },
+    capabilities: {
+      tools: form.tools,
+      json_schema: form.jsonSchema,
+      context_tokens: form.contextTokens,
+      batch: form.batch,
+    },
     is_default: form.isDefault,
     enabled: form.enabled,
   }
@@ -183,6 +200,21 @@ onMounted(load)
           <div class="sub">对话：{{ row.chat_model }}</div>
           <div v-if="row.fast_model" class="sub">轻量：{{ row.fast_model }}</div>
           <div v-if="row.embed_model" class="sub">向量：{{ row.embed_model }}（{{ row.embed_dim }} 维）</div>
+          <div v-if="row.rerank_model" class="sub">重排序：{{ row.rerank_model }}</div>
+        </template>
+      </el-table-column>
+      <el-table-column label="能力" min-width="150">
+        <template #default="{ row }">
+          <div class="caps" data-testid="provider-caps">
+            <el-tag v-if="row.capabilities.tools" size="small" disable-transitions>工具调用</el-tag>
+            <el-tag v-if="row.capabilities.json_schema" size="small" disable-transitions>结构化输出</el-tag>
+            <el-tag v-if="row.capabilities.batch" size="small" disable-transitions>批量</el-tag>
+            <el-tag v-if="row.rerank_model" size="small" disable-transitions>重排序</el-tag>
+          </div>
+          <div v-if="row.capabilities.context_tokens" class="sub">
+            上下文 {{ Math.round(row.capabilities.context_tokens / 1000) }}K
+          </div>
+          <div class="sub">¥{{ (row.prices.input / 100).toFixed(4) }} / ¥{{ (row.prices.output / 100).toFixed(4) }} 每千 tokens</div>
         </template>
       </el-table-column>
       <el-table-column label="密钥" width="110">
@@ -238,6 +270,18 @@ onMounted(load)
           <el-input-number v-model="form.embedDim" :min="1" :max="8192" />
           <el-checkbox v-model="form.sendDimensions" class="gap">请求时传 dimensions</el-checkbox>
         </el-form-item>
+        <el-form-item label="重排序模型">
+          <el-input v-model="form.rerankModel" placeholder="检索结果重排序（/rerank），可不填" data-testid="provider-rerank" />
+        </el-form-item>
+        <el-form-item label="能力">
+          <el-checkbox v-model="form.tools" data-testid="provider-cap-tools">工具调用</el-checkbox>
+          <el-checkbox v-model="form.jsonSchema">结构化输出</el-checkbox>
+          <el-checkbox v-model="form.batch">批量接口</el-checkbox>
+        </el-form-item>
+        <el-form-item label="上下文长度">
+          <el-input-number v-model="form.contextTokens" :min="0" :step="1000" />
+          <span class="sub gap">tokens，0 表示未知</span>
+        </el-form-item>
         <el-form-item label="价格（分/千 tokens）">
           输入 <el-input-number v-model="form.priceInput" :min="0" :precision="3" :step="0.1" size="small" />
           输出 <el-input-number v-model="form.priceOutput" :min="0" :precision="3" :step="0.1" size="small" />
@@ -281,6 +325,12 @@ h3 {
 
 .routes {
   max-width: 560px;
+}
+
+.caps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
 }
 
 .sub {

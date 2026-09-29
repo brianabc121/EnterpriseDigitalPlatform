@@ -5,9 +5,10 @@
 """
 
 import uuid
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from sqlalchemy import func, select, update
+from sqlalchemy import func, literal, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.context import AppContext
@@ -15,14 +16,16 @@ from app.core.crypto import seal
 from app.core.errors import NotFound, Unprocessable
 from app.core.ids import new_id
 from app.integrations.llm import EmbedEndpoint, LLMEndpoint, LLMError
+from app.modules.ai import limiter
 from app.modules.ai import service as ai_service
 from app.modules.ai.llm_router import ROUTES_KEY, SCENES, LlmRoutes
-from app.modules.ai.models import AiSettings
+from app.modules.ai.models import AiSettings, LlmCall
 from app.modules.audit.service import record_audit
 from app.modules.kb.models import EMBED_DIM
 from app.modules.platform import settings as platform_settings
 from app.modules.platform.models import LlmProvider
 from app.modules.platform.schemas import (
+    LlmCapabilities,
     LlmCheck,
     LlmPrices,
     LlmProviderCreate,
@@ -30,8 +33,12 @@ from app.modules.platform.schemas import (
     LlmProviderUpdate,
     LlmRoutesOut,
     LlmTestResult,
+    LlmUsage,
+    LlmUsageRow,
+    TenantLlmAssign,
     TenantLlmOut,
 )
+from app.modules.tenancy.models import Tenant
 
 
 def _hint(ctx: AppContext, provider: LlmProvider) -> str | None:
@@ -58,7 +65,9 @@ def provider_out(ctx: AppContext, provider: LlmProvider, tenants: int = 0) -> Ll
         embed_model=provider.embed_model,
         embed_dim=provider.embed_dim,
         send_dimensions=provider.send_dimensions,
+        rerank_model=provider.rerank_model or "",
         prices=LlmPrices.model_validate(provider.prices or {}),
+        capabilities=LlmCapabilities.model_validate(provider.capabilities or {}),
         is_default=provider.is_default,
         enabled=provider.enabled,
         tenants=tenants,
@@ -142,7 +151,9 @@ async def create_provider(
         embed_model=payload.embed_model.strip(),
         embed_dim=payload.embed_dim,
         send_dimensions=payload.send_dimensions,
+        rerank_model=payload.rerank_model.strip(),
         prices=payload.prices.model_dump(),
+        capabilities=payload.capabilities.model_dump(),
         enabled=payload.enabled,
     )
     session.add(provider)
@@ -174,6 +185,8 @@ async def update_provider(
             continue
         if field == "base_url":
             value = value.rstrip("/")
+        elif field == "rerank_model":
+            value = value.strip()
         setattr(provider, field, value)
     if api_key is not None:
         provider.api_key_enc = seal(ctx.settings, api_key) if api_key else ""
@@ -311,22 +324,35 @@ async def set_routes(
 
 
 async def tenant_llm(ctx: AppContext, session: AsyncSession, tenant_id: uuid.UUID) -> TenantLlmOut:
-    provider_id = await session.scalar(
-        select(AiSettings.llm_provider_id).where(AiSettings.tenant_id == tenant_id)
-    )
+    row = (
+        await session.execute(
+            select(AiSettings.llm_provider_id, AiSettings.llm_concurrency).where(
+                AiSettings.tenant_id == tenant_id
+            )
+        )
+    ).first()
+    provider_id, concurrency = row if row else (None, None)
     source, name = await ctx.llms.describe(tenant_id)
-    return TenantLlmOut(provider_id=provider_id, source=source, provider_name=name)
+    return TenantLlmOut(
+        provider_id=provider_id,
+        source=source,
+        provider_name=name,
+        concurrency=concurrency,
+        default_concurrency=ctx.settings.llm_tenant_concurrency,
+        in_use=await limiter.in_use(ctx, tenant_id),
+    )
 
 
 async def assign_tenant_llm(
     ctx: AppContext,
     session: AsyncSession,
     tenant_id: uuid.UUID,
-    provider_id: uuid.UUID | None,
+    payload: TenantLlmAssign,
     *,
     actor_id: uuid.UUID,
     ip: str | None,
 ) -> TenantLlmOut:
+    provider_id = payload.provider_id
     if provider_id is not None:
         await get_provider(session, provider_id)
     row = await session.get(AiSettings, tenant_id)
@@ -334,6 +360,10 @@ async def assign_tenant_llm(
         row = AiSettings(tenant_id=tenant_id, **ai_service.DEFAULTS)
         session.add(row)
     row.llm_provider_id = provider_id
+    detail: dict[str, Any] = {"provider_id": str(provider_id) if provider_id else None}
+    if "concurrency" in payload.model_fields_set:
+        row.llm_concurrency = payload.concurrency
+        detail["concurrency"] = payload.concurrency
     record_audit(
         session,
         action="tenant.llm_provider",
@@ -342,9 +372,69 @@ async def assign_tenant_llm(
         tenant_id=tenant_id,
         resource_type="tenant",
         resource_id=str(tenant_id),
-        detail={"provider_id": str(provider_id) if provider_id else None},
+        detail=detail,
         ip=ip,
     )
     await session.commit()
     ctx.llms.invalidate()
+    limiter.forget_limit(tenant_id)
     return await tenant_llm(ctx, session, tenant_id)
+
+
+async def usage(session: AsyncSession, *, days: int, now: datetime | None = None) -> LlmUsage:
+    """近若干天的大模型调用、tokens 与估算费用：按供应商和模型、按租户、按场景。"""
+    since = (now or datetime.now(UTC)) - timedelta(days=days)
+    tokens = LlmCall.prompt_tokens + LlmCall.completion_tokens
+    errors = func.count().filter(LlmCall.status != "ok")
+    measures = (
+        func.count(),
+        errors,
+        func.coalesce(func.sum(tokens), 0),
+        func.coalesce(func.sum(LlmCall.cost), 0.0),
+    )
+    in_range = LlmCall.created_at >= since
+
+    def rows(result: Any, label: Any = None) -> list[LlmUsageRow]:
+        return [
+            LlmUsageRow(
+                key=str(key),
+                label=str(label(key, extra) if label else key),
+                calls=int(calls),
+                errors=int(failed),
+                tokens=int(used),
+                cost=round(float(cost), 2),
+            )
+            for key, extra, calls, failed, used, cost in result
+        ]
+
+    by_model = await session.execute(
+        select(LlmCall.provider + "/" + LlmCall.model, literal(""), *measures)
+        .where(in_range)
+        .group_by(LlmCall.provider, LlmCall.model)
+        .order_by(func.sum(LlmCall.cost).desc(), func.count().desc())
+        .limit(20)
+    )
+    by_tenant = await session.execute(
+        select(Tenant.code, Tenant.name, *measures)
+        .join(Tenant, Tenant.id == LlmCall.tenant_id)
+        .where(in_range)
+        .group_by(Tenant.code, Tenant.name)
+        .order_by(func.sum(LlmCall.cost).desc(), func.count().desc())
+        .limit(20)
+    )
+    by_scene = await session.execute(
+        select(LlmCall.scene, literal(""), *measures)
+        .where(in_range)
+        .group_by(LlmCall.scene)
+        .order_by(func.count().desc())
+    )
+    total = (await session.execute(select(*measures).where(in_range))).one()
+    return LlmUsage(
+        days=days,
+        total_calls=int(total[0]),
+        total_tokens=int(total[2]),
+        total_cost=round(float(total[3]), 2),
+        by_model=rows(by_model),
+        by_tenant=rows(by_tenant, lambda code, name: f"{name}（{code}）"),
+        by_scene=rows(by_scene, lambda scene, _: SCENES.get(scene, scene)),
+    )

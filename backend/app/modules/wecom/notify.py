@@ -17,7 +17,7 @@ from app.context import AppContext
 from app.events.bus import Event, EventType
 from app.integrations.wecom import WeComError
 from app.modules.iam.models import Staff, StaffStatus
-from app.modules.kb.distribution import audience
+from app.modules.kb.distribution import item_audience
 from app.modules.kb.models import ItemStatus, KbItem
 from app.modules.wecom.schemas import WecomSettings
 from app.modules.wecom.service import active_corp
@@ -78,7 +78,7 @@ async def announce_must_read(
     """必读知识发布或更新后提醒需要确认的员工。"""
     if ctx.wecom is None or not item.must_read or item.status != ItemStatus.PUBLISHED:
         return
-    staff = await audience(session)
+    staff = await item_audience(session, item)
     await notify_staff(
         ctx,
         tenant_id,

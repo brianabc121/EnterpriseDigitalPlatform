@@ -251,6 +251,9 @@ async def test_provider_registry_routes_tenants(
         "provider_id": vip["id"],
         "source": "provider",
         "provider_name": "vip",
+        "concurrency": None,
+        "default_concurrency": 8,
+        "in_use": 0,
     }
     await _ai_test(desk)
     assert await _last_provider(app) == "vip"
@@ -313,6 +316,7 @@ async def test_tenant_can_bring_its_own_key(
         "fast_model": "",
         "enabled": True,
         "api_key_set": True,
+        "supports_tools": False,
     }
     assert (await client.post("/api/v1/ai/llm/test", headers=desk.admin)).json()["chat"]["ok"]
     await _ai_test(desk)

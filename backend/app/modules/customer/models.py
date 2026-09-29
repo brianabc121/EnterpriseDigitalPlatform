@@ -119,3 +119,31 @@ class CustomerTransferRequest(IdMixin, TenantMixin, Base):
     decided_at: Mapped[datetime | None]
     decision_note: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+
+class LeadDraftStatus(StrEnum):
+    PENDING = "pending"
+    CONFIRMED = "confirmed"
+    DISCARDED = "discarded"
+
+
+class CustomerLeadDraft(IdMixin, TenantMixin, Base):
+    """AI 接待时登记的线索（工具 save_lead_info，设计文档 §11.1）。只写白名单字段，坐席确认后
+    才写入客户档案。手机号、邮箱用租户数据密钥加密保存。"""
+
+    __tablename__ = "customer_lead_drafts"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["tenant_id", "customer_id"],
+            ["customers.tenant_id", "customers.id"],
+            ondelete="CASCADE",
+        ),
+    )
+
+    customer_id: Mapped[uuid.UUID]
+    session_id: Mapped[uuid.UUID | None]
+    fields: Mapped[dict[str, Any]] = mapped_column(server_default="{}")
+    status: Mapped[str] = mapped_column(String(12), server_default=LeadDraftStatus.PENDING.value)
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    decided_by: Mapped[uuid.UUID | None]
+    decided_at: Mapped[datetime | None]

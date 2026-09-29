@@ -55,6 +55,18 @@ class KfView(KfSettings):
     open_kfid: str
 
 
+class ChannelAiOverrides(BaseModel):
+    """这个渠道的 AI 参数（设计文档 §11.2：阈值可以按租户和渠道分别配置），为空表示沿用 AI 设置。"""
+
+    handoff_threshold: float | None = Field(
+        default=None, gt=0, le=2, description="软信号得分达到这个值时转人工"
+    )
+    relevance_threshold: float | None = Field(
+        default=None, ge=0, le=1, description="知识相关度低于这个值视为知识缺失"
+    )
+    max_turns: int | None = Field(default=None, ge=1, le=50, description="AI 接待的最多轮数")
+
+
 class ChannelOut(BaseModel):
     id: UUID
     type: str
@@ -67,6 +79,10 @@ class ChannelOut(BaseModel):
         description="实名访客签名密钥（HMAC-SHA256）；为空表示未启用实名访客"
     )
     kf: KfView | None = Field(default=None, description="微信客服渠道的设置")
+    ai: ChannelAiOverrides = Field(default_factory=ChannelAiOverrides)
+    kb_space_ids: list[UUID] = Field(
+        default_factory=list, description="AI 接待只使用这些知识空间；为空表示全部"
+    )
     created_at: datetime
 
     @classmethod
@@ -82,6 +98,8 @@ class ChannelOut(BaseModel):
             widget=WidgetSettings.of(config),
             identity_secret=config.get("identity_secret"),
             kf=KfView.model_validate(config["kf"]) if config.get("kf") else None,
+            ai=ChannelAiOverrides.model_validate(channel.ai_overrides or {}),
+            kb_space_ids=list(channel.kb_space_ids or []),
             created_at=channel.created_at,
         )
 
@@ -94,6 +112,8 @@ class ChannelUpdate(BaseModel):
     )
     widget: WidgetSettings | None = None
     kf: KfSettings | None = Field(default=None, description="只适用于微信客服渠道")
+    ai: ChannelAiOverrides | None = Field(default=None, description="整体替换这个渠道的 AI 参数")
+    kb_space_ids: list[UUID] | None = Field(default=None, max_length=50)
 
 
 class ChannelList(BaseModel):

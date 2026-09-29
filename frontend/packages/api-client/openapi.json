@@ -442,6 +442,32 @@
         "title": "AiDecisionOut",
         "type": "object"
       },
+      "AiFeedbackRequest": {
+        "properties": {
+          "server_msg_id": {
+            "description": "智能客服那条回答的 IM 消息 ID",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Server Msg Id",
+            "type": "string"
+          },
+          "value": {
+            "description": "1 有用，-1 没用",
+            "enum": [
+              1,
+              -1
+            ],
+            "title": "Value",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "server_msg_id",
+          "value"
+        ],
+        "title": "AiFeedbackRequest",
+        "type": "object"
+      },
       "AiOutcome": {
         "description": "一次 AI 判定：回复或转人工，以及依据。",
         "properties": {
@@ -520,6 +546,11 @@
       },
       "AiSettingsOut": {
         "properties": {
+          "answer_cache": {
+            "description": "相同的问题直接用之前的回答（知识变化后自动失效）",
+            "title": "Answer Cache",
+            "type": "boolean"
+          },
           "auto_merge_similar": {
             "description": "相似问法证据足够多（3 条以上）时自动并入原问答，不经审核",
             "title": "Auto Merge Similar",
@@ -596,6 +627,16 @@
             "title": "Relevance Threshold",
             "type": "number"
           },
+          "rewrite_enabled": {
+            "description": "检索前改写问题：补全指代、拆分多个问题",
+            "title": "Rewrite Enabled",
+            "type": "boolean"
+          },
+          "segment_replies": {
+            "description": "较长的回答分段发送，发送前显示正在输入",
+            "title": "Segment Replies",
+            "type": "boolean"
+          },
           "sensitive_keywords": {
             "description": "除内置词外的敏感词：客户提到时转人工，回复里出现时不发送",
             "items": {
@@ -603,6 +644,16 @@
             },
             "title": "Sensitive Keywords",
             "type": "array"
+          },
+          "tools_enabled": {
+            "description": "允许 AI 调用工具：再次检索、查看客户档案、登记线索、转人工、登记留言",
+            "title": "Tools Enabled",
+            "type": "boolean"
+          },
+          "tools_supported": {
+            "description": "当前使用的模型是否支持工具调用",
+            "title": "Tools Supported",
+            "type": "boolean"
           },
           "used_this_month": {
             "title": "Used This Month",
@@ -620,6 +671,11 @@
           "sensitive_keywords",
           "extraction_enabled",
           "auto_merge_similar",
+          "rewrite_enabled",
+          "answer_cache",
+          "tools_enabled",
+          "segment_replies",
+          "tools_supported",
           "llm_configured",
           "embeddings_configured",
           "monthly_quota",
@@ -630,6 +686,17 @@
       },
       "AiSettingsUpdate": {
         "properties": {
+          "answer_cache": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Answer Cache"
+          },
           "auto_merge_similar": {
             "anyOf": [
               {
@@ -744,6 +811,28 @@
             ],
             "title": "Relevance Threshold"
           },
+          "rewrite_enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rewrite Enabled"
+          },
+          "segment_replies": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Segment Replies"
+          },
           "sensitive_keywords": {
             "anyOf": [
               {
@@ -760,6 +849,17 @@
               }
             ],
             "title": "Sensitive Keywords"
+          },
+          "tools_enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tools Enabled"
           }
         },
         "title": "AiSettingsUpdate",
@@ -1694,6 +1794,55 @@
         "title": "CallbackUrls",
         "type": "object"
       },
+      "ChannelAiOverrides": {
+        "description": "这个渠道的 AI 参数（设计文档 §11.2：阈值可以按租户和渠道分别配置），为空表示沿用 AI 设置。",
+        "properties": {
+          "handoff_threshold": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "maximum": 2.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "软信号得分达到这个值时转人工",
+            "title": "Handoff Threshold"
+          },
+          "max_turns": {
+            "anyOf": [
+              {
+                "maximum": 50.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "AI 接待的最多轮数",
+            "title": "Max Turns"
+          },
+          "relevance_threshold": {
+            "anyOf": [
+              {
+                "maximum": 1.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "知识相关度低于这个值视为知识缺失",
+            "title": "Relevance Threshold"
+          }
+        },
+        "title": "ChannelAiOverrides",
+        "type": "object"
+      },
       "ChannelList": {
         "properties": {
           "items": {
@@ -1712,6 +1861,9 @@
       },
       "ChannelOut": {
         "properties": {
+          "ai": {
+            "$ref": "#/components/schemas/ChannelAiOverrides"
+          },
           "created_at": {
             "format": "date-time",
             "title": "Created At",
@@ -1733,6 +1885,15 @@
             ],
             "description": "实名访客签名密钥（HMAC-SHA256）；为空表示未启用实名访客",
             "title": "Identity Secret"
+          },
+          "kb_space_ids": {
+            "description": "AI 接待只使用这些知识空间；为空表示全部",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Kb Space Ids",
+            "type": "array"
           },
           "kf": {
             "anyOf": [
@@ -1824,6 +1985,33 @@
       },
       "ChannelUpdate": {
         "properties": {
+          "ai": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ChannelAiOverrides"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "整体替换这个渠道的 AI 参数"
+          },
+          "kb_space_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "maxItems": 50,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kb Space Ids"
+          },
           "kf": {
             "anyOf": [
               {
@@ -2045,6 +2233,80 @@
           }
         },
         "title": "ContentPolicy",
+        "type": "object"
+      },
+      "CopilotAlertList": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/CopilotAlertOut"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "CopilotAlertList",
+        "type": "object"
+      },
+      "CopilotAlertOut": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "description": "negative、escalation、sensitive_info、promise",
+            "title": "Kind",
+            "type": "string"
+          },
+          "message_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message Id"
+          },
+          "staff_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "提醒给哪位员工",
+            "title": "Staff Id"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "text",
+          "staff_id",
+          "message_id",
+          "created_at"
+        ],
+        "title": "CopilotAlertOut",
         "type": "object"
       },
       "CorpOut": {
@@ -2593,6 +2855,62 @@
           "email"
         ],
         "title": "CustomerSensitive",
+        "type": "object"
+      },
+      "CustomerSummaryList": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/CustomerSummaryOut"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "CustomerSummaryList",
+        "type": "object"
+      },
+      "CustomerSummaryOut": {
+        "properties": {
+          "confirmed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confirmed At"
+          },
+          "session_id": {
+            "format": "uuid",
+            "title": "Session Id",
+            "type": "string"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Tags",
+            "type": "array"
+          }
+        },
+        "required": [
+          "session_id",
+          "summary",
+          "tags",
+          "confirmed_at"
+        ],
+        "title": "CustomerSummaryOut",
         "type": "object"
       },
       "CustomerTransferRequest": {
@@ -4373,7 +4691,7 @@
             "type": "string"
           },
           "kind": {
-            "description": "new 新问题、similar 相似问法、conflict 答案冲突、gap 知识缺口",
+            "description": "new 新问题、similar 相似问法、conflict 答案冲突、gap 知识缺口、phrase 优秀话术（question 为标题，answer 为话术）",
             "title": "Kind",
             "type": "string"
           },
@@ -4636,7 +4954,7 @@
             "type": "string"
           },
           "kind": {
-            "description": "new 新问题、similar 相似问法、conflict 答案冲突、gap 知识缺口",
+            "description": "new 新问题、similar 相似问法、conflict 答案冲突、gap 知识缺口、phrase 优秀话术（question 为标题，answer 为话术）",
             "title": "Kind",
             "type": "string"
           },
@@ -4853,6 +5171,227 @@
           "reason"
         ],
         "title": "KbCandidateReject",
+        "type": "object"
+      },
+      "KbCategoryCreate": {
+        "properties": {
+          "name": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "parent_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "上级分类，为空表示第一级（最多三级）",
+            "title": "Parent Id"
+          },
+          "sort": {
+            "anyOf": [
+              {
+                "maximum": 10000.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sort"
+          },
+          "space_id": {
+            "format": "uuid",
+            "title": "Space Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "space_id",
+          "name"
+        ],
+        "title": "KbCategoryCreate",
+        "type": "object"
+      },
+      "KbCategoryOut": {
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "items": {
+            "description": "直接归在这个分类下的知识数",
+            "title": "Items",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "parent_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Id"
+          },
+          "sort": {
+            "title": "Sort",
+            "type": "integer"
+          },
+          "space_id": {
+            "format": "uuid",
+            "title": "Space Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "space_id",
+          "parent_id",
+          "name",
+          "sort",
+          "items"
+        ],
+        "title": "KbCategoryOut",
+        "type": "object"
+      },
+      "KbCategoryUpdate": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "parent_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "移动到另一个上级分类（同一空间内）；传 null 表示移到第一级",
+            "title": "Parent Id"
+          },
+          "sort": {
+            "anyOf": [
+              {
+                "maximum": 10000.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sort"
+          }
+        },
+        "title": "KbCategoryUpdate",
+        "type": "object"
+      },
+      "KbCrawlImport": {
+        "properties": {
+          "category_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "放入哪个分类",
+            "title": "Category Id"
+          },
+          "max_pages": {
+            "anyOf": [
+              {
+                "maximum": 100.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "最多抓取的网页数，默认 20",
+            "title": "Max Pages"
+          },
+          "publish": {
+            "default": false,
+            "description": "导入后立即发布（需要 kb:publish）",
+            "title": "Publish",
+            "type": "boolean"
+          },
+          "space_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "放入哪个知识空间",
+            "title": "Space Id"
+          },
+          "url": {
+            "description": "帮助中心的起始网址：只抓取同一站点、同一目录下的网页",
+            "maxLength": 500,
+            "minLength": 8,
+            "pattern": "^https?://\\S+$",
+            "title": "Url",
+            "type": "string"
+          },
+          "visibility": {
+            "anyOf": [
+              {
+                "enum": [
+                  "public",
+                  "agent",
+                  "admin"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "可见范围，默认对客",
+            "title": "Visibility"
+          }
+        },
+        "required": [
+          "url"
+        ],
+        "title": "KbCrawlImport",
         "type": "object"
       },
       "KbDigestList": {
@@ -5105,6 +5644,119 @@
         "title": "KbFeedbackRequest",
         "type": "object"
       },
+      "KbImportJobList": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/KbImportJobOut"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "KbImportJobList",
+        "type": "object"
+      },
+      "KbImportJobOut": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "created_by_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created By Name"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "description": "document、excel、crawl",
+            "title": "Kind",
+            "type": "string"
+          },
+          "publish": {
+            "title": "Publish",
+            "type": "boolean"
+          },
+          "result": {
+            "$ref": "#/components/schemas/KbImportSummary"
+          },
+          "source": {
+            "description": "文件名或起始网址",
+            "title": "Source",
+            "type": "string"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "status": {
+            "description": "pending 排队中、running 导入中、done 完成、failed 失败",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "status",
+          "source",
+          "publish",
+          "result",
+          "error",
+          "created_by_name",
+          "created_at",
+          "started_at",
+          "finished_at"
+        ],
+        "title": "KbImportJobOut",
+        "type": "object"
+      },
       "KbImportRequest": {
         "properties": {
           "csv": {
@@ -5149,13 +5801,81 @@
         "title": "KbImportResult",
         "type": "object"
       },
+      "KbImportSummary": {
+        "properties": {
+          "created": {
+            "default": 0,
+            "description": "新建的知识数",
+            "title": "Created",
+            "type": "integer"
+          },
+          "errors": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Errors",
+            "type": "array"
+          },
+          "item_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Item Ids",
+            "type": "array"
+          },
+          "pages": {
+            "default": 0,
+            "description": "抓取到正文的网页数",
+            "title": "Pages",
+            "type": "integer"
+          },
+          "skipped": {
+            "default": 0,
+            "description": "内容没有变化而跳过的",
+            "title": "Skipped",
+            "type": "integer"
+          },
+          "updated": {
+            "default": 0,
+            "description": "更新的知识数（再次抓取同一网页）",
+            "title": "Updated",
+            "type": "integer"
+          }
+        },
+        "title": "KbImportSummary",
+        "type": "object"
+      },
       "KbItemCreate": {
         "properties": {
+          "audience_group_ids": {
+            "description": "推送给哪些技能组（知识动态、必读确认），为空表示全员",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 50,
+            "title": "Audience Group Ids",
+            "type": "array"
+          },
           "category": {
             "default": "",
             "maxLength": 64,
             "title": "Category",
             "type": "string"
+          },
+          "category_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "空间内的分类",
+            "title": "Category Id"
           },
           "content": {
             "description": "FAQ 的答案，或文档正文",
@@ -5179,6 +5899,19 @@
             "title": "Must Read",
             "type": "boolean"
           },
+          "owner_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "负责人：到期前收到提醒",
+            "title": "Owner Id"
+          },
           "publish": {
             "default": false,
             "description": "创建后立即发布（需要 kb:publish）",
@@ -5195,6 +5928,19 @@
             "maxItems": 50,
             "title": "Questions",
             "type": "array"
+          },
+          "space_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "知识空间；只选分类时取分类所在的空间",
+            "title": "Space Id"
           },
           "tags": {
             "items": {
@@ -5270,9 +6016,29 @@
             ],
             "title": "Archived At"
           },
+          "audience_group_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Audience Group Ids",
+            "type": "array"
+          },
           "category": {
             "title": "Category",
             "type": "string"
+          },
+          "category_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category Id"
           },
           "content": {
             "title": "Content",
@@ -5323,6 +6089,18 @@
             "title": "Must Read",
             "type": "boolean"
           },
+          "owner_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owner Id"
+          },
           "published_at": {
             "anyOf": [
               {
@@ -5345,6 +6123,30 @@
           "source": {
             "title": "Source",
             "type": "string"
+          },
+          "source_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "导入的文件名或抓取的页面地址",
+            "title": "Source Url"
+          },
+          "space_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Space Id"
           },
           "status": {
             "description": "draft、published 或 archived",
@@ -5398,6 +6200,16 @@
           "visibility": {
             "title": "Visibility",
             "type": "string"
+          },
+          "visitor_dislikes": {
+            "description": "访客评价依据这条知识的 AI 回答为没用的次数",
+            "title": "Visitor Dislikes",
+            "type": "integer"
+          },
+          "visitor_likes": {
+            "description": "访客评价依据这条知识的 AI 回答为有用的次数",
+            "title": "Visitor Likes",
+            "type": "integer"
           }
         },
         "required": [
@@ -5420,6 +6232,13 @@
           "must_read",
           "likes",
           "dislikes",
+          "visitor_likes",
+          "visitor_dislikes",
+          "space_id",
+          "category_id",
+          "owner_id",
+          "audience_group_ids",
+          "source_url",
           "archived_at",
           "created_at",
           "updated_at"
@@ -5473,8 +6292,130 @@
         "title": "KbItemStat",
         "type": "object"
       },
+      "KbItemStats": {
+        "description": "一条知识的使用与满意度（设计文档 §12.7）。",
+        "properties": {
+          "ai_sessions": {
+            "description": "最近 90 天 AI 回答时引用了这条知识的会话数",
+            "title": "Ai Sessions",
+            "type": "integer"
+          },
+          "csat_avg": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "这些会话的平均满意度（1–5）",
+            "title": "Csat Avg"
+          },
+          "csat_count": {
+            "description": "其中有满意度评价的会话数",
+            "title": "Csat Count",
+            "type": "integer"
+          },
+          "dislikes": {
+            "title": "Dislikes",
+            "type": "integer"
+          },
+          "handoff_sessions": {
+            "description": "其中后来转人工的会话数",
+            "title": "Handoff Sessions",
+            "type": "integer"
+          },
+          "hits": {
+            "description": "被 AI 或坐席引用的次数",
+            "title": "Hits",
+            "type": "integer"
+          },
+          "item_id": {
+            "format": "uuid",
+            "title": "Item Id",
+            "type": "string"
+          },
+          "last_hit_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Hit At"
+          },
+          "likes": {
+            "description": "员工评价为有用的人数",
+            "title": "Likes",
+            "type": "integer"
+          },
+          "visitor_dislikes": {
+            "title": "Visitor Dislikes",
+            "type": "integer"
+          },
+          "visitor_likes": {
+            "description": "访客评价依据这条知识的 AI 回答为有用的次数",
+            "title": "Visitor Likes",
+            "type": "integer"
+          },
+          "visitor_satisfaction": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "访客评价中有用的比例",
+            "title": "Visitor Satisfaction"
+          },
+          "zombie": {
+            "description": "发布超过 90 天、90 天内没有被引用（长期未命中）",
+            "title": "Zombie",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "item_id",
+          "hits",
+          "last_hit_at",
+          "likes",
+          "dislikes",
+          "visitor_likes",
+          "visitor_dislikes",
+          "visitor_satisfaction",
+          "ai_sessions",
+          "handoff_sessions",
+          "csat_count",
+          "csat_avg",
+          "zombie"
+        ],
+        "title": "KbItemStats",
+        "type": "object"
+      },
       "KbItemUpdate": {
         "properties": {
+          "audience_group_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "maxItems": 50,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Audience Group Ids"
+          },
           "category": {
             "anyOf": [
               {
@@ -5486,6 +6427,19 @@
               }
             ],
             "title": "Category"
+          },
+          "category_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "传 null 表示不归入分类",
+            "title": "Category Id"
           },
           "content": {
             "anyOf": [
@@ -5511,6 +6465,19 @@
             ],
             "title": "Must Read"
           },
+          "owner_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "传 null 表示不设负责人",
+            "title": "Owner Id"
+          },
           "questions": {
             "anyOf": [
               {
@@ -5527,6 +6494,19 @@
               }
             ],
             "title": "Questions"
+          },
+          "space_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "传 null 表示移出空间",
+            "title": "Space Id"
           },
           "tags": {
             "anyOf": [
@@ -5735,6 +6715,14 @@
             },
             "title": "Top Items",
             "type": "array"
+          },
+          "visitor_disliked_items": {
+            "description": "访客评价 AI 回答没用最多的知识",
+            "items": {
+              "$ref": "#/components/schemas/KbItemStat"
+            },
+            "title": "Visitor Disliked Items",
+            "type": "array"
           }
         },
         "required": [
@@ -5788,7 +6776,7 @@
             "type": "array"
           },
           "total": {
-            "description": "需要确认的员工数（有接待权限的在职员工）",
+            "description": "需要确认的员工数（有接待权限的在职员工；指定了推送技能组时为组员）",
             "title": "Total",
             "type": "integer"
           },
@@ -5926,6 +6914,246 @@
           "items"
         ],
         "title": "KbSearchResult",
+        "type": "object"
+      },
+      "KbSpaceCreate": {
+        "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "name": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "sort": {
+            "anyOf": [
+              {
+                "maximum": 10000.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "越小越靠前",
+            "title": "Sort"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "KbSpaceCreate",
+        "type": "object"
+      },
+      "KbSpaceList": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/KbSpaceOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "unassigned": {
+            "description": "没有归入任何空间的知识数",
+            "title": "Unassigned",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "unassigned"
+        ],
+        "title": "KbSpaceList",
+        "type": "object"
+      },
+      "KbSpaceOut": {
+        "properties": {
+          "categories": {
+            "description": "分类（平铺，按 parent_id 组成树）",
+            "items": {
+              "$ref": "#/components/schemas/KbCategoryOut"
+            },
+            "title": "Categories",
+            "type": "array"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "items": {
+            "description": "空间里的知识数",
+            "title": "Items",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "sort": {
+            "title": "Sort",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "description",
+          "sort",
+          "items",
+          "categories"
+        ],
+        "title": "KbSpaceOut",
+        "type": "object"
+      },
+      "KbSpaceUpdate": {
+        "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "sort": {
+            "anyOf": [
+              {
+                "maximum": 10000.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sort"
+          }
+        },
+        "title": "KbSpaceUpdate",
+        "type": "object"
+      },
+      "KbUploadImport": {
+        "properties": {
+          "category_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "放入哪个分类",
+            "title": "Category Id"
+          },
+          "content_base64": {
+            "description": "文件内容（base64），文件最大 20 MB",
+            "maxLength": 28000000,
+            "minLength": 1,
+            "title": "Content Base64",
+            "type": "string"
+          },
+          "filename": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Filename",
+            "type": "string"
+          },
+          "kind": {
+            "description": "document：文档（PDF、Word、Markdown、网页、纯文本）；excel：问答表（.xlsx、.csv）",
+            "enum": [
+              "document",
+              "excel"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "publish": {
+            "default": false,
+            "description": "导入后立即发布（需要 kb:publish）",
+            "title": "Publish",
+            "type": "boolean"
+          },
+          "space_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "放入哪个知识空间",
+            "title": "Space Id"
+          },
+          "visibility": {
+            "anyOf": [
+              {
+                "enum": [
+                  "public",
+                  "agent",
+                  "admin"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "可见范围，默认对客",
+            "title": "Visibility"
+          }
+        },
+        "required": [
+          "kind",
+          "filename",
+          "content_base64"
+        ],
+        "title": "KbUploadImport",
         "type": "object"
       },
       "KbVersionList": {
@@ -6230,6 +7458,147 @@
         "title": "KnowledgeRef",
         "type": "object"
       },
+      "LeadDraftList": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/LeadDraftOut"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "LeadDraftList",
+        "type": "object"
+      },
+      "LeadDraftOut": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "customer_id": {
+            "format": "uuid",
+            "title": "Customer Id",
+            "type": "string"
+          },
+          "decided_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decided At"
+          },
+          "fields": {
+            "$ref": "#/components/schemas/LeadFields"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "session_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Session Id"
+          },
+          "status": {
+            "description": "pending、confirmed、discarded",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "customer_id",
+          "session_id",
+          "fields",
+          "status",
+          "created_at",
+          "decided_at"
+        ],
+        "title": "LeadDraftOut",
+        "type": "object"
+      },
+      "LeadFields": {
+        "properties": {
+          "company": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Company"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "掩码",
+            "title": "Email"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "phone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "掩码",
+            "title": "Phone"
+          },
+          "requirement": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Requirement"
+          }
+        },
+        "title": "LeadFields",
+        "type": "object"
+      },
       "LeaveMessageRequest": {
         "properties": {
           "contact": {
@@ -6303,6 +7672,39 @@
           "overridden"
         ],
         "title": "LimitUsage",
+        "type": "object"
+      },
+      "LlmCapabilities": {
+        "description": "模型的能力标签（设计文档 §11.5）：网关按场景需要选择可用的能力。",
+        "properties": {
+          "batch": {
+            "default": false,
+            "description": "提供批量接口（离线知识提炼可以使用）",
+            "title": "Batch",
+            "type": "boolean"
+          },
+          "context_tokens": {
+            "default": 0,
+            "description": "上下文长度，0 为未知",
+            "maximum": 10000000.0,
+            "minimum": 0.0,
+            "title": "Context Tokens",
+            "type": "integer"
+          },
+          "json_schema": {
+            "default": false,
+            "description": "支持 JSON Schema 结构化输出",
+            "title": "Json Schema",
+            "type": "boolean"
+          },
+          "tools": {
+            "default": false,
+            "description": "支持函数调用（tools），AI 接待可以调用工具",
+            "title": "Tools",
+            "type": "boolean"
+          }
+        },
+        "title": "LlmCapabilities",
         "type": "object"
       },
       "LlmCheck": {
@@ -6391,6 +7793,9 @@
             "title": "Base Url",
             "type": "string"
           },
+          "capabilities": {
+            "$ref": "#/components/schemas/LlmCapabilities"
+          },
           "chat_model": {
             "maxLength": 128,
             "minLength": 1,
@@ -6434,6 +7839,13 @@
           },
           "prices": {
             "$ref": "#/components/schemas/LlmPrices"
+          },
+          "rerank_model": {
+            "default": "",
+            "description": "重排序模型（/rerank）",
+            "maxLength": 128,
+            "title": "Rerank Model",
+            "type": "string"
           },
           "send_dimensions": {
             "default": false,
@@ -6487,6 +7899,9 @@
             "title": "Base Url",
             "type": "string"
           },
+          "capabilities": {
+            "$ref": "#/components/schemas/LlmCapabilities"
+          },
           "chat_model": {
             "title": "Chat Model",
             "type": "string"
@@ -6528,6 +7943,10 @@
           "prices": {
             "$ref": "#/components/schemas/LlmPrices"
           },
+          "rerank_model": {
+            "title": "Rerank Model",
+            "type": "string"
+          },
           "send_dimensions": {
             "title": "Send Dimensions",
             "type": "boolean"
@@ -6554,7 +7973,9 @@
           "embed_model",
           "embed_dim",
           "send_dimensions",
+          "rerank_model",
           "prices",
+          "capabilities",
           "is_default",
           "enabled",
           "tenants",
@@ -6592,6 +8013,16 @@
               }
             ],
             "title": "Base Url"
+          },
+          "capabilities": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LlmCapabilities"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "chat_model": {
             "anyOf": [
@@ -6688,6 +8119,18 @@
               }
             ]
           },
+          "rerank_model": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rerank Model"
+          },
           "send_dimensions": {
             "anyOf": [
               {
@@ -6766,6 +8209,98 @@
           "embed"
         ],
         "title": "LlmTestResult",
+        "type": "object"
+      },
+      "LlmUsage": {
+        "properties": {
+          "by_model": {
+            "items": {
+              "$ref": "#/components/schemas/LlmUsageRow"
+            },
+            "title": "By Model",
+            "type": "array"
+          },
+          "by_scene": {
+            "items": {
+              "$ref": "#/components/schemas/LlmUsageRow"
+            },
+            "title": "By Scene",
+            "type": "array"
+          },
+          "by_tenant": {
+            "items": {
+              "$ref": "#/components/schemas/LlmUsageRow"
+            },
+            "title": "By Tenant",
+            "type": "array"
+          },
+          "days": {
+            "title": "Days",
+            "type": "integer"
+          },
+          "total_calls": {
+            "title": "Total Calls",
+            "type": "integer"
+          },
+          "total_cost": {
+            "title": "Total Cost",
+            "type": "number"
+          },
+          "total_tokens": {
+            "title": "Total Tokens",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "days",
+          "total_calls",
+          "total_tokens",
+          "total_cost",
+          "by_model",
+          "by_tenant",
+          "by_scene"
+        ],
+        "title": "LlmUsage",
+        "type": "object"
+      },
+      "LlmUsageRow": {
+        "properties": {
+          "calls": {
+            "title": "Calls",
+            "type": "integer"
+          },
+          "cost": {
+            "description": "估算费用（分）",
+            "title": "Cost",
+            "type": "number"
+          },
+          "errors": {
+            "title": "Errors",
+            "type": "integer"
+          },
+          "key": {
+            "description": "供应商/模型，或租户代码",
+            "title": "Key",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "tokens": {
+            "title": "Tokens",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "key",
+          "label",
+          "calls",
+          "errors",
+          "tokens",
+          "cost"
+        ],
+        "title": "LlmUsageRow",
         "type": "object"
       },
       "LoginRequest": {
@@ -7286,6 +8821,97 @@
         "title": "MyAgentStatusUpdate",
         "type": "object"
       },
+      "NotificationList": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/NotificationOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "unread": {
+            "description": "未读的站内信数",
+            "title": "Unread",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "unread"
+        ],
+        "title": "NotificationList",
+        "type": "object"
+      },
+      "NotificationOut": {
+        "properties": {
+          "body": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Body"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "description": "kb_expiring 知识即将到期、lead_draft 线索待确认、kb_digest 知识周报",
+            "title": "Kind",
+            "type": "string"
+          },
+          "link": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "控制台内的页面路径",
+            "title": "Link"
+          },
+          "read_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Read At"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "title",
+          "body",
+          "link",
+          "created_at",
+          "read_at"
+        ],
+        "title": "NotificationOut",
+        "type": "object"
+      },
       "Overview": {
         "properties": {
           "days": {
@@ -7501,6 +9127,11 @@
           "fast_model": {
             "title": "Fast Model",
             "type": "string"
+          },
+          "supports_tools": {
+            "default": false,
+            "title": "Supports Tools",
+            "type": "boolean"
           }
         },
         "required": [
@@ -7552,6 +9183,12 @@
             "maxLength": 128,
             "title": "Fast Model",
             "type": "string"
+          },
+          "supports_tools": {
+            "default": false,
+            "description": "模型支持函数调用（tools）",
+            "title": "Supports Tools",
+            "type": "boolean"
           }
         },
         "required": [
@@ -8665,6 +10302,172 @@
           "created_at"
         ],
         "title": "PrivacyRequestOut",
+        "type": "object"
+      },
+      "PromptActivate": {
+        "properties": {
+          "version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "要启用的版本；为空表示改回内置模板",
+            "title": "Version"
+          }
+        },
+        "required": [
+          "version"
+        ],
+        "title": "PromptActivate",
+        "type": "object"
+      },
+      "PromptList": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/PromptOut"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "PromptList",
+        "type": "object"
+      },
+      "PromptOut": {
+        "properties": {
+          "active_version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "启用的版本；为空表示使用内置模板",
+            "title": "Active Version"
+          },
+          "builtin": {
+            "description": "内置模板",
+            "title": "Builtin",
+            "type": "string"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "variables": {
+            "description": "模板里可以使用的变量，写成 {name}",
+            "items": {
+              "type": "string"
+            },
+            "title": "Variables",
+            "type": "array"
+          },
+          "versions": {
+            "items": {
+              "$ref": "#/components/schemas/PromptVersionOut"
+            },
+            "title": "Versions",
+            "type": "array"
+          }
+        },
+        "required": [
+          "key",
+          "name",
+          "variables",
+          "builtin",
+          "active_version",
+          "versions"
+        ],
+        "title": "PromptOut",
+        "type": "object"
+      },
+      "PromptVersionCreate": {
+        "properties": {
+          "activate": {
+            "default": false,
+            "description": "保存后立即启用",
+            "title": "Activate",
+            "type": "boolean"
+          },
+          "content": {
+            "maxLength": 8000,
+            "minLength": 10,
+            "title": "Content",
+            "type": "string"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "这个版本改了什么",
+            "title": "Note"
+          }
+        },
+        "required": [
+          "content"
+        ],
+        "title": "PromptVersionCreate",
+        "type": "object"
+      },
+      "PromptVersionOut": {
+        "properties": {
+          "active": {
+            "title": "Active",
+            "type": "boolean"
+          },
+          "content": {
+            "title": "Content",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "version",
+          "content",
+          "note",
+          "active",
+          "created_at"
+        ],
+        "title": "PromptVersionOut",
         "type": "object"
       },
       "PurgeResult": {
@@ -10404,6 +12207,77 @@
         "title": "SessionStatus",
         "type": "string"
       },
+      "SessionSummaryOut": {
+        "properties": {
+          "confirmed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confirmed At"
+          },
+          "confirmed_by": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confirmed By"
+          },
+          "customer_id": {
+            "format": "uuid",
+            "title": "Customer Id",
+            "type": "string"
+          },
+          "generated_at": {
+            "format": "date-time",
+            "title": "Generated At",
+            "type": "string"
+          },
+          "session_id": {
+            "format": "uuid",
+            "title": "Session Id",
+            "type": "string"
+          },
+          "status": {
+            "description": "draft（待确认）、confirmed（已写入客户档案）、discarded",
+            "title": "Status",
+            "type": "string"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Tags",
+            "type": "array"
+          }
+        },
+        "required": [
+          "session_id",
+          "customer_id",
+          "summary",
+          "tags",
+          "status",
+          "generated_at",
+          "confirmed_by",
+          "confirmed_at"
+        ],
+        "title": "SessionSummaryOut",
+        "type": "object"
+      },
       "SidebarContext": {
         "description": "侧边栏当前聊天的上下文：单聊是一位客户，客户群是群信息和群里的客户。",
         "properties": {
@@ -11568,6 +13442,31 @@
         "title": "SuggestionList",
         "type": "object"
       },
+      "SummaryConfirm": {
+        "properties": {
+          "summary": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Summary",
+            "type": "string"
+          },
+          "tags": {
+            "items": {
+              "maxLength": 32,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 5,
+            "title": "Tags",
+            "type": "array"
+          }
+        },
+        "required": [
+          "summary"
+        ],
+        "title": "SummaryConfirm",
+        "type": "object"
+      },
       "SupportAccessOut": {
         "description": "平台运维的一次查看记录。",
         "properties": {
@@ -12487,6 +14386,20 @@
       },
       "TenantLlmAssign": {
         "properties": {
+          "concurrency": {
+            "anyOf": [
+              {
+                "maximum": 200.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "同时进行的大模型调用上限；为空表示平台默认值。不传表示不修改",
+            "title": "Concurrency"
+          },
           "provider_id": {
             "anyOf": [
               {
@@ -12547,6 +14460,29 @@
       },
       "TenantLlmOut": {
         "properties": {
+          "concurrency": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "单独设置的并发上限",
+            "title": "Concurrency"
+          },
+          "default_concurrency": {
+            "description": "平台默认的并发上限",
+            "title": "Default Concurrency",
+            "type": "integer"
+          },
+          "in_use": {
+            "default": 0,
+            "description": "正在进行的调用数",
+            "title": "In Use",
+            "type": "integer"
+          },
           "provider_id": {
             "anyOf": [
               {
@@ -12579,7 +14515,8 @@
         "required": [
           "provider_id",
           "source",
-          "provider_name"
+          "provider_name",
+          "default_concurrency"
         ],
         "title": "TenantLlmOut",
         "type": "object"
@@ -13072,7 +15009,8 @@
         "enum": [
           "queue_timeout",
           "off_hours",
-          "visitor"
+          "visitor",
+          "ai"
         ],
         "title": "TicketSource",
         "type": "string"
@@ -19124,6 +21062,204 @@
         ]
       }
     },
+    "/api/v1/customers/lead-drafts/{draft_id}/confirm": {
+      "post": {
+        "description": "确认 AI 登记的线索：写入客户档案（称呼、公司、手机号、邮箱，需求记到备注）。",
+        "operationId": "confirm_lead_api_v1_customers_lead_drafts__draft_id__confirm_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "draft_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Draft Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeadDraftOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Confirm Lead",
+        "tags": [
+          "customers"
+        ]
+      }
+    },
+    "/api/v1/customers/lead-drafts/{draft_id}/discard": {
+      "post": {
+        "description": "忽略 AI 登记的线索（不写入客户档案）。",
+        "operationId": "discard_lead_api_v1_customers_lead_drafts__draft_id__discard_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "draft_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Draft Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeadDraftOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Discard Lead",
+        "tags": [
+          "customers"
+        ]
+      }
+    },
     "/api/v1/customers/privacy-requests": {
       "get": {
         "description": "个人信息查询与删除请求的处理记录。",
@@ -20045,6 +22181,105 @@
         ]
       }
     },
+    "/api/v1/customers/{customer_id}/lead-drafts": {
+      "get": {
+        "description": "AI 接待时登记的线索（待确认的在前面处理），坐席确认后才写入客户档案。",
+        "operationId": "lead_drafts_api_v1_customers__customer_id__lead_drafts_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "customer_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Customer Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeadDraftList"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Lead Drafts",
+        "tags": [
+          "customers"
+        ]
+      }
+    },
     "/api/v1/customers/{customer_id}/merge": {
       "post": {
         "description": "把重复的客户档案并入这个客户（渠道身份、会话、留言、归属历史一并迁移），然后删除它们。",
@@ -20461,6 +22696,105 @@
         ]
       }
     },
+    "/api/v1/customers/{customer_id}/summaries": {
+      "get": {
+        "description": "已确认的历史会话小结（新的在前）。",
+        "operationId": "customer_summaries_api_v1_customers__customer_id__summaries_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "customer_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Customer Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomerSummaryList"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Customer Summaries",
+        "tags": [
+          "customers"
+        ]
+      }
+    },
     "/api/v1/customers/{customer_id}/transfer-requests": {
       "post": {
         "description": "申请变更客户的归属坐席（转给自己或同事），由有分配权限的员工审批。",
@@ -20701,7 +23035,8 @@
                     "new",
                     "similar",
                     "conflict",
-                    "gap"
+                    "gap",
+                    "phrase"
                   ],
                   "type": "string"
                 },
@@ -20919,7 +23254,7 @@
     },
     "/api/v1/kb/candidates/{candidate_id}/approve": {
       "post": {
-        "description": "通过：新问题和缺口新建为问答并发布；相似问法并入原问答；冲突用新答案更新原问答。",
+        "description": "通过：新问题和缺口新建为问答并发布；相似问法并入原问答；冲突用新答案更新原问答；\n优秀话术加入共享快捷话术。",
         "operationId": "approve_candidate_api_v1_kb_candidates__candidate_id__approve_post",
         "parameters": [
           {
@@ -21238,6 +23573,302 @@
           }
         ],
         "summary": "Reject Candidate",
+        "tags": [
+          "knowledge"
+        ]
+      }
+    },
+    "/api/v1/kb/categories": {
+      "post": {
+        "description": "在空间里新建分类（最多三级）。",
+        "operationId": "create_category_api_v1_kb_categories_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KbCategoryCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KbCategoryOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Create Category",
+        "tags": [
+          "knowledge"
+        ]
+      }
+    },
+    "/api/v1/kb/categories/{category_id}": {
+      "delete": {
+        "description": "删除分类及其下级分类，其中的知识保留在空间里。",
+        "operationId": "delete_category_api_v1_kb_categories__category_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "category_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Category Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Delete Category",
+        "tags": [
+          "knowledge"
+        ]
+      },
+      "patch": {
+        "description": "改名、调整顺序，或移到同一空间的另一个上级分类下。",
+        "operationId": "update_category_api_v1_kb_categories__category_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "category_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Category Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KbCategoryUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KbCategoryOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Update Category",
         "tags": [
           "knowledge"
         ]
@@ -21637,6 +24268,383 @@
         ]
       }
     },
+    "/api/v1/kb/imports": {
+      "get": {
+        "description": "最近的导入任务。",
+        "operationId": "list_imports_api_v1_kb_imports_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KbImportJobList"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Imports",
+        "tags": [
+          "knowledge"
+        ]
+      },
+      "post": {
+        "description": "上传文档（PDF、Word、Markdown、网页、纯文本）或问答表（.xlsx、.csv）导入知识。\n后台执行，完成后在导入记录里查看结果（也会收到站内信）。",
+        "operationId": "upload_import_api_v1_kb_imports_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KbUploadImport"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KbImportJobOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Upload Import",
+        "tags": [
+          "knowledge"
+        ]
+      }
+    },
+    "/api/v1/kb/imports/crawl": {
+      "post": {
+        "description": "抓取官网帮助中心：从起始网址出发抓取同一站点、同一目录下的网页，每页生成一条文档知识；\n再次抓取同一网页时更新原来的知识。",
+        "operationId": "crawl_import_api_v1_kb_imports_crawl_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KbCrawlImport"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KbImportJobOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Crawl Import",
+        "tags": [
+          "knowledge"
+        ]
+      }
+    },
+    "/api/v1/kb/imports/{job_id}": {
+      "get": {
+        "operationId": "get_import_api_v1_kb_imports__job_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Job Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KbImportJobOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Import",
+        "tags": [
+          "knowledge"
+        ]
+      }
+    },
     "/api/v1/kb/items": {
       "get": {
         "description": "知识条目。坐席只看到已发布、对客或仅坐席可见的条目。",
@@ -21737,6 +24745,83 @@
               "default": false,
               "description": "只看必读知识",
               "title": "Must Read",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "space_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Space Id"
+            }
+          },
+          {
+            "description": "包括它的下级分类",
+            "in": "query",
+            "name": "category_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "包括它的下级分类",
+              "title": "Category Id"
+            }
+          },
+          {
+            "description": "只看没有归入空间的",
+            "in": "query",
+            "name": "unassigned",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "只看没有归入空间的",
+              "title": "Unassigned",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "owner_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Owner Id"
+            }
+          },
+          {
+            "description": "只看我负责的",
+            "in": "query",
+            "name": "mine",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "只看我负责的",
+              "title": "Mine",
               "type": "boolean"
             }
           },
@@ -22731,6 +25816,105 @@
         ]
       }
     },
+    "/api/v1/kb/items/{item_id}/stats": {
+      "get": {
+        "description": "这条知识的引用次数、员工与访客的评价、引用它的 AI 会话的满意度和转人工情况，\n以及是否长期未命中。",
+        "operationId": "item_stats_api_v1_kb_items__item_id__stats_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "item_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Item Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KbItemStats"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Item Stats",
+        "tags": [
+          "knowledge"
+        ]
+      }
+    },
     "/api/v1/kb/items/{item_id}/versions": {
       "get": {
         "description": "历次发布的内容，最新的在前。",
@@ -23110,6 +26294,25 @@
               "title": "Limit",
               "type": "integer"
             }
+          },
+          {
+            "description": "只在这个知识空间里检索",
+            "in": "query",
+            "name": "space_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "只在这个知识空间里检索",
+              "title": "Space Id"
+            }
           }
         ],
         "responses": {
@@ -23190,6 +26393,385 @@
           }
         ],
         "summary": "Search Knowledge",
+        "tags": [
+          "knowledge"
+        ]
+      }
+    },
+    "/api/v1/kb/spaces": {
+      "get": {
+        "description": "知识空间和各自的分类（平铺，按 parent_id 组成树），以及各自的知识数。",
+        "operationId": "list_spaces_api_v1_kb_spaces_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KbSpaceList"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Spaces",
+        "tags": [
+          "knowledge"
+        ]
+      },
+      "post": {
+        "operationId": "create_space_api_v1_kb_spaces_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KbSpaceCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KbSpaceOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Create Space",
+        "tags": [
+          "knowledge"
+        ]
+      }
+    },
+    "/api/v1/kb/spaces/{space_id}": {
+      "delete": {
+        "description": "删除空间：其中的知识保留（移出空间），分类一并删除，渠道不再限定这个空间。",
+        "operationId": "delete_space_api_v1_kb_spaces__space_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "space_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Space Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Delete Space",
+        "tags": [
+          "knowledge"
+        ]
+      },
+      "patch": {
+        "operationId": "update_space_api_v1_kb_spaces__space_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "space_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Space Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KbSpaceUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KbSpaceOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Update Space",
         "tags": [
           "knowledge"
         ]
@@ -23475,6 +27057,289 @@
         "summary": "Bind Self",
         "tags": [
           "wecom"
+        ]
+      }
+    },
+    "/api/v1/notifications": {
+      "get": {
+        "description": "我的站内信（新的在前）和未读数。",
+        "operationId": "list_notifications_api_v1_notifications_get",
+        "parameters": [
+          {
+            "description": "只看未读的",
+            "in": "query",
+            "name": "unread",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "只看未读的",
+              "title": "Unread",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationList"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Notifications",
+        "tags": [
+          "notifications"
+        ]
+      }
+    },
+    "/api/v1/notifications/read-all": {
+      "post": {
+        "operationId": "read_all_api_v1_notifications_read_all_post",
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Read All",
+        "tags": [
+          "notifications"
+        ]
+      }
+    },
+    "/api/v1/notifications/{notification_id}/read": {
+      "post": {
+        "operationId": "read_one_api_v1_notifications__notification_id__read_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "notification_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Notification Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Read One",
+        "tags": [
+          "notifications"
         ]
       }
     },
@@ -25710,6 +29575,105 @@
         ]
       }
     },
+    "/api/v1/sessions/{session_id}/alerts": {
+      "get": {
+        "description": "坐席助手在这个会话里给出的实时提醒（客户情绪、敏感信息、承诺类用语），留痕用于质检。",
+        "operationId": "session_alerts_api_v1_sessions__session_id__alerts_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CopilotAlertList"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Session Alerts",
+        "tags": [
+          "ai"
+        ]
+      }
+    },
     "/api/v1/sessions/{session_id}/assists": {
       "post": {
         "description": "邀请同事协助：同事加入会话并可以发言。",
@@ -26638,6 +30602,418 @@
           }
         ],
         "summary": "Suggestions",
+        "tags": [
+          "ai"
+        ]
+      }
+    },
+    "/api/v1/sessions/{session_id}/summary": {
+      "get": {
+        "description": "会话小结（没有时为空）。人工接待的会话结束后自动生成草稿，坐席确认后写入客户档案。",
+        "operationId": "session_summary_api_v1_sessions__session_id__summary_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/SessionSummaryOut"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "title": "Response Session Summary Api V1 Sessions  Session Id  Summary Get"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Session Summary",
+        "tags": [
+          "ai"
+        ]
+      },
+      "post": {
+        "description": "立即生成（或重新生成）小结草稿，会话结束后可用。已确认的小结不能重新生成。",
+        "operationId": "generate_summary_api_v1_sessions__session_id__summary_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionSummaryOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Generate Summary",
+        "tags": [
+          "ai"
+        ]
+      }
+    },
+    "/api/v1/sessions/{session_id}/summary/confirm": {
+      "post": {
+        "description": "确认小结（可以先修改）：标签并入客户标签，小结记到客户备注的最前面。",
+        "operationId": "confirm_summary_api_v1_sessions__session_id__summary_confirm_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SummaryConfirm"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionSummaryOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Confirm Summary",
+        "tags": [
+          "ai"
+        ]
+      }
+    },
+    "/api/v1/sessions/{session_id}/summary/discard": {
+      "post": {
+        "description": "不需要这份小结（不写入客户档案）。之后仍可以重新生成。",
+        "operationId": "discard_summary_api_v1_sessions__session_id__summary_discard_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionSummaryOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Discard Summary",
         "tags": [
           "ai"
         ]
@@ -30409,6 +34785,111 @@
         ]
       }
     },
+    "/api/v1/visitor/ai-feedback": {
+      "post": {
+        "description": "评价智能客服的一条回答：有用或没用（可以改），记到所依据的知识上。",
+        "operationId": "rate_ai_answer_api_v1_visitor_ai_feedback_post",
+        "parameters": [
+          {
+            "description": "访客初始化返回的 visitor_token",
+            "in": "header",
+            "name": "X-Visitor-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "访客初始化返回的 visitor_token",
+              "title": "X-Visitor-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AiFeedbackRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "summary": "Rate Ai Answer",
+        "tags": [
+          "visitor"
+        ]
+      }
+    },
     "/api/v1/visitor/cancel-queue": {
       "post": {
         "description": "取消排队：回到智能客服接待；智能客服不可用时结束会话。",
@@ -33705,6 +38186,107 @@
         ]
       }
     },
+    "/platform/v1/llm-usage": {
+      "get": {
+        "description": "近若干天的大模型调用量、tokens 与估算费用（按模型、租户、场景）。",
+        "operationId": "llm_usage_platform_v1_llm_usage_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "days",
+            "required": false,
+            "schema": {
+              "default": 30,
+              "maximum": 90,
+              "minimum": 1,
+              "title": "Days",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LlmUsage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "PlatformBearer": []
+          }
+        ],
+        "summary": "Llm Usage",
+        "tags": [
+          "platform"
+        ]
+      }
+    },
     "/platform/v1/me": {
       "get": {
         "operationId": "platform_me_platform_v1_me_get",
@@ -34075,6 +38657,309 @@
           }
         ],
         "summary": "Update Plan",
+        "tags": [
+          "platform"
+        ]
+      }
+    },
+    "/platform/v1/prompts": {
+      "get": {
+        "description": "各场景的提示词：内置模板、启用的版本和全部历史版本。",
+        "operationId": "list_prompts_platform_v1_prompts_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PromptList"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "PlatformBearer": []
+          }
+        ],
+        "summary": "List Prompts",
+        "tags": [
+          "platform"
+        ]
+      }
+    },
+    "/platform/v1/prompts/{key}/activate": {
+      "post": {
+        "description": "启用某个版本（回滚）；version 为空时改回内置模板。",
+        "operationId": "activate_prompt_platform_v1_prompts__key__activate_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "title": "Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PromptActivate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PromptOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "PlatformBearer": []
+          }
+        ],
+        "summary": "Activate Prompt",
+        "tags": [
+          "platform"
+        ]
+      }
+    },
+    "/platform/v1/prompts/{key}/versions": {
+      "post": {
+        "description": "保存新版本（可以立即启用）。模板只能使用这个场景提供的变量。",
+        "operationId": "create_prompt_version_platform_v1_prompts__key__versions_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "title": "Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PromptVersionCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PromptOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "PlatformBearer": []
+          }
+        ],
+        "summary": "Create Prompt Version",
         "tags": [
           "platform"
         ]
@@ -35704,7 +40589,7 @@
         ]
       },
       "put": {
-        "description": "给租户指定供应商（大客户专属模型等）；为空表示用平台默认。租户自带密钥时以租户的为准。",
+        "description": "给租户指定供应商（大客户专属模型等）和大模型并发上限；供应商为空表示用平台默认。\n租户自带密钥时以租户的为准。",
         "operationId": "assign_tenant_llm_platform_v1_tenants__tenant_id__llm_put",
         "parameters": [
           {

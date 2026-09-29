@@ -34,11 +34,15 @@ from app.context import AppContext
 from app.core.config import get_settings
 from app.events.bus import wait_or_stop
 from app.events.lease import Lease
+from app.modules.ai.answer_cache import purge_expired as purge_expired_answers
+from app.modules.ai.summaries import run_pending as run_session_summaries
 from app.modules.billing.service import run_invoices, run_lifecycle
 from app.modules.conversation.outbox import dispatch_due
 from app.modules.conversation.reconcile import reconcile_all
 from app.modules.kb.extraction import run_extraction
+from app.modules.kb.importer import run_imports
 from app.modules.kb.metrics import run_digests
+from app.modules.kb.reminders import remind_expiring
 from app.modules.kb.service import expire_items
 from app.modules.lifecycle.closure import run_purges
 from app.modules.lifecycle.export import run_exports
@@ -76,6 +80,8 @@ JOBS = (
     Job("orphan-messages", 30, republish_orphans),
     Job("usage-rollup", 600, run_usage_rollup),
     Job("kb-expire", 600, expire_items),
+    Job("kb-expiry-remind", 3600, remind_expiring),
+    Job("kb-imports", 10, run_imports),
     Job("kb-extract", 3600, run_extraction),
     Job("kb-digest", 3600, run_digests),
     Job("wecom-kf-sync", 300, kf_sync_all),
@@ -88,6 +94,8 @@ JOBS = (
     Job("tenant-purge", 3600, run_purges),
     Job("retention", 3600, run_retention),
     Job("file-scan", 60, run_file_scan),
+    Job("ai-cache", 3600, purge_expired_answers),
+    Job("session-summaries", 60, run_session_summaries),
 )
 
 

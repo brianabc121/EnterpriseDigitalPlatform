@@ -39,3 +39,7 @@ class ChannelAccount(IdMixin, TimestampMixin, TenantMixin, Base):
     config: Mapped[dict[str, Any]] = mapped_column(server_default="{}")
     # 为空时使用租户的默认路由策略。
     routing_policy_id: Mapped[uuid.UUID | None]
+    # 这个渠道的 AI 参数（handoff_threshold、relevance_threshold、max_turns），覆盖租户的设置。
+    ai_overrides: Mapped[dict[str, Any]] = mapped_column(server_default="{}")
+    # AI 接待只使用这些知识空间里的知识；为空表示全部。
+    kb_space_ids: Mapped[list[uuid.UUID]] = mapped_column(server_default="{}")

@@ -8,7 +8,9 @@
 5. 环境变量配置的供应商（EDP_LLM_*，没有在运营后台配置供应商时使用）。
 
 向量模型只用平台级的配置（默认供应商配置了向量模型时用它，否则用环境变量），保证同一个知识库的
-向量来自同一个模型；更换向量模型后需要执行 kb-reindex。
+向量来自同一个模型；更换向量模型后需要执行 kb-reindex。重排序模型同样只用平台级的配置。
+
+每个供应商登记价格（估算费用）和能力标签（是否支持工具调用等），租户自带的接口不计费用。
 
 供应商和路由在进程内缓存几秒；客户端按配置复用，配置变化后换新的客户端。
 """
@@ -27,7 +29,7 @@ from sqlalchemy import select
 from app.core.config import Settings
 from app.core.crypto import DecryptError, unseal
 from app.db.session import Database
-from app.integrations.llm import EmbedEndpoint, LLMClient, LLMEndpoint
+from app.integrations.llm import EmbedEndpoint, LLMClient, LLMEndpoint, RerankEndpoint
 from app.modules.security.keys import TenantKeyring
 
 logger = logging.getLogger(__name__)
@@ -36,9 +38,13 @@ ROUTES_KEY = "llm_routes"
 SCENES = {
     "reply": "AI 接待回复",
     "test": "AI 设置里的试一试",
+    "rewrite": "问题改写",
     "suggest": "坐席助手建议回复",
     "summary": "转人工摘要",
+    "session_summary": "会话小结",
+    "copilot": "坐席实时提醒",
     "extract": "知识提炼",
+    "phrase": "优秀话术挖掘",
     "evaluate": "AI 评测",
 }
 CACHE_SECONDS = 5.0
@@ -61,6 +67,10 @@ class ProviderConfig:
     embed_model: str
     embed_dim: int
     send_dimensions: bool
+    rerank_model: str = ""
+    price_input: float = 0.0
+    price_output: float = 0.0
+    supports_tools: bool = False
 
     def endpoint(self) -> LLMEndpoint:
         return LLMEndpoint(
@@ -69,6 +79,9 @@ class ProviderConfig:
             chat_model=self.chat_model,
             fast_model=self.fast_model,
             name=self.name,
+            price_input=self.price_input,
+            price_output=self.price_output,
+            supports_tools=self.supports_tools,
         )
 
     def embedding(self) -> EmbedEndpoint | None:
@@ -80,7 +93,13 @@ class ProviderConfig:
             model=self.embed_model,
             dim=self.embed_dim,
             send_dimensions=self.send_dimensions,
+            price=self.price_input,
         )
+
+    def reranking(self) -> RerankEndpoint | None:
+        if not self.rerank_model:
+            return None
+        return RerankEndpoint(base_url=self.base_url, api_key=self.api_key, model=self.rerank_model)
 
 
 @dataclass(frozen=True)
@@ -153,6 +172,7 @@ class LlmRouter:
         except DecryptError:
             logger.error("cannot decrypt the api key of llm provider %s", row.id)
             return None
+        prices = row.prices or {}
         return ProviderConfig(
             id=str(row.id),
             name=row.name,
@@ -163,6 +183,10 @@ class LlmRouter:
             embed_model=row.embed_model,
             embed_dim=row.embed_dim,
             send_dimensions=row.send_dimensions,
+            rerank_model=row.rerank_model or "",
+            price_input=float(prices.get("input") or 0),
+            price_output=float(prices.get("output") or 0),
+            supports_tools=bool((row.capabilities or {}).get("tools")),
         )
 
     def _client(
@@ -170,14 +194,16 @@ class LlmRouter:
         primary: LLMEndpoint | None,
         fallback: LLMEndpoint | None = None,
         embed: EmbedEndpoint | None = None,
+        rerank: RerankEndpoint | None = None,
     ) -> LLMClient:
-        key = (primary, fallback, embed)
+        key = (primary, fallback, embed, rerank)
         client = self._clients.get(key)
         if client is None:
             client = LLMClient(
                 primary,
                 fallback=fallback,
                 embed=embed,
+                rerank=rerank,
                 timeout=self._settings.llm_timeout_seconds,
                 retries=self.env.retries,
                 transport=self._transport,
@@ -230,6 +256,7 @@ class LlmRouter:
             chat_model=str(byo.get("chat_model") or ""),
             fast_model=str(byo.get("fast_model") or ""),
             name="tenant",
+            supports_tools=bool(byo.get("supports_tools")),
         )
 
     async def chat_client(self, tenant_id: uuid.UUID, scene: str = "reply") -> LLMClient:
@@ -257,8 +284,22 @@ class LlmRouter:
             return self._client(None, embed=embedding)
         return self.env
 
+    async def rerank_client(self) -> LLMClient:
+        platform = await self._load()
+        reranking = platform.default.reranking() if platform.default else None
+        if reranking is not None:
+            return self._client(None, rerank=reranking)
+        return self.env
+
+    async def rerank_enabled(self) -> bool:
+        return (await self.rerank_client()).can_rerank
+
     async def chat_enabled(self, tenant_id: uuid.UUID, scene: str = "reply") -> bool:
         return (await self.chat_client(tenant_id, scene)).enabled
+
+    async def tools_supported(self, tenant_id: uuid.UUID, scene: str = "reply") -> bool:
+        """这个租户、这个场景使用的模型是否支持工具调用（供应商的能力标签）。"""
+        return (await self.chat_client(tenant_id, scene)).supports_tools
 
     async def embed_enabled(self) -> bool:
         return (await self.embed_client()).can_embed

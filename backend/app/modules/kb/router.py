@@ -15,7 +15,7 @@ from app.core.permissions import Permission
 from app.modules.iam.deps import TenantDb, require_permission
 from app.modules.iam.models import Staff
 from app.modules.iam.principal import Principal
-from app.modules.kb import distribution, metrics, review, search, service
+from app.modules.kb import distribution, importer, metrics, review, search, service, spaces
 from app.modules.kb.models import KbDigest
 from app.modules.kb.schemas import (
     KbCandidateApprove,
@@ -24,22 +24,34 @@ from app.modules.kb.schemas import (
     KbCandidateOut,
     KbCandidatePage,
     KbCandidateReject,
+    KbCategoryCreate,
+    KbCategoryOut,
+    KbCategoryUpdate,
+    KbCrawlImport,
     KbDigestList,
     KbDigestOut,
     KbDigestRequest,
     KbFeed,
     KbFeedbackOut,
     KbFeedbackRequest,
+    KbImportJobList,
+    KbImportJobOut,
     KbImportRequest,
     KbImportResult,
     KbItemCreate,
     KbItemOut,
     KbItemPage,
+    KbItemStats,
     KbItemUpdate,
     KbMetrics,
     KbReadStats,
     KbSearchHit,
     KbSearchResult,
+    KbSpaceCreate,
+    KbSpaceList,
+    KbSpaceOut,
+    KbSpaceUpdate,
+    KbUploadImport,
     KbVersionList,
     KbVersionOut,
 )
@@ -66,6 +78,11 @@ async def list_items(
     q: Annotated[str | None, Query(max_length=100)] = None,
     stale: Annotated[bool, Query(description="只看发布 90 天以上且近 90 天未被引用的")] = False,
     must_read: Annotated[bool, Query(description="只看必读知识")] = False,
+    space_id: UUID | None = None,
+    category_id: Annotated[UUID | None, Query(description="包括它的下级分类")] = None,
+    unassigned: Annotated[bool, Query(description="只看没有归入空间的")] = False,
+    owner_id: UUID | None = None,
+    mine: Annotated[bool, Query(description="只看我负责的")] = False,
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> KbItemPage:
@@ -81,7 +98,64 @@ async def list_items(
         offset=offset,
         stale=stale,
         must_read=must_read,
+        space_id=space_id,
+        category_id=category_id,
+        unassigned=unassigned,
+        owner_id=principal.staff_id if mine else owner_id,
     )
+
+
+# ---- 知识空间与分类（设计文档 §12.1） ----
+
+
+@router.get("/spaces", response_model=KbSpaceList)
+async def list_spaces(session: TenantDb, _: CanRead) -> KbSpaceList:
+    """知识空间和各自的分类（平铺，按 parent_id 组成树），以及各自的知识数。"""
+    return await spaces.list_spaces(session)
+
+
+@router.post("/spaces", response_model=KbSpaceOut, status_code=status.HTTP_201_CREATED)
+async def create_space(
+    payload: KbSpaceCreate, session: TenantDb, principal: CanManage
+) -> KbSpaceOut:
+    return await spaces.create_space(session, principal, payload)
+
+
+@router.patch("/spaces/{space_id}", response_model=KbSpaceOut)
+async def update_space(
+    space_id: UUID, payload: KbSpaceUpdate, session: TenantDb, principal: CanManage
+) -> KbSpaceOut:
+    return await spaces.update_space(session, principal, space_id, payload)
+
+
+@router.delete("/spaces/{space_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_space(space_id: UUID, session: TenantDb, principal: CanManage) -> Response:
+    """删除空间：其中的知识保留（移出空间），分类一并删除，渠道不再限定这个空间。"""
+    await spaces.delete_space(session, principal, space_id)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post("/categories", response_model=KbCategoryOut, status_code=status.HTTP_201_CREATED)
+async def create_category(
+    payload: KbCategoryCreate, session: TenantDb, principal: CanManage
+) -> KbCategoryOut:
+    """在空间里新建分类（最多三级）。"""
+    return await spaces.create_category(session, principal, payload)
+
+
+@router.patch("/categories/{category_id}", response_model=KbCategoryOut)
+async def update_category(
+    category_id: UUID, payload: KbCategoryUpdate, session: TenantDb, principal: CanManage
+) -> KbCategoryOut:
+    """改名、调整顺序，或移到同一空间的另一个上级分类下。"""
+    return await spaces.update_category(session, principal, category_id, payload)
+
+
+@router.delete("/categories/{category_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_category(category_id: UUID, session: TenantDb, principal: CanManage) -> Response:
+    """删除分类及其下级分类，其中的知识保留在空间里。"""
+    await spaces.delete_category(session, principal, category_id)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.get("/feed", response_model=KbFeed)
@@ -209,6 +283,14 @@ async def read_stats(item_id: UUID, session: TenantDb, principal: CanManage) -> 
     return await distribution.read_stats(session, principal, item_id)
 
 
+@router.get("/items/{item_id}/stats", response_model=KbItemStats)
+async def item_stats(item_id: UUID, session: TenantDb, principal: CanManage) -> KbItemStats:
+    """这条知识的引用次数、员工与访客的评价、引用它的 AI 会话的满意度和转人工情况，
+    以及是否长期未命中。"""
+    item = await service.get_item(session, principal, item_id)
+    return await metrics.item_stats(session, item)
+
+
 @router.post("/items/{item_id}/feedback", response_model=KbFeedbackOut)
 async def feedback(
     item_id: UUID, payload: KbFeedbackRequest, session: TenantDb, principal: CanRead
@@ -231,6 +313,35 @@ async def import_faqs(
     )
 
 
+@router.post("/imports", response_model=KbImportJobOut, status_code=status.HTTP_202_ACCEPTED)
+async def upload_import(
+    payload: KbUploadImport, ctx: Context, session: TenantDb, principal: CanManage
+) -> KbImportJobOut:
+    """上传文档（PDF、Word、Markdown、网页、纯文本）或问答表（.xlsx、.csv）导入知识。
+    后台执行，完成后在导入记录里查看结果（也会收到站内信）。"""
+    return await importer.create_upload(ctx, session, principal, payload)
+
+
+@router.post("/imports/crawl", response_model=KbImportJobOut, status_code=status.HTTP_202_ACCEPTED)
+async def crawl_import(
+    payload: KbCrawlImport, ctx: Context, session: TenantDb, principal: CanManage
+) -> KbImportJobOut:
+    """抓取官网帮助中心：从起始网址出发抓取同一站点、同一目录下的网页，每页生成一条文档知识；
+    再次抓取同一网页时更新原来的知识。"""
+    return await importer.create_crawl(ctx, session, principal, payload)
+
+
+@router.get("/imports", response_model=KbImportJobList)
+async def list_imports(session: TenantDb, _: CanManage) -> KbImportJobList:
+    """最近的导入任务。"""
+    return KbImportJobList(items=await importer.list_jobs(session))
+
+
+@router.get("/imports/{job_id}", response_model=KbImportJobOut)
+async def get_import(job_id: UUID, session: TenantDb, _: CanManage) -> KbImportJobOut:
+    return await importer.get_job(session, job_id)
+
+
 @router.get("/search", response_model=KbSearchResult)
 async def search_knowledge(
     ctx: Context,
@@ -238,6 +349,7 @@ async def search_knowledge(
     principal: CanRead,
     q: Annotated[str, Query(min_length=1, max_length=500)],
     limit: Annotated[int, Query(ge=1, le=20)] = 5,
+    space_id: Annotated[UUID | None, Query(description="只在这个知识空间里检索")] = None,
 ) -> KbSearchResult:
     """按问题检索已发布的知识（语义 + 关键词）。"""
     hits = await search.search(
@@ -247,6 +359,7 @@ async def search_knowledge(
         q,
         visibilities=service.visibilities_for(principal),
         limit=limit,
+        space_ids=[space_id] if space_id else None,
     )
     return KbSearchResult(
         items=[
@@ -274,7 +387,7 @@ async def list_candidates(
     status_: Annotated[
         Literal["pending", "approved", "merged", "rejected"], Query(alias="status")
     ] = "pending",
-    kind: Literal["new", "similar", "conflict", "gap"] | None = None,
+    kind: Literal["new", "similar", "conflict", "gap", "phrase"] | None = None,
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> KbCandidatePage:
@@ -299,7 +412,8 @@ async def approve_candidate(
     session: TenantDb,
     principal: CanPublish,
 ) -> KbCandidateOut:
-    """通过：新问题和缺口新建为问答并发布；相似问法并入原问答；冲突用新答案更新原问答。"""
+    """通过：新问题和缺口新建为问答并发布；相似问法并入原问答；冲突用新答案更新原问答；
+    优秀话术加入共享快捷话术。"""
     return await review.approve(ctx, session, principal, candidate_id, payload)
 
 

@@ -18,6 +18,7 @@ from app.context import AppContext
 from app.core.errors import Conflict, Forbidden, ServiceUnavailable, Unprocessable
 from app.core.ids import new_id
 from app.integrations.openim import OpenIMError
+from app.modules.ai import copilot
 from app.modules.channels.models import ChannelAccount, ChannelType
 from app.modules.conversation import imids, outbox
 from app.modules.conversation.content import im_payload
@@ -112,6 +113,7 @@ async def send_message(
         )
         session.add(message)
         touch_session(chat, message)
+        copilot.inspect_agent(session, chat, message)
         await session.commit()
     elif message.send_status == SendStatus.SENT:
         return (await messages_out(session, [message]))[0]
@@ -197,6 +199,7 @@ async def _send_via_channel(
             )
             session.add(message)
             touch_session(chat, message)
+            copilot.inspect_agent(session, chat, message)
         else:
             message.send_status = SendStatus.PENDING
             message.send_error = None

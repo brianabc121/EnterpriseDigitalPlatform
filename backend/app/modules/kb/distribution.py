@@ -3,8 +3,9 @@
 import uuid
 from collections import defaultdict
 
-from sqlalchemy import ColumnElement, and_, delete, func, select
-from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy import ColumnElement, and_, delete, func, literal, or_, select
+from sqlalchemy.dialects.postgresql import ARRAY, insert
+from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.permissions import Permission
@@ -27,6 +28,7 @@ from app.modules.kb.schemas import (
     KbReadStats,
 )
 from app.modules.kb.service import get_item, visibilities_for
+from app.modules.routing.models import SkillGroupMember
 
 FEED_LIMIT = 20
 
@@ -38,6 +40,22 @@ def _visible(principal: Principal) -> ColumnElement[bool]:
     )
 
 
+async def _my_groups(session: AsyncSession, staff_id: uuid.UUID) -> list[uuid.UUID]:
+    rows = await session.scalars(
+        select(SkillGroupMember.skill_group_id).where(SkillGroupMember.staff_id == staff_id)
+    )
+    return list(rows.all())
+
+
+def _targeted(groups: list[uuid.UUID]) -> ColumnElement[bool]:
+    """推送给全员的知识，或推送给我所在技能组的知识（设计文档 §12.6 按技能组推送）。"""
+    everyone = func.cardinality(KbItem.audience_group_ids) == 0
+    if not groups:
+        return everyone
+    mine = KbItem.audience_group_ids.op("&&")(literal(groups, ARRAY(PG_UUID(as_uuid=True))))
+    return or_(everyone, mine)
+
+
 async def _my_reads(session: AsyncSession, principal: Principal) -> set[tuple[uuid.UUID, int]]:
     rows = await session.execute(
         select(KbRead.item_id, KbRead.version).where(KbRead.staff_id == principal.staff_id)
@@ -46,8 +64,10 @@ async def _my_reads(session: AsyncSession, principal: Principal) -> set[tuple[uu
 
 
 async def feed(session: AsyncSession, principal: Principal, *, limit: int = FEED_LIMIT) -> KbFeed:
-    """待我确认的必读知识（当前版本），以及最近发布、更新的知识（只含目前仍可用的）。"""
+    """待我确认的必读知识（当前版本），以及最近发布、更新的知识（只含目前仍可用的）。
+    指定了推送技能组的知识只推送给这些组的成员。"""
     reads = await _my_reads(session, principal)
+    targeted = _targeted(await _my_groups(session, principal.staff_id))
 
     def read(item: KbItem) -> bool:
         return not item.must_read or (item.id, item.version) in reads
@@ -61,7 +81,7 @@ async def feed(session: AsyncSession, principal: Principal, *, limit: int = FEED
                     KbItem.tenant_id == KbItemVersion.tenant_id, KbItem.id == KbItemVersion.item_id
                 ),
             )
-            .where(_visible(principal))
+            .where(_visible(principal), targeted)
             .order_by(KbItemVersion.created_at.desc(), KbItemVersion.version.desc())
             .limit(limit)
         )
@@ -86,7 +106,7 @@ async def feed(session: AsyncSession, principal: Principal, *, limit: int = FEED
         for item in (
             await session.scalars(
                 select(KbItem)
-                .where(_visible(principal), KbItem.must_read.is_(True))
+                .where(_visible(principal), targeted, KbItem.must_read.is_(True))
                 .order_by(KbItem.updated_at.desc())
             )
         ).all()
@@ -146,11 +166,28 @@ async def audience(
     return [s for s in staff.all() if permission in granted[s.id]]
 
 
+async def item_audience(session: AsyncSession, item: KbItem) -> list[Staff]:
+    """需要确认这条必读知识的员工：有接待权限的在职员工；指定了推送技能组时只含这些组的成员。"""
+    staff = await audience(session)
+    if not item.audience_group_ids:
+        return staff
+    members = set(
+        (
+            await session.scalars(
+                select(SkillGroupMember.staff_id).where(
+                    SkillGroupMember.skill_group_id.in_(item.audience_group_ids)
+                )
+            )
+        ).all()
+    )
+    return [s for s in staff if s.id in members]
+
+
 async def read_stats(
     session: AsyncSession, principal: Principal, item_id: uuid.UUID
 ) -> KbReadStats:
     item = await get_item(session, principal, item_id)
-    readers_all = await audience(session)
+    readers_all = await item_audience(session, item)
     read_at = dict(
         (
             await session.execute(

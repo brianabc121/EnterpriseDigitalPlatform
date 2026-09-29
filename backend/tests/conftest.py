@@ -32,6 +32,7 @@ from tests.fake_llm import FakeLLM
 from tests.fake_openim import SECRET as FAKE_OPENIM_SECRET
 from tests.fake_openim import FakeOpenIM
 from tests.fake_storage import FakeStorage
+from tests.fake_web import FakeWeb
 from tests.fake_wecom import FakeWeCom
 from tests.support import (
     REDIS_URL,
@@ -47,7 +48,8 @@ ALL_TABLES = (
     "channel_accounts, customer_identities, rooms, messages, skill_groups, skill_group_members, "
     "routing_policies, agent_states, sessions, session_events, tickets, im_ops, quick_replies, "
     "session_transfers, customer_owner_history, usage_daily, ai_settings, kb_items, kb_chunks, "
-    "ai_session_states, ai_decisions, llm_calls, ai_eval_runs, llm_providers, platform_settings"
+    "ai_session_states, ai_decisions, llm_calls, ai_eval_runs, llm_providers, platform_settings, "
+    "prompt_templates"
 )
 SEEDED_PLANS = "'trial', 'standard', 'enterprise'"
 BACKEND_DIR = Path(__file__).resolve().parents[1]
@@ -168,8 +170,17 @@ def fake_llm_client(fake: FakeLLM) -> LLMClient:
 
 
 @pytest.fixture
+def fake_web() -> FakeWeb:
+    return FakeWeb()
+
+
+@pytest.fixture
 async def app(
-    settings: Settings, fake_im: FakeOpenIM, fake_llm: FakeLLM, fake_storage: FakeStorage
+    settings: Settings,
+    fake_im: FakeOpenIM,
+    fake_llm: FakeLLM,
+    fake_storage: FakeStorage,
+    fake_web: FakeWeb,
 ) -> AsyncIterator[FastAPI]:
     im = OpenIMClient(
         settings.openim_api_url, secret=FAKE_OPENIM_SECRET, transport=fake_im.transport()
@@ -180,8 +191,10 @@ async def app(
         llm=fake_llm_client(fake_llm),
         storage_transport=fake_storage.transport(),
         llm_transport=fake_llm.transport(),
+        web_transport=fake_web.transport(),
     )
     yield application
+    await application.state.ctx.web.aclose()
     await application.state.ctx.llm.aclose()
     await application.state.ctx.storage.aclose()
     await im.aclose()

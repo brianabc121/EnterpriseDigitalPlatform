@@ -92,7 +92,7 @@ async def test_conversations_become_clustered_candidates(desk: Desk) -> None:
     assert (candidate["kind"], candidate["occurrences"], candidate["recent"]) == ("new", 2, 2)
     assert candidate["question"] == "你们周末发货吗"
     assert candidate["variants"] == ["你们周末发货吗", "周末发货吗"]
-    assert (candidate["model"], candidate["prompt_version"]) == ("fake-chat", "v1")
+    assert (candidate["model"], candidate["prompt_version"]) == ("fake-chat", "extract@builtin")
     detail = await desk.client.get(f"/api/v1/kb/candidates/{candidate['id']}", headers=desk.admin)
     evidence = detail.json()["evidence"]
     assert [line["role"] for line in evidence[0]["lines"]] == ["客户", "坐席"]

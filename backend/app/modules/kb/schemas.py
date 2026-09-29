@@ -26,6 +26,14 @@ class KbItemCreate(BaseModel):
     valid_to: datetime | None = None
     must_read: bool = Field(default=False, description="必读：发布或更新后坐席需要确认已读")
     publish: bool = Field(default=False, description="创建后立即发布（需要 kb:publish）")
+    space_id: UUID | None = Field(default=None, description="知识空间；只选分类时取分类所在的空间")
+    category_id: UUID | None = Field(default=None, description="空间内的分类")
+    owner_id: UUID | None = Field(default=None, description="负责人：到期前收到提醒")
+    audience_group_ids: list[UUID] = Field(
+        default_factory=list,
+        max_length=50,
+        description="推送给哪些技能组（知识动态、必读确认），为空表示全员",
+    )
 
     @model_validator(mode="after")
     def _check(self) -> "KbItemCreate":
@@ -44,6 +52,10 @@ class KbItemUpdate(BaseModel):
     valid_from: datetime | None = None
     valid_to: datetime | None = None
     must_read: bool | None = None
+    space_id: UUID | None = Field(default=None, description="传 null 表示移出空间")
+    category_id: UUID | None = Field(default=None, description="传 null 表示不归入分类")
+    owner_id: UUID | None = Field(default=None, description="传 null 表示不设负责人")
+    audience_group_ids: list[UUID] | None = Field(default=None, max_length=50)
 
 
 class KbItemOut(BaseModel):
@@ -66,6 +78,13 @@ class KbItemOut(BaseModel):
     must_read: bool
     likes: int = Field(description="员工评价为有用的人数")
     dislikes: int = Field(description="员工评价为没用的人数")
+    visitor_likes: int = Field(description="访客评价依据这条知识的 AI 回答为有用的次数")
+    visitor_dislikes: int = Field(description="访客评价依据这条知识的 AI 回答为没用的次数")
+    space_id: UUID | None
+    category_id: UUID | None
+    owner_id: UUID | None
+    audience_group_ids: list[UUID]
+    source_url: str | None = Field(description="导入的文件名或抓取的页面地址")
     archived_at: datetime | None
     created_at: datetime
     updated_at: datetime
@@ -152,7 +171,9 @@ class KbReader(BaseModel):
 
 class KbReadStats(BaseModel):
     version: int
-    total: int = Field(description="需要确认的员工数（有接待权限的在职员工）")
+    total: int = Field(
+        description="需要确认的员工数（有接待权限的在职员工；指定了推送技能组时为组员）"
+    )
     confirmed: int
     rate: float | None
     readers: list[KbReader] = Field(description="已确认的在前，未确认的在后")
@@ -184,7 +205,10 @@ class KbEvidence(BaseModel):
 
 class KbCandidateOut(BaseModel):
     id: UUID
-    kind: str = Field(description="new 新问题、similar 相似问法、conflict 答案冲突、gap 知识缺口")
+    kind: str = Field(
+        description="new 新问题、similar 相似问法、conflict 答案冲突、gap 知识缺口、phrase 优秀话术"
+        "（question 为标题，answer 为话术）"
+    )
     status: str = Field(description="pending、approved、merged、rejected")
     question: str
     answer: str | None
@@ -275,6 +299,9 @@ class KbMetrics(BaseModel):
     stale_items: int = Field(description="长期未命中的知识")
     top_items: list[KbItemStat] = Field(description="AI 引用最多的知识")
     disliked_items: list[KbItemStat] = Field(description="评价为没用最多的知识")
+    visitor_disliked_items: list[KbItemStat] = Field(
+        default_factory=list, description="访客评价 AI 回答没用最多的知识"
+    )
 
 
 class KbDigestOut(BaseModel):
@@ -289,3 +316,135 @@ class KbDigestList(BaseModel):
 
 class KbDigestRequest(BaseModel):
     week_start: date | None = Field(default=None, description="这一周中的任意一天，默认本周")
+
+
+# ---- 知识空间与分类（设计文档 §12.1） ----
+
+Name = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=64)]
+
+
+class KbCategoryOut(BaseModel):
+    id: UUID
+    space_id: UUID
+    parent_id: UUID | None
+    name: str
+    sort: int
+    items: int = Field(description="直接归在这个分类下的知识数")
+
+
+class KbSpaceOut(BaseModel):
+    id: UUID
+    name: str
+    description: str | None
+    sort: int
+    items: int = Field(description="空间里的知识数")
+    categories: list[KbCategoryOut] = Field(description="分类（平铺，按 parent_id 组成树）")
+
+
+class KbSpaceList(BaseModel):
+    items: list[KbSpaceOut]
+    unassigned: int = Field(description="没有归入任何空间的知识数")
+
+
+class KbSpaceCreate(BaseModel):
+    name: Name
+    description: str | None = Field(default=None, max_length=500)
+    sort: int | None = Field(default=None, ge=0, le=10_000, description="越小越靠前")
+
+
+class KbSpaceUpdate(BaseModel):
+    name: Name | None = None
+    description: str | None = Field(default=None, max_length=500)
+    sort: int | None = Field(default=None, ge=0, le=10_000)
+
+
+class KbCategoryCreate(BaseModel):
+    space_id: UUID
+    parent_id: UUID | None = Field(default=None, description="上级分类，为空表示第一级（最多三级）")
+    name: Name
+    sort: int | None = Field(default=None, ge=0, le=10_000)
+
+
+class KbCategoryUpdate(BaseModel):
+    name: Name | None = None
+    parent_id: UUID | None = Field(
+        default=None, description="移动到另一个上级分类（同一空间内）；传 null 表示移到第一级"
+    )
+    sort: int | None = Field(default=None, ge=0, le=10_000)
+
+
+# ---- 知识导入（设计文档 §12.1 冷启动） ----
+
+
+class _ImportTarget(BaseModel):
+    publish: bool = Field(default=False, description="导入后立即发布（需要 kb:publish）")
+    space_id: UUID | None = Field(default=None, description="放入哪个知识空间")
+    category_id: UUID | None = Field(default=None, description="放入哪个分类")
+    visibility: Visibility | None = Field(default=None, description="可见范围，默认对客")
+
+
+class KbUploadImport(_ImportTarget):
+    kind: Literal["document", "excel"] = Field(
+        description="document：文档（PDF、Word、Markdown、网页、纯文本）；excel：问答表（.xlsx、.csv）"
+    )
+    filename: str = Field(min_length=1, max_length=200)
+    content_base64: str = Field(
+        min_length=1, max_length=28_000_000, description="文件内容（base64），文件最大 20 MB"
+    )
+
+
+class KbCrawlImport(_ImportTarget):
+    url: str = Field(
+        min_length=8,
+        max_length=500,
+        pattern=r"^https?://\S+$",
+        description="帮助中心的起始网址：只抓取同一站点、同一目录下的网页",
+    )
+    max_pages: int | None = Field(
+        default=None, ge=1, le=100, description="最多抓取的网页数，默认 20"
+    )
+
+
+class KbImportSummary(BaseModel):
+    created: int = Field(default=0, description="新建的知识数")
+    updated: int = Field(default=0, description="更新的知识数（再次抓取同一网页）")
+    skipped: int = Field(default=0, description="内容没有变化而跳过的")
+    pages: int = Field(default=0, description="抓取到正文的网页数")
+    errors: list[str] = Field(default_factory=list)
+    item_ids: list[UUID] = Field(default_factory=list)
+
+
+class KbImportJobOut(BaseModel):
+    id: UUID
+    kind: str = Field(description="document、excel、crawl")
+    status: str = Field(description="pending 排队中、running 导入中、done 完成、failed 失败")
+    source: str = Field(description="文件名或起始网址")
+    publish: bool
+    result: KbImportSummary
+    error: str | None
+    created_by_name: str | None
+    created_at: datetime
+    started_at: datetime | None
+    finished_at: datetime | None
+
+
+class KbImportJobList(BaseModel):
+    items: list[KbImportJobOut]
+
+
+class KbItemStats(BaseModel):
+    """一条知识的使用与满意度（设计文档 §12.7）。"""
+
+    item_id: UUID
+    hits: int = Field(description="被 AI 或坐席引用的次数")
+    last_hit_at: datetime | None
+    likes: int = Field(description="员工评价为有用的人数")
+    dislikes: int
+    visitor_likes: int = Field(description="访客评价依据这条知识的 AI 回答为有用的次数")
+    visitor_dislikes: int
+    visitor_satisfaction: float | None = Field(description="访客评价中有用的比例")
+    ai_sessions: int = Field(description="最近 90 天 AI 回答时引用了这条知识的会话数")
+    handoff_sessions: int = Field(description="其中后来转人工的会话数")
+    csat_count: int = Field(description="其中有满意度评价的会话数")
+    csat_avg: float | None = Field(description="这些会话的平均满意度（1–5）")
+    zombie: bool = Field(description="发布超过 90 天、90 天内没有被引用（长期未命中）")

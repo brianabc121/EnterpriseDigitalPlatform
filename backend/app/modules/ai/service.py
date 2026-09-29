@@ -7,6 +7,7 @@ from zoneinfo import ZoneInfo
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.context import AppContext
+from app.modules.ai import answer_cache
 from app.modules.ai.models import AiSettings
 from app.modules.ai.schemas import AiSettingsOut, AiSettingsUpdate
 from app.modules.billing.entitlements import ai_replies_this_month, entitlements
@@ -22,6 +23,10 @@ DEFAULTS = {
     "sensitive_keywords": [],
     "extraction_enabled": True,
     "auto_merge_similar": False,
+    "rewrite_enabled": True,
+    "answer_cache": True,
+    "tools_enabled": False,
+    "segment_replies": True,
 }
 
 UNAVAILABLE = {
@@ -49,6 +54,8 @@ async def update(
         if value is None and field != "persona":
             continue
         setattr(row, field, value)
+    # 名称、语气等变了，之前缓存的回答不再适用。
+    await answer_cache.clear(session, tenant_id)
     await session.commit()
     await session.refresh(row)
     return row
@@ -102,6 +109,11 @@ async def settings_out(
         sensitive_keywords=list(settings.sensitive_keywords),
         extraction_enabled=settings.extraction_enabled,
         auto_merge_similar=settings.auto_merge_similar,
+        rewrite_enabled=settings.rewrite_enabled,
+        answer_cache=settings.answer_cache,
+        tools_enabled=settings.tools_enabled,
+        segment_replies=settings.segment_replies,
+        tools_supported=await ctx.llms.tools_supported(settings.tenant_id),
         llm_configured=await ctx.llms.chat_enabled(settings.tenant_id),
         embeddings_configured=await ctx.llms.embed_enabled(),
         monthly_quota=quota,

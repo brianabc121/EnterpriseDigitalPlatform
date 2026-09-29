@@ -8,6 +8,7 @@ from sqlalchemy import select
 from app.context import AppContext
 from app.core.errors import Conflict, NotFound, Unprocessable
 from app.core.ratelimit import Limit, RateLimiter
+from app.modules.ai import feedback
 from app.modules.conversation.models import (
     ChatSession,
     Room,
@@ -21,7 +22,7 @@ from app.modules.routing.assign import PolicyResolver
 from app.modules.sessions import collab, engine
 from app.modules.tenancy.models import Tenant
 from app.modules.visitor.deps import VisitorContext
-from app.modules.visitor.schemas import CsatRequest, LeaveMessageRequest
+from app.modules.visitor.schemas import AiFeedbackRequest, CsatRequest, LeaveMessageRequest
 
 CSAT_WINDOW = timedelta(days=7)
 LEAVE_MESSAGE_LIMIT = Limit("visitor-ticket", 5, 3600)
@@ -63,6 +64,12 @@ async def rate(visitor: VisitorContext, payload: CsatRequest) -> None:
         payload={"score": payload.score},
     )
     await visitor.session.commit()
+
+
+async def rate_ai_answer(visitor: VisitorContext, payload: AiFeedbackRequest) -> None:
+    """评价智能客服的一条回答（有用 / 没用，可以改）。"""
+    room = await _room(visitor)
+    await feedback.rate_answer(visitor.session, room.id, payload.server_msg_id, payload.value)
 
 
 async def leave_message(

@@ -52,6 +52,8 @@ logger = logging.getLogger(__name__)
 
 SIGNAL_DESCRIPTION = "edp.signal"
 _LOCK_NAMESPACE = 1001
+# 在线信令：对方不在线时丢弃，失败不重试。
+_ONLINE_ONLY = (ImOpType.SIGNAL, ImOpType.TYPING)
 _MAX_ATTEMPTS = 12
 _MAX_BACKOFF_SECONDS = 300
 _RETENTION = timedelta(days=7)
@@ -104,6 +106,11 @@ def enqueue_signal(
     session: AsyncSession, room_id: UUID, staff_id: UUID, signal: dict[str, Any]
 ) -> None:
     _enqueue(session, room_id, ImOpType.SIGNAL, {"staff_id": str(staff_id), "signal": signal})
+
+
+def enqueue_typing(session: AsyncSession, room_id: UUID) -> None:
+    """智能客服正在生成回答：给服务群发"正在输入"的在线信令（只用于网页 Widget，不落库）。"""
+    _enqueue(session, room_id, ImOpType.TYPING, {})
 
 
 def enqueue_channel_send(session: AsyncSession, room_id: UUID, message_id: UUID) -> None:
@@ -234,7 +241,7 @@ async def dispatch_room(
             except _RETRYABLE as exc:
                 op.attempts += 1
                 op.last_error = str(exc)[:500]
-                if op.op == ImOpType.SIGNAL or op.attempts >= _MAX_ATTEMPTS:
+                if op.op in _ONLINE_ONLY or op.attempts >= _MAX_ATTEMPTS:
                     logger.warning("im op %s (%s) given up: %s", op.id, op.op, exc)
                     op.status = ImOpStatus.FAILED
                     op.done_at = now
@@ -441,6 +448,20 @@ async def _execute(ctx: AppContext, tenant_code: str, group_id: str, op: ImOp) -
                     "description": SIGNAL_DESCRIPTION,
                     "extension": "",
                 },
+            )
+        case ImOpType.TYPING:
+            # 系统用户的自定义消息不会入库（见 ingest._classify_sender）；群消息不需要好友关系。
+            await ctx.im.send_group_message(
+                send_id=imids.system_user(tenant_code),
+                group_id=group_id,
+                content_type=ContentType.CUSTOM,
+                content={
+                    "data": json.dumps({"type": "typing"}),
+                    "description": SIGNAL_DESCRIPTION,
+                    "extension": "",
+                },
+                sender_nickname=SYSTEM_NICKNAME,
+                online_only=True,
             )
         case _:
             raise ValueError(f"unknown im op {op.op}")

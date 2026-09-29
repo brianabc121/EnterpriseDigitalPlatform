@@ -37,6 +37,10 @@ MATRIX: list[tuple[str, str, dict[str, Any] | None]] = [
     ("POST", "/api/v1/customers/transfer-requests/{request_id}/approve", {}),
     ("POST", "/api/v1/customers/transfer-requests/{request_id}/reject", {}),
     ("POST", "/api/v1/customers/transfer-requests/{request_id}/cancel", None),
+    ("GET", "/api/v1/customers/{customer_id}/lead-drafts", None),
+    ("GET", "/api/v1/customers/{customer_id}/summaries", None),
+    ("POST", "/api/v1/customers/lead-drafts/{draft_id}/confirm", None),
+    ("POST", "/api/v1/customers/lead-drafts/{draft_id}/discard", None),
     ("POST", "/api/v1/sessions/{session_id}/return-to-ai", None),
     ("POST", "/api/v1/sessions/{session_id}/handoff", None),
     ("POST", "/api/v1/sessions/{session_id}/monitor", None),
@@ -55,6 +59,11 @@ MATRIX: list[tuple[str, str, dict[str, Any] | None]] = [
     ("GET", "/api/v1/sessions/{session_id}/reply-window", None),
     ("GET", "/api/v1/sessions/{session_id}/ai-decisions", None),
     ("POST", "/api/v1/sessions/{session_id}/suggestions", None),
+    ("GET", "/api/v1/sessions/{session_id}/alerts", None),
+    ("GET", "/api/v1/sessions/{session_id}/summary", None),
+    ("POST", "/api/v1/sessions/{session_id}/summary", None),
+    ("POST", "/api/v1/sessions/{session_id}/summary/confirm", {"summary": "越权确认"}),
+    ("POST", "/api/v1/sessions/{session_id}/summary/discard", None),
     ("POST", "/api/v1/sessions/{session_id}/close", None),
     ("POST", "/api/v1/sessions/{session_id}/messages", {"client_msg_id": "x" * 16, "text": "越权"}),
     ("POST", "/api/v1/sessions/{session_id}/transfer", {"to_staff_id": "{own_staff_id}"}),
@@ -79,10 +88,17 @@ MATRIX: list[tuple[str, str, dict[str, Any] | None]] = [
     ("POST", "/api/v1/kb/items/{item_id}/read", None),
     ("GET", "/api/v1/kb/items/{item_id}/reads", None),
     ("POST", "/api/v1/kb/items/{item_id}/feedback", {"value": 1}),
+    ("GET", "/api/v1/kb/items/{item_id}/stats", None),
     ("GET", "/api/v1/kb/candidates/{candidate_id}", None),
     ("POST", "/api/v1/kb/candidates/{candidate_id}/approve", {"answer": "越权"}),
     ("POST", "/api/v1/kb/candidates/{candidate_id}/merge", {"item_id": "{own_item_id}"}),
     ("POST", "/api/v1/kb/candidates/{candidate_id}/reject", {"reason": "越权"}),
+    ("GET", "/api/v1/kb/imports/{job_id}", None),
+    ("PATCH", "/api/v1/kb/spaces/{space_id}", {"name": "越权修改"}),
+    ("DELETE", "/api/v1/kb/spaces/{space_id}", None),
+    ("PATCH", "/api/v1/kb/categories/{category_id}", {"name": "越权修改"}),
+    ("DELETE", "/api/v1/kb/categories/{category_id}", None),
+    ("POST", "/api/v1/notifications/{notification_id}/read", None),
     ("PUT", "/api/v1/admin/integrations/wecom/members/{userid}", {"staff_id": "{own_staff_id}"}),
     ("DELETE", "/api/v1/admin/integrations/wecom/join-ways/{way_id}", None),
     ("PUT", "/api/v1/sidebar/customers/{customer_id}/tags", {"tags": ["越权"]}),
@@ -196,6 +212,28 @@ async def build(desk: Desk) -> Tenant:
         uuid.uuid4(),
         desk.tenant_id,
     )
+    space = await client.post("/api/v1/kb/spaces", headers=desk.admin, json={"name": "售后"})
+    category = await client.post(
+        "/api/v1/kb/categories",
+        headers=desk.admin,
+        json={"space_id": space.json()["id"], "name": "物流"},
+    )
+    # 知识导入任务（直接写库，流程见 test_kb_import_g5.py）。
+    [job] = await desk.sql(
+        "INSERT INTO kb_import_jobs (id, tenant_id, kind, params)"
+        " VALUES ($1, $2, 'crawl', '{\"url\": \"https://help.example.com/\"}') RETURNING id",
+        uuid.uuid4(),
+        desk.tenant_id,
+    )
+    # AI 登记的线索和会话小结草稿（直接写库，流程见 test_copilot_g5.py）。
+    draft = await lead_draft(desk, chat)
+    await desk.sql(
+        "INSERT INTO session_summaries (tenant_id, session_id, customer_id, summary, tags)"
+        " VALUES ($1, $2, $3, '客户问候', '{咨询}')",
+        desk.tenant_id,
+        chat["id"],
+        chat["customer_id"],
+    )
     await desk.flush()
     ids = {
         "customer_id": str(chat["customer_id"]),
@@ -216,11 +254,39 @@ async def build(desk: Desk) -> Tenant:
         "grant_id": str(grant["id"]),
         "role_id": role.json()["id"],
         "request_id": request.json()["id"],
+        "draft_id": draft,
+        "space_id": space.json()["id"],
+        "category_id": category.json()["id"],
+        "job_id": str(job["id"]),
+        "notification_id": await notification(desk, agent.staff_id),
         "version": "1",
         "userid": "zhangsan",
         "tenant_id": str(desk.tenant_id),
     }
     return Tenant(desk, agent, other, visitor, ids)
+
+
+async def lead_draft(desk: Desk, chat: Any) -> str:
+    [draft] = await desk.sql(
+        "INSERT INTO customer_lead_drafts (id, tenant_id, customer_id, session_id, fields)"
+        ' VALUES ($1, $2, $3, $4, \'{"company": "星河科技"}\') RETURNING id',
+        uuid.uuid4(),
+        desk.tenant_id,
+        chat["customer_id"],
+        chat["id"],
+    )
+    return str(draft["id"])
+
+
+async def notification(desk: Desk, staff_id: uuid.UUID) -> str:
+    [row] = await desk.sql(
+        "INSERT INTO staff_notifications (id, tenant_id, staff_id, kind, title)"
+        " VALUES ($1, $2, $3, 'kb_expiring', '知识即将到期') RETURNING id",
+        uuid.uuid4(),
+        desk.tenant_id,
+        staff_id,
+    )
+    return str(row["id"])
 
 
 @pytest.fixture
@@ -289,6 +355,12 @@ async def snapshot(desk: Desk) -> list[Any]:
         "rooms": "id, customer_id",
         "customer_transfer_requests": "id, status",
         "session_watchers": "session_id, staff_id, left_at",
+        "customer_lead_drafts": "id, status",
+        "session_summaries": "session_id, status, summary",
+        "kb_spaces": "id, name",
+        "kb_categories": "id, name, parent_id",
+        "staff_notifications": "id, read_at",
+        "kb_import_jobs": "id, status",
     }
     rows = []
     for table, columns in tables.items():
@@ -492,6 +564,11 @@ async def test_agents_only_reach_their_own_sessions_and_customers(
         "way_id": acme.ids["way_id"],
         "export_id": acme.ids["export_id"],
         "grant_id": acme.ids["grant_id"],
+        "draft_id": await lead_draft(desk, chat),
+        "space_id": acme.ids["space_id"],
+        "category_id": acme.ids["category_id"],
+        "job_id": acme.ids["job_id"],
+        "notification_id": await notification(desk, acme.other_agent.staff_id),
     }
     before = await snapshot(desk)
 

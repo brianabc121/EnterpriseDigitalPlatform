@@ -36,8 +36,9 @@ from app.modules.kb.models import (
     KbItemVersion,
     VersionChange,
 )
-from app.modules.kb.schemas import KbItemStat, KbMetrics, KbReasonCount
+from app.modules.kb.schemas import KbItemStat, KbItemStats, KbMetrics, KbReasonCount
 from app.modules.kb.service import STALE_AFTER
+from app.modules.notifications import service as notifications
 from app.modules.tenancy.models import Tenant, TenantStatus
 from app.modules.wecom.notify import notify_staff
 
@@ -176,6 +177,15 @@ async def knowledge_metrics(
             .limit(TOP)
         )
     ]
+    visitor_disliked = [
+        KbItemStat(item_id=item_id, title=title, count=dislikes)
+        for item_id, title, dislikes in await session.execute(
+            select(KbItem.id, KbItem.title, KbItem.visitor_dislikes)
+            .where(KbItem.visitor_dislikes > 0)
+            .order_by(KbItem.visitor_dislikes.desc(), KbItem.visitor_likes, KbItem.id)
+            .limit(TOP)
+        )
+    ]
     return KbMetrics(
         start=start,
         end=end,
@@ -197,6 +207,58 @@ async def knowledge_metrics(
         stale_items=stale or 0,
         top_items=await _top_items(session, since, until),
         disliked_items=disliked,
+        visitor_disliked_items=visitor_disliked,
+    )
+
+
+ITEM_WINDOW = timedelta(days=90)
+
+
+async def item_stats(
+    session: AsyncSession, item: KbItem, *, now: datetime | None = None
+) -> KbItemStats:
+    """一条知识的引用、员工与访客评价、引用它的 AI 会话的满意度和转人工情况。"""
+    now = now or datetime.now(UTC)
+    cited = (
+        select(AiDecision.session_id)
+        .where(
+            AiDecision.created_at >= now - ITEM_WINDOW,
+            AiDecision.knowledge.op("@>")(cast([{"item_id": str(item.id)}], JSONB)),
+        )
+        .distinct()
+    )
+    sessions, handoffs, rated, csat = (
+        await session.execute(
+            select(
+                func.count(),
+                func.count().filter(ChatSession.assigned_at.is_not(None)),
+                func.count(ChatSession.csat),
+                func.avg(ChatSession.csat),
+            ).where(ChatSession.id.in_(cited))
+        )
+    ).one()
+    votes = item.visitor_likes + item.visitor_dislikes
+    cutoff = now - STALE_AFTER
+    zombie = (
+        item.status == ItemStatus.PUBLISHED
+        and item.published_at is not None
+        and item.published_at < cutoff
+        and (item.last_hit_at is None or item.last_hit_at < cutoff)
+    )
+    return KbItemStats(
+        item_id=item.id,
+        hits=item.hits,
+        last_hit_at=item.last_hit_at,
+        likes=item.likes,
+        dislikes=item.dislikes,
+        visitor_likes=item.visitor_likes,
+        visitor_dislikes=item.visitor_dislikes,
+        visitor_satisfaction=_rate(item.visitor_likes, votes),
+        ai_sessions=sessions,
+        handoff_sessions=handoffs,
+        csat_count=rated,
+        csat_avg=round(float(csat), 2) if csat is not None else None,
+        zombie=zombie,
     )
 
 
@@ -363,19 +425,22 @@ async def run_digests(ctx: AppContext, *, now: datetime | None = None) -> int:
 
 
 async def _announce_digest(ctx: AppContext, tenant_id: uuid.UUID, data: dict[str, Any]) -> None:
-    """周报生成后，通过企业微信应用消息提醒知识管理员。"""
-    if ctx.wecom is None:
-        return
-    async with ctx.db.tenant_session(tenant_id) as session:
-        managers = await audience(session, Permission.KB_MANAGE)
+    """周报生成后提醒知识管理员：站内信，有企业微信时另发应用消息。"""
     added = len(data.get("new_items") or [])
     updated = len(data.get("updated_items") or [])
     gaps = len(data.get("top_gaps") or [])
-    await notify_staff(
-        ctx,
-        tenant_id,
-        [s.id for s in managers],
-        title=f"知识周报（{data.get('week_start')} 起的一周）",
-        description=f"新增 {added} 条、更新 {updated} 条，待处理的知识缺口 {gaps} 个。",
-        path="/knowledge",
-    )
+    title = f"知识周报（{data.get('week_start')} 起的一周）"
+    body = f"新增 {added} 条、更新 {updated} 条，待处理的知识缺口 {gaps} 个。"
+    async with ctx.db.tenant_session(tenant_id) as session:
+        managers = [s.id for s in await audience(session, Permission.KB_MANAGE)]
+        notifications.add(
+            session,
+            tenant_id,
+            managers,
+            kind="kb_digest",
+            title=title,
+            body=body,
+            link="/knowledge",
+        )
+        await session.commit()
+    await notify_staff(ctx, tenant_id, managers, title=title, description=body, path="/knowledge")

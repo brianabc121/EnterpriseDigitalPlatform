@@ -19,15 +19,17 @@ from app.context import AppContext
 from app.core.errors import Conflict, Forbidden, NotFound, Unprocessable
 from app.core.permissions import Permission
 from app.integrations.llm import LLMUnavailable
-from app.modules.ai import gateway
+from app.modules.ai import answer_cache, gateway
 from app.modules.audit.service import record_audit
 from app.modules.billing.entitlements import check_limit
 from app.modules.iam.principal import Principal
+from app.modules.kb import spaces
 from app.modules.kb.models import (
     ChunkKind,
     ItemKind,
     ItemSource,
     ItemStatus,
+    KbCategory,
     KbChunk,
     KbItem,
     KbItemVersion,
@@ -41,7 +43,7 @@ from app.modules.kb.schemas import (
     KbItemPage,
     KbItemUpdate,
 )
-from app.modules.kb.text import split_passages, terms
+from app.modules.kb.text import chunk_document, terms
 
 logger = logging.getLogger(__name__)
 
@@ -98,11 +100,25 @@ async def list_items(
     offset: int,
     stale: bool = False,
     must_read: bool = False,
+    space_id: uuid.UUID | None = None,
+    category_id: uuid.UUID | None = None,
+    owner_id: uuid.UUID | None = None,
+    unassigned: bool = False,
     now: datetime | None = None,
 ) -> KbItemPage:
     query = _scope(principal)
     if status:
         query = query.where(KbItem.status == status)
+    if space_id is not None:
+        query = query.where(KbItem.space_id == space_id)
+    if unassigned:
+        query = query.where(KbItem.space_id.is_(None))
+    if category_id is not None:
+        # 选中分类时包括它的下级分类。
+        ids = await spaces.category_with_descendants(session, category_id)
+        query = query.where(KbItem.category_id.in_(ids))
+    if owner_id is not None:
+        query = query.where(KbItem.owner_id == owner_id)
     if stale:
         cutoff = (now or datetime.now(UTC)) - STALE_AFTER
         query = query.where(
@@ -161,16 +177,18 @@ def _audit(
 
 
 def chunk_texts(item: KbItem) -> list[tuple[str, str]]:
-    """检索单元：FAQ 的标准问与每个相似问；文档按段落切片，每片前面带上标题。"""
+    """检索单元：FAQ 的标准问与每个相似问；文档按标题分节后切片，每片前面带上标题路径。"""
     if item.kind == ItemKind.FAQ:
         questions = dict.fromkeys(q.strip() for q in [item.title, *item.questions] if q.strip())
         return [(ChunkKind.QUESTION, q) for q in questions]
-    return [(ChunkKind.PASSAGE, f"{item.title}\n{p}") for p in split_passages(item.content)]
+    return [(ChunkKind.PASSAGE, c) for c in chunk_document(item.title, item.content)]
 
 
 async def reindex(ctx: AppContext, session: AsyncSession, item: KbItem) -> None:
-    """重建检索单元。向量接口不可用时只生成词项，关键词检索仍然可用。"""
+    """重建检索单元。向量接口不可用时只生成词项，关键词检索仍然可用。知识变了，AI 的答案缓存
+    随之清空。"""
     await session.execute(delete(KbChunk).where(KbChunk.item_id == item.id))
+    await answer_cache.clear(session, item.tenant_id)
     texts = chunk_texts(item)
     vectors: list[list[float]] | None = None
     if texts and await ctx.llms.embed_enabled():
@@ -198,12 +216,18 @@ async def create_item(
     payload: KbItemCreate,
     *,
     source: str = ItemSource.MANUAL,
+    source_url: str | None = None,
     ip: str | None = None,
     commit: bool = True,
 ) -> KbItem:
     if payload.publish and not principal.has(Permission.KB_PUBLISH):
         raise Forbidden("没有发布知识的权限")
     await check_limit(session, principal.tenant_id, "kb_items")
+    space_id, category_id = await spaces.resolve_placement(
+        session, space_id=payload.space_id, category_id=payload.category_id
+    )
+    await spaces.check_owner(session, payload.owner_id)
+    groups = await spaces.check_groups(session, payload.audience_group_ids)
     item = KbItem(
         tenant_id=principal.tenant_id,
         kind=payload.kind,
@@ -220,6 +244,11 @@ async def create_item(
         status=ItemStatus.DRAFT,
         created_by=principal.staff_id,
         updated_by=principal.staff_id,
+        space_id=space_id,
+        category_id=category_id,
+        owner_id=payload.owner_id,
+        audience_group_ids=groups,
+        source_url=source_url,
     )
     session.add(item)
     await session.flush()
@@ -246,15 +275,25 @@ async def update_item(
     for field in ("title", "content", "category"):
         if changes.get(field) is not None:
             changes[field] = changes[field].strip()
+    await _placement_changes(session, item, changes)
+    if changes.get("owner_id") is not None:
+        await spaces.check_owner(session, changes["owner_id"])
+    if changes.get("audience_group_ids") is not None:
+        changes["audience_group_ids"] = await spaces.check_groups(
+            session, changes["audience_group_ids"]
+        )
     changed: set[str] = set()
     for field, value in changes.items():
-        if value is None and field not in ("valid_from", "valid_to"):
+        if value is None and field not in _NULLABLE:
             continue
         if getattr(item, field) != value:
             setattr(item, field, value)
             changed.add(field)
     if item.valid_from and item.valid_to and item.valid_from >= item.valid_to:
         raise Unprocessable("失效时间必须晚于生效时间")
+    if "valid_to" in changed:
+        # 有效期变了，到期前重新提醒负责人。
+        item.expiry_notified_at = None
     item.updated_by = principal.staff_id
     # 内容真正改变时才升版本、重建检索单元并留下快照（编辑页整表提交时未改的字段也会带上）。
     if item.status == ItemStatus.PUBLISHED and _CONTENT_FIELDS & changed:
@@ -266,6 +305,37 @@ async def update_item(
     await session.commit()
     await session.refresh(item)
     return item
+
+
+# 修改时传 null 表示清空的字段。
+_NULLABLE = {"valid_from", "valid_to", "space_id", "category_id", "owner_id"}
+
+
+async def _placement_changes(session: AsyncSession, item: KbItem, changes: dict[str, Any]) -> None:
+    """修改空间或分类：只改分类时空间随分类；只改空间时原分类不在新空间里就去掉。"""
+    if "space_id" not in changes and "category_id" not in changes:
+        return
+    if "space_id" in changes and "category_id" in changes:
+        space_id, category_id = await spaces.resolve_placement(
+            session, space_id=changes["space_id"], category_id=changes["category_id"]
+        )
+    elif "category_id" in changes:
+        if changes["category_id"] is None:
+            space_id, category_id = item.space_id, None
+        else:
+            space_id, category_id = await spaces.resolve_placement(
+                session, space_id=None, category_id=changes["category_id"]
+            )
+    else:
+        space_id, category_id = changes["space_id"], item.category_id
+        if category_id is not None:
+            current = await session.get(KbCategory, category_id)
+            if space_id is None or current is None or current.space_id != space_id:
+                category_id = None
+        space_id, category_id = await spaces.resolve_placement(
+            session, space_id=space_id, category_id=category_id
+        )
+    changes["space_id"], changes["category_id"] = space_id, category_id
 
 
 async def snapshot(
@@ -347,6 +417,7 @@ async def archive_item(
     item.status = ItemStatus.ARCHIVED
     item.archived_at = datetime.now(UTC)
     await session.execute(delete(KbChunk).where(KbChunk.item_id == item.id))
+    await answer_cache.clear(session, item.tenant_id)
     _audit(session, principal, "kb_item.archive", item, None, ip)
     await session.commit()
     await session.refresh(item)
@@ -413,6 +484,8 @@ async def expire_items(ctx: AppContext, *, now: datetime | None = None) -> int:
                 .with_for_update(skip_locked=True)
             )
         ).all()
+        for tenant_id in {item.tenant_id for item in items}:
+            await answer_cache.clear(session, tenant_id)
         for item in items:
             item.status = ItemStatus.ARCHIVED
             item.archived_at = now
@@ -452,9 +525,12 @@ _COLUMNS = {
 
 
 def parse_faq_csv(data: str) -> tuple[list[KbItemCreate], list[str]]:
-    """解析 FAQ 表格（CSV，首行为表头）：标准问、答案必填；相似问用 | 或换行分隔；分类可选。"""
-    reader = csv.reader(io.StringIO(data.lstrip("﻿")))
-    rows = list(reader)
+    """解析 FAQ 表格（CSV，首行为表头），见 parse_faq_rows。"""
+    return parse_faq_rows(list(csv.reader(io.StringIO(data.lstrip("﻿")))))
+
+
+def parse_faq_rows(rows: list[list[str]]) -> tuple[list[KbItemCreate], list[str]]:
+    """解析 FAQ 表格（首行为表头）：标准问、答案必填；相似问用 | 或换行分隔；分类可选。"""
     if not rows:
         return [], ["文件为空"]
     header = [h.strip().lower() for h in rows[0]]
