@@ -15,6 +15,7 @@ from fastapi import FastAPI
 from app.context import AppContext
 from app.core.config import Settings
 from app.events.bus import EventProcessor
+from app.modules.ai.responder import run_due
 from app.modules.conversation import imids
 from app.modules.sessions.handlers import event_handlers
 from tests.factories import STAFF_PASSWORD, bearer, create_staff, login, provision
@@ -121,6 +122,7 @@ class Desk:
         await self.flush()
 
     async def flush(self) -> None:
+        """投递回调、处理事件、执行到期的 AI 回复，直到没有新的动作（测试里 AI 不等待合并）。"""
         processor = EventProcessor(self.ctx.bus, event_handlers(self.ctx), consumer="test")
         await self.ctx.bus.ensure_groups()
         while True:
@@ -128,7 +130,8 @@ class Desk:
             self.im.callbacks.clear()
             await deliver(self.client, self.settings, callbacks)
             processed = await processor.process_available()
-            if not callbacks and not processed and not self.im.callbacks:
+            answered = await run_due(self.ctx) if self.ctx.llm.enabled else 0
+            if not callbacks and not processed and not answered and not self.im.callbacks:
                 return
 
     # ---- 观察 ----

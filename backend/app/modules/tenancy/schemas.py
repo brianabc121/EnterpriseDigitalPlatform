@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Literal
+from typing import Any, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -44,6 +44,12 @@ class TenantCreate(BaseModel):
 class TenantUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=128)
     status: TenantStatus | None = None
+    ai_monthly_quota: int | None = Field(
+        default=None,
+        ge=0,
+        le=10_000_000,
+        description="每月 AI 回复条数上限（套餐额度）；超出后 AI 接待转人工。显式传 null 表示不限",
+    )
 
 
 class TenantOut(BaseModel):
@@ -54,6 +60,13 @@ class TenantOut(BaseModel):
     name: str
     status: str
     created_at: datetime
+    ai_monthly_quota: int | None = Field(default=None, description="每月 AI 回复条数上限，空为不限")
+
+    @classmethod
+    def of(cls, tenant: Any) -> "TenantOut":
+        out = cls.model_validate(tenant)
+        out.ai_monthly_quota = (tenant.settings or {}).get("ai_monthly_quota")
+        return out
 
 
 class TenantList(BaseModel):

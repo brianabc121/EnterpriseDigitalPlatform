@@ -226,6 +226,7 @@ class ImOpType(StrEnum):
     KICK = "kick"  # payload: staff_id
     NOTICE = "notice"  # payload: text（系统用户发到服务群，客户可见）
     SIGNAL = "signal"  # payload: staff_id, signal（在线信令，失败不重试）
+    BOT_MESSAGE = "bot_message"  # payload: text, nickname（AI 回复，机器人身份发到服务群）
 
 
 class ImOpStatus(StrEnum):

@@ -19,6 +19,9 @@ class Metric(StrEnum):
     NEW_CUSTOMERS = "new_customers"  # 新客户
     ACTIVE_AGENTS = "active_agents"  # 当天接待过或发过消息的坐席
     FILE_BYTES = "file_bytes"  # 聊天中发送的图片和文件
+    AI_SESSIONS = "ai_sessions"  # 由 AI 接待的会话（P3）
+    AI_HANDOFFS = "ai_handoffs"  # AI 接待中转人工的次数
+    LLM_TOKENS = "llm_tokens"  # 大模型调用消耗的 tokens（输入加输出）
     SEATS = "seats"  # 启用的员工账号（快照）
     CHANNELS = "channels"  # 启用的接入渠道（快照）
 
@@ -36,6 +39,9 @@ METRIC_LABELS: dict[Metric, tuple[str, str]] = {
     Metric.NEW_CUSTOMERS: ("新客户", "个"),
     Metric.ACTIVE_AGENTS: ("活跃坐席", "人"),
     Metric.FILE_BYTES: ("聊天文件", "字节"),
+    Metric.AI_SESSIONS: ("AI 接待会话", "个"),
+    Metric.AI_HANDOFFS: ("AI 转人工", "次"),
+    Metric.LLM_TOKENS: ("大模型 tokens", "个"),
     Metric.SEATS: ("员工账号", "个"),
     Metric.CHANNELS: ("接入渠道", "个"),
 }

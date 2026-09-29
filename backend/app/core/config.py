@@ -70,6 +70,30 @@ class Settings(BaseSettings):
     # 用量按日汇总时划分日期的时区（计费时区）。
     usage_timezone: str = "Asia/Shanghai"
 
+    # 大模型（OpenAI 兼容协议，设计文档 §11.5）。llm_base_url 为空时不启用 AI 接待与坐席助手。
+    # base_url 形如 https://api.deepseek.com/v1、https://dashscope.aliyuncs.com/compatible-mode/v1。
+    llm_provider: str = ""
+    llm_base_url: str = ""
+    llm_api_key: SecretStr = SecretStr("")
+    llm_chat_model: str = ""
+    # 分类、摘要等轻量任务使用的模型；为空时与 llm_chat_model 相同。
+    llm_fast_model: str = ""
+    # 备用供应商：主供应商重试后仍失败时使用。
+    llm_fallback_provider: str = ""
+    llm_fallback_base_url: str = ""
+    llm_fallback_api_key: SecretStr = SecretStr("")
+    llm_fallback_chat_model: str = ""
+    # 向量模型（知识库语义检索）；llm_embed_model 为空时只用关键词检索。维度须与数据库一致（1024）。
+    llm_embed_base_url: str = ""
+    llm_embed_api_key: SecretStr = SecretStr("")
+    llm_embed_model: str = ""
+    llm_embed_dim: int = 1024
+    # 接口支持 dimensions 参数时（如 text-embedding-v3、embedding-3）设为 true。
+    llm_embed_send_dimensions: bool = False
+    llm_timeout_seconds: float = 30.0
+    # 客户连续发消息时，等这么久没有新消息再合并回复。
+    ai_debounce_seconds: float = 2.0
+
     @model_validator(mode="after")
     def _check_prod(self) -> "Settings":
         if self.env != "prod":

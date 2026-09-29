@@ -20,8 +20,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.context import AppContext
 from app.core.dates import day_bounds, today
 from app.db.session import Database
+from app.modules.ai.models import AiDecision, DecisionAction, LlmCall
 from app.modules.channels.models import ChannelAccount, ChannelStatus
-from app.modules.conversation.models import ChatSession, Message, SenderType
+from app.modules.conversation.models import ChatSession, Message, SenderType, SessionEvent
 from app.modules.customer.models import Customer
 from app.modules.iam.models import Staff, StaffStatus
 from app.modules.tenancy.models import Tenant
@@ -110,6 +111,22 @@ async def compute(
         ),
     ).subquery()
     values[Metric.ACTIVE_AGENTS] = await count(select(func.count()).select_from(agents))
+
+    values[Metric.AI_SESSIONS] = await count(
+        created(SessionEvent.created_at, SessionEvent.tenant_id).where(
+            SessionEvent.type == "ai_serving"
+        )
+    )
+    values[Metric.AI_HANDOFFS] = await count(
+        created(AiDecision.created_at, AiDecision.tenant_id).where(
+            AiDecision.action == DecisionAction.HANDOFF
+        )
+    )
+    values[Metric.LLM_TOKENS] = await count(
+        select(func.coalesce(func.sum(LlmCall.prompt_tokens + LlmCall.completion_tokens), 0)).where(
+            LlmCall.tenant_id == tenant_id, LlmCall.created_at >= start, LlmCall.created_at < end
+        )
+    )
 
     if snapshots:
         values[Metric.SEATS] = await count(

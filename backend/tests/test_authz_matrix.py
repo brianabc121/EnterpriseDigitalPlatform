@@ -32,6 +32,8 @@ MATRIX: list[tuple[str, str, dict[str, Any] | None]] = [
     ("GET", "/api/v1/rooms/{room_id}/messages", None),
     ("GET", "/api/v1/sessions/{session_id}", None),
     ("GET", "/api/v1/sessions/{session_id}/messages", None),
+    ("GET", "/api/v1/sessions/{session_id}/ai-decisions", None),
+    ("POST", "/api/v1/sessions/{session_id}/suggestions", None),
     ("POST", "/api/v1/sessions/{session_id}/close", None),
     ("POST", "/api/v1/sessions/{session_id}/messages", {"client_msg_id": "x" * 16, "text": "越权"}),
     ("POST", "/api/v1/sessions/{session_id}/transfer", {"to_staff_id": "{own_staff_id}"}),
@@ -46,6 +48,11 @@ MATRIX: list[tuple[str, str, dict[str, Any] | None]] = [
     ("PATCH", "/api/v1/agents/{staff_id}", {"max_concurrency": 1}),
     ("PATCH", "/api/v1/quick-replies/{reply_id}", {"title": "越权修改"}),
     ("DELETE", "/api/v1/quick-replies/{reply_id}", None),
+    ("GET", "/api/v1/kb/items/{item_id}", None),
+    ("PATCH", "/api/v1/kb/items/{item_id}", {"title": "越权修改"}),
+    ("DELETE", "/api/v1/kb/items/{item_id}", None),
+    ("POST", "/api/v1/kb/items/{item_id}/publish", None),
+    ("POST", "/api/v1/kb/items/{item_id}/archive", None),
 ]
 
 
@@ -96,6 +103,12 @@ async def build(desk: Desk) -> Tenant:
     policy = await client.post(
         "/api/v1/routing-policies", headers=desk.admin, json={"name": "夜间"}
     )
+    # 仅管理员可见的知识：坐席既看不到，也不能修改。
+    knowledge = await client.post(
+        "/api/v1/kb/items",
+        headers=desk.admin,
+        json={"title": "内部报价规则", "content": "仅限内部", "visibility": "admin"},
+    )
     [channel] = (await client.get("/api/v1/channels", headers=desk.admin)).json()["items"]
     [ticket] = await desk.sql("SELECT id FROM tickets WHERE tenant_id = $1", desk.tenant_id)
     await desk.flush()
@@ -110,6 +123,7 @@ async def build(desk: Desk) -> Tenant:
         "group_id": group.json()["id"],
         "policy_id": policy.json()["id"],
         "reply_id": reply.json()["id"],
+        "item_id": knowledge.json()["id"],
         "tenant_id": str(desk.tenant_id),
     }
     return Tenant(desk, agent, other, visitor, ids)
@@ -167,6 +181,7 @@ async def snapshot(desk: Desk) -> list[Any]:
         "routing_policies": "id, name, default_skill_group_id",
         "agent_states": "staff_id, max_concurrency",
         "quick_replies": "id, title",
+        "kb_items": "id, title, status, version",
         "messages": "id",
     }
     rows = []
@@ -357,6 +372,7 @@ async def test_agents_only_reach_their_own_sessions_and_customers(
         "transfer_id": acme.ids["transfer_id"],
         "group_id": acme.ids["group_id"],
         "policy_id": acme.ids["policy_id"],
+        "item_id": acme.ids["item_id"],
     }
     before = await snapshot(desk)
 

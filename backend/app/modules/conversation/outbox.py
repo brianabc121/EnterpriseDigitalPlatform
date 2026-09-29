@@ -21,7 +21,7 @@ from app.context import AppContext
 from app.integrations.openim import ContentType, OpenIMError
 from app.modules.conversation import imids
 from app.modules.conversation.models import ImOp, ImOpStatus, ImOpType, Room
-from app.modules.conversation.provisioning import SYSTEM_NICKNAME
+from app.modules.conversation.provisioning import BOT_NICKNAME, SYSTEM_NICKNAME
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +42,11 @@ def enqueue_kick(session: AsyncSession, room_id: UUID, staff_id: UUID) -> None:
 
 def enqueue_notice(session: AsyncSession, room_id: UUID, text: str) -> None:
     _enqueue(session, room_id, ImOpType.NOTICE, {"text": text})
+
+
+def enqueue_bot_message(session: AsyncSession, room_id: UUID, text: str, nickname: str) -> None:
+    """AI 回复：以机器人身份发到服务群，ex 带 ai 标记（客户端据此显示"AI"标识）。"""
+    _enqueue(session, room_id, ImOpType.BOT_MESSAGE, {"text": text, "nickname": nickname})
 
 
 def enqueue_signal(
@@ -154,6 +159,15 @@ async def _execute(ctx: AppContext, tenant_code: str, group_id: str, op: ImOp) -
                 content_type=ContentType.TEXT,
                 content={"content": op.payload["text"]},
                 sender_nickname=SYSTEM_NICKNAME,
+            )
+        case ImOpType.BOT_MESSAGE:
+            await ctx.im.send_group_message(
+                send_id=imids.bot_user(tenant_code),
+                group_id=group_id,
+                content_type=ContentType.TEXT,
+                content={"content": op.payload["text"]},
+                sender_nickname=op.payload.get("nickname") or BOT_NICKNAME,
+                ex=json.dumps({"ai": True}),
             )
         case ImOpType.SIGNAL:
             await ctx.im.send_online_only(

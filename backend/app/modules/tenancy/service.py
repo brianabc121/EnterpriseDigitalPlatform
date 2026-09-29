@@ -131,8 +131,13 @@ async def update_tenant(
 ) -> Tenant:
     tenant = await get_tenant(session, tenant_id)
     changes = payload.model_dump(exclude_unset=True, exclude_none=True, mode="json")
+    changes.pop("ai_monthly_quota", None)
     for field, value in changes.items():
         setattr(tenant, field, value)
+    if "ai_monthly_quota" in payload.model_fields_set:
+        # 套餐额度保存在租户设置里；显式传 null 表示不限。
+        tenant.settings = {**(tenant.settings or {}), "ai_monthly_quota": payload.ai_monthly_quota}
+        changes["ai_monthly_quota"] = payload.ai_monthly_quota
     if changes:
         record_audit(
             session,

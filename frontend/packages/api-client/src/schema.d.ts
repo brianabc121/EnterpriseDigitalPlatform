@@ -99,6 +99,68 @@ export interface paths {
         patch: operations["update_agent_api_v1_agents__staff_id__patch"];
         trace?: never;
     };
+    "/api/v1/ai/evaluations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Evaluations */
+        get: operations["list_evaluations_api_v1_ai_evaluations_get"];
+        put?: never;
+        /**
+         * Create Evaluation
+         * @description 用样例评测 AI：回答正确率（回复包含期望的关键词）与转人工正确率。
+         */
+        post: operations["create_evaluation_api_v1_ai_evaluations_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ai/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Settings */
+        get: operations["get_settings_api_v1_ai_settings_get"];
+        /**
+         * Update Settings
+         * @description AI 接待设置。启用后，路由策略为"AI 优先"的渠道由 AI 先接待。
+         */
+        put: operations["update_settings_api_v1_ai_settings_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ai/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Test Reply
+         * @description 试一试：用当前设置和知识库回答一个问题，返回回复、依据的知识和转人工判定（不发给任何客户）。
+         */
+        post: operations["test_reply_api_v1_ai_test_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/login": {
         parameters: {
             query?: never;
@@ -304,6 +366,123 @@ export interface paths {
          * @description 客户的归属变更记录（能看到这个客户的员工可以查看）。
          */
         get: operations["owner_history_api_v1_customers__customer_id__owner_history_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/kb/import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Import Faqs
+         * @description 从 CSV 批量导入 FAQ（冷启动，设计文档 §12.1）。
+         */
+        post: operations["import_faqs_api_v1_kb_import_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/kb/items": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Items
+         * @description 知识条目。坐席只看到已发布、对客或仅坐席可见的条目。
+         */
+        get: operations["list_items_api_v1_kb_items_get"];
+        put?: never;
+        /** Create Item */
+        post: operations["create_item_api_v1_kb_items_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/kb/items/{item_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Item */
+        get: operations["get_item_api_v1_kb_items__item_id__get"];
+        put?: never;
+        post?: never;
+        /** Delete Item */
+        delete: operations["delete_item_api_v1_kb_items__item_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Update Item
+         * @description 修改已发布的条目时版本号加一，AI 与坐席立即使用新内容。
+         */
+        patch: operations["update_item_api_v1_kb_items__item_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/kb/items/{item_id}/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Archive Item */
+        post: operations["archive_item_api_v1_kb_items__item_id__archive_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/kb/items/{item_id}/publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Publish Item */
+        post: operations["publish_item_api_v1_kb_items__item_id__publish_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/kb/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Search Knowledge
+         * @description 按问题检索已发布的知识（语义 + 关键词）。
+         */
+        get: operations["search_knowledge_api_v1_kb_search_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -555,6 +734,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/sessions/{session_id}/ai-decisions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Session Decisions
+         * @description AI 接待这个会话时每一轮的判定：回复内容、依据的知识、各项信号和得分、转人工原因。
+         */
+        get: operations["session_decisions_api_v1_sessions__session_id__ai_decisions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/sessions/{session_id}/close": {
         parameters: {
             query?: never;
@@ -593,6 +792,26 @@ export interface paths {
          * @description 接待中的坐席回复客户。先写库再发往 IM；同一个 client_msg_id 重复提交是幂等的。
          */
         post: operations["send_message_api_v1_sessions__session_id__messages_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sessions/{session_id}/suggestions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Suggestions
+         * @description 坐席助手：根据对话和知识库给出 1–3 条建议回复（只对坐席可见）。
+         */
+        post: operations["suggestions_api_v1_sessions__session_id__suggestions_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1298,6 +1517,169 @@ export interface components {
             /** Max Concurrency */
             max_concurrency: number;
         };
+        /** AiDecisionList */
+        AiDecisionList: {
+            /** Items */
+            items: components["schemas"]["AiDecisionOut"][];
+        };
+        /** AiDecisionOut */
+        AiDecisionOut: {
+            /**
+             * Action
+             * @enum {string}
+             */
+            action: "reply" | "handoff";
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Guard
+             * @description 未通过的护栏：empty、too_long、promise、sensitive、bad_output
+             */
+            guard: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Knowledge */
+            knowledge: components["schemas"]["KnowledgeRef"][];
+            /** Question */
+            question: string;
+            /**
+             * Reason
+             * @description 转人工原因：customer_request、sensitive、vip、model_request、score、guardrail、ai_unavailable、quota；回复时为空，guardrail_retry 表示回复未通过护栏、改发兜底话术
+             */
+            reason: string | null;
+            /** Reply */
+            reply: string | null;
+            /**
+             * Score
+             * @description 软信号得分
+             */
+            score: number;
+            /** Signals */
+            signals: {
+                [key: string]: unknown;
+            };
+        };
+        /**
+         * AiOutcome
+         * @description 一次 AI 判定：回复或转人工，以及依据。
+         */
+        AiOutcome: {
+            /**
+             * Action
+             * @enum {string}
+             */
+            action: "reply" | "handoff";
+            /**
+             * Guard
+             * @description 未通过的护栏：empty、too_long、promise、sensitive、bad_output
+             */
+            guard: string | null;
+            /** Knowledge */
+            knowledge: components["schemas"]["KnowledgeRef"][];
+            /**
+             * Reason
+             * @description 转人工原因：customer_request、sensitive、vip、model_request、score、guardrail、ai_unavailable、quota；回复时为空，guardrail_retry 表示回复未通过护栏、改发兜底话术
+             */
+            reason: string | null;
+            /** Reply */
+            reply: string | null;
+            /**
+             * Score
+             * @description 软信号得分
+             */
+            score: number;
+            /** Signals */
+            signals: {
+                [key: string]: unknown;
+            };
+        };
+        /** AiSettingsOut */
+        AiSettingsOut: {
+            /** Bot Name */
+            bot_name: string;
+            /**
+             * Embeddings Configured
+             * @description 平台是否配置了向量模型（语义检索）
+             */
+            embeddings_configured: boolean;
+            /**
+             * Enabled
+             * @description 启用 AI 接待（路由策略为 AI 优先的渠道生效）
+             */
+            enabled: boolean;
+            /**
+             * Handoff Keywords
+             * @description 除内置词外，客户说这些词时立即转人工
+             */
+            handoff_keywords: string[];
+            /**
+             * Handoff Threshold
+             * @description 软信号得分达到这个值时转人工（默认 0.6）
+             */
+            handoff_threshold: number;
+            /**
+             * Llm Configured
+             * @description 平台是否配置了大模型
+             */
+            llm_configured: boolean;
+            /**
+             * Max Turns
+             * @description AI 接待超过这么多轮仍未解决时计入转人工信号
+             */
+            max_turns: number;
+            /**
+             * Monthly Quota
+             * @description 每月 AI 回复条数上限（套餐额度），空为不限
+             */
+            monthly_quota: number | null;
+            /**
+             * Persona
+             * @description 语气与风格的补充说明，会放进系统提示
+             */
+            persona: string | null;
+            /**
+             * Relevance Threshold
+             * @description 知识相关度低于这个值视为知识缺失
+             */
+            relevance_threshold: number;
+            /**
+             * Sensitive Keywords
+             * @description 除内置词外的敏感词：客户提到时转人工，回复里出现时不发送
+             */
+            sensitive_keywords: string[];
+            /** Used This Month */
+            used_this_month: number;
+        };
+        /** AiSettingsUpdate */
+        AiSettingsUpdate: {
+            /** Bot Name */
+            bot_name?: string | null;
+            /** Enabled */
+            enabled?: boolean | null;
+            /** Handoff Keywords */
+            handoff_keywords?: string[] | null;
+            /** Handoff Threshold */
+            handoff_threshold?: number | null;
+            /** Max Turns */
+            max_turns?: number | null;
+            /** Persona */
+            persona?: string | null;
+            /** Relevance Threshold */
+            relevance_threshold?: number | null;
+            /** Sensitive Keywords */
+            sensitive_keywords?: string[] | null;
+        };
+        /** AiTestRequest */
+        AiTestRequest: {
+            /** Question */
+            question: string;
+        };
         /** Attachment */
         Attachment: {
             /** Content Type */
@@ -1589,6 +1971,73 @@ export interface components {
         ErrorResponse: {
             error: components["schemas"]["ErrorDetail"];
         };
+        /** EvalCase */
+        EvalCase: {
+            /**
+             * Expect Handoff
+             * @description 期望转人工
+             * @default false
+             */
+            expect_handoff: boolean;
+            /**
+             * Expect Keywords
+             * @description 期望回复中包含的关键词（全部包含才算正确）
+             */
+            expect_keywords?: string[];
+            /** Question */
+            question: string;
+        };
+        /** EvalCaseResult */
+        EvalCaseResult: {
+            /** Action */
+            action: string;
+            /**
+             * Answer Correct
+             * @description 期望回复且给出了关键词时判断；否则为空
+             */
+            answer_correct: boolean | null;
+            /** Expect Handoff */
+            expect_handoff: boolean;
+            /** Handoff Correct */
+            handoff_correct: boolean;
+            /** Question */
+            question: string;
+            /** Reason */
+            reason: string | null;
+            /** Reply */
+            reply: string | null;
+        };
+        /** EvalRequest */
+        EvalRequest: {
+            /** Cases */
+            cases: components["schemas"]["EvalCase"][];
+        };
+        /** EvalRunList */
+        EvalRunList: {
+            /** Items */
+            items: components["schemas"]["EvalRunOut"][];
+        };
+        /** EvalRunOut */
+        EvalRunOut: {
+            /** Answer Accuracy */
+            answer_accuracy: number | null;
+            /** Cases */
+            cases: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Handoff Accuracy */
+            handoff_accuracy: number | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Results */
+            results: components["schemas"]["EvalCaseResult"][];
+        };
         /** HandoverRequest */
         HandoverRequest: {
             /** Note */
@@ -1628,6 +2077,207 @@ export interface components {
             user_id: string;
             /** Ws Url */
             ws_url: string;
+        };
+        /** KbImportRequest */
+        KbImportRequest: {
+            /**
+             * Csv
+             * @description CSV 文本（首行为表头）：标准问、答案必填；相似问用 | 分隔；分类可选
+             */
+            csv: string;
+            /**
+             * Publish
+             * @description 导入后立即发布（需要 kb:publish）
+             * @default false
+             */
+            publish: boolean;
+        };
+        /** KbImportResult */
+        KbImportResult: {
+            /** Created */
+            created: number;
+            /**
+             * Errors
+             * @description 无法导入的行及原因
+             */
+            errors: string[];
+        };
+        /** KbItemCreate */
+        KbItemCreate: {
+            /**
+             * Category
+             * @default
+             */
+            category: string;
+            /**
+             * Content
+             * @description FAQ 的答案，或文档正文
+             */
+            content: string;
+            /**
+             * Kind
+             * @default faq
+             * @enum {string}
+             */
+            kind: "faq" | "doc";
+            /**
+             * Publish
+             * @description 创建后立即发布（需要 kb:publish）
+             * @default false
+             */
+            publish: boolean;
+            /**
+             * Questions
+             * @description FAQ 的相似问法
+             */
+            questions?: string[];
+            /** Tags */
+            tags?: string[];
+            /**
+             * Title
+             * @description FAQ 的标准问，或文档标题
+             */
+            title: string;
+            /** Valid From */
+            valid_from?: string | null;
+            /** Valid To */
+            valid_to?: string | null;
+            /**
+             * Visibility
+             * @description public：对客 AI 与坐席可用；agent：仅坐席；admin：仅管理员
+             * @default public
+             * @enum {string}
+             */
+            visibility: "public" | "agent" | "admin";
+        };
+        /** KbItemOut */
+        KbItemOut: {
+            /** Category */
+            category: string;
+            /** Content */
+            content: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Hits
+             * @description 被 AI 或坐席引用的次数
+             */
+            hits: number;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Kind */
+            kind: string;
+            /** Last Hit At */
+            last_hit_at: string | null;
+            /** Published At */
+            published_at: string | null;
+            /** Questions */
+            questions: string[];
+            /** Source */
+            source: string;
+            /**
+             * Status
+             * @description draft、published 或 archived
+             */
+            status: string;
+            /** Tags */
+            tags: string[];
+            /** Title */
+            title: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Valid From */
+            valid_from: string | null;
+            /** Valid To */
+            valid_to: string | null;
+            /** Version */
+            version: number;
+            /** Visibility */
+            visibility: string;
+        };
+        /** KbItemPage */
+        KbItemPage: {
+            /** Items */
+            items: components["schemas"]["KbItemOut"][];
+            /** Total */
+            total: number;
+        };
+        /** KbItemUpdate */
+        KbItemUpdate: {
+            /** Category */
+            category?: string | null;
+            /** Content */
+            content?: string | null;
+            /** Questions */
+            questions?: string[] | null;
+            /** Tags */
+            tags?: string[] | null;
+            /** Title */
+            title?: string | null;
+            /** Valid From */
+            valid_from?: string | null;
+            /** Valid To */
+            valid_to?: string | null;
+            /** Visibility */
+            visibility?: ("public" | "agent" | "admin") | null;
+        };
+        /** KbSearchHit */
+        KbSearchHit: {
+            /**
+             * Dense
+             * @description 语义相似度；没有配置向量模型时为空
+             */
+            dense: number | null;
+            /**
+             * Item Id
+             * Format: uuid
+             */
+            item_id: string;
+            /** Kind */
+            kind: string;
+            /**
+             * Lexical
+             * @description 关键词覆盖率
+             */
+            lexical: number;
+            /**
+             * Score
+             * @description 相关度（0 到 1）：语义相似度与关键词覆盖率中较高的一个
+             */
+            score: number;
+            /**
+             * Text
+             * @description FAQ 的答案，或文档中最相关的片段
+             */
+            text: string;
+            /** Title */
+            title: string;
+        };
+        /** KbSearchResult */
+        KbSearchResult: {
+            /** Items */
+            items: components["schemas"]["KbSearchHit"][];
+        };
+        /** KnowledgeRef */
+        KnowledgeRef: {
+            /**
+             * Item Id
+             * Format: uuid
+             */
+            item_id: string;
+            /** Score */
+            score: number;
+            /** Title */
+            title: string;
         };
         /** LeaveMessageRequest */
         LeaveMessageRequest: {
@@ -2512,6 +3162,13 @@ export interface components {
             /** Username */
             username: string;
         };
+        /** SuggestionList */
+        SuggestionList: {
+            /** Knowledge */
+            knowledge: components["schemas"]["KnowledgeRef"][];
+            /** Suggestions */
+            suggestions: string[];
+        };
         /** TenantAdminCreate */
         TenantAdminCreate: {
             /** Display Name */
@@ -2551,6 +3208,11 @@ export interface components {
         };
         /** TenantOut */
         TenantOut: {
+            /**
+             * Ai Monthly Quota
+             * @description 每月 AI 回复条数上限，空为不限
+             */
+            ai_monthly_quota?: number | null;
             /** Code */
             code: string;
             /**
@@ -2575,6 +3237,11 @@ export interface components {
         TenantStatus: "active" | "suspended";
         /** TenantUpdate */
         TenantUpdate: {
+            /**
+             * Ai Monthly Quota
+             * @description 每月 AI 回复条数上限（套餐额度）；超出后 AI 接待转人工。显式传 null 表示不限
+             */
+            ai_monthly_quota?: number | null;
             /** Name */
             name?: string | null;
             status?: components["schemas"]["TenantStatus"] | null;
@@ -3455,6 +4122,390 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    list_evaluations_api_v1_ai_evaluations_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EvalRunList"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    create_evaluation_api_v1_ai_evaluations_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EvalRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EvalRunOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_settings_api_v1_ai_settings_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiSettingsOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    update_settings_api_v1_ai_settings_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AiSettingsUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiSettingsOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    test_reply_api_v1_ai_test_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AiTestRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiOutcome"];
+                };
             };
             /** @description Bad Request */
             400: {
@@ -4462,6 +5513,702 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["OwnerHistoryList"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    import_faqs_api_v1_kb_import_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["KbImportRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KbImportResult"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    list_items_api_v1_kb_items_get: {
+        parameters: {
+            query?: {
+                status?: ("draft" | "published" | "archived") | null;
+                kind?: ("faq" | "doc") | null;
+                category?: string | null;
+                q?: string | null;
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KbItemPage"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    create_item_api_v1_kb_items_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["KbItemCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KbItemOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_item_api_v1_kb_items__item_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                item_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KbItemOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    delete_item_api_v1_kb_items__item_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                item_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    update_item_api_v1_kb_items__item_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                item_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["KbItemUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KbItemOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    archive_item_api_v1_kb_items__item_id__archive_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                item_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KbItemOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    publish_item_api_v1_kb_items__item_id__publish_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                item_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KbItemOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    search_knowledge_api_v1_kb_search_get: {
+        parameters: {
+            query: {
+                q: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KbSearchResult"];
                 };
             };
             /** @description Bad Request */
@@ -5832,6 +7579,82 @@ export interface operations {
             };
         };
     };
+    session_decisions_api_v1_sessions__session_id__ai_decisions_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiDecisionList"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     close_session_api_v1_sessions__session_id__close_post: {
         parameters: {
             query?: never;
@@ -6010,6 +7833,82 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MessageOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    suggestions_api_v1_sessions__session_id__suggestions_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuggestionList"];
                 };
             };
             /** @description Bad Request */

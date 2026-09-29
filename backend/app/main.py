@@ -9,7 +9,9 @@ from app.context import AppContext
 from app.core.config import Settings, get_settings
 from app.core.errors import install_error_handlers
 from app.core.ratelimit import RateLimiter
+from app.integrations.llm import LLMClient
 from app.integrations.openim import OpenIMClient
+from app.modules.ai.router import router as ai_router
 from app.modules.channels.router import router as channels_router
 from app.modules.conversation.hooks import router as openim_hooks_router
 from app.modules.conversation.router import router as conversation_router
@@ -18,6 +20,7 @@ from app.modules.files.router import router as files_router
 from app.modules.health.router import router as health_router
 from app.modules.iam.router import auth_router
 from app.modules.iam.router import router as iam_router
+from app.modules.kb.router import router as kb_router
 from app.modules.quickreply.router import router as quick_reply_router
 from app.modules.reports.router import router as reports_router
 from app.modules.routing.router import router as routing_router
@@ -28,12 +31,17 @@ from app.modules.usage.router import router as usage_router
 from app.modules.visitor.router import router as visitor_router
 
 
-def create_app(settings: Settings | None = None, *, im: OpenIMClient | None = None) -> FastAPI:
+def create_app(
+    settings: Settings | None = None,
+    *,
+    im: OpenIMClient | None = None,
+    llm: LLMClient | None = None,
+) -> FastAPI:
     """应用工厂。开发环境：uvicorn app.main:create_app --factory --reload。
 
-    im 供测试注入（例如接到内存版 OpenIM）；默认按配置连接 OpenIM。
+    im、llm 供测试注入（例如接到内存版 OpenIM、模拟大模型）；默认按配置连接。
     """
-    ctx = AppContext.create(settings or get_settings(), im=im)
+    ctx = AppContext.create(settings or get_settings(), im=im, llm=llm)
 
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
@@ -67,6 +75,8 @@ def create_app(settings: Settings | None = None, *, im: OpenIMClient | None = No
     app.include_router(sessions_router)
     app.include_router(routing_router)
     app.include_router(quick_reply_router)
+    app.include_router(kb_router)
+    app.include_router(ai_router)
     app.include_router(files_router)
     app.include_router(visitor_router)
     app.include_router(openim_hooks_router)

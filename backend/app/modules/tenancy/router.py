@@ -56,7 +56,7 @@ async def platform_me(user: CurrentPlatformUser) -> PlatformMe:
 @router.get("/tenants", response_model=TenantList)
 async def list_tenants(session: PlatformDb, _: CurrentPlatformUser) -> TenantList:
     tenants = await service.list_tenants(session)
-    return TenantList(items=[TenantOut.model_validate(t) for t in tenants])
+    return TenantList(items=[TenantOut.of(t) for t in tenants])
 
 
 @router.post("/tenants", response_model=TenantOut, status_code=status.HTTP_201_CREATED)
@@ -67,12 +67,12 @@ async def provision_tenant(
     tenant = await service.provision_tenant(
         session, payload, actor_id=user.id, ip=client_ip(request)
     )
-    return TenantOut.model_validate(tenant)
+    return TenantOut.of(tenant)
 
 
 @router.get("/tenants/{tenant_id}", response_model=TenantOut)
 async def get_tenant(tenant_id: UUID, session: PlatformDb, _: CurrentPlatformUser) -> TenantOut:
-    return TenantOut.model_validate(await service.get_tenant(session, tenant_id))
+    return TenantOut.of(await service.get_tenant(session, tenant_id))
 
 
 @router.patch("/tenants/{tenant_id}", response_model=TenantOut)
@@ -87,4 +87,4 @@ async def update_tenant(
     tenant = await service.update_tenant(
         session, tenant_id, payload, actor_id=user.id, ip=client_ip(request)
     )
-    return TenantOut.model_validate(tenant)
+    return TenantOut.of(tenant)

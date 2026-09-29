@@ -5,7 +5,7 @@
 每个测试开始前清空所有表。
 
 限流用到 Redis（默认 `make dev-up` 起的实例的 15 号库，可以用 EDP_TEST_REDIS_URL 指定），
-每个测试开始前清空。OpenIM 用内存版（tests/fake_openim.py）。
+每个测试开始前清空。OpenIM 用内存版（tests/fake_openim.py），大模型用模拟服务（tests/fake_llm.py）。
 """
 
 import asyncio
@@ -23,8 +23,11 @@ from redis.exceptions import RedisError
 
 from alembic import command
 from app.core.config import Settings
+from app.integrations.llm import EmbedEndpoint, LLMClient, LLMEndpoint
 from app.integrations.openim import OpenIMClient
 from app.main import create_app
+from tests.fake_llm import DIM as FAKE_EMBED_DIM
+from tests.fake_llm import FakeLLM
 from tests.fake_openim import SECRET as FAKE_OPENIM_SECRET
 from tests.fake_openim import FakeOpenIM
 from tests.support import (
@@ -40,7 +43,8 @@ ALL_TABLES = (
     "tenants, platform_users, staff, roles, staff_roles, customers, refresh_tokens, audit_logs, "
     "channel_accounts, customer_identities, rooms, messages, skill_groups, skill_group_members, "
     "routing_policies, agent_states, sessions, session_events, tickets, im_ops, quick_replies, "
-    "session_transfers, customer_owner_history, usage_daily"
+    "session_transfers, customer_owner_history, usage_daily, ai_settings, kb_items, kb_chunks, "
+    "ai_session_states, ai_decisions, llm_calls, ai_eval_runs"
 )
 BACKEND_DIR = Path(__file__).resolve().parents[1]
 
@@ -126,6 +130,7 @@ def settings(database_urls: DatabaseUrls) -> Settings:
         redis_url=REDIS_URL,
         openim_api_url="http://openim",
         openim_secret=FAKE_OPENIM_SECRET,
+        ai_debounce_seconds=0,
     )
 
 
@@ -135,12 +140,32 @@ def fake_im() -> FakeOpenIM:
 
 
 @pytest.fixture
-async def app(settings: Settings, fake_im: FakeOpenIM) -> AsyncIterator[FastAPI]:
+def fake_llm() -> FakeLLM:
+    return FakeLLM()
+
+
+def fake_llm_client(fake: FakeLLM) -> LLMClient:
+    """接到模拟大模型的客户端（对话与向量都可用，不重试，测试更快）。"""
+    return LLMClient(
+        LLMEndpoint(
+            base_url="http://fake-llm/v1", api_key="k", chat_model="fake-chat", name="fake"
+        ),
+        embed=EmbedEndpoint(
+            base_url="http://fake-llm/v1", api_key="k", model="fake-embed", dim=FAKE_EMBED_DIM
+        ),
+        retries=0,
+        transport=fake.transport(),
+    )
+
+
+@pytest.fixture
+async def app(settings: Settings, fake_im: FakeOpenIM, fake_llm: FakeLLM) -> AsyncIterator[FastAPI]:
     im = OpenIMClient(
         settings.openim_api_url, secret=FAKE_OPENIM_SECRET, transport=fake_im.transport()
     )
-    application = create_app(settings, im=im)
+    application = create_app(settings, im=im, llm=fake_llm_client(fake_llm))
     yield application
+    await application.state.ctx.llm.aclose()
     await im.aclose()
     await application.state.redis.aclose()
     await application.state.db.dispose()

@@ -11,6 +11,8 @@ from datetime import date, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
+from sqlalchemy import select
+
 from app.context import AppContext
 from app.core.config import Settings, get_settings
 from app.core.dates import today
@@ -19,7 +21,9 @@ from app.integrations.storage import ensure_bucket
 from app.main import create_app
 from app.modules.conversation.reconcile import ReconcileReport, reconcile_all
 from app.modules.files.service import storage_config
+from app.modules.kb.service import reindex_all
 from app.modules.tenancy import service as tenancy
+from app.modules.tenancy.models import Tenant
 from app.modules.tenancy.schemas import TenantAdminCreate, TenantCreate
 from app.modules.usage.service import RollupReport, rollup_day
 
@@ -84,6 +88,22 @@ async def usage_rollup(settings: Settings, first: date, last: date) -> RollupRep
     return total
 
 
+async def kb_reindex(settings: Settings, code: str | None) -> dict[str, int]:
+    """重建知识库检索单元（更换向量模型或维度后执行），返回每个租户重建的条目数。"""
+    ctx = AppContext.create(settings)
+    try:
+        async with ctx.db.platform_sessionmaker() as session:
+            query = select(Tenant.id, Tenant.code).order_by(Tenant.code)
+            if code:
+                query = query.where(Tenant.code == code)
+            tenants = (await session.execute(query)).all()
+        if code and not tenants:
+            raise SystemExit(f"租户不存在：{code}")
+        return {tenant: await reindex_all(ctx, tenant_id) for tenant_id, tenant in tenants}
+    finally:
+        await ctx.aclose()
+
+
 def export_openapi(output: Path | None) -> None:
     schema = create_app(get_settings()).openapi()
     text = json.dumps(schema, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
@@ -115,6 +135,9 @@ def main(argv: list[str] | None = None) -> int:
     usage = commands.add_parser("usage-rollup", help="重新汇总用量（默认当天；可指定日期范围补算）")
     usage.add_argument("--day", type=date.fromisoformat, help="开始日期 YYYY-MM-DD，默认当天")
     usage.add_argument("--to", type=date.fromisoformat, help="结束日期（含），默认与开始日期相同")
+
+    kb = commands.add_parser("kb-reindex", help="重建知识库检索单元（更换向量模型后执行）")
+    kb.add_argument("--tenant", help="租户编码，不填时处理全部租户")
 
     openapi = commands.add_parser("export-openapi", help="导出 OpenAPI 描述（供前端生成类型）")
     openapi.add_argument("output", nargs="?", type=Path)
@@ -153,6 +176,9 @@ def main(argv: list[str] | None = None) -> int:
         first = args.day or today(ZoneInfo(settings.usage_timezone))
         rollup = asyncio.run(usage_rollup(settings, first, args.to or first))
         print(json.dumps(dataclasses.asdict(rollup), ensure_ascii=False))
+    elif args.command == "kb-reindex":
+        counts = asyncio.run(kb_reindex(get_settings(), args.tenant))
+        print(json.dumps(counts, ensure_ascii=False))
     elif args.command == "export-openapi":
         export_openapi(args.output)
     return 0

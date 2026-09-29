@@ -1,6 +1,7 @@
-"""实时消费进程：消费事件流（消息归入会话、路由分配等）。
+"""实时消费进程：消费事件流（消息归入会话、路由分配等），并处理 AI 接待的待回复会话。
 
-用法：uv run python -m app.worker。可以运行多个实例：每个事件分区同一时刻只由一个实例消费。
+用法：uv run python -m app.worker。可以运行多个实例：每个事件分区同一时刻只由一个实例消费；
+AI 待回复会话按行领取（SKIP LOCKED），多个实例不会重复回复。
 """
 
 import asyncio
@@ -11,10 +12,26 @@ import socket
 
 from app.context import AppContext
 from app.core.config import get_settings
-from app.events.bus import EventProcessor
+from app.events.bus import EventProcessor, wait_or_stop
+from app.modules.ai.responder import run_due
 from app.modules.sessions.handlers import event_handlers
 
 logger = logging.getLogger("app.worker")
+
+AI_POLL_SECONDS = 0.5
+
+
+async def ai_loop(ctx: AppContext, stop: asyncio.Event) -> None:
+    """AI 接待：定期处理到期的待回复会话（大模型没有配置时空转）。"""
+    while not stop.is_set():
+        handled = 0
+        if ctx.llm.enabled:
+            try:
+                handled = await run_due(ctx)
+            except Exception:
+                logger.exception("AI responder failed")
+        if not handled:
+            await wait_or_stop(stop, AI_POLL_SECONDS)
 
 
 async def run(ctx: AppContext, stop: asyncio.Event) -> None:
@@ -22,7 +39,10 @@ async def run(ctx: AppContext, stop: asyncio.Event) -> None:
     consumer = f"{socket.gethostname()}-{os.getpid()}"
     processor = EventProcessor(ctx.bus, event_handlers(ctx), consumer=consumer)
     logger.info("worker %s consuming %s partitions", consumer, ctx.bus.partitions)
-    await asyncio.gather(*(processor.run_partition(p, stop) for p in range(ctx.bus.partitions)))
+    await asyncio.gather(
+        *(processor.run_partition(p, stop) for p in range(ctx.bus.partitions)),
+        ai_loop(ctx, stop),
+    )
 
 
 async def _main() -> None:

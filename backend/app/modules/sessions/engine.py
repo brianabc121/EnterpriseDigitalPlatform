@@ -8,7 +8,7 @@
 
 import logging
 import uuid
-from collections.abc import Iterable
+from collections.abc import Awaitable, Callable, Iterable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -20,6 +20,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.context import AppContext
 from app.core.ids import new_id
 from app.events.bus import Event
+from app.modules.ai import service as ai_service
+from app.modules.ai.schedule import schedule_reply
 from app.modules.conversation import outbox
 from app.modules.conversation.ingest import message_received
 from app.modules.conversation.models import (
@@ -45,7 +47,7 @@ from app.modules.routing.assign import (
     pick_agent,
 )
 from app.modules.routing.hours import in_business_hours
-from app.modules.routing.models import AgentState, AgentStatus
+from app.modules.routing.models import AgentState, AgentStatus, RoutingMode
 
 logger = logging.getLogger(__name__)
 
@@ -146,8 +148,19 @@ async def on_message_received(ctx: AppContext, event: Event) -> None:
         chat = await open_session_of_room(session, room.id)
         if chat is None:
             if message.sender_type == SenderType.CUSTOMER:
+
+                async def ai_blocker() -> str | None:
+                    settings = await ai_service.load(session, event.tenant_id)
+                    return await ai_service.unavailable_reason(ctx, session, settings, now)
+
                 chat = await start_session(
-                    session, room, now, todo, text=_message_text(message), reason="human_first"
+                    session,
+                    room,
+                    now,
+                    todo,
+                    text=_message_text(message),
+                    reason="human_first",
+                    ai_blocker=ai_blocker,
                 )
             else:
                 # 系统提示、结束后坐席补发的消息等，归入这个 Room 最近的会话。
@@ -160,6 +173,13 @@ async def on_message_received(ctx: AppContext, event: Event) -> None:
         if chat is not None:
             message.session_id = chat.id
             touch_session(chat, message)
+            if (
+                chat.status == SessionStatus.AI_SERVING
+                and message.sender_type == SenderType.CUSTOMER
+            ):
+                # AI 接待中：稍等片刻（合并客户连续发的消息）后由 AI 回复，见 ai/responder.py。
+                delay = timedelta(seconds=ctx.settings.ai_debounce_seconds)
+                await schedule_reply(session, chat, now + delay)
         await session.commit()
     await _run_after_commit(ctx, event.tenant_id, todo)
 
@@ -198,15 +218,38 @@ async def start_session(
     *,
     text: str,
     reason: str,
+    ai_blocker: Callable[[], Awaitable[str | None]] | None = None,
 ) -> ChatSession:
-    """客户发起新的服务过程：工作时间内进入排队，非工作时间转为留言。text 用于留言内容。"""
+    """客户发起新的服务过程。
+
+    策略为 AI 优先、且 AI 可以接待（ai_blocker 返回空）时由 AI 接待，不受工作时间限制；
+    否则工作时间内进入排队，非工作时间转为留言。text 用于留言内容。
+    AI 优先却不能接待时（额度用完、未启用等），原因记为会话的转人工原因，便于管理员排查。
+    """
     policy = await PolicyResolver(session).for_channel(room.channel_account_id)
+    blocker: str | None = None
+    if ai_blocker is not None and policy.mode == RoutingMode.AI_FIRST:
+        blocker = await ai_blocker()
+        if blocker is None:
+            chat = ChatSession(
+                id=new_id(),
+                tenant_id=room.tenant_id,
+                room_id=room.id,
+                customer_id=room.customer_id,
+                channel_account_id=room.channel_account_id,
+                status=SessionStatus.AI_SERVING,
+                skill_group_id=policy.default_skill_group_id,
+            )
+            session.add(chat)
+            await session.flush()
+            record_event(session, chat, "created", actor_type=ActorType.VISITOR)
+            record_event(session, chat, "ai_serving", actor_type=ActorType.AI)
+            return chat
     if not in_business_hours(policy.business_hours, now):
         return await _leave_off_hours_message(
             session, room, text, now, todo, policy.default_skill_group_id
         )
 
-    # AI 接待（P3）接入后：策略为 AI 优先且租户启用了 AI 时，会话从 ai_serving 开始。
     chat = ChatSession(
         id=new_id(),
         tenant_id=room.tenant_id,
@@ -216,11 +259,13 @@ async def start_session(
         status=SessionStatus.QUEUED,
         skill_group_id=policy.default_skill_group_id,
         queued_at=now,
+        handoff_reason=blocker,
     )
     session.add(chat)
     await session.flush()
     record_event(session, chat, "created", actor_type=ActorType.VISITOR)
-    record_event(session, chat, "queued", payload={"reason": reason})
+    payload = {"reason": reason} if blocker is None else {"reason": "ai_unavailable", "ai": blocker}
+    record_event(session, chat, "queued", payload=payload)
     todo.assign = True
     todo.newly_queued.add(chat.id)
     return chat
@@ -306,17 +351,61 @@ async def request_handoff(
                 session, room, now, todo, text="（访客请求人工服务）", reason=reason
             )
         elif chat.status == SessionStatus.AI_SERVING:
-            chat.status = SessionStatus.QUEUED
-            chat.queued_at = now
             chat.handoff_reason = reason
             record_event(
                 session, chat, "handoff", actor_type=actor_type, payload={"reason": reason}
             )
-            todo.assign = True
-            todo.newly_queued.add(chat.id)
+            policy = await PolicyResolver(session).for_channel(room.channel_account_id)
+            if in_business_hours(policy.business_hours, now):
+                chat.status = SessionStatus.QUEUED
+                chat.queued_at = now
+                record_event(session, chat, "queued", payload={"reason": "handoff"})
+                todo.assign = True
+                todo.newly_queued.add(chat.id)
+            else:
+                await _handoff_off_hours(session, chat, now, todo)
         await session.commit()
     await _run_after_commit(ctx, tenant_id, todo)
     return chat
+
+
+async def _handoff_off_hours(
+    session: AsyncSession, chat: ChatSession, now: datetime, todo: _AfterCommit
+) -> None:
+    """非工作时间转人工：结束 AI 接待，以交接摘要（或客户消息）生成留言，工作时间跟进。"""
+    texts = (
+        await session.scalars(
+            select(Message.text_plain)
+            .where(
+                Message.session_id == chat.id,
+                Message.sender_type == SenderType.CUSTOMER,
+                Message.text_plain.is_not(None),
+            )
+            .order_by(Message.sent_at.desc())
+            .limit(10)
+        )
+    ).all()
+    content = chat.ai_summary or "\n".join(t for t in reversed(texts) if t)
+    session.add(
+        Ticket(
+            tenant_id=chat.tenant_id,
+            customer_id=chat.customer_id,
+            session_id=chat.id,
+            source=TicketSource.OFF_HOURS,
+            content=_clip(content or "（客户没有留下文字内容）"),
+            assignee_id=await _owner_of(session, chat.customer_id),
+            skill_group_id=chat.skill_group_id,
+        )
+    )
+    await mark_closed(
+        session,
+        chat,
+        now,
+        reason=CloseReason.LEAVE_MESSAGE,
+        actor_type=ActorType.SYSTEM,
+        notice=Notice.OFF_HOURS,
+    )
+    todo.rooms.add(chat.room_id)
 
 
 def _message_text(message: Message) -> str:
@@ -656,7 +745,15 @@ async def _run_tenant_timers(
         open_chats = (
             await session.scalars(
                 select(ChatSession)
-                .where(ChatSession.status.in_((SessionStatus.QUEUED, SessionStatus.HUMAN_SERVING)))
+                .where(
+                    ChatSession.status.in_(
+                        (
+                            SessionStatus.QUEUED,
+                            SessionStatus.HUMAN_SERVING,
+                            SessionStatus.AI_SERVING,
+                        )
+                    )
+                )
                 .with_for_update()
             )
         ).all()
@@ -668,6 +765,19 @@ async def _run_tenant_timers(
                     await _queue_timeout(session, chat, now)
                     rooms.add(chat.room_id)
                     report.queue_timeouts += 1
+            elif chat.status == SessionStatus.AI_SERVING:
+                last = chat.last_customer_message_at or chat.created_at
+                if last <= now - timedelta(minutes=policy.idle_close_minutes):
+                    await mark_closed(
+                        session,
+                        chat,
+                        now,
+                        reason=CloseReason.AI_RESOLVED,
+                        actor_type=ActorType.AI,
+                        notice=Notice.CLOSED,
+                    )
+                    rooms.add(chat.room_id)
+                    report.idle_closed += 1
             else:
                 last = max(
                     t
