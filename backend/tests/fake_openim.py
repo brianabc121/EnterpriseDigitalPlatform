@@ -64,6 +64,7 @@ class FakeOpenIM:
         self.callbacks: list[dict[str, Any]] = []
         self.friends: set[frozenset[str]] = set()
         self.signals: list[dict[str, Any]] = []
+        self.logged_out: list[tuple[str, int]] = []
         self.kick_quirk = True
         self.down = False
         self.calls: list[str] = []
@@ -117,6 +118,7 @@ class FakeOpenIM:
             "/group/invite_user_to_group": self._invite,
             "/group/kick_group": self._kick,
             "/group/dismiss_group": self._dismiss,
+            "/auth/force_logout": self._force_logout,
             "/friend/import_friend": self._import_friend,
             "/msg/send_msg": self._send_msg,
             "/msg/get_conversations_has_read_and_max_seq": self._max_seq,
@@ -220,6 +222,10 @@ class FakeOpenIM:
     def _dismiss(self, body: dict[str, Any], _: str) -> httpx.Response:
         if self.groups.pop(body["groupID"], None) is None:
             return _error(1201, "GroupIDNotFoundError")
+        return _ok(None)
+
+    def _force_logout(self, body: dict[str, Any], _: str) -> httpx.Response:
+        self.logged_out.append((body["userID"], body["platformID"]))
         return _ok(None)
 
     def _import_friend(self, body: dict[str, Any], _: str) -> httpx.Response:

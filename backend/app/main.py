@@ -13,6 +13,7 @@ from app.core.ratelimit import RateLimiter
 from app.integrations.llm import LLMClient
 from app.integrations.openim import OpenIMClient
 from app.modules.ai.router import router as ai_router
+from app.modules.audit.router import router as audit_router
 from app.modules.billing.router import platform_router as platform_billing_router
 from app.modules.billing.router import router as billing_router
 from app.modules.channels.router import router as channels_router
@@ -31,6 +32,8 @@ from app.modules.platform.router import router as platform_ops_router
 from app.modules.quickreply.router import router as quick_reply_router
 from app.modules.reports.router import router as reports_router
 from app.modules.routing.router import router as routing_router
+from app.modules.security.router import platform_router as platform_security_router
+from app.modules.security.router import router as security_router
 from app.modules.sessions.router import router as sessions_router
 from app.modules.tenancy.router import router as platform_router
 from app.modules.usage.router import platform_router as platform_usage_router
@@ -104,12 +107,15 @@ def create_app(
     app.include_router(wecom_hooks_router)
     app.include_router(reports_router)
     app.include_router(usage_router)
+    app.include_router(audit_router)
     app.include_router(billing_router)
     app.include_router(signup_router)
     app.include_router(tenant_router)
+    app.include_router(security_router)
     app.include_router(platform_router)
     app.include_router(platform_usage_router)
     app.include_router(platform_billing_router)
     app.include_router(platform_lifecycle_router)
     app.include_router(platform_ops_router)
+    app.include_router(platform_security_router)
     return app

@@ -425,6 +425,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/audit-logs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Audit Logs */
+        get: operations["audit_logs_api_v1_audit_logs_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/login": {
         parameters: {
             query?: never;
@@ -671,6 +688,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/customers/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Export Customers
+         * @description 导出数据范围内的客户名单（CSV）。需要再次输入密码；没有查看敏感信息的权限时，
+         *     手机号和邮箱导出掩码。
+         */
+        post: operations["export_customers_api_v1_customers_export_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/customers/handover/{staff_id}": {
         parameters: {
             query?: never;
@@ -686,6 +724,26 @@ export interface paths {
          *     可以同时把他作为群主的企业微信客户群转给接手的员工。
          */
         post: operations["hand_over_api_v1_customers_handover__staff_id__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/customers/privacy-requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Privacy Requests
+         * @description 个人信息查询与删除请求的处理记录。
+         */
+        get: operations["privacy_requests_api_v1_customers_privacy_requests_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -721,7 +779,7 @@ export interface paths {
         };
         /**
          * Get Customer
-         * @description 客户档案、备注、标签和各渠道身份（工作台客户面板使用）。
+         * @description 客户档案、备注、标签、联系方式（掩码）和各渠道身份（工作台客户面板使用）。
          */
         get: operations["get_customer_api_v1_customers__customer_id__get"];
         put?: never;
@@ -731,11 +789,51 @@ export interface paths {
         head?: never;
         /**
          * Update Customer
-         * @description 修改客户名称、备注和标签（能看到这个客户的员工都可以修改）。
+         * @description 修改客户名称、备注、标签和联系方式（能看到这个客户的员工都可以修改）。
          *
          *     企业标签里有的标签会写回企业微信（企业微信接入设置里可以关闭）。
          */
         patch: operations["update_customer_api_v1_customers__customer_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/customers/{customer_id}/erase": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Erase Customer
+         * @description 个人信息删除：删除客户及其会话、消息、留言和聊天文件，解散服务群（不可恢复）。
+         */
+        post: operations["erase_customer_api_v1_customers__customer_id__erase_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/customers/{customer_id}/merge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Merge Customers
+         * @description 把重复的客户档案并入这个客户（渠道身份、会话、留言、归属历史一并迁移），然后删除它们。
+         */
+        post: operations["merge_customers_api_v1_customers__customer_id__merge_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/v1/customers/{customer_id}/owner-history": {
@@ -750,6 +848,46 @@ export interface paths {
          * @description 客户的归属变更记录（能看到这个客户的员工可以查看）。
          */
         get: operations["owner_history_api_v1_customers__customer_id__owner_history_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/customers/{customer_id}/personal-data": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Personal Data
+         * @description 个人信息查询：生成客户的个人信息副本（档案、渠道身份、会话、消息、留言），记录请求。
+         */
+        post: operations["personal_data_api_v1_customers__customer_id__personal_data_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/customers/{customer_id}/sensitive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Reveal Sensitive
+         * @description 查看手机号、邮箱明文（需要 customer:view_sensitive，每次查看记审计）。
+         */
+        get: operations["reveal_sensitive_api_v1_customers__customer_id__sensitive_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1170,6 +1308,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/me/password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change Password
+         * @description 修改自己的密码。其他设备上的登录随即失效，当前页面换发新的令牌。
+         */
+        post: operations["change_password_api_v1_me_password_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/me/wecom": {
         parameters: {
             query?: never;
@@ -1184,6 +1342,26 @@ export interface paths {
          * @description 已登录的员工扫码绑定自己的企业微信账号（之后可以扫码登录、接收应用消息）。
          */
         post: operations["bind_self_api_v1_me_wecom_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/permissions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Permissions
+         * @description 全部权限点及其名称、分组（编辑自定义角色时使用）。
+         */
+        get: operations["list_permissions_api_v1_permissions_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1299,11 +1477,39 @@ export interface paths {
         /** List Roles */
         get: operations["list_roles_api_v1_roles_get"];
         put?: never;
-        post?: never;
+        /**
+         * Create Role
+         * @description 新建自定义角色（权限不能超出自己拥有的权限）。
+         */
+        post: operations["create_role_api_v1_roles_post"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/api/v1/roles/{role_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Role
+         * @description 删除没有员工使用的自定义角色。
+         */
+        delete: operations["delete_role_api_v1_roles__role_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Update Role
+         * @description 修改自定义角色的名称和权限（系统角色不能修改）。
+         */
+        patch: operations["update_role_api_v1_roles__role_id__patch"];
         trace?: never;
     };
     "/api/v1/rooms": {
@@ -1755,6 +1961,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/staff/{staff_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update Staff
+         * @description 修改员工的名称、角色或状态。停用后立即退出登录并下线，接待中的会话退回队列。
+         */
+        patch: operations["update_staff_api_v1_staff__staff_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/staff/{staff_id}/password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reset Staff Password
+         * @description 重置员工密码，员工现有的登录全部失效。
+         */
+        post: operations["reset_staff_password_api_v1_staff__staff_id__password_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/tenant/closure": {
         parameters: {
             query?: never;
@@ -1811,6 +2057,30 @@ export interface paths {
          */
         get: operations["download_export_api_v1_tenant_exports__export_id__download_get"];
         put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tenant/retention": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Retention
+         * @description 聊天消息和文件的保留期。
+         */
+        get: operations["get_retention_api_v1_tenant_retention_get"];
+        /**
+         * Put Retention
+         * @description 设置保留期：到期的消息和文件由调度进程每小时删除（不可恢复）。
+         */
+        put: operations["put_retention_api_v1_tenant_retention_put"];
         post?: never;
         delete?: never;
         options?: never;
@@ -2794,6 +3064,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/platform/v1/tenants/{tenant_id}/keys": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Tenant Keys
+         * @description 租户数据密钥的各个版本（只返回版本和创建时间，不返回密钥）。
+         */
+        get: operations["tenant_keys_platform_v1_tenants__tenant_id__keys_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platform/v1/tenants/{tenant_id}/keys/rotate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Rotate Tenant Key
+         * @description 生成新版本的数据密钥，并把这个租户现有的密文换成新版本加密。
+         */
+        post: operations["rotate_tenant_key_platform_v1_tenants__tenant_id__keys_rotate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/platform/v1/tenants/{tenant_id}/llm": {
         parameters: {
             query?: never;
@@ -3431,6 +3741,50 @@ export interface components {
             /** Width */
             width?: number | null;
         };
+        /** AuditList */
+        AuditList: {
+            /** Items */
+            items: components["schemas"]["AuditOut"][];
+            /**
+             * Next Before
+             * @description 下一页：把它作为 before 参数
+             */
+            next_before: string | null;
+        };
+        /** AuditOut */
+        AuditOut: {
+            /** Action */
+            action: string;
+            /** Actor Id */
+            actor_id: string | null;
+            /** Actor Name */
+            actor_name: string | null;
+            /**
+             * Actor Type
+             * @description staff（员工）、platform（平台运维）、system（系统）等
+             */
+            actor_type: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Detail */
+            detail: {
+                [key: string]: unknown;
+            };
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Ip */
+            ip: string | null;
+            /** Resource Id */
+            resource_id: string | null;
+            /** Resource Type */
+            resource_type: string | null;
+        };
         /** BillingOverview */
         BillingOverview: {
             /** Ai Reply Price */
@@ -3820,16 +4174,33 @@ export interface components {
         };
         /** CustomerCreate */
         CustomerCreate: {
+            /**
+             * Company
+             * @description 空字符串表示清除
+             */
+            company?: string | null;
             /** Display Name */
             display_name: string;
+            /**
+             * Email
+             * @description 空字符串表示清除
+             */
+            email?: string | null;
             /**
              * Owner Id
              * @description 归属坐席；不填时归属创建者。指定他人需要 customer:assign 权限
              */
             owner_id?: string | null;
+            /**
+             * Phone
+             * @description 空字符串表示清除
+             */
+            phone?: string | null;
         };
         /** CustomerDetail */
         CustomerDetail: {
+            /** Company */
+            company?: string | null;
             /**
              * Created At
              * Format: date-time
@@ -3837,6 +4208,11 @@ export interface components {
             created_at: string;
             /** Display Name */
             display_name: string;
+            /**
+             * Email
+             * @description 邮箱（掩码）
+             */
+            email?: string | null;
             /**
              * Id
              * Format: uuid
@@ -3850,10 +4226,28 @@ export interface components {
             owner_display_name: string | null;
             /** Owner Id */
             owner_id: string | null;
+            /**
+             * Phone
+             * @description 手机号（掩码）
+             */
+            phone?: string | null;
             /** Source Channel */
             source_channel: string;
             /** Tags */
             tags: string[];
+        };
+        /** CustomerExportRequest */
+        CustomerExportRequest: {
+            /**
+             * Password
+             * @description 当前登录员工的密码（二次确认）
+             */
+            password: string;
+            /**
+             * Q
+             * @description 与列表相同的搜索条件
+             */
+            q?: string | null;
         };
         /** CustomerIdentityOut */
         CustomerIdentityOut: {
@@ -3888,8 +4282,18 @@ export interface components {
             /** Verified */
             verified: boolean;
         };
+        /** CustomerMergeRequest */
+        CustomerMergeRequest: {
+            /**
+             * Source Ids
+             * @description 并入目标客户后删除的客户（重复的档案）
+             */
+            source_ids: string[];
+        };
         /** CustomerOut */
         CustomerOut: {
+            /** Company */
+            company?: string | null;
             /**
              * Created At
              * Format: date-time
@@ -3897,6 +4301,11 @@ export interface components {
             created_at: string;
             /** Display Name */
             display_name: string;
+            /**
+             * Email
+             * @description 邮箱（掩码）
+             */
+            email?: string | null;
             /**
              * Id
              * Format: uuid
@@ -3906,6 +4315,11 @@ export interface components {
             owner_display_name: string | null;
             /** Owner Id */
             owner_id: string | null;
+            /**
+             * Phone
+             * @description 手机号（掩码）
+             */
+            phone?: string | null;
             /** Source Channel */
             source_channel: string;
             /** Tags */
@@ -3917,6 +4331,16 @@ export interface components {
             items: components["schemas"]["CustomerOut"][];
             /** Total */
             total: number;
+        };
+        /**
+         * CustomerSensitive
+         * @description 手机号和邮箱明文（需要 customer:view_sensitive 权限，每次查看记审计）。
+         */
+        CustomerSensitive: {
+            /** Email */
+            email: string | null;
+            /** Phone */
+            phone: string | null;
         };
         /** CustomerTransferRequest */
         CustomerTransferRequest: {
@@ -3938,10 +4362,25 @@ export interface components {
         };
         /** CustomerUpdate */
         CustomerUpdate: {
+            /**
+             * Company
+             * @description 空字符串表示清除
+             */
+            company?: string | null;
             /** Display Name */
             display_name?: string | null;
+            /**
+             * Email
+             * @description 空字符串表示清除
+             */
+            email?: string | null;
             /** Notes */
             notes?: string | null;
+            /**
+             * Phone
+             * @description 空字符串表示清除
+             */
+            phone?: string | null;
             /** Tags */
             tags?: string[] | null;
         };
@@ -4035,6 +4474,47 @@ export interface components {
              * @description 新会话数（按会话创建时间统计）
              */
             sessions: number;
+        };
+        /** ErasureRequest */
+        ErasureRequest: {
+            /**
+             * Confirm Name
+             * @description 再次输入客户名称以确认
+             */
+            confirm_name: string;
+            /** Reason */
+            reason: string;
+        };
+        /** ErasureResult */
+        ErasureResult: {
+            /**
+             * Files
+             * @description 删除的聊天文件数
+             */
+            files: number;
+            /** Identities */
+            identities: number;
+            /**
+             * Im Groups
+             * @description 解散的服务群数
+             */
+            im_groups: number;
+            /** Messages */
+            messages: number;
+            /**
+             * Request Id
+             * Format: uuid
+             */
+            request_id: string;
+            /** Sessions */
+            sessions: number;
+            /** Tickets */
+            tickets: number;
+            /**
+             * Wecom Contact
+             * @description 客户是企业微信的外部联系人：需要员工在企业微信里删除好友，否则下次同步会重新建档
+             */
+            wecom_contact: boolean;
         };
         /** ErrorDetail */
         ErrorDetail: {
@@ -5239,6 +5719,23 @@ export interface components {
             /** Visibility */
             visibility: string;
         };
+        /** KeyRotationResult */
+        KeyRotationResult: {
+            /**
+             * Failed
+             * @description 无法解密、没有重新加密的密文数量
+             */
+            failed: number;
+            /**
+             * Reencrypted
+             * @description 各表重新加密的密文数量
+             */
+            reencrypted: {
+                [key: string]: number;
+            };
+            /** Version */
+            version: number;
+        };
         /** KfAccountOut */
         KfAccountOut: {
             /** Avatar */
@@ -5897,11 +6394,83 @@ export interface components {
              */
             wecom_sync_status?: string | null;
         };
+        /** PasswordChange */
+        PasswordChange: {
+            /** Current Password */
+            current_password: string;
+            /** New Password */
+            new_password: string;
+        };
+        /** PasswordReset */
+        PasswordReset: {
+            /** Password */
+            password: string;
+        };
         /**
          * Permission
          * @enum {string}
          */
-        Permission: "dashboard:view" | "workbench:use" | "customer:read" | "customer:read_all" | "customer:create" | "customer:assign" | "session:read_all" | "session:read_team" | "session:transfer" | "session:transfer_any" | "routing:manage" | "staff:read" | "staff:manage" | "quick_reply:manage" | "kb:read" | "kb:manage" | "kb:publish" | "report:view" | "settings:manage" | "broadcast:manage" | "tenant:manage";
+        Permission: "dashboard:view" | "workbench:use" | "customer:read" | "customer:read_all" | "customer:create" | "customer:assign" | "customer:view_sensitive" | "customer:export" | "customer:manage" | "session:read_all" | "session:read_team" | "session:transfer" | "session:transfer_any" | "routing:manage" | "staff:read" | "staff:manage" | "quick_reply:manage" | "kb:read" | "kb:manage" | "kb:publish" | "report:view" | "settings:manage" | "broadcast:manage" | "tenant:manage" | "audit:read";
+        /** PermissionInfo */
+        PermissionInfo: {
+            code: components["schemas"]["Permission"];
+            /** Group */
+            group: string;
+            /** Name */
+            name: string;
+        };
+        /** PermissionList */
+        PermissionList: {
+            /** Items */
+            items: components["schemas"]["PermissionInfo"][];
+        };
+        /**
+         * PersonalData
+         * @description 客户个人信息副本（个人信息查询请求）。
+         */
+        PersonalData: {
+            /** Customer */
+            customer: {
+                [key: string]: unknown;
+            };
+            /**
+             * Generated At
+             * Format: date-time
+             */
+            generated_at: string;
+            /** Identities */
+            identities: {
+                [key: string]: unknown;
+            }[];
+            /** Messages */
+            messages: {
+                [key: string]: unknown;
+            }[];
+            /** Owner History */
+            owner_history: {
+                [key: string]: unknown;
+            }[];
+            /** Sessions */
+            sessions: {
+                [key: string]: unknown;
+            }[];
+            /** Tickets */
+            tickets: {
+                [key: string]: unknown;
+            }[];
+            /** Wecom Follows */
+            wecom_follows: {
+                [key: string]: unknown;
+            }[];
+        };
+        /** PersonalDataRequest */
+        PersonalDataRequest: {
+            /**
+             * Reason
+             * @description 请求来源，例如客户来电要求查询
+             */
+            reason: string;
+        };
         /** PlanCreate */
         PlanCreate: {
             /** Code */
@@ -6175,6 +6744,49 @@ export interface components {
              */
             token_type: "bearer";
         };
+        /** PrivacyRequestList */
+        PrivacyRequestList: {
+            /** Items */
+            items: components["schemas"]["PrivacyRequestOut"][];
+        };
+        /** PrivacyRequestOut */
+        PrivacyRequestOut: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Customer Id
+             * Format: uuid
+             */
+            customer_id: string;
+            /**
+             * Customer Name
+             * @description 客户名称（掩码）
+             */
+            customer_name: string;
+            /** Detail */
+            detail: {
+                [key: string]: unknown;
+            };
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Kind
+             * @description access（查询）或 erase（删除）
+             */
+            kind: string;
+            /** Reason */
+            reason: string | null;
+            /** Requested By */
+            requested_by: string | null;
+            /** Requested By Name */
+            requested_by_name: string | null;
+        };
         /** PurgeResult */
         PurgeResult: {
             deletion: components["schemas"]["TenantDeletionOut"];
@@ -6338,6 +6950,37 @@ export interface components {
              */
             remaining: number | null;
         };
+        /**
+         * RetentionPolicy
+         * @description 聊天记录保留期（到期后由调度进程删除）。为空表示一直保留。
+         */
+        RetentionPolicy: {
+            /**
+             * Files Days
+             * @description 聊天文件（图片、文件、语音）保留天数；到期只删除文件，消息里显示文件已过期
+             */
+            files_days?: number | null;
+            /**
+             * Messages Days
+             * @description 聊天消息保留天数（到期删除消息和其中的文件）
+             */
+            messages_days?: number | null;
+        };
+        /** RoleCreate */
+        RoleCreate: {
+            /**
+             * Code
+             * @description 小写字母开头，字母、数字、下划线
+             */
+            code: string;
+            /** Name */
+            name: string;
+            /**
+             * Permissions
+             * @description 不能超出自己拥有的权限
+             */
+            permissions: components["schemas"]["Permission"][];
+        };
         /** RoleList */
         RoleList: {
             /** Items */
@@ -6354,10 +6997,23 @@ export interface components {
             id: string;
             /** Is System */
             is_system: boolean;
+            /**
+             * Members
+             * @description 使用这个角色的员工数
+             * @default 0
+             */
+            members: number;
             /** Name */
             name: string;
             /** Permissions */
             permissions: string[];
+        };
+        /** RoleUpdate */
+        RoleUpdate: {
+            /** Name */
+            name?: string | null;
+            /** Permissions */
+            permissions?: components["schemas"]["Permission"][] | null;
         };
         /** RoomOut */
         RoomOut: {
@@ -7058,6 +7714,18 @@ export interface components {
             /** Username */
             username: string;
         };
+        /** StaffUpdate */
+        StaffUpdate: {
+            /** Display Name */
+            display_name?: string | null;
+            /** Role Codes */
+            role_codes?: string[] | null;
+            /**
+             * Status
+             * @description 停用后立即退出登录、下线，接待中的会话退回队列；名下客户需要另行交接
+             */
+            status?: ("active" | "disabled") | null;
+        };
         /**
          * SubscriptionCreate
          * @description 开始一个新订阅（试用转正式、升级、降级都用它）：当前订阅随之取消。
@@ -7478,6 +8146,31 @@ export interface components {
             tables: {
                 [key: string]: unknown;
             };
+        };
+        /** TenantKeyVersion */
+        TenantKeyVersion: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Version */
+            version: number;
+        };
+        /** TenantKeys */
+        TenantKeys: {
+            /**
+             * Current
+             * @description 当前加密使用的版本；为空表示还没有生成数据密钥
+             */
+            current: number | null;
+            /**
+             * Stale
+             * @description 还没有换成当前版本加密的密文数量
+             */
+            stale: number;
+            /** Versions */
+            versions: components["schemas"]["TenantKeyVersion"][];
         };
         /** TenantList */
         TenantList: {
@@ -10449,6 +11142,89 @@ export interface operations {
             };
         };
     };
+    audit_logs_api_v1_audit_logs_get: {
+        parameters: {
+            query?: {
+                /** @description 操作，如 customer 匹配 customer.* */
+                action?: string | null;
+                actor_id?: string | null;
+                resource_type?: string | null;
+                resource_id?: string | null;
+                start?: string | null;
+                before?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuditList"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     login_api_v1_auth_login_post: {
         parameters: {
             query?: never;
@@ -11371,6 +12147,8 @@ export interface operations {
             query?: {
                 limit?: number;
                 offset?: number;
+                /** @description 名称或公司包含；手机号、邮箱需要完整输入（精确查找） */
+                q?: string | null;
             };
             header?: never;
             path?: never;
@@ -11521,6 +12299,84 @@ export interface operations {
             };
         };
     };
+    export_customers_api_v1_customers_export_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CustomerExportRequest"];
+            };
+        };
+        responses: {
+            /** @description CSV 文件 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": unknown;
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     hand_over_api_v1_customers_handover__staff_id__post: {
         parameters: {
             query?: never;
@@ -11543,6 +12399,80 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TransferResult"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    privacy_requests_api_v1_customers_privacy_requests_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PrivacyRequestList"];
                 };
             };
             /** @description Bad Request */
@@ -11835,6 +12765,166 @@ export interface operations {
             };
         };
     };
+    erase_customer_api_v1_customers__customer_id__erase_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                customer_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ErasureRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErasureResult"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    merge_customers_api_v1_customers__customer_id__merge_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                customer_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CustomerMergeRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomerDetail"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     owner_history_api_v1_customers__customer_id__owner_history_get: {
         parameters: {
             query?: never;
@@ -11853,6 +12943,162 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["OwnerHistoryList"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    personal_data_api_v1_customers__customer_id__personal_data_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                customer_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PersonalDataRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PersonalData"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    reveal_sensitive_api_v1_customers__customer_id__sensitive_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                customer_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomerSensitive"];
                 };
             };
             /** @description Bad Request */
@@ -13850,6 +15096,93 @@ export interface operations {
             };
         };
     };
+    change_password_api_v1_me_password_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PasswordChange"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TokenResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     bind_self_api_v1_me_wecom_post: {
         parameters: {
             query?: never;
@@ -13869,6 +15202,80 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    list_permissions_api_v1_permissions_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PermissionList"];
+                };
             };
             /** @description Bad Request */
             400: {
@@ -14484,6 +15891,238 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RoleList"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    create_role_api_v1_roles_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RoleCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RoleOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    delete_role_api_v1_roles__role_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                role_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    update_role_api_v1_roles__role_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                role_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RoleUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RoleOut"];
                 };
             };
             /** @description Bad Request */
@@ -16864,6 +18503,164 @@ export interface operations {
             };
         };
     };
+    update_staff_api_v1_staff__staff_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                staff_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StaffUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    reset_staff_password_api_v1_staff__staff_id__password_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                staff_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PasswordReset"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     closure_status_api_v1_tenant_closure_get: {
         parameters: {
             query?: never;
@@ -17256,6 +19053,158 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ExportDownload"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_retention_api_v1_tenant_retention_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RetentionPolicy"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    put_retention_api_v1_tenant_retention_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RetentionPolicy"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RetentionPolicy"];
                 };
             };
             /** @description Bad Request */
@@ -21980,6 +23929,158 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ClosureStatus"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    tenant_keys_platform_v1_tenants__tenant_id__keys_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TenantKeys"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    rotate_tenant_key_platform_v1_tenants__tenant_id__keys_rotate_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KeyRotationResult"];
                 };
             };
             /** @description Bad Request */

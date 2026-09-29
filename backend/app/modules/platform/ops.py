@@ -100,6 +100,7 @@ async def health(ctx: AppContext) -> HealthReport:
         components.append(await _outbox(session, now, metrics))
         metrics.update(await _business(session, now))
     components.append(await _wecom(ctx))
+    components.append(await _clamav(ctx))
     components.extend(await _processes(ctx, metrics))
 
     statuses = {c.status for c in components}
@@ -180,6 +181,18 @@ async def _wecom(ctx: AppContext) -> ComponentHealth:
             detail="还没有收到 suite_ticket（检查指令回调地址）",
         )
     return ComponentHealth(key="wecom", name="企业微信", status="ok", detail="suite_ticket 正常")
+
+
+async def _clamav(ctx: AppContext) -> ComponentHealth:
+    if ctx.clamav is None:
+        return ComponentHealth(
+            key="clamav", name="病毒扫描", status="disabled", detail="没有配置 ClamAV"
+        )
+    if await ctx.clamav.ping():
+        return ComponentHealth(key="clamav", name="病毒扫描", status="ok")
+    return ComponentHealth(
+        key="clamav", name="病毒扫描", status="down", detail="clamd 无响应，附件暂不扫描"
+    )
 
 
 async def _processes(ctx: AppContext, metrics: dict[str, int | float]) -> list[ComponentHealth]:

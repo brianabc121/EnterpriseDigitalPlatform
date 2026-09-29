@@ -17,7 +17,7 @@ from app.modules.ai.schemas import SuggestionList
 from app.modules.audit.service import record_audit
 from app.modules.billing.entitlements import require_feature
 from app.modules.customer.schemas import TransferResult
-from app.modules.customer.service import get_customer
+from app.modules.customer.service import ensure_visible
 from app.modules.iam import service as iam_service
 from app.modules.iam.deps import CurrentPrincipal, TenantDb, require_permission
 from app.modules.iam.models import Staff
@@ -366,7 +366,7 @@ async def bind_self(
 @router.get("/customers/{customer_id}/wecom", response_model=CustomerWecom)
 async def customer_wecom(customer_id: UUID, session: TenantDb, principal: CanRead) -> CustomerWecom:
     """客户在企业微信里的添加人、标签、所在客户群和在职继承记录（客户 360 视图）。"""
-    await get_customer(session, principal, customer_id)
+    await ensure_visible(session, principal, customer_id)
     return await sidebar.customer_wecom(session, customer_id)
 
 

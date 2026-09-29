@@ -2,7 +2,14 @@ from datetime import datetime
 from typing import Annotated, Any
 from uuid import UUID
 
-from pydantic import BaseModel, Field, StringConstraints
+from pydantic import BaseModel, Field, StringConstraints, field_validator
+
+from app.modules.customer.sensitive import (
+    normalize_email,
+    normalize_phone,
+    valid_email,
+    valid_phone,
+)
 
 
 class CustomerOut(BaseModel):
@@ -12,7 +19,51 @@ class CustomerOut(BaseModel):
     owner_display_name: str | None
     source_channel: str
     tags: list[str]
+    phone: str | None = Field(default=None, description="手机号（掩码）")
+    email: str | None = Field(default=None, description="邮箱（掩码）")
+    company: str | None = None
     created_at: datetime
+
+
+class CustomerSensitive(BaseModel):
+    """手机号和邮箱明文（需要 customer:view_sensitive 权限，每次查看记审计）。"""
+
+    phone: str | None
+    email: str | None
+
+
+def _phone(value: str | None) -> str | None:
+    if value is None:
+        return None
+    phone = normalize_phone(value)
+    if phone and not valid_phone(phone):
+        raise ValueError("手机号格式不正确")
+    return phone
+
+
+def _email(value: str | None) -> str | None:
+    if value is None:
+        return None
+    email = normalize_email(value)
+    if email and not valid_email(email):
+        raise ValueError("邮箱格式不正确")
+    return email
+
+
+class _ContactFields(BaseModel):
+    phone: str | None = Field(default=None, max_length=32, description="空字符串表示清除")
+    email: str | None = Field(default=None, max_length=254, description="空字符串表示清除")
+    company: str | None = Field(default=None, max_length=128, description="空字符串表示清除")
+
+    @field_validator("phone")
+    @classmethod
+    def _check_phone(cls, value: str | None) -> str | None:
+        return _phone(value)
+
+    @field_validator("email")
+    @classmethod
+    def _check_email(cls, value: str | None) -> str | None:
+        return _email(value)
 
 
 class CustomerIdentityOut(BaseModel):
@@ -31,7 +82,7 @@ class CustomerDetail(CustomerOut):
     identities: list[CustomerIdentityOut]
 
 
-class CustomerUpdate(BaseModel):
+class CustomerUpdate(_ContactFields):
     display_name: str | None = Field(default=None, min_length=1, max_length=128)
     notes: str | None = Field(default=None, max_length=4000)
     tags: (
@@ -45,7 +96,7 @@ class CustomerPage(BaseModel):
     total: int
 
 
-class CustomerCreate(BaseModel):
+class CustomerCreate(_ContactFields):
     display_name: str = Field(min_length=1, max_length=128)
     owner_id: UUID | None = Field(
         default=None, description="归属坐席；不填时归属创建者。指定他人需要 customer:assign 权限"
@@ -109,3 +160,70 @@ class OwnerHistoryOut(BaseModel):
 
 class OwnerHistoryList(BaseModel):
     items: list[OwnerHistoryOut]
+
+
+# ---- 导出、合并、个人信息请求 ----
+
+
+class CustomerExportRequest(BaseModel):
+    password: str = Field(
+        min_length=1, max_length=128, description="当前登录员工的密码（二次确认）"
+    )
+    q: str | None = Field(default=None, max_length=128, description="与列表相同的搜索条件")
+
+
+class CustomerMergeRequest(BaseModel):
+    source_ids: list[UUID] = Field(
+        min_length=1, max_length=20, description="并入目标客户后删除的客户（重复的档案）"
+    )
+
+
+class PersonalDataRequest(BaseModel):
+    reason: str = Field(min_length=1, max_length=500, description="请求来源，例如客户来电要求查询")
+
+
+class ErasureRequest(BaseModel):
+    confirm_name: str = Field(min_length=1, max_length=128, description="再次输入客户名称以确认")
+    reason: str = Field(min_length=1, max_length=500)
+
+
+class PersonalData(BaseModel):
+    """客户个人信息副本（个人信息查询请求）。"""
+
+    generated_at: datetime
+    customer: dict[str, Any]
+    identities: list[dict[str, Any]]
+    sessions: list[dict[str, Any]]
+    messages: list[dict[str, Any]]
+    tickets: list[dict[str, Any]]
+    owner_history: list[dict[str, Any]]
+    wecom_follows: list[dict[str, Any]]
+
+
+class ErasureResult(BaseModel):
+    request_id: UUID
+    sessions: int
+    messages: int
+    tickets: int
+    identities: int
+    files: int = Field(description="删除的聊天文件数")
+    im_groups: int = Field(description="解散的服务群数")
+    wecom_contact: bool = Field(
+        description="客户是企业微信的外部联系人：需要员工在企业微信里删除好友，否则下次同步会重新建档"
+    )
+
+
+class PrivacyRequestOut(BaseModel):
+    id: UUID
+    customer_id: UUID
+    customer_name: str = Field(description="客户名称（掩码）")
+    kind: str = Field(description="access（查询）或 erase（删除）")
+    requested_by: UUID | None
+    requested_by_name: str | None
+    reason: str | None
+    detail: dict[str, Any]
+    created_at: datetime
+
+
+class PrivacyRequestList(BaseModel):
+    items: list[PrivacyRequestOut]

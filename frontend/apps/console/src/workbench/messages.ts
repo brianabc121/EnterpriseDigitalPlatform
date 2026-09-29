@@ -46,6 +46,13 @@ export interface WorkbenchMessage {
   transcript?: string | null
   /** 微信客服菜单消息里可点选的按钮（转人工、满意度）。 */
   menu?: MenuOption[] | null
+  /** 附件已被删除：超过保留期（expired）或含有病毒被拦截（blocked）。 */
+  removed?: RemovedAttachment | null
+}
+
+export interface RemovedAttachment {
+  reason: 'expired' | 'blocked'
+  name: string | null
 }
 
 export interface MenuOption {
@@ -87,6 +94,16 @@ export function attachmentOf(
   }
 }
 
+/** 超过保留期或被病毒扫描拦截后，消息里只剩文件名称等说明（见后端 security/retention.py）。 */
+export function removedOf(
+  contentType: string,
+  content: Record<string, unknown>,
+): RemovedAttachment | null {
+  if (!['image', 'file', 'voice', 'video'].includes(contentType)) return null
+  const reason = content.blocked === true ? 'blocked' : content.expired === true ? 'expired' : null
+  return reason ? { reason, name: str(content.name) } : null
+}
+
 export function fromApi(m: Schemas['MessageOut']): WorkbenchMessage {
   return {
     key: m.channel_msg_id ?? m.id,
@@ -104,6 +121,7 @@ export function fromApi(m: Schemas['MessageOut']): WorkbenchMessage {
     error: m.send_error ?? null,
     transcript: str(m.content.transcript),
     menu: menuOf(m.content.menu),
+    removed: removedOf(m.content_type, m.content),
   }
 }
 

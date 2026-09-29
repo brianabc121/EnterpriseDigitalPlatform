@@ -36,6 +36,7 @@ const VIEWS: Record<string, LazyView> = {
   settings: () => import('./views/SettingsView.vue'),
   wecom: () => import('./views/WecomView.vue'),
   broadcasts: () => import('./views/BroadcastsView.vue'),
+  audit: () => import('./views/AuditView.vue'),
 }
 
 const pages: RouteRecordRaw[] = MENU.map((item) => ({

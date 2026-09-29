@@ -4,6 +4,7 @@ import { ElMessage } from 'element-plus'
 import { onMounted, reactive, ref } from 'vue'
 
 import { api, formatDateTime } from '../../api'
+import ContactFields from '../customers/ContactFields.vue'
 import CustomerWecomInfo from '../wecom/CustomerWecomInfo.vue'
 
 const props = defineProps<{ customerId: string }>()
@@ -149,6 +150,11 @@ onMounted(load)
             保存
           </el-button>
         </el-form>
+      </section>
+
+      <section class="block">
+        <h3>联系方式</h3>
+        <ContactFields :customer="customer" @saved="(c) => (customer = c)" />
       </section>
 
       <section v-for="identity in customer.identities" :key="identity.id" class="block">

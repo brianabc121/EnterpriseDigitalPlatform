@@ -8,6 +8,7 @@ from app.core.permissions import Permission
 from app.modules.audit.service import record_audit
 from app.modules.channels.models import ChannelAccount
 from app.modules.conversation.models import ChatSession, SessionStatus
+from app.modules.customer import sensitive
 from app.modules.customer.models import Customer, CustomerIdentity
 from app.modules.customer.schemas import (
     CustomerCreate,
@@ -15,11 +16,13 @@ from app.modules.customer.schemas import (
     CustomerIdentityOut,
     CustomerOut,
     CustomerPage,
+    CustomerSensitive,
     CustomerUpdate,
 )
 from app.modules.iam.models import Staff, StaffStatus
 from app.modules.iam.principal import Principal
 from app.modules.routing.scope import team_members
+from app.modules.security.keys import TenantKeyring
 
 
 def visible_to(principal: Principal) -> ColumnElement[bool]:
@@ -65,7 +68,8 @@ def _with_owner() -> Select[Customer, str]:
     )
 
 
-def _to_out(customer: Customer, owner_name: str | None) -> CustomerOut:
+async def _to_out(keys: TenantKeyring, customer: Customer, owner_name: str | None) -> CustomerOut:
+    phone, email = await sensitive.masked(keys, customer)
     return CustomerOut(
         id=customer.id,
         display_name=customer.display_name,
@@ -73,14 +77,41 @@ def _to_out(customer: Customer, owner_name: str | None) -> CustomerOut:
         owner_display_name=owner_name,
         source_channel=customer.source_channel,
         tags=list(customer.tags or []),
+        phone=phone,
+        email=email,
+        company=customer.company,
         created_at=customer.created_at,
     )
 
 
+async def search_condition(keys: TenantKeyring, tenant_id: UUID, q: str) -> ColumnElement[bool]:
+    """名称、公司包含搜索词，或者手机号、邮箱与搜索词完全一致（盲索引）。"""
+    term = q.strip()
+    pattern = "%" + term.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
+    conditions: list[ColumnElement[bool]] = [
+        Customer.display_name.ilike(pattern, escape="\\"),
+        Customer.company.ilike(pattern, escape="\\"),
+    ]
+    phone_hash, email_hash = await sensitive.search_indexes(keys, tenant_id, term)
+    if phone_hash:
+        conditions.append(Customer.phone_hash == phone_hash)
+    if email_hash:
+        conditions.append(Customer.email_hash == email_hash)
+    return or_(*conditions)
+
+
 async def list_customers(
-    session: AsyncSession, principal: Principal, *, limit: int, offset: int
+    session: AsyncSession,
+    keys: TenantKeyring,
+    principal: Principal,
+    *,
+    limit: int,
+    offset: int,
+    q: str | None = None,
 ) -> CustomerPage:
     scope = visible_to(principal)
+    if q and q.strip():
+        scope = and_(scope, await search_condition(keys, principal.tenant_id, q))
     total = await session.scalar(select(func.count()).select_from(Customer).where(scope))
     rows = await session.execute(
         _with_owner()
@@ -89,14 +120,22 @@ async def list_customers(
         .limit(limit)
         .offset(offset)
     )
-    return CustomerPage(items=[_to_out(c, name) for c, name in rows], total=total or 0)
+    return CustomerPage(items=[await _to_out(keys, c, name) for c, name in rows], total=total or 0)
+
+
+async def ensure_visible(
+    session: AsyncSession, principal: Principal, customer_id: UUID
+) -> Customer:
+    """客户对这个员工可见时返回客户，否则 404。"""
+    customer, _ = await _visible_customer(session, principal, customer_id)
+    return customer
 
 
 async def get_customer(
-    session: AsyncSession, principal: Principal, customer_id: UUID
+    session: AsyncSession, keys: TenantKeyring, principal: Principal, customer_id: UUID
 ) -> CustomerOut:
     customer, owner_name = await _visible_customer(session, principal, customer_id)
-    return _to_out(customer, owner_name)
+    return await _to_out(keys, customer, owner_name)
 
 
 async def _visible_customer(
@@ -115,7 +154,7 @@ async def _visible_customer(
 
 
 async def get_customer_detail(
-    session: AsyncSession, principal: Principal, customer_id: UUID
+    session: AsyncSession, keys: TenantKeyring, principal: Principal, customer_id: UUID
 ) -> CustomerDetail:
     """客户面板：档案、备注、标签和各渠道身份。"""
     customer, owner_name = await _visible_customer(session, principal, customer_id)
@@ -132,7 +171,7 @@ async def get_customer_detail(
         .order_by(CustomerIdentity.created_at)
     )
     return CustomerDetail(
-        **_to_out(customer, owner_name).model_dump(),
+        **(await _to_out(keys, customer, owner_name)).model_dump(),
         notes=customer.notes,
         identities=[
             CustomerIdentityOut(
@@ -150,15 +189,28 @@ async def get_customer_detail(
     )
 
 
+async def _apply_contact(
+    keys: TenantKeyring, customer: Customer, changes: dict[str, object]
+) -> None:
+    if changes.get("phone") is not None:
+        await sensitive.set_phone(keys, customer, str(changes["phone"]))
+    if changes.get("email") is not None:
+        await sensitive.set_email(keys, customer, str(changes["email"]))
+    if changes.get("company") is not None:
+        customer.company = str(changes["company"]).strip() or None
+
+
 async def update_customer(
     session: AsyncSession,
+    keys: TenantKeyring,
     principal: Principal,
     customer_id: UUID,
     payload: CustomerUpdate,
     *,
     ip: str | None,
 ) -> CustomerDetail:
-    """能看到客户的员工（归属坐席、正在接待的坐席、主管、管理员）可以修改名称、备注和标签。"""
+    """能看到客户的员工（归属坐席、正在接待的坐席、主管、管理员）可以修改名称、备注、标签和
+    联系方式。"""
     customer, _ = await _visible_customer(session, principal, customer_id)
     changes = payload.model_dump(exclude_unset=True)
     if changes.get("display_name") is not None:
@@ -167,6 +219,7 @@ async def update_customer(
         customer.notes = changes["notes"] or None
     if changes.get("tags") is not None:
         customer.tags = list(dict.fromkeys(changes["tags"]))
+    await _apply_contact(keys, customer, changes)
     record_audit(
         session,
         action="customer.update",
@@ -179,11 +232,16 @@ async def update_customer(
         ip=ip,
     )
     await session.commit()
-    return await get_customer_detail(session, principal, customer_id)
+    return await get_customer_detail(session, keys, principal, customer_id)
 
 
 async def create_customer(
-    session: AsyncSession, principal: Principal, payload: CustomerCreate, *, ip: str | None
+    session: AsyncSession,
+    keys: TenantKeyring,
+    principal: Principal,
+    payload: CustomerCreate,
+    *,
+    ip: str | None,
 ) -> CustomerOut:
     owner_id = payload.owner_id or principal.staff_id
     if owner_id != principal.staff_id:
@@ -196,6 +254,7 @@ async def create_customer(
     customer = Customer(
         tenant_id=principal.tenant_id, display_name=payload.display_name, owner_id=owner_id
     )
+    await _apply_contact(keys, customer, payload.model_dump(exclude_unset=True))
     session.add(customer)
     await session.flush()
     record_audit(
@@ -209,4 +268,30 @@ async def create_customer(
         ip=ip,
     )
     await session.commit()
-    return await get_customer(session, principal, customer.id)
+    return await get_customer(session, keys, principal, customer.id)
+
+
+async def reveal_sensitive(
+    session: AsyncSession,
+    keys: TenantKeyring,
+    principal: Principal,
+    customer_id: UUID,
+    *,
+    ip: str | None,
+) -> CustomerSensitive:
+    """查看手机号、邮箱明文；每次查看记一条审计。"""
+    customer, _ = await _visible_customer(session, principal, customer_id)
+    phone, email = await sensitive.reveal(keys, customer)
+    record_audit(
+        session,
+        action="customer.view_sensitive",
+        actor_type="staff",
+        actor_id=principal.staff_id,
+        tenant_id=principal.tenant_id,
+        resource_type="customer",
+        resource_id=str(customer.id),
+        detail={"fields": [f for f, v in (("phone", phone), ("email", email)) if v]},
+        ip=ip,
+    )
+    await session.commit()
+    return CustomerSensitive(phone=phone, email=email)

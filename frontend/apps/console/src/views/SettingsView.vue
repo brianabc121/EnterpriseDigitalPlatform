@@ -5,6 +5,7 @@ import AgentsTab from '../components/settings/AgentsTab.vue'
 import BillingTab from '../components/settings/BillingTab.vue'
 import ChannelsTab from '../components/settings/ChannelsTab.vue'
 import DataTab from '../components/settings/DataTab.vue'
+import RetentionTab from '../components/settings/RetentionTab.vue'
 import RoutingPoliciesTab from '../components/settings/RoutingPoliciesTab.vue'
 import SkillGroupsTab from '../components/settings/SkillGroupsTab.vue'
 import SupportTab from '../components/settings/SupportTab.vue'
@@ -40,6 +41,9 @@ const tab = ref('channels')
       </el-tab-pane>
       <el-tab-pane label="套餐与账单" name="billing" lazy>
         <BillingTab />
+      </el-tab-pane>
+      <el-tab-pane label="数据保留" name="retention" lazy>
+        <RetentionTab />
       </el-tab-pane>
       <el-tab-pane v-if="canManageTenant" label="数据与注销" name="data" lazy>
         <DataTab />

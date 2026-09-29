@@ -36,6 +36,7 @@ from app.modules.lifecycle.models import SupportGrant, TenantDeletion, TenantExp
 from app.modules.platform.models import LlmProvider, PlatformSetting
 from app.modules.quickreply.models import QuickReply
 from app.modules.routing.models import AgentState, RoutingPolicy, SkillGroup, SkillGroupMember
+from app.modules.security.models import FileScan, PrivacyRequest, TenantKey, TenantSetting
 from app.modules.tenancy.models import PlatformUser, Tenant
 from app.modules.usage.models import UsageDaily
 from app.modules.wecom.models import (
@@ -68,6 +69,7 @@ __all__ = [
     "Customer",
     "CustomerIdentity",
     "CustomerOwnerHistory",
+    "FileScan",
     "ImOp",
     "Invoice",
     "KbCandidate",
@@ -84,6 +86,7 @@ __all__ = [
     "Plan",
     "PlatformSetting",
     "PlatformUser",
+    "PrivacyRequest",
     "QuickReply",
     "RefreshToken",
     "Role",
@@ -100,6 +103,8 @@ __all__ = [
     "Tenant",
     "TenantDeletion",
     "TenantExport",
+    "TenantKey",
+    "TenantSetting",
     "Ticket",
     "UsageDaily",
     "WecomBroadcast",

@@ -42,6 +42,8 @@ from app.modules.kb.metrics import run_digests
 from app.modules.kb.service import expire_items
 from app.modules.lifecycle.closure import run_purges
 from app.modules.lifecycle.export import run_exports
+from app.modules.security.retention import run_retention
+from app.modules.security.scanning import run_file_scan
 from app.modules.sessions.engine import republish_orphans, run_session_timers
 from app.modules.sessions.transfer import run_transfer_timers
 from app.modules.usage.service import run_usage_rollup
@@ -84,6 +86,8 @@ JOBS = (
     Job("billing-invoices", 6 * 3600, run_invoices),
     Job("tenant-exports", 30, run_exports),
     Job("tenant-purge", 3600, run_purges),
+    Job("retention", 3600, run_retention),
+    Job("file-scan", 60, run_file_scan),
 )
 
 

@@ -11,6 +11,7 @@ from datetime import date, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
+from pydantic import SecretStr
 from sqlalchemy import select
 
 from app.context import AppContext
@@ -28,6 +29,10 @@ from app.modules.kb.metrics import generate_digest, week_of
 from app.modules.kb.service import reindex_all
 from app.modules.lifecycle.closure import run_purges
 from app.modules.lifecycle.export import run_exports
+from app.modules.security.keys import TenantKeyring
+from app.modules.security.retention import run_retention
+from app.modules.security.rotation import rewrap_master
+from app.modules.security.scanning import run_file_scan
 from app.modules.tenancy import service as tenancy
 from app.modules.tenancy.models import Tenant
 from app.modules.tenancy.schemas import TenantAdminCreate, TenantCreate
@@ -232,6 +237,32 @@ async def tenant_jobs(settings: Settings) -> dict[str, int]:
         await ctx.aclose()
 
 
+async def security_jobs(settings: Settings) -> dict[str, object]:
+    ctx = AppContext.create(settings)
+    try:
+        retention = await run_retention(ctx)
+        scan = await run_file_scan(ctx)
+        return {"retention": dataclasses.asdict(retention), "scan": dataclasses.asdict(scan)}
+    finally:
+        await ctx.aclose()
+
+
+async def rewrap_keys(settings: Settings, old_key_env: str | None) -> dict[str, object]:
+    """更换主密钥后重新包装数据密钥；没有旧主密钥时只把早期（v1）的租户密文换成租户密钥加密。"""
+    old = None
+    if old_key_env:
+        old_key = os.environ.get(old_key_env)
+        if not old_key:
+            raise SystemExit(f"环境变量 {old_key_env} 没有设置旧的主密钥")
+        old = settings.model_copy(update={"data_encryption_key": SecretStr(old_key)})
+    db = Database(settings)
+    try:
+        report = await rewrap_master(db, TenantKeyring(settings, db), new=settings, old=old)
+        return dataclasses.asdict(report)
+    finally:
+        await db.dispose()
+
+
 def export_openapi(output: Path | None) -> None:
     schema = create_app(get_settings()).openapi()
     text = json.dumps(schema, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
@@ -286,6 +317,16 @@ def main(argv: list[str] | None = None) -> int:
     invoices = commands.add_parser("billing-invoices", help="生成账单（默认上个月）")
     invoices.add_argument("--month", help="账单月份 YYYY-MM")
     commands.add_parser("tenant-jobs", help="立即生成排队中的数据导出，删除保留期已到的租户数据")
+    commands.add_parser("security-jobs", help="立即按保留期删除到期的消息和文件，并扫描一批新附件")
+    rewrap = commands.add_parser(
+        "rewrap-keys",
+        help="更换主密钥：EDP_DATA_ENCRYPTION_KEY 设为新密钥，用旧密钥重新包装各租户的数据密钥",
+    )
+    rewrap.add_argument(
+        "--old-key-env",
+        help="保存旧主密钥的环境变量名（如 EDP_OLD_DATA_ENCRYPTION_KEY）；"
+        "不填时只把早期直接用主密钥加密的租户密文换成租户密钥加密",
+    )
 
     openapi = commands.add_parser("export-openapi", help="导出 OpenAPI 描述（供前端生成类型）")
     openapi.add_argument("output", nargs="?", type=Path)
@@ -354,6 +395,12 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps(generated, ensure_ascii=False))
     elif args.command == "tenant-jobs":
         print(json.dumps(asyncio.run(tenant_jobs(get_settings())), ensure_ascii=False))
+    elif args.command == "security-jobs":
+        print(json.dumps(asyncio.run(security_jobs(get_settings())), ensure_ascii=False))
+    elif args.command == "rewrap-keys":
+        result = asyncio.run(rewrap_keys(get_settings(), args.old_key_env))
+        print(json.dumps(result, ensure_ascii=False))
+        return 1 if result["failed"] else 0
     elif args.command == "export-openapi":
         export_openapi(args.output)
     return 0

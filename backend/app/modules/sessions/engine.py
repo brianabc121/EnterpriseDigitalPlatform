@@ -680,20 +680,21 @@ async def mark_closed(
 
 
 async def requeue_unanswered(
-    session: AsyncSession, staff_id: uuid.UUID, now: datetime, *, reason: str
+    session: AsyncSession,
+    staff_id: uuid.UUID,
+    now: datetime,
+    *,
+    reason: str,
+    include_answered: bool = False,
 ) -> set[uuid.UUID]:
-    """把分配给坐席、坐席还没回复过的会话退回队列，返回涉及的 Room。"""
-    chats = (
-        await session.scalars(
-            select(ChatSession)
-            .where(
-                ChatSession.assignee_id == staff_id,
-                ChatSession.status == SessionStatus.HUMAN_SERVING,
-                ChatSession.first_response_at.is_(None),
-            )
-            .with_for_update()
-        )
-    ).all()
+    """把分配给坐席、坐席还没回复过的会话退回队列，返回涉及的 Room。
+    include_answered 时已经回复过的也退回（员工停用）。"""
+    query = select(ChatSession).where(
+        ChatSession.assignee_id == staff_id, ChatSession.status == SessionStatus.HUMAN_SERVING
+    )
+    if not include_answered:
+        query = query.where(ChatSession.first_response_at.is_(None))
+    chats = (await session.scalars(query.with_for_update())).all()
     for chat in chats:
         # 重新计算排队超时，并排在同优先级的新会话前面。
         chat.status = SessionStatus.QUEUED

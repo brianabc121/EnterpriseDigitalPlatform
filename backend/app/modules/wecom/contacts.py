@@ -37,7 +37,9 @@ from app.modules.customer.models import (
     OwnerChangeReason,
 )
 from app.modules.customer.ownership import change_owner
+from app.modules.customer.sensitive import normalize_phone, set_phone, valid_phone
 from app.modules.iam.models import Staff, StaffStatus
+from app.modules.security.keys import TenantKeyring
 from app.modules.tenancy.models import Tenant
 from app.modules.wecom import kf
 from app.modules.wecom.models import (
@@ -304,7 +306,7 @@ async def sync_contacts(ctx: AppContext, tenant_id: UUID) -> int:
                 for entry in entries:
                     contact = entry.get("external_contact") or {}
                     info = entry.get("follow_info") or {}
-                    pair = await _upsert(session, loaded.tenant, contact, [info])
+                    pair = await _upsert(session, ctx.keys, loaded.tenant, contact, [info])
                     seen |= pair
                 await session.commit()
             cursor = str(data.get("next_cursor") or "")
@@ -341,6 +343,7 @@ async def refresh_contact(ctx: AppContext, tenant_id: UUID, external_userid: str
     async with ctx.db.tenant_session(tenant_id) as session:
         seen = await _upsert(
             session,
+            ctx.keys,
             loaded.tenant,
             data.get("external_contact") or {},
             data.get("follow_user") or [],
@@ -372,6 +375,7 @@ def _contact_profile(contact: dict[str, Any]) -> dict[str, Any]:
 
 async def _upsert(
     session: AsyncSession,
+    keys: TenantKeyring,
     tenant: Tenant,
     contact: dict[str, Any],
     follows: list[dict[str, Any]],
@@ -468,6 +472,7 @@ async def _upsert(
     )
     if name and automatic and customer.display_name != name:
         customer.display_name = str(name)[:128]
+    await _fill_profile(keys, customer, contact, follows)
     if customer.owner_id is None and added:
         # 最早添加这位客户、且绑定了平台员工的成员。
         bound = dict(
@@ -491,6 +496,27 @@ async def _upsert(
                 note=f"企业微信成员 {first} 添加了这位客户",
             )
     return seen
+
+
+async def _fill_profile(
+    keys: TenantKeyring,
+    customer: Customer,
+    contact: dict[str, Any],
+    follows: list[dict[str, Any]],
+) -> None:
+    """资料补全：员工在企业微信里备注的手机号和企业名称（平台上已经填写的不覆盖）。"""
+    if not customer.phone_enc:
+        mobiles = (normalize_phone(str(m)) for i in follows for m in i.get("remark_mobiles") or [])
+        phone = next((m for m in mobiles if valid_phone(m)), None)
+        if phone:
+            await set_phone(keys, customer, phone)
+    if not customer.company:
+        company = next(
+            (str(i["remark_corp_name"]) for i in follows if i.get("remark_corp_name")),
+            str(contact.get("corp_name") or ""),
+        )
+        if company:
+            customer.company = company[:128]
 
 
 async def on_contact_change(ctx: AppContext, tenant_id: UUID, event: dict[str, Any]) -> None:

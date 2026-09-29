@@ -133,6 +133,32 @@ export EDP_LLM_BASE_URL=http://127.0.0.1:8900/v1 EDP_LLM_CHAT_MODEL=fake-chat ED
 `cd backend && uv run python -m app.cli billing-lifecycle`、`billing-invoices --month 2026-09` 或 `tenant-jobs`
 （生成导出、删除到期的租户数据）；`provision-tenant` 可以用 `--plan` 指定套餐。
 
+权限、合规与审计：
+
+- **员工与角色**：租户管理员在"员工"里修改员工姓名和角色、停用或启用、重置密码；停用后立即退出登录并下线，
+  接待中的会话退回队列（名下客户用"交接客户"转给别人）。不能停用自己，至少保留一名启用的租户管理员，
+  启用时检查坐席额度。"员工 → 角色"里新建自定义角色（按分组勾选权限点，不能超出自己拥有的权限）。
+  每位员工可以在右上角菜单里修改自己的密码（其他设备上的登录随即失效）。
+- **客户敏感信息**：客户的手机号、邮箱用租户数据密钥加密保存，列表和客户面板只显示掩码；有"查看客户手机号和邮箱"
+  权限的员工可以查看完整内容，每次查看记入操作日志。客户列表可以按名称、公司搜索，手机号、邮箱需要完整输入
+  （盲索引精确查找）。企业微信客户会带上员工备注的手机号和企业名称。
+- **导出、合并与个人信息请求**：有导出权限的员工再次输入密码后导出数据范围内的客户名单（CSV；没有查看敏感信息的
+  权限时导出掩码）。"更多 → 合并重复客户"把重复档案的渠道身份、会话、留言和归属记录并入一个客户。
+  "个人信息请求"可以生成客户的个人信息副本（JSON），或删除客户及其会话、消息、留言和聊天文件并解散服务群；
+  处理记录只保留掩码后的名称。
+- **操作日志**：有"查看操作日志"权限的员工在"操作日志"里按类别和时间查看登录、员工与角色变更、客户导出、
+  查看敏感信息、个人信息请求、平台运维访问等记录（只能查看）。
+- **保留期与病毒扫描**："设置 → 数据保留"设置聊天消息和文件的保留天数，调度进程每小时删除到期的内容（文件到期后
+  消息里显示"文件已过期"）。配置 `EDP_CLAMAV_HOST` 后，调度进程每分钟用 ClamAV 扫描新的聊天附件，含有病毒的
+  文件被删除，消息显示"已被拦截"，下载链接返回 410。开发时可以用 `uv run python -m tests.fake_clamd --port 3310`
+  （把 EICAR 测试串判为病毒）。OpenIM 里的消息副本按 OpenIM 自己的保留期清理（`EDP_IM_RETAIN_DAYS`，默认 365 天），应不长于各租户的保留期。
+- **租户数据密钥**：每个租户一把数据密钥（用 `EDP_DATA_ENCRYPTION_KEY` 包装后保存），加密渠道凭证、自带的模型
+  密钥和客户联系方式；运营后台租户详情的"数据密钥"里可以轮换（现有密文随即换成新版本加密）。更换主密钥时，
+  把新密钥设为 `EDP_DATA_ENCRYPTION_KEY`、旧密钥放到另一个环境变量，执行
+  `cd backend && uv run python -m app.cli rewrap-keys --old-key-env EDP_OLD_DATA_ENCRYPTION_KEY`；不带参数执行时
+  只把早期直接用主密钥加密的租户密文换成租户密钥加密。租户注销删除数据时密钥一并删除（加密擦除）。
+  需要立即清理或扫描时执行 `uv run python -m app.cli security-jobs`。
+
 默认配置适用于本地环境；需要修改时，把 `backend/.env.example` 复制为 `backend/.env`。
 OpenIM 的镜像名都可以用环境变量替换（见 `deploy/compose/openim/docker-compose.yml`），便于使用镜像加速地址。
 
@@ -198,6 +224,7 @@ make frontend-build
   NODE_PATH=$(npm root -g) PLATFORM_PASSWORD=<平台账号密码> node scripts/e2e/p2-wecom-acceptance.cjs
   NODE_PATH=$(npm root -g) PLATFORM_PASSWORD=<平台账号密码> node scripts/e2e/g1-wecom-extras.cjs
   NODE_PATH=$(npm root -g) PLATFORM_PASSWORD=<平台账号密码> node scripts/e2e/g2-commerce-ops.cjs
+  NODE_PATH=$(npm root -g) PLATFORM_PASSWORD=<平台账号密码> node scripts/e2e/g3-compliance.cjs
   ```
 
 - **企业微信补充**（`scripts/e2e/g1-wecom-extras.cjs`）：群发任务与结果回收、客户群活码、侧边栏（模拟 JS-SDK）
@@ -210,6 +237,12 @@ make frontend-build
   全局敏感词让 AI 转人工；系统健康；授权平台运维访问与访问记录；导出数据并下载；申请注销后立即删除数据并生成
   删除记录；审计日志；关闭自助注册。前置同 P3（需要运营后台、实时消费进程和调度进程）；脚本结束时关闭运营账号的
   二次验证并删除测试用的供应商和敏感词。
+
+- **权限与合规**（`scripts/e2e/g3-compliance.cjs`）：管理员编辑、停用、启用员工并重置密码，新建自定义角色；
+  新建带手机号和邮箱的客户后列表只显示掩码，按完整手机号搜索、查看完整联系方式；输入密码导出 CSV；合并重复客户；
+  生成个人信息副本并删除客户；设置保留期；操作日志；修改自己的密码；坐席发送含 EICAR 测试串的文件后被病毒扫描
+  拦截；运营后台轮换数据密钥。前置同 M4，另外运行模拟 clamd（`uv run python -m tests.fake_clamd --port 3310`），
+  后端和调度进程设置 `EDP_CLAMAV_HOST=127.0.0.1`。
 
 - **P1 M1**（`scripts/e2e/m1-im-acceptance.cjs`）：访客在 Widget 里发消息、实时收到机器人回复，消息经回调入库；
   刷新后仍是同一个访客。需要 OpenIM、后端和 Widget。提供停止/启动后端和对账的命令时，还会验证

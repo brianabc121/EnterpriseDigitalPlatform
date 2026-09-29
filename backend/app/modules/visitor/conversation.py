@@ -4,6 +4,7 @@
 所以 Widget 同时用这里的历史接口补齐（实施计划 §10.1）。
 """
 
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy import and_, func, or_, select, tuple_
@@ -91,7 +92,7 @@ async def list_messages(
                     else None
                 ),
                 content_type=m.content_type,
-                text=m.text_plain,
+                text=m.text_plain or _removed_text(m.content),
                 attachment=(
                     AttachmentOut.model_validate(m.content)
                     if m.content_type in ("image", "file") and m.content.get("url")
@@ -103,6 +104,15 @@ async def list_messages(
         ],
         has_more=len(rows) > limit,
     )
+
+
+def _removed_text(content: dict[str, Any]) -> str | None:
+    """超过保留期或被病毒扫描拦截的附件，给访客显示一句说明。"""
+    if content.get("blocked"):
+        return "[文件含有病毒，已被拦截]"
+    if content.get("expired"):
+        return "[文件已过期]"
+    return None
 
 
 async def session_state(visitor: VisitorContext) -> VisitorSessionState:

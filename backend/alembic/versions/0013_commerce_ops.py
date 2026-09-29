@@ -266,4 +266,6 @@ def downgrade() -> None:
     op.execute("ALTER TABLE tenants DROP COLUMN purged_at")
     op.execute("ALTER TABLE tenants DROP COLUMN deletion_scheduled_at")
     op.execute("ALTER TABLE tenants DROP COLUMN closing_requested_at")
-    op.execute("DROP TABLE IF EXISTS support_grants, tenant_exports, invoices, subscriptions, plans")
+    op.execute(
+        "DROP TABLE IF EXISTS support_grants, tenant_exports, invoices, subscriptions, plans"
+    )

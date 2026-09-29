@@ -45,6 +45,11 @@ class Conflict(AppError):
     code = "conflict"
 
 
+class Gone(AppError):
+    status_code = 410
+    code = "gone"
+
+
 class Unprocessable(AppError):
     status_code = 422
     code = "unprocessable"

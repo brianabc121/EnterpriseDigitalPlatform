@@ -11,6 +11,7 @@ from app.core.config import Settings
 from app.db.session import Database
 from app.events.bus import EventBus
 from app.integrations.asr import AsrClient
+from app.integrations.clamav import ClamAV
 from app.integrations.llm import EmbedEndpoint, LLMClient, LLMEndpoint
 from app.integrations.openim import OpenIMClient
 from app.integrations.storage import ObjectStore
@@ -19,6 +20,7 @@ from app.modules.ai.llm_router import LlmRouter
 from app.modules.conversation.deps import openim_from_settings
 from app.modules.conversation.provisioning import IMProvisioner
 from app.modules.files.service import storage_config
+from app.modules.security.keys import TenantKeyring
 from app.modules.wecom.credentials import corp_secret
 
 
@@ -37,8 +39,12 @@ class AppContext:
     # 按租户和场景选择大模型供应商（运营后台配置的供应商、租户自带的接口密钥）；llm 是环境变量
     # 配置的供应商，没有在运营后台配置供应商时使用。
     llms: LlmRouter
+    # 租户数据密钥（信封加密）：渠道凭证、自带模型密钥、客户手机号等敏感字段。
+    keys: TenantKeyring
     # 没有配置语音转文字（EDP_ASR_BASE_URL）时为空。
     asr: AsrClient | None = None
+    # 没有配置病毒扫描（EDP_CLAMAV_HOST）时为空。
+    clamav: ClamAV | None = None
 
     @classmethod
     def create(
@@ -54,6 +60,7 @@ class AppContext:
     ) -> "AppContext":
         redis = Redis.from_url(settings.redis_url)
         db = Database(settings)
+        keys = TenantKeyring(settings, db)
         im = im or openim_from_settings(settings)
         wecom = None
         if settings.wecom_enabled:
@@ -62,7 +69,7 @@ class AppContext:
                 suite_id=settings.wecom_suite_id,
                 suite_secret=settings.wecom_suite_secret.get_secret_value(),
                 redis=redis,
-                corp_secret=partial(corp_secret, db, settings),
+                corp_secret=partial(corp_secret, db, keys),
                 transport=wecom_transport,
             )
         asr = None
@@ -84,8 +91,18 @@ class AppContext:
             llm=env_llm,
             storage=ObjectStore(storage_config(settings), transport=storage_transport),
             wecom=wecom,
-            llms=LlmRouter(settings, db, env_llm, transport=llm_transport),
+            llms=LlmRouter(settings, db, env_llm, keys, transport=llm_transport),
+            keys=keys,
             asr=asr,
+            clamav=(
+                ClamAV(
+                    settings.clamav_host,
+                    settings.clamav_port,
+                    timeout=settings.clamav_timeout_seconds,
+                )
+                if settings.clamav_host
+                else None
+            ),
         )
 
     async def aclose(self) -> None:

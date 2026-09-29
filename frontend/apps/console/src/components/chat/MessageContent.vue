@@ -17,8 +17,13 @@ function formatSize(size: number | null): string {
 </script>
 
 <template>
+  <span v-if="message.removed" class="removed" data-testid="message-removed">
+    {{ message.removed.reason === 'blocked' ? '文件含有病毒，已被拦截' : '文件已超过保留期' }}{{
+      message.removed.name ? `：${message.removed.name}` : ''
+    }}
+  </span>
   <el-image
-    v-if="message.contentType === 'image' && message.attachment"
+    v-else-if="message.contentType === 'image' && message.attachment"
     :src="message.attachment.url"
     :preview-src-list="[message.attachment.url]"
     preview-teleported
@@ -121,6 +126,11 @@ function formatSize(size: number | null): string {
   border-radius: 10px;
   color: var(--el-color-primary);
   border: 1px solid var(--el-color-primary-light-5);
+}
+
+.removed {
+  color: var(--el-text-color-secondary);
+  font-style: italic;
 }
 
 .file small,

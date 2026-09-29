@@ -38,6 +38,8 @@ LOGIN_FAILURES = Limit("login-fail", 10, 15 * 60)
 VISITOR_INIT_PER_IP = Limit("visitor-init-ip", 30, 60)
 # 企业自助注册：每个 IP 每小时 5 次。
 SIGNUP_PER_IP = Limit("signup-ip", 5, 3600)
+# 需要再次输入密码的操作（修改密码、导出客户）：每人 15 分钟 10 次。
+PASSWORD_CHECK = Limit("password-check", 10, 15 * 60)
 
 
 @dataclass(frozen=True)

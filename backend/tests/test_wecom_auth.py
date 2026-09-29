@@ -106,9 +106,9 @@ async def test_admin_authorizes_the_corp(wdesk: WecomDesk) -> None:
     assert [a["name"] for a in status["kf_accounts"]] == ["官方客服"]
     assert status["kf_accounts"][0]["contact_url"].startswith("https://work.weixin.qq.com/kfid/")
     assert set(status["sync_state"]) >= {"members", "kf", "tags", "contacts", "groups"}
-    # 永久授权码加密保存；客服账号和客户联系各有一个渠道。
+    # 永久授权码用租户数据密钥加密保存；客服账号和客户联系各有一个渠道。
     [corp] = await wdesk.sql("SELECT permanent_code_enc FROM wecom_corps")
-    assert corp["permanent_code_enc"].startswith("v1:")
+    assert corp["permanent_code_enc"].startswith("v2:1:")
     assert wdesk.wecom.corp.permanent_code not in corp["permanent_code_enc"]
     channels = await wdesk.sql("SELECT type, name FROM channel_accounts ORDER BY created_at")
     assert [(c["type"], c["name"]) for c in channels][1:] == [

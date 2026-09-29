@@ -6,6 +6,7 @@ import {
   Clock,
   Connection,
   DataLine,
+  Document,
   HomeFilled,
   MagicStick,
   Promotion,
@@ -17,6 +18,7 @@ import {
 import { computed, ref, type Component } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
+import PasswordDialog from '../components/account/PasswordDialog.vue'
 import { visibleMenus, type MenuIcon } from '../menu'
 import { useAuthStore } from '../stores/auth'
 import { useWorkbenchStore } from '../stores/workbench'
@@ -37,6 +39,7 @@ const icons: Record<MenuIcon, Component> = {
   chart: DataLine,
   integration: Connection,
   broadcast: Promotion,
+  audit: Document,
   setting: Setting,
 }
 const menus = computed(() => visibleMenus(auth.permissions, auth.me?.features ?? {}))
@@ -45,6 +48,16 @@ const noticeClosed = ref(sessionStorage.getItem('edp:billing-notice') === auth.m
 function closeNotice(): void {
   noticeClosed.value = true
   sessionStorage.setItem('edp:billing-notice', auth.me?.billing_notice ?? '')
+}
+
+const passwordOpen = ref(false)
+
+async function onCommand(command: string): Promise<void> {
+  if (command === 'password') {
+    passwordOpen.value = true
+    return
+  }
+  await logout()
 }
 
 async function logout(): Promise<void> {
@@ -69,14 +82,15 @@ async function logout(): Promise<void> {
     <el-container>
       <el-header class="header">
         <span class="tenant">{{ auth.me?.tenant.name }}</span>
-        <el-dropdown @command="logout">
+        <el-dropdown data-testid="user-menu" @command="onCommand">
           <span class="user">
             {{ auth.me?.display_name }}
             <el-icon><ArrowDown /></el-icon>
           </span>
           <template #dropdown>
             <el-dropdown-menu>
-              <el-dropdown-item command="logout">退出登录</el-dropdown-item>
+              <el-dropdown-item command="password">修改密码</el-dropdown-item>
+              <el-dropdown-item command="logout" divided>退出登录</el-dropdown-item>
             </el-dropdown-menu>
           </template>
         </el-dropdown>
@@ -95,6 +109,7 @@ async function logout(): Promise<void> {
         </el-alert>
         <router-view />
       </el-main>
+      <PasswordDialog v-model="passwordOpen" />
     </el-container>
   </el-container>
 </template>

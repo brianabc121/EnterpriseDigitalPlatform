@@ -3,14 +3,16 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import RedirectResponse
 
+from app.context import AppContext
 from app.core.config import Settings
-from app.core.deps import get_app_settings
-from app.core.errors import ERROR_RESPONSES, NotFound
+from app.core.deps import get_app_settings, get_context
+from app.core.errors import ERROR_RESPONSES, Gone, NotFound
 from app.core.permissions import Permission
 from app.modules.files import service
 from app.modules.files.schemas import UploadOut, UploadRequest
 from app.modules.iam.deps import require_permission
 from app.modules.iam.principal import Principal
+from app.modules.security.scanning import blocked
 
 router = APIRouter(prefix="/api/v1", tags=["files"], responses=ERROR_RESPONSES)
 
@@ -44,9 +46,14 @@ async def create_upload(
 
 @router.get("/files/{key:path}", include_in_schema=False)
 async def download(
-    key: str, settings: SettingsDep, sig: Annotated[str, Query()] = ""
+    key: str,
+    settings: SettingsDep,
+    ctx: Annotated[AppContext, Depends(get_context)],
+    sig: Annotated[str, Query()] = "",
 ) -> RedirectResponse:
-    """校验文件链接的签名后，重定向到短时有效的对象存储地址。"""
+    """校验文件链接的签名后，重定向到短时有效的对象存储地址。含有病毒的文件返回 410。"""
     if not sig or not service.verify(settings, key, sig):
         raise NotFound("文件不存在")
+    if await blocked(ctx, key):
+        raise Gone("文件含有病毒，已被拦截")
     return RedirectResponse(service.download_url(settings, key), status_code=302)

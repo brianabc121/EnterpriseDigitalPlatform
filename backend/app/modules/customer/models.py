@@ -26,6 +26,12 @@ class Customer(IdMixin, TimestampMixin, TenantMixin, Base):
     source_channel: Mapped[str] = mapped_column(String(32), server_default="manual")
     notes: Mapped[str | None] = mapped_column(Text)
     tags: Mapped[list[str]] = mapped_column(server_default="{}")
+    # 敏感字段：用租户密钥加密，默认掩码展示；*_hash 是盲索引，用于按手机号、邮箱精确查找。
+    phone_enc: Mapped[str | None] = mapped_column(Text)
+    phone_hash: Mapped[str | None] = mapped_column(String(64))
+    email_enc: Mapped[str | None] = mapped_column(Text)
+    email_hash: Mapped[str | None] = mapped_column(String(64))
+    company: Mapped[str | None] = mapped_column(String(128))
 
 
 class CustomerIdentity(IdMixin, TimestampMixin, TenantMixin, Base):

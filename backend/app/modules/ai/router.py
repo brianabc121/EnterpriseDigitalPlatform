@@ -6,7 +6,6 @@ from fastapi import APIRouter, Depends, Query, Request, status
 from sqlalchemy import select
 
 from app.context import AppContext
-from app.core.crypto import seal
 from app.core.deps import client_ip, get_context
 from app.core.errors import ERROR_RESPONSES, NotFound
 from app.core.permissions import Permission
@@ -205,7 +204,9 @@ async def put_own_llm(
     previous = row.byo_llm or {}
     key_enc = previous.get("api_key_enc") or ""
     if payload.api_key is not None:
-        key_enc = seal(ctx.settings, payload.api_key) if payload.api_key else ""
+        key_enc = (
+            await ctx.keys.seal(principal.tenant_id, payload.api_key) if payload.api_key else ""
+        )
     row.byo_llm = {
         "base_url": base_url,
         "api_key_enc": key_enc,
@@ -259,7 +260,9 @@ async def delete_own_llm(
 async def test_own_llm(ctx: Context, session: TenantDb, principal: CanManage) -> LlmTestResult:
     """用保存的自带接口配置发一次很短的请求。"""
     settings = await ai_service.load(session, principal.tenant_id)
-    endpoint = ctx.llms.byo_endpoint({**(settings.byo_llm or {}), "enabled": True})
+    endpoint = await ctx.llms.byo_endpoint(
+        principal.tenant_id, {**(settings.byo_llm or {}), "enabled": True}
+    )
     if endpoint is None:
         raise NotFound("还没有配置自带的大模型接口")
     return await check_endpoint(ctx, endpoint)

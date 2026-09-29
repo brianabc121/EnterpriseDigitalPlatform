@@ -90,3 +90,81 @@ export const CUSTOMER_SOURCE: Record<string, string> = {
   wecom_kf: '微信客服',
   wecom_contact: '企业微信',
 }
+
+/** 操作日志里的操作名称（没有列出的直接显示代码）。 */
+export const AUDIT_ACTION: Record<string, string> = {
+  'auth.login': '登录',
+  'staff.create': '新建员工',
+  'staff.update': '修改员工',
+  'staff.reset_password': '重置员工密码',
+  'staff.change_password': '修改自己的密码',
+  'role.create': '新建角色',
+  'role.update': '修改角色',
+  'role.delete': '删除角色',
+  'customer.create': '新建客户',
+  'customer.update': '修改客户',
+  'customer.view_sensitive': '查看客户联系方式',
+  'customer.export': '导出客户',
+  'customer.merge': '合并客户',
+  'customer.personal_data': '个人信息查询',
+  'customer.erase': '个人信息删除',
+  'channel.update': '修改渠道',
+  'channel.rotate_identity_secret': '更换身份校验密钥',
+  'skill_group.create': '新建技能组',
+  'skill_group.update': '修改技能组',
+  'skill_group.delete': '删除技能组',
+  'routing_policy.create': '新建路由策略',
+  'routing_policy.update': '修改路由策略',
+  'routing_policy.delete': '删除路由策略',
+  'agent.update': '修改坐席设置',
+  'kb_item.create': '新建知识',
+  'kb_item.update': '修改知识',
+  'kb_item.publish': '发布知识',
+  'kb_item.archive': '下架知识',
+  'kb_item.restore': '恢复知识版本',
+  'kb_item.delete': '删除知识',
+  'kb_item.expire': '知识到期下架',
+  'ai.own_llm': '设置自带大模型',
+  'ai.own_llm_remove': '移除自带大模型',
+  'wecom.authorize': '授权企业微信',
+  'wecom.cancel': '取消企业微信授权',
+  'wecom.settings': '修改企业微信设置',
+  'wecom.bind_member': '绑定企业微信成员',
+  'wecom.broadcast': '企业微信群发',
+  'wecom.create_group': '创建客户群',
+  'tenant.retention': '设置保留期',
+  'tenant.retention_run': '按保留期清理',
+  'tenant.export': '导出企业数据',
+  'tenant.export_download': '下载企业数据',
+  'tenant.closure_request': '申请注销',
+  'tenant.closure_cancel': '撤销注销',
+  'tenant.key_rotate': '轮换数据密钥',
+  'support.grant': '授权平台访问',
+  'support.revoke': '撤销平台访问',
+  'support.view': '平台运维查看数据',
+  'file.infected': '拦截病毒文件',
+}
+
+/** 操作日志的分类筛选（按操作名称前缀）。 */
+export const AUDIT_GROUPS: { value: string; label: string }[] = [
+  { value: 'auth', label: '登录' },
+  { value: 'staff', label: '员工' },
+  { value: 'role', label: '角色' },
+  { value: 'customer', label: '客户' },
+  { value: 'kb_item', label: '知识库' },
+  { value: 'channel', label: '渠道' },
+  { value: 'wecom', label: '企业微信' },
+  { value: 'tenant', label: '企业' },
+  { value: 'support', label: '平台访问' },
+  { value: 'file', label: '文件安全' },
+]
+
+export const ACTOR_TYPE: Record<string, string> = {
+  staff: '员工',
+  platform: '平台运维',
+  system: '系统',
+}
+
+export function auditActionLabel(action: string): string {
+  return AUDIT_ACTION[action] ?? action
+}

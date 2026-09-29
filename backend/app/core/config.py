@@ -103,6 +103,11 @@ class Settings(BaseSettings):
     # 微信客服的 AMR 语音转成 MP3 供网页播放；找不到 ffmpeg 时保留原文件。
     ffmpeg_path: str = "ffmpeg"
 
+    # 聊天附件病毒扫描（ClamAV clamd 的 INSTREAM 接口）；为空时不扫描。
+    clamav_host: str = ""
+    clamav_port: int = 3310
+    clamav_timeout_seconds: float = 30.0
+
     # 渠道凭证（企业微信永久授权码等）的加密密钥，任意长度的随机字符串。
     data_encryption_key: SecretStr = SecretStr(_DEV_DATA_ENCRYPTION_KEY)
 

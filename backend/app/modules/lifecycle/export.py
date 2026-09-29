@@ -18,6 +18,7 @@ from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.context import AppContext
+from app.core.crypto import DecryptError
 from app.core.errors import Conflict, NotFound
 from app.core.ids import new_id
 from app.integrations.storage import StorageError, presign
@@ -33,7 +34,14 @@ EXPORT_DIR = "_exports"
 DOWNLOAD_TTL = 5 * 60
 # 内部数据或可以重建的数据，不导出。
 SKIP_TABLES = frozenset(
-    {"refresh_tokens", "im_ops", "kb_chunks", "tenant_exports", "ai_session_states"}
+    {
+        "refresh_tokens",
+        "im_ops",
+        "kb_chunks",
+        "tenant_exports",
+        "ai_session_states",
+        "tenant_keys",
+    }
 )
 # 凭证字段：导出前去掉（jsonb 路径）。
 REDACT: dict[str, tuple[str, ...]] = {
@@ -41,7 +49,10 @@ REDACT: dict[str, tuple[str, ...]] = {
     "wecom_corps": ("{permanent_code_enc}",),
     "ai_settings": ("{byo_llm}",),
     "channel_accounts": ("{config,identity_secret}",),
+    "customers": ("{phone_hash}", "{email_hash}"),
 }
+# 用租户密钥加密的字段：导出明文（注销后密钥随数据删除，密文没有用处）。
+DECRYPT: dict[str, dict[str, str]] = {"customers": {"phone_enc": "phone", "email_enc": "email"}}
 # 聊天文件合计超过这个大小后，其余的只列出 key。
 MAX_FILE_BYTES = 512 * 1024 * 1024
 
@@ -131,6 +142,22 @@ async def _finish(ctx: AppContext, export_id: uuid.UUID, **values: Any) -> None:
             await session.commit()
 
 
+async def _decrypt_row(
+    ctx: AppContext, tenant_id: uuid.UUID, line: str, fields: dict[str, str]
+) -> str:
+    row = json.loads(line)
+    for sealed_field, plain_field in fields.items():
+        sealed = row.pop(sealed_field, None)
+        value = None
+        if sealed:
+            try:
+                value = await ctx.keys.unseal(tenant_id, sealed)
+            except DecryptError:
+                logger.warning("cannot decrypt %s of an exported row", sealed_field)
+        row[plain_field] = value
+    return json.dumps(row, ensure_ascii=False)
+
+
 async def _write_files(
     ctx: AppContext, archive: zipfile.ZipFile, tenant_code: str
 ) -> dict[str, int]:
@@ -186,6 +213,8 @@ async def build_export(ctx: AppContext, export_id: uuid.UUID) -> str:
                                 text(_row_sql(table)), {"tenant_id": tenant.id}
                             )
                             async for (line,) in result:
+                                if table in DECRYPT:
+                                    line = await _decrypt_row(ctx, tenant.id, line, DECRYPT[table])
                                 out.write(line.encode() + b"\n")
                                 rows += 1
                         counts[table] = rows

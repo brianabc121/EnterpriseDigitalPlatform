@@ -28,6 +28,7 @@ from app.core.config import Settings
 from app.core.crypto import DecryptError, unseal
 from app.db.session import Database
 from app.integrations.llm import EmbedEndpoint, LLMClient, LLMEndpoint
+from app.modules.security.keys import TenantKeyring
 
 logger = logging.getLogger(__name__)
 
@@ -95,11 +96,13 @@ class LlmRouter:
         settings: Settings,
         db: Database,
         env: LLMClient,
+        keys: TenantKeyring,
         *,
         transport: httpx.AsyncBaseTransport | None = None,
     ) -> None:
         self._settings = settings
         self._db = db
+        self._keys = keys
         self.env = env
         self._transport = transport
         self._platform: _Platform | None = None
@@ -210,13 +213,16 @@ class LlmRouter:
         provider_id, byo = row
         return (str(provider_id) if provider_id else None), byo
 
-    def byo_endpoint(self, byo: dict[str, Any] | None) -> LLMEndpoint | None:
+    async def byo_endpoint(
+        self, tenant_id: uuid.UUID, byo: dict[str, Any] | None
+    ) -> LLMEndpoint | None:
         if not byo or not byo.get("enabled", True) or not byo.get("base_url"):
             return None
         try:
-            key = unseal(self._settings, byo["api_key_enc"]) if byo.get("api_key_enc") else ""
+            sealed = byo.get("api_key_enc")
+            key = await self._keys.unseal(tenant_id, sealed) if sealed else ""
         except DecryptError:
-            logger.error("cannot decrypt a tenant's own llm key")
+            logger.error("cannot decrypt the own llm key of tenant %s", tenant_id)
             return None
         return LLMEndpoint(
             base_url=str(byo["base_url"]),
@@ -229,7 +235,7 @@ class LlmRouter:
     async def chat_client(self, tenant_id: uuid.UUID, scene: str = "reply") -> LLMClient:
         """这个租户、这个场景使用的对话客户端（可能没有启用）。"""
         provider_id, byo = await self._tenant(tenant_id)
-        own = self.byo_endpoint(byo)
+        own = await self.byo_endpoint(tenant_id, byo)
         if own is not None:
             return self._client(own)
         platform = await self._load()
@@ -278,7 +284,7 @@ class LlmRouter:
     async def describe(self, tenant_id: uuid.UUID) -> tuple[str, str | None]:
         """（来源，供应商名称）：来源为 tenant、provider、default、env 或 none。"""
         provider_id, byo = await self._tenant(tenant_id)
-        if self.byo_endpoint(byo) is not None:
+        if await self.byo_endpoint(tenant_id, byo) is not None:
             return "tenant", "自带接口密钥"
         platform = await self._load()
         if provider_id and provider_id in platform.providers:

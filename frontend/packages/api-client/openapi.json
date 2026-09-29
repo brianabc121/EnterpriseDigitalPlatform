@@ -952,6 +952,134 @@
         "title": "AttachmentOut",
         "type": "object"
       },
+      "AuditList": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AuditOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "next_before": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "下一页：把它作为 before 参数",
+            "title": "Next Before"
+          }
+        },
+        "required": [
+          "items",
+          "next_before"
+        ],
+        "title": "AuditList",
+        "type": "object"
+      },
+      "AuditOut": {
+        "properties": {
+          "action": {
+            "title": "Action",
+            "type": "string"
+          },
+          "actor_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actor Id"
+          },
+          "actor_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actor Name"
+          },
+          "actor_type": {
+            "description": "staff（员工）、platform（平台运维）、system（系统）等",
+            "title": "Actor Type",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "detail": {
+            "additionalProperties": true,
+            "title": "Detail",
+            "type": "object"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "ip": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ip"
+          },
+          "resource_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resource Id"
+          },
+          "resource_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resource Type"
+          }
+        },
+        "required": [
+          "id",
+          "actor_type",
+          "actor_id",
+          "actor_name",
+          "action",
+          "resource_type",
+          "resource_id",
+          "detail",
+          "ip",
+          "created_at"
+        ],
+        "title": "AuditOut",
+        "type": "object"
+      },
       "BillingOverview": {
         "properties": {
           "ai_reply_price": {
@@ -2007,11 +2135,37 @@
       },
       "CustomerCreate": {
         "properties": {
+          "company": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "空字符串表示清除",
+            "title": "Company"
+          },
           "display_name": {
             "maxLength": 128,
             "minLength": 1,
             "title": "Display Name",
             "type": "string"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "maxLength": 254,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "空字符串表示清除",
+            "title": "Email"
           },
           "owner_id": {
             "anyOf": [
@@ -2025,6 +2179,19 @@
             ],
             "description": "归属坐席；不填时归属创建者。指定他人需要 customer:assign 权限",
             "title": "Owner Id"
+          },
+          "phone": {
+            "anyOf": [
+              {
+                "maxLength": 32,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "空字符串表示清除",
+            "title": "Phone"
           }
         },
         "required": [
@@ -2035,6 +2202,17 @@
       },
       "CustomerDetail": {
         "properties": {
+          "company": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Company"
+          },
           "created_at": {
             "format": "date-time",
             "title": "Created At",
@@ -2043,6 +2221,18 @@
           "display_name": {
             "title": "Display Name",
             "type": "string"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "邮箱（掩码）",
+            "title": "Email"
           },
           "id": {
             "format": "uuid",
@@ -2090,6 +2280,18 @@
             ],
             "title": "Owner Id"
           },
+          "phone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "手机号（掩码）",
+            "title": "Phone"
+          },
           "source_channel": {
             "title": "Source Channel",
             "type": "string"
@@ -2114,6 +2316,35 @@
           "identities"
         ],
         "title": "CustomerDetail",
+        "type": "object"
+      },
+      "CustomerExportRequest": {
+        "properties": {
+          "password": {
+            "description": "当前登录员工的密码（二次确认）",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Password",
+            "type": "string"
+          },
+          "q": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "与列表相同的搜索条件",
+            "title": "Q"
+          }
+        },
+        "required": [
+          "password"
+        ],
+        "title": "CustomerExportRequest",
         "type": "object"
       },
       "CustomerIdentityOut": {
@@ -2177,8 +2408,39 @@
         "title": "CustomerIdentityOut",
         "type": "object"
       },
+      "CustomerMergeRequest": {
+        "properties": {
+          "source_ids": {
+            "description": "并入目标客户后删除的客户（重复的档案）",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 20,
+            "minItems": 1,
+            "title": "Source Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "source_ids"
+        ],
+        "title": "CustomerMergeRequest",
+        "type": "object"
+      },
       "CustomerOut": {
         "properties": {
+          "company": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Company"
+          },
           "created_at": {
             "format": "date-time",
             "title": "Created At",
@@ -2187,6 +2449,18 @@
           "display_name": {
             "title": "Display Name",
             "type": "string"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "邮箱（掩码）",
+            "title": "Email"
           },
           "id": {
             "format": "uuid",
@@ -2215,6 +2489,18 @@
               }
             ],
             "title": "Owner Id"
+          },
+          "phone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "手机号（掩码）",
+            "title": "Phone"
           },
           "source_channel": {
             "title": "Source Channel",
@@ -2259,6 +2545,39 @@
           "total"
         ],
         "title": "CustomerPage",
+        "type": "object"
+      },
+      "CustomerSensitive": {
+        "description": "手机号和邮箱明文（需要 customer:view_sensitive 权限，每次查看记审计）。",
+        "properties": {
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
+          "phone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Phone"
+          }
+        },
+        "required": [
+          "phone",
+          "email"
+        ],
+        "title": "CustomerSensitive",
         "type": "object"
       },
       "CustomerTransferRequest": {
@@ -2314,6 +2633,19 @@
       },
       "CustomerUpdate": {
         "properties": {
+          "company": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "空字符串表示清除",
+            "title": "Company"
+          },
           "display_name": {
             "anyOf": [
               {
@@ -2327,6 +2659,19 @@
             ],
             "title": "Display Name"
           },
+          "email": {
+            "anyOf": [
+              {
+                "maxLength": 254,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "空字符串表示清除",
+            "title": "Email"
+          },
           "notes": {
             "anyOf": [
               {
@@ -2338,6 +2683,19 @@
               }
             ],
             "title": "Notes"
+          },
+          "phone": {
+            "anyOf": [
+              {
+                "maxLength": 32,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "空字符串表示清除",
+            "title": "Phone"
           },
           "tags": {
             "anyOf": [
@@ -2554,6 +2912,81 @@
           "day"
         ],
         "title": "DailyStats",
+        "type": "object"
+      },
+      "ErasureRequest": {
+        "properties": {
+          "confirm_name": {
+            "description": "再次输入客户名称以确认",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Confirm Name",
+            "type": "string"
+          },
+          "reason": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "confirm_name",
+          "reason"
+        ],
+        "title": "ErasureRequest",
+        "type": "object"
+      },
+      "ErasureResult": {
+        "properties": {
+          "files": {
+            "description": "删除的聊天文件数",
+            "title": "Files",
+            "type": "integer"
+          },
+          "identities": {
+            "title": "Identities",
+            "type": "integer"
+          },
+          "im_groups": {
+            "description": "解散的服务群数",
+            "title": "Im Groups",
+            "type": "integer"
+          },
+          "messages": {
+            "title": "Messages",
+            "type": "integer"
+          },
+          "request_id": {
+            "format": "uuid",
+            "title": "Request Id",
+            "type": "string"
+          },
+          "sessions": {
+            "title": "Sessions",
+            "type": "integer"
+          },
+          "tickets": {
+            "title": "Tickets",
+            "type": "integer"
+          },
+          "wecom_contact": {
+            "description": "客户是企业微信的外部联系人：需要员工在企业微信里删除好友，否则下次同步会重新建档",
+            "title": "Wecom Contact",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "request_id",
+          "sessions",
+          "messages",
+          "tickets",
+          "identities",
+          "files",
+          "im_groups",
+          "wecom_contact"
+        ],
+        "title": "ErasureResult",
         "type": "object"
       },
       "ErrorDetail": {
@@ -5584,6 +6017,34 @@
         "title": "KbVersionOut",
         "type": "object"
       },
+      "KeyRotationResult": {
+        "properties": {
+          "failed": {
+            "description": "无法解密、没有重新加密的密文数量",
+            "title": "Failed",
+            "type": "integer"
+          },
+          "reencrypted": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "description": "各表重新加密的密文数量",
+            "title": "Reencrypted",
+            "type": "object"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "version",
+          "reencrypted",
+          "failed"
+        ],
+        "title": "KeyRotationResult",
+        "type": "object"
+      },
       "KfAccountOut": {
         "properties": {
           "avatar": {
@@ -7180,6 +7641,43 @@
         "title": "OwnerHistoryOut",
         "type": "object"
       },
+      "PasswordChange": {
+        "properties": {
+          "current_password": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Current Password",
+            "type": "string"
+          },
+          "new_password": {
+            "maxLength": 128,
+            "minLength": 8,
+            "title": "New Password",
+            "type": "string"
+          }
+        },
+        "required": [
+          "current_password",
+          "new_password"
+        ],
+        "title": "PasswordChange",
+        "type": "object"
+      },
+      "PasswordReset": {
+        "properties": {
+          "password": {
+            "maxLength": 128,
+            "minLength": 8,
+            "title": "Password",
+            "type": "string"
+          }
+        },
+        "required": [
+          "password"
+        ],
+        "title": "PasswordReset",
+        "type": "object"
+      },
       "Permission": {
         "enum": [
           "dashboard:view",
@@ -7188,6 +7686,9 @@
           "customer:read_all",
           "customer:create",
           "customer:assign",
+          "customer:view_sensitive",
+          "customer:export",
+          "customer:manage",
           "session:read_all",
           "session:read_team",
           "session:transfer",
@@ -7202,10 +7703,140 @@
           "report:view",
           "settings:manage",
           "broadcast:manage",
-          "tenant:manage"
+          "tenant:manage",
+          "audit:read"
         ],
         "title": "Permission",
         "type": "string"
+      },
+      "PermissionInfo": {
+        "properties": {
+          "code": {
+            "$ref": "#/components/schemas/Permission"
+          },
+          "group": {
+            "title": "Group",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "name",
+          "group"
+        ],
+        "title": "PermissionInfo",
+        "type": "object"
+      },
+      "PermissionList": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/PermissionInfo"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "PermissionList",
+        "type": "object"
+      },
+      "PersonalData": {
+        "description": "客户个人信息副本（个人信息查询请求）。",
+        "properties": {
+          "customer": {
+            "additionalProperties": true,
+            "title": "Customer",
+            "type": "object"
+          },
+          "generated_at": {
+            "format": "date-time",
+            "title": "Generated At",
+            "type": "string"
+          },
+          "identities": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Identities",
+            "type": "array"
+          },
+          "messages": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Messages",
+            "type": "array"
+          },
+          "owner_history": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Owner History",
+            "type": "array"
+          },
+          "sessions": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Sessions",
+            "type": "array"
+          },
+          "tickets": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Tickets",
+            "type": "array"
+          },
+          "wecom_follows": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Wecom Follows",
+            "type": "array"
+          }
+        },
+        "required": [
+          "generated_at",
+          "customer",
+          "identities",
+          "sessions",
+          "messages",
+          "tickets",
+          "owner_history",
+          "wecom_follows"
+        ],
+        "title": "PersonalData",
+        "type": "object"
+      },
+      "PersonalDataRequest": {
+        "properties": {
+          "reason": {
+            "description": "请求来源，例如客户来电要求查询",
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "title": "PersonalDataRequest",
+        "type": "object"
       },
       "PlanCreate": {
         "properties": {
@@ -7890,6 +8521,103 @@
         "title": "PlatformTokenResponse",
         "type": "object"
       },
+      "PrivacyRequestList": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/PrivacyRequestOut"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "PrivacyRequestList",
+        "type": "object"
+      },
+      "PrivacyRequestOut": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "customer_id": {
+            "format": "uuid",
+            "title": "Customer Id",
+            "type": "string"
+          },
+          "customer_name": {
+            "description": "客户名称（掩码）",
+            "title": "Customer Name",
+            "type": "string"
+          },
+          "detail": {
+            "additionalProperties": true,
+            "title": "Detail",
+            "type": "object"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "description": "access（查询）或 erase（删除）",
+            "title": "Kind",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "requested_by": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Requested By"
+          },
+          "requested_by_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Requested By Name"
+          }
+        },
+        "required": [
+          "id",
+          "customer_id",
+          "customer_name",
+          "kind",
+          "requested_by",
+          "requested_by_name",
+          "reason",
+          "detail",
+          "created_at"
+        ],
+        "title": "PrivacyRequestOut",
+        "type": "object"
+      },
       "PurgeResult": {
         "properties": {
           "deletion": {
@@ -8237,6 +8965,73 @@
         "title": "ReplyWindowOut",
         "type": "object"
       },
+      "RetentionPolicy": {
+        "description": "聊天记录保留期（到期后由调度进程删除）。为空表示一直保留。",
+        "properties": {
+          "files_days": {
+            "anyOf": [
+              {
+                "maximum": 3650.0,
+                "minimum": 7.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "聊天文件（图片、文件、语音）保留天数；到期只删除文件，消息里显示文件已过期",
+            "title": "Files Days"
+          },
+          "messages_days": {
+            "anyOf": [
+              {
+                "maximum": 3650.0,
+                "minimum": 30.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "聊天消息保留天数（到期删除消息和其中的文件）",
+            "title": "Messages Days"
+          }
+        },
+        "title": "RetentionPolicy",
+        "type": "object"
+      },
+      "RoleCreate": {
+        "properties": {
+          "code": {
+            "description": "小写字母开头，字母、数字、下划线",
+            "pattern": "^[a-z][a-z0-9_]{1,31}$",
+            "title": "Code",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "permissions": {
+            "description": "不能超出自己拥有的权限",
+            "items": {
+              "$ref": "#/components/schemas/Permission"
+            },
+            "minItems": 1,
+            "title": "Permissions",
+            "type": "array"
+          }
+        },
+        "required": [
+          "code",
+          "name",
+          "permissions"
+        ],
+        "title": "RoleCreate",
+        "type": "object"
+      },
       "RoleList": {
         "properties": {
           "items": {
@@ -8268,6 +9063,12 @@
             "title": "Is System",
             "type": "boolean"
           },
+          "members": {
+            "default": 0,
+            "description": "使用这个角色的员工数",
+            "title": "Members",
+            "type": "integer"
+          },
           "name": {
             "title": "Name",
             "type": "string"
@@ -8288,6 +9089,40 @@
           "is_system"
         ],
         "title": "RoleOut",
+        "type": "object"
+      },
+      "RoleUpdate": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "permissions": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/Permission"
+                },
+                "minItems": 1,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Permissions"
+          }
+        },
+        "title": "RoleUpdate",
         "type": "object"
       },
       "RoomOut": {
@@ -10165,6 +11000,56 @@
         "title": "StaffOut",
         "type": "object"
       },
+      "StaffUpdate": {
+        "properties": {
+          "display_name": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
+          },
+          "role_codes": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "minItems": 1,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role Codes"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "enum": [
+                  "active",
+                  "disabled"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "停用后立即退出登录、下线，接待中的会话退回队列；名下客户需要另行交接",
+            "title": "Status"
+          }
+        },
+        "title": "StaffUpdate",
+        "type": "object"
+      },
       "SubscriptionCreate": {
         "description": "开始一个新订阅（试用转正式、升级、降级都用它）：当前订阅随之取消。",
         "properties": {
@@ -11220,6 +12105,60 @@
           "expires_at"
         ],
         "title": "TenantExportOut",
+        "type": "object"
+      },
+      "TenantKeyVersion": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "version",
+          "created_at"
+        ],
+        "title": "TenantKeyVersion",
+        "type": "object"
+      },
+      "TenantKeys": {
+        "properties": {
+          "current": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "当前加密使用的版本；为空表示还没有生成数据密钥",
+            "title": "Current"
+          },
+          "stale": {
+            "description": "还没有换成当前版本加密的密文数量",
+            "title": "Stale",
+            "type": "integer"
+          },
+          "versions": {
+            "items": {
+              "$ref": "#/components/schemas/TenantKeyVersion"
+            },
+            "title": "Versions",
+            "type": "array"
+          }
+        },
+        "required": [
+          "versions",
+          "current",
+          "stale"
+        ],
+        "title": "TenantKeys",
         "type": "object"
       },
       "TenantList": {
@@ -15867,6 +16806,210 @@
         ]
       }
     },
+    "/api/v1/audit-logs": {
+      "get": {
+        "operationId": "audit_logs_api_v1_audit_logs_get",
+        "parameters": [
+          {
+            "description": "操作，如 customer 匹配 customer.*",
+            "in": "query",
+            "name": "action",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "操作，如 customer 匹配 customer.*",
+              "title": "Action"
+            }
+          },
+          {
+            "in": "query",
+            "name": "actor_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Actor Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "resource_type",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 32,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Resource Type"
+            }
+          },
+          {
+            "in": "query",
+            "name": "resource_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Resource Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "start",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Start"
+            }
+          },
+          {
+            "in": "query",
+            "name": "before",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Before"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuditList"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Audit Logs",
+        "tags": [
+          "audit"
+        ]
+      }
+    },
     "/api/v1/auth/login": {
       "post": {
         "description": "员工登录。Access Token 在响应体中返回，Refresh Token 写入 httpOnly Cookie。",
@@ -17007,6 +18150,25 @@
               "title": "Offset",
               "type": "integer"
             }
+          },
+          {
+            "description": "名称或公司包含；手机号、邮箱需要完整输入（精确查找）",
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 128,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "名称或公司包含；手机号、邮箱需要完整输入（精确查找）",
+              "title": "Q"
+            }
           }
         ],
         "responses": {
@@ -17186,6 +18348,99 @@
         ]
       }
     },
+    "/api/v1/customers/export": {
+      "post": {
+        "description": "导出数据范围内的客户名单（CSV）。需要再次输入密码；没有查看敏感信息的权限时，\n手机号和邮箱导出掩码。",
+        "operationId": "export_customers_api_v1_customers_export_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CustomerExportRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "text/csv": {}
+            },
+            "description": "CSV 文件"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Export Customers",
+        "tags": [
+          "customers"
+        ]
+      }
+    },
     "/api/v1/customers/handover/{staff_id}": {
       "post": {
         "description": "离职或调岗交接：员工名下的全部客户转给指定员工，或平均分给技能组的成员。\n可以同时把他作为群主的企业微信客户群转给接手的员工。",
@@ -17295,6 +18550,93 @@
         ]
       }
     },
+    "/api/v1/customers/privacy-requests": {
+      "get": {
+        "description": "个人信息查询与删除请求的处理记录。",
+        "operationId": "privacy_requests_api_v1_customers_privacy_requests_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PrivacyRequestList"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Privacy Requests",
+        "tags": [
+          "customers"
+        ]
+      }
+    },
     "/api/v1/customers/transfer": {
       "post": {
         "description": "批量转移客户归属，每个客户记录一条归属历史；可以同时在企业微信里在职继承。",
@@ -17394,7 +18736,7 @@
     },
     "/api/v1/customers/{customer_id}": {
       "get": {
-        "description": "客户档案、备注、标签和各渠道身份（工作台客户面板使用）。",
+        "description": "客户档案、备注、标签、联系方式（掩码）和各渠道身份（工作台客户面板使用）。",
         "operationId": "get_customer_api_v1_customers__customer_id__get",
         "parameters": [
           {
@@ -17491,7 +18833,7 @@
         ]
       },
       "patch": {
-        "description": "修改客户名称、备注和标签（能看到这个客户的员工都可以修改）。\n\n企业标签里有的标签会写回企业微信（企业微信接入设置里可以关闭）。",
+        "description": "修改客户名称、备注、标签和联系方式（能看到这个客户的员工都可以修改）。\n\n企业标签里有的标签会写回企业微信（企业微信接入设置里可以关闭）。",
         "operationId": "update_customer_api_v1_customers__customer_id__patch",
         "parameters": [
           {
@@ -17598,6 +18940,224 @@
         ]
       }
     },
+    "/api/v1/customers/{customer_id}/erase": {
+      "post": {
+        "description": "个人信息删除：删除客户及其会话、消息、留言和聊天文件，解散服务群（不可恢复）。",
+        "operationId": "erase_customer_api_v1_customers__customer_id__erase_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "customer_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Customer Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ErasureRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErasureResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Erase Customer",
+        "tags": [
+          "customers"
+        ]
+      }
+    },
+    "/api/v1/customers/{customer_id}/merge": {
+      "post": {
+        "description": "把重复的客户档案并入这个客户（渠道身份、会话、留言、归属历史一并迁移），然后删除它们。",
+        "operationId": "merge_customers_api_v1_customers__customer_id__merge_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "customer_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Customer Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CustomerMergeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomerDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Merge Customers",
+        "tags": [
+          "customers"
+        ]
+      }
+    },
     "/api/v1/customers/{customer_id}/owner-history": {
       "get": {
         "description": "客户的归属变更记录（能看到这个客户的员工可以查看）。",
@@ -17692,6 +19252,214 @@
           }
         ],
         "summary": "Owner History",
+        "tags": [
+          "customers"
+        ]
+      }
+    },
+    "/api/v1/customers/{customer_id}/personal-data": {
+      "post": {
+        "description": "个人信息查询：生成客户的个人信息副本（档案、渠道身份、会话、消息、留言），记录请求。",
+        "operationId": "personal_data_api_v1_customers__customer_id__personal_data_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "customer_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Customer Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PersonalDataRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PersonalData"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Personal Data",
+        "tags": [
+          "customers"
+        ]
+      }
+    },
+    "/api/v1/customers/{customer_id}/sensitive": {
+      "get": {
+        "description": "查看手机号、邮箱明文（需要 customer:view_sensitive，每次查看记审计）。",
+        "operationId": "reveal_sensitive_api_v1_customers__customer_id__sensitive_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "customer_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Customer Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomerSensitive"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Reveal Sensitive",
         "tags": [
           "customers"
         ]
@@ -20408,6 +22176,113 @@
         ]
       }
     },
+    "/api/v1/me/password": {
+      "post": {
+        "description": "修改自己的密码。其他设备上的登录随即失效，当前页面换发新的令牌。",
+        "operationId": "change_password_api_v1_me_password_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasswordChange"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Change Password",
+        "tags": [
+          "iam"
+        ]
+      }
+    },
     "/api/v1/me/wecom": {
       "post": {
         "description": "已登录的员工扫码绑定自己的企业微信账号（之后可以扫码登录、接收应用消息）。",
@@ -20495,6 +22370,93 @@
         "summary": "Bind Self",
         "tags": [
           "wecom"
+        ]
+      }
+    },
+    "/api/v1/permissions": {
+      "get": {
+        "description": "全部权限点及其名称、分组（编辑自定义角色时使用）。",
+        "operationId": "list_permissions_api_v1_permissions_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PermissionList"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Permissions",
+        "tags": [
+          "iam"
         ]
       }
     },
@@ -21334,6 +23296,300 @@
           }
         ],
         "summary": "List Roles",
+        "tags": [
+          "iam"
+        ]
+      },
+      "post": {
+        "description": "新建自定义角色（权限不能超出自己拥有的权限）。",
+        "operationId": "create_role_api_v1_roles_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RoleCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoleOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Create Role",
+        "tags": [
+          "iam"
+        ]
+      }
+    },
+    "/api/v1/roles/{role_id}": {
+      "delete": {
+        "description": "删除没有员工使用的自定义角色。",
+        "operationId": "delete_role_api_v1_roles__role_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "role_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Role Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Delete Role",
+        "tags": [
+          "iam"
+        ]
+      },
+      "patch": {
+        "description": "修改自定义角色的名称和权限（系统角色不能修改）。",
+        "operationId": "update_role_api_v1_roles__role_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "role_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Role Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RoleUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoleOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Update Role",
         "tags": [
           "iam"
         ]
@@ -24405,6 +26661,217 @@
         ]
       }
     },
+    "/api/v1/staff/{staff_id}": {
+      "patch": {
+        "description": "修改员工的名称、角色或状态。停用后立即退出登录并下线，接待中的会话退回队列。",
+        "operationId": "update_staff_api_v1_staff__staff_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "staff_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Staff Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StaffUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StaffOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Update Staff",
+        "tags": [
+          "iam"
+        ]
+      }
+    },
+    "/api/v1/staff/{staff_id}/password": {
+      "post": {
+        "description": "重置员工密码，员工现有的登录全部失效。",
+        "operationId": "reset_staff_password_api_v1_staff__staff_id__password_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "staff_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Staff Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasswordReset"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Reset Staff Password",
+        "tags": [
+          "iam"
+        ]
+      }
+    },
     "/api/v1/tenant/closure": {
       "delete": {
         "operationId": "cancel_closure_api_v1_tenant_closure_delete",
@@ -24935,6 +27402,188 @@
           }
         ],
         "summary": "Download Export",
+        "tags": [
+          "tenant"
+        ]
+      }
+    },
+    "/api/v1/tenant/retention": {
+      "get": {
+        "description": "聊天消息和文件的保留期。",
+        "operationId": "get_retention_api_v1_tenant_retention_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RetentionPolicy"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Retention",
+        "tags": [
+          "tenant"
+        ]
+      },
+      "put": {
+        "description": "设置保留期：到期的消息和文件由调度进程每小时删除（不可恢复）。",
+        "operationId": "put_retention_api_v1_tenant_retention_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RetentionPolicy"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RetentionPolicy"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Put Retention",
         "tags": [
           "tenant"
         ]
@@ -31031,6 +33680,204 @@
           }
         ],
         "summary": "Platform Request Closure",
+        "tags": [
+          "platform"
+        ]
+      }
+    },
+    "/platform/v1/tenants/{tenant_id}/keys": {
+      "get": {
+        "description": "租户数据密钥的各个版本（只返回版本和创建时间，不返回密钥）。",
+        "operationId": "tenant_keys_platform_v1_tenants__tenant_id__keys_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tenant_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Tenant Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TenantKeys"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "PlatformBearer": []
+          }
+        ],
+        "summary": "Tenant Keys",
+        "tags": [
+          "platform"
+        ]
+      }
+    },
+    "/platform/v1/tenants/{tenant_id}/keys/rotate": {
+      "post": {
+        "description": "生成新版本的数据密钥，并把这个租户现有的密文换成新版本加密。",
+        "operationId": "rotate_tenant_key_platform_v1_tenants__tenant_id__keys_rotate_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tenant_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Tenant Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KeyRotationResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "PlatformBearer": []
+          }
+        ],
+        "summary": "Rotate Tenant Key",
         "tags": [
           "platform"
         ]

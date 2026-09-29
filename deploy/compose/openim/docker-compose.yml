@@ -115,6 +115,9 @@ services:
       IMENV_LOG_REMAINLOGLEVEL: "3"
       # 单聊需要好友关系：访客之间、访客与员工之间不能私聊（设计文档 §8.3）
       IMENV_OPENIM_RPC_MSG_FRIENDVERIFY: "true"
+      # OpenIM 自己保存的聊天记录天数（openim-crontask 每天清理）。平台的消息归档按各租户的保留期清理，
+      # 这里应不长于最短的租户保留期。
+      IMENV_OPENIM_CRONTASK_RETAINCHATRECORDS: ${EDP_IM_RETAIN_DAYS:-365}
       # 关闭离线推送（默认配置启用个推但没有凭证）。推送服务按分区顺序处理消息，每次给离线用户
       # 推送都要等一次失败的外部 HTTP 请求，会拖慢排在后面的在线推送（实施计划 §10.1）。
       # 平台用 Web 端，不需要手机离线推送；以后接入 App 时再按供应商配置。

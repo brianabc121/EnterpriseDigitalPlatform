@@ -24,7 +24,6 @@ from uuid import UUID
 from sqlalchemy import select, update
 
 from app.context import AppContext
-from app.core.crypto import seal
 from app.core.errors import Conflict, Unprocessable
 from app.integrations.wecom import WeComError, WeComUnavailable
 from app.modules.audit.service import record_audit
@@ -177,7 +176,7 @@ async def bind_corp(ctx: AppContext, pending: PendingInstall, data: dict[str, An
             session.add(corp)
         corp.corp_name = str(corp_info.get("corp_name") or corp_id)[:128]
         corp.agent_id = _agent_id(data)
-        corp.permanent_code_enc = seal(ctx.settings, permanent_code)
+        corp.permanent_code_enc = await ctx.keys.seal(tenant.id, permanent_code)
         corp.auth_info = {
             "agent": (data.get("auth_info") or {}).get("agent") or [],
             "corp": {
@@ -281,7 +280,7 @@ async def refresh_auth(ctx: AppContext, corp_id: str) -> None:
 
 
 async def wecom_permanent_code(ctx: AppContext, corp_id: str) -> str:
-    return await corp_secret(ctx.db, ctx.settings, corp_id)
+    return await corp_secret(ctx.db, ctx.keys, corp_id)
 
 
 async def reset_permanent_code(ctx: AppContext, auth_code: str) -> None:
@@ -300,7 +299,7 @@ async def reset_permanent_code(ctx: AppContext, auth_code: str) -> None:
         await session.execute(
             update(WecomCorp)
             .where(WecomCorp.corp_id == corp_id, WecomCorp.status == CorpStatus.ACTIVE)
-            .values(permanent_code_enc=seal(ctx.settings, permanent_code))
+            .values(permanent_code_enc=await ctx.keys.seal(tenant_id, permanent_code))
         )
         await session.commit()
     await wecom.forget_corp(corp_id)

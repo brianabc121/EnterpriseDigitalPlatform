@@ -12,6 +12,7 @@ export type MenuIcon =
   | 'chart'
   | 'integration'
   | 'broadcast'
+  | 'audit'
   | 'setting'
 
 export interface MenuItem {
@@ -75,6 +76,7 @@ export const MENU: readonly MenuItem[] = [
     icon: 'integration',
     permission: 'settings:manage',
   },
+  { name: 'audit', path: '/audit', title: '操作日志', icon: 'audit', permission: 'audit:read' },
   {
     name: 'settings',
     path: '/settings',

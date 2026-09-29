@@ -29,6 +29,14 @@ MATRIX: list[tuple[str, str, dict[str, Any] | None]] = [
     ("PATCH", "/api/v1/customers/{customer_id}", {"notes": "越权修改"}),
     ("GET", "/api/v1/customers/{customer_id}/owner-history", None),
     ("GET", "/api/v1/customers/{customer_id}/wecom", None),
+    ("GET", "/api/v1/customers/{customer_id}/sensitive", None),
+    ("POST", "/api/v1/customers/{customer_id}/merge", {"source_ids": ["{own_customer_id}"]}),
+    ("POST", "/api/v1/customers/{customer_id}/personal-data", {"reason": "越权查询"}),
+    ("POST", "/api/v1/customers/{customer_id}/erase", {"confirm_name": "x", "reason": "越权"}),
+    ("PATCH", "/api/v1/staff/{staff_id}", {"display_name": "越权修改"}),
+    ("POST", "/api/v1/staff/{staff_id}/password", {"password": "cross-tenant-reset"}),
+    ("PATCH", "/api/v1/roles/{role_id}", {"name": "越权修改"}),
+    ("DELETE", "/api/v1/roles/{role_id}", None),
     ("POST", "/api/v1/customers/handover/{staff_id}", {"to_owner_id": "{own_staff_id}"}),
     ("PATCH", "/api/v1/channels/{channel_id}", {"name": "越权修改"}),
     ("POST", "/api/v1/channels/{channel_id}/identity-secret", None),
@@ -154,6 +162,11 @@ async def build(desk: Desk) -> Tenant:
         desk.tenant_id,
         f"edp{desk.code}",
     )
+    role = await client.post(
+        "/api/v1/roles",
+        headers=desk.admin,
+        json={"code": "quality", "name": "质检", "permissions": ["report:view"]},
+    )
     # 已完成的数据导出和平台访问授权（流程见 test_lifecycle.py）。
     [export] = await desk.sql(
         "INSERT INTO tenant_exports (id, tenant_id, status, object_key, expires_at)"
@@ -186,6 +199,7 @@ async def build(desk: Desk) -> Tenant:
         "way_id": str(way["id"]),
         "export_id": str(export["id"]),
         "grant_id": str(grant["id"]),
+        "role_id": role.json()["id"],
         "version": "1",
         "userid": "zhangsan",
         "tenant_id": str(desk.tenant_id),
@@ -252,6 +266,11 @@ async def snapshot(desk: Desk) -> list[Any]:
         "tenant_exports": "id, status, object_key",
         "support_grants": "id, revoked_at",
         "messages": "id",
+        "staff": "id, display_name, status, password_hash",
+        "roles": "id, name, permissions",
+        "refresh_tokens": "id, revoked_at",
+        "privacy_requests": "id",
+        "rooms": "id, customer_id",
     }
     rows = []
     for table, columns in tables.items():
@@ -372,6 +391,11 @@ async def test_other_tenants_ids_in_bodies_and_queries_are_rejected(
             "POST",
             f"/api/v1/sessions/{own['session_id']}/transfer",
             {"to_group_id": other["group_id"], "force": True},
+        ),
+        (
+            "POST",
+            f"/api/v1/customers/{own['customer_id']}/merge",
+            {"source_ids": [other["customer_id"]]},
         ),
     ]
     before = await snapshot(globex.desk)

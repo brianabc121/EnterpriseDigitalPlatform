@@ -281,6 +281,8 @@ async def purge_tenant(
         )
         await session.commit()
         await session.refresh(deletion)
+    # 数据密钥随 tenant_keys 一起删除：残留的密文（备份等）再也无法解密。
+    ctx.keys.forget(tenant_id)
     logger.info("purged tenant %s: %s rows, %s objects", code, counts["rows"], objects)
     return deletion
 

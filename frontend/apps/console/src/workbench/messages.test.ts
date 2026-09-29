@@ -10,6 +10,7 @@ import {
   outgoingOf,
   pendingMessage,
   pmidOf,
+  removedOf,
   sendBody,
   senderTypeOf,
   type Outgoing,
@@ -301,5 +302,20 @@ describe('attachments', () => {
     ])
     expect(list).toHaveLength(1)
     expect(list[0]!.attachment).toMatchObject({ url: FILE_URL, mime: 'image/png' })
+  })
+})
+
+describe('removedOf', () => {
+  it('describes attachments removed by retention or virus scanning', () => {
+    expect(removedOf('file', { name: '报价.pdf', expired: true })).toEqual({
+      reason: 'expired',
+      name: '报价.pdf',
+    })
+    expect(removedOf('image', { blocked: true, expired: true })).toEqual({
+      reason: 'blocked',
+      name: null,
+    })
+    expect(removedOf('file', { url: 'https://x/y', name: 'a' })).toBeNull()
+    expect(removedOf('text', { expired: true })).toBeNull()
   })
 })

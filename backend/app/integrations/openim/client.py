@@ -278,6 +278,12 @@ class OpenIMClient:
             raise
         return True
 
+    # ---- 登录 ----
+
+    async def force_logout(self, user_id: str, platform_id: int = WEB_PLATFORM_ID) -> None:
+        """让用户在这个平台上的登录失效（员工停用时）。"""
+        await self._admin_call("/auth/force_logout", {"platformID": platform_id, "userID": user_id})
+
     # ---- 好友 ----
 
     async def import_friends(self, owner_user_id: str, friend_user_ids: Sequence[str]) -> None:

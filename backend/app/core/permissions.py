@@ -11,6 +11,9 @@ class Permission(StrEnum):
     CUSTOMER_READ_ALL = "customer:read_all"  # 查看本租户全部客户
     CUSTOMER_CREATE = "customer:create"
     CUSTOMER_ASSIGN = "customer:assign"  # 指定或变更客户的归属坐席
+    CUSTOMER_VIEW_SENSITIVE = "customer:view_sensitive"  # 查看手机号、邮箱明文（每次记审计）
+    CUSTOMER_EXPORT = "customer:export"  # 导出可见范围内的客户名单（需要再次输入密码）
+    CUSTOMER_MANAGE = "customer:manage"  # 合并重复客户，处理个人信息查询与删除请求
     SESSION_READ_ALL = "session:read_all"  # 查看本租户全部会话（及其客户）
     SESSION_READ_TEAM = "session:read_team"  # 组长查看所带技能组的会话、组员的客户
     SESSION_TRANSFER = "session:transfer"  # 转接自己接待中的会话
@@ -26,9 +29,39 @@ class Permission(StrEnum):
     SETTINGS_MANAGE = "settings:manage"
     BROADCAST_MANAGE = "broadcast:manage"  # 企业微信群发任务（发给可见范围内的客户或客户群）
     TENANT_MANAGE = "tenant:manage"  # 数据导出、注销、授权平台运维访问（只有租户管理员）
+    AUDIT_READ = "audit:read"  # 查看本租户的操作日志
 
 
 ALL_PERMISSIONS = frozenset(Permission)
+
+# 权限点的名称和分组（角色编辑页面按分组展示）。
+PERMISSION_INFO: dict[Permission, tuple[str, str]] = {
+    Permission.DASHBOARD_VIEW: ("查看首页概览", "基础"),
+    Permission.WORKBENCH_USE: ("接待会话", "接待"),
+    Permission.SESSION_TRANSFER: ("转接自己接待的会话", "接待"),
+    Permission.SESSION_TRANSFER_ANY: ("转接或强制转接任意会话", "接待"),
+    Permission.SESSION_READ_TEAM: ("查看所带技能组的会话和组员的客户", "接待"),
+    Permission.SESSION_READ_ALL: ("查看全部会话", "接待"),
+    Permission.QUICK_REPLY_MANAGE: ("维护全员共享的快捷话术", "接待"),
+    Permission.CUSTOMER_READ: ("查看客户（自己的和正在接待的）", "客户"),
+    Permission.CUSTOMER_READ_ALL: ("查看全部客户", "客户"),
+    Permission.CUSTOMER_CREATE: ("新建客户", "客户"),
+    Permission.CUSTOMER_ASSIGN: ("分配和转移客户归属", "客户"),
+    Permission.CUSTOMER_VIEW_SENSITIVE: ("查看客户手机号和邮箱", "客户"),
+    Permission.CUSTOMER_EXPORT: ("导出客户名单", "客户"),
+    Permission.CUSTOMER_MANAGE: ("合并客户、处理个人信息请求", "客户"),
+    Permission.BROADCAST_MANAGE: ("企业微信群发", "客户"),
+    Permission.KB_READ: ("查看知识库", "知识库"),
+    Permission.KB_MANAGE: ("编辑知识和审核候选", "知识库"),
+    Permission.KB_PUBLISH: ("发布知识", "知识库"),
+    Permission.REPORT_VIEW: ("查看报表", "管理"),
+    Permission.ROUTING_MANAGE: ("技能组、路由策略和坐席并发", "管理"),
+    Permission.STAFF_READ: ("查看员工和角色", "管理"),
+    Permission.STAFF_MANAGE: ("管理员工和角色", "管理"),
+    Permission.SETTINGS_MANAGE: ("渠道、AI 和企业设置", "管理"),
+    Permission.AUDIT_READ: ("查看操作日志", "管理"),
+    Permission.TENANT_MANAGE: ("数据导出、注销和运维授权", "管理"),
+}
 
 
 @dataclass(frozen=True)
