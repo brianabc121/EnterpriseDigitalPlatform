@@ -3,6 +3,7 @@ import type { Schemas } from '@edp/api-client'
 import { ElMessage } from 'element-plus'
 import { computed, onMounted, ref } from 'vue'
 
+import KbFeedPanel from '../components/knowledge/KbFeedPanel.vue'
 import KbSearchPanel from '../components/knowledge/KbSearchPanel.vue'
 import ChatPanel from '../components/workbench/ChatPanel.vue'
 import CustomerPanel from '../components/workbench/CustomerPanel.vue'
@@ -13,7 +14,9 @@ import { STATUS_LABEL, useWorkbenchStore, type AgentStatus } from '../stores/wor
 const wb = useWorkbenchStore()
 const auth = useAuthStore()
 const tab = ref<'mine' | 'queued'>('mine')
-const sideTab = ref<'customer' | 'knowledge'>('customer')
+const sideTab = ref<'customer' | 'knowledge' | 'feed'>('customer')
+/** 待确认的必读知识数（显示在"动态"页签上）。 */
+const unreadKnowledge = ref(0)
 
 const IM_LABEL: Record<string, string> = {
   idle: '未连接',
@@ -126,17 +129,28 @@ onMounted(() => void wb.start())
     <ChatPanel class="chat" />
     <IncomingTransfer />
 
-    <aside v-if="wb.active" class="customer side">
+    <aside class="customer side">
       <el-tabs v-model="sideTab" class="side-tabs" stretch>
         <el-tab-pane label="客户" name="customer" />
         <el-tab-pane v-if="auth.can('kb:read')" label="知识库" name="knowledge" />
+        <el-tab-pane v-if="auth.can('kb:read')" name="feed">
+          <template #label>
+            <span data-testid="feed-tab">
+              动态
+              <el-badge v-if="unreadKnowledge" :value="unreadKnowledge" class="badge" />
+            </span>
+          </template>
+        </el-tab-pane>
       </el-tabs>
-      <CustomerPanel
-        v-show="sideTab === 'customer'"
-        :key="wb.active.customer_id"
-        class="side-body"
-        :customer-id="wb.active.customer_id"
-      />
+      <template v-if="sideTab === 'customer'">
+        <CustomerPanel
+          v-if="wb.active"
+          :key="wb.active.customer_id"
+          class="side-body"
+          :customer-id="wb.active.customer_id"
+        />
+        <div v-else class="side-body placeholder">选择会话后显示客户资料</div>
+      </template>
       <KbSearchPanel
         v-if="auth.can('kb:read')"
         v-show="sideTab === 'knowledge'"
@@ -144,8 +158,13 @@ onMounted(() => void wb.start())
         insertable
         @insert="wb.insertIntoComposer"
       />
+      <KbFeedPanel
+        v-if="auth.can('kb:read')"
+        v-show="sideTab === 'feed'"
+        class="side-body kb"
+        @unread="(n: number) => (unreadKnowledge = n)"
+      />
     </aside>
-    <aside v-else class="customer placeholder">选择会话后显示客户资料</aside>
   </div>
 </template>
 
@@ -258,6 +277,10 @@ onMounted(() => void wb.start())
 
 .kb {
   padding: 10px 12px;
+}
+
+.badge {
+  margin-left: 2px;
 }
 
 .placeholder {

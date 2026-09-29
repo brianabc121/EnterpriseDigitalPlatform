@@ -17,6 +17,8 @@ const form = reactive({
   max_turns: 8,
   handoff_keywords: [] as string[],
   sensitive_keywords: [] as string[],
+  extraction_enabled: true,
+  auto_merge_similar: false,
 })
 
 const quotaUsage = computed(() => {
@@ -36,6 +38,8 @@ function fill(data: Schemas['AiSettingsOut']): void {
     max_turns: data.max_turns,
     handoff_keywords: [...data.handoff_keywords],
     sensitive_keywords: [...data.sensitive_keywords],
+    extraction_enabled: data.extraction_enabled,
+    auto_merge_similar: data.auto_merge_similar,
   })
 }
 
@@ -155,6 +159,19 @@ onMounted(load)
           placeholder="客户提到时转人工，AI 回复中出现时不发送"
         />
         <span class="help">已内置：投诉、退款、赔偿、律师、12315 等</span>
+      </el-form-item>
+      <el-divider content-position="left">知识沉淀</el-divider>
+      <el-form-item label="自动提炼">
+        <el-switch v-model="form.extraction_enabled" data-testid="ai-extraction" />
+        <span class="help">
+          每小时从已结束的会话里提炼问答和没有解答的问题（先脱敏），在"知识库 → 审核台"审核
+        </span>
+      </el-form-item>
+      <el-form-item label="自动合并相似问法">
+        <el-switch v-model="form.auto_merge_similar" />
+        <span class="help">
+          同一个问法出现 3 次以上、与已有问答高度相似且答案一致时，直接并入原问答，不经审核
+        </span>
       </el-form-item>
       <el-form-item label="本月 AI 回复">
         <div class="quota" data-testid="ai-quota">

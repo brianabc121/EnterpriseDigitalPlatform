@@ -6,6 +6,8 @@ import { computed, reactive, ref, watch } from 'vue'
 import { KB_KIND, KB_SOURCE, KB_STATUS, KB_STATUS_TAG, KB_VISIBILITY } from '../../ai'
 import { api, formatDateTime } from '../../api'
 import { useAuthStore } from '../../stores/auth'
+import KbReadStats from './KbReadStats.vue'
+import KbVersionsDrawer from './KbVersionsDrawer.vue'
 
 type Item = Schemas['KbItemOut']
 type Kind = 'faq' | 'doc'
@@ -18,6 +20,7 @@ const auth = useAuthStore()
 const canManage = computed(() => auth.can('kb:manage'))
 const canPublish = computed(() => auth.can('kb:publish'))
 const saving = ref(false)
+const history = ref<Item | null>(null)
 
 const form = reactive({
   title: '',
@@ -27,6 +30,7 @@ const form = reactive({
   tags: [] as string[],
   visibility: 'public' as Schemas['KbItemCreate']['visibility'],
   validity: null as [string, string] | null,
+  mustRead: false,
 })
 
 const open = computed({
@@ -52,6 +56,7 @@ watch(
     form.tags = [...(item?.tags ?? [])]
     form.visibility = (item?.visibility ?? 'public') as typeof form.visibility
     form.validity = item?.valid_from && item.valid_to ? [item.valid_from, item.valid_to] : null
+    form.mustRead = item?.must_read ?? false
   },
   { immediate: true },
 )
@@ -66,7 +71,14 @@ function body(): Schemas['KbItemUpdate'] {
     visibility: form.visibility,
     valid_from: form.validity?.[0] ?? null,
     valid_to: form.validity?.[1] ?? null,
+    must_read: form.mustRead,
   }
+}
+
+function restored(item: Item): void {
+  history.value = null
+  emit('saved', item)
+  open.value = false
 }
 
 async function save(publish: boolean): Promise<void> {
@@ -159,7 +171,7 @@ async function save(publish: boolean): Promise<void> {
       <el-form-item label="标签">
         <el-input-tag v-model="form.tags" :max="20" placeholder="回车添加" />
       </el-form-item>
-      <el-form-item label="有效期（不填为长期有效）">
+      <el-form-item label="有效期（不填为长期有效，到期自动下线）">
         <el-date-picker
           v-model="form.validity"
           type="datetimerange"
@@ -168,7 +180,16 @@ async function save(publish: boolean): Promise<void> {
           value-format="YYYY-MM-DDTHH:mm:ssZ"
         />
       </el-form-item>
+      <el-form-item>
+        <el-checkbox v-model="form.mustRead" data-testid="kb-must-read">
+          必读：发布或更新后，坐席需要在工作台确认已读
+        </el-checkbox>
+      </el-form-item>
     </el-form>
+    <template v-if="item?.must_read && item.status === 'published' && canManage">
+      <h4 class="section">必读确认</h4>
+      <KbReadStats :key="`${item.id}:${item.version}`" :item-id="item.id" />
+    </template>
     <el-descriptions v-if="item" :column="2" size="small" class="meta">
       <el-descriptions-item label="状态">
         <el-tag size="small" :type="KB_STATUS_TAG[item.status]">
@@ -180,10 +201,24 @@ async function save(publish: boolean): Promise<void> {
         KB_SOURCE[item.source] ?? item.source
       }}</el-descriptions-item>
       <el-descriptions-item label="被引用">{{ item.hits }} 次</el-descriptions-item>
-      <el-descriptions-item label="更新时间" :span="2">
-        {{ formatDateTime(item.updated_at) }}
-      </el-descriptions-item>
+      <el-descriptions-item label="评价"
+        >有用 {{ item.likes }} · 没用 {{ item.dislikes }}</el-descriptions-item
+      >
+      <el-descriptions-item label="更新时间">{{
+        formatDateTime(item.updated_at)
+      }}</el-descriptions-item>
     </el-descriptions>
+    <el-button
+      v-if="item && canManage"
+      link
+      type="primary"
+      class="history"
+      data-testid="kb-open-versions"
+      @click="history = item"
+    >
+      版本历史
+    </el-button>
+    <KbVersionsDrawer :item="history" @close="history = null" @restored="restored" />
     <template v-if="canManage" #footer>
       <el-button @click="open = false">取消</el-button>
       <el-button
@@ -222,6 +257,15 @@ async function save(publish: boolean): Promise<void> {
 }
 
 .meta {
+  margin-top: 8px;
+}
+
+.section {
+  margin: 8px 0;
+  font-size: 14px;
+}
+
+.history {
   margin-top: 8px;
 }
 </style>

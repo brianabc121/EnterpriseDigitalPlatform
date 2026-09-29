@@ -14,6 +14,22 @@ const emit = defineEmits<{ insert: [text: string] }>()
 const query = ref('')
 const hits = ref<Schemas['KbSearchHit'][] | null>(null)
 const loading = ref(false)
+/** 我对每条知识的评价（1 有用、-1 没用）。 */
+const votes = ref<Record<string, number>>({})
+
+async function rate(hit: Schemas['KbSearchHit'], value: 1 | -1): Promise<void> {
+  const next = votes.value[hit.item_id] === value ? 0 : value
+  const { data, error } = await api.POST('/api/v1/kb/items/{item_id}/feedback', {
+    params: { path: { item_id: hit.item_id } },
+    body: { value: next },
+  })
+  if (!data) {
+    ElMessage.error(errorMessage(error))
+    return
+  }
+  votes.value = { ...votes.value, [hit.item_id]: data.mine }
+  if (next) ElMessage.success('谢谢反馈')
+}
 
 async function search(): Promise<void> {
   const q = query.value.trim()
@@ -59,16 +75,38 @@ async function search(): Promise<void> {
           </span>
         </div>
         <p class="text">{{ hit.text }}</p>
-        <el-button
-          v-if="insertable"
-          link
-          type="primary"
-          size="small"
-          data-testid="kb-insert"
-          @click="emit('insert', hit.text)"
-        >
-          插入回复框
-        </el-button>
+        <div class="hit-actions">
+          <el-button
+            v-if="insertable"
+            link
+            type="primary"
+            size="small"
+            data-testid="kb-insert"
+            @click="emit('insert', hit.text)"
+          >
+            插入回复框
+          </el-button>
+          <span class="rate">
+            <el-button
+              link
+              size="small"
+              :type="votes[hit.item_id] === 1 ? 'primary' : undefined"
+              data-testid="kb-like"
+              @click="rate(hit, 1)"
+            >
+              有用
+            </el-button>
+            <el-button
+              link
+              size="small"
+              :type="votes[hit.item_id] === -1 ? 'danger' : undefined"
+              data-testid="kb-dislike"
+              @click="rate(hit, -1)"
+            >
+              没用
+            </el-button>
+          </span>
+        </div>
       </div>
       <el-empty v-if="hits.length === 0" :image-size="48" description="没有找到相关知识" />
     </div>
@@ -109,6 +147,15 @@ async function search(): Promise<void> {
   font-size: 12px;
   color: var(--el-text-color-secondary);
   font-variant-numeric: tabular-nums;
+}
+
+.hit-actions {
+  display: flex;
+  align-items: center;
+}
+
+.rate {
+  margin-left: auto;
 }
 
 .text {

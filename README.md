@@ -74,6 +74,11 @@ export EDP_LLM_BASE_URL=http://127.0.0.1:8900/v1 EDP_LLM_CHAT_MODEL=fake-chat ED
 
 更换向量模型后执行 `cd backend && uv run python -m app.cli kb-reindex` 重建知识检索单元。
 
+知识沉淀：调度进程每小时从已结束的会话里提炼问答和没有解答的问题（先脱敏），管理员在"知识库 → 审核台"
+编辑后通过、合并或驳回，通过的知识 AI 与坐席立即可用；知识有版本历史、可以回滚，可以设为必读（坐席在工作台
+"动态"里确认），"运营数据"和"周报"跟踪命中率、缺口、通过率和采纳率。需要立即处理时执行
+`cd backend && uv run python -m app.cli kb-extract`（提炼）或 `kb-digest`（生成本周周报）。
+
 默认配置适用于本地环境；需要修改时，把 `backend/.env.example` 复制为 `backend/.env`。
 OpenIM 的镜像名都可以用环境变量替换（见 `deploy/compose/openim/docker-compose.yml`），便于使用镜像加速地址。
 
@@ -120,6 +125,9 @@ make frontend-build
   试一试和评测；访客得到 AI 依据知识的回答，要求人工后 AI 写好摘要转给坐席；坐席用 AI 建议和知识检索回复；
   检查会话记录里的 AI 判定、报表的 AI 指标和运营后台的 AI 额度。前置同 M6，后端、实时消费进程和调度进程
   需要接到大模型（可以用上面的模拟服务）。
+- **P4**（`scripts/e2e/p4-knowledge-acceptance.cjs`）：访客与坐席对话后提炼知识，管理员在审核台通过、补充、
+  驳回候选并对比冲突答案，AI 立即使用新知识；版本回滚、必读确认、坐席评价、运营数据与周报。前置同 P3
+  （提炼命令的环境变量同样要接到大模型）。
 
   ```bash
   NODE_PATH=$(npm root -g) PLATFORM_PASSWORD=<平台账号密码> node scripts/e2e/m4-workbench-acceptance.cjs
@@ -127,6 +135,7 @@ make frontend-build
   NODE_PATH=$(npm root -g) PLATFORM_PASSWORD=<平台账号密码> node scripts/e2e/m3-widget-acceptance.cjs
   NODE_PATH=$(npm root -g) PLATFORM_PASSWORD=<平台账号密码> node scripts/e2e/m6-admin-acceptance.cjs
   NODE_PATH=$(npm root -g) PLATFORM_PASSWORD=<平台账号密码> node scripts/e2e/p3-ai-acceptance.cjs
+  NODE_PATH=$(npm root -g) PLATFORM_PASSWORD=<平台账号密码> node scripts/e2e/p4-knowledge-acceptance.cjs
   ```
 
 - **P1 M1**（`scripts/e2e/m1-im-acceptance.cjs`）：访客在 Widget 里发消息、实时收到机器人回复，消息经回调入库；

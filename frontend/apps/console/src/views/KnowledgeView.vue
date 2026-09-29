@@ -5,9 +5,12 @@ import { computed, onMounted, ref, watch } from 'vue'
 
 import { KB_KIND, KB_STATUS, KB_STATUS_TAG, KB_VISIBILITY } from '../ai'
 import { api, formatDateTime } from '../api'
+import KbDigestPanel from '../components/knowledge/KbDigestPanel.vue'
 import KbImportDialog from '../components/knowledge/KbImportDialog.vue'
 import KbItemEditor from '../components/knowledge/KbItemEditor.vue'
+import KbMetricsPanel from '../components/knowledge/KbMetricsPanel.vue'
 import KbSearchPanel from '../components/knowledge/KbSearchPanel.vue'
+import ReviewDesk from '../components/knowledge/ReviewDesk.vue'
 import { useAuthStore } from '../stores/auth'
 
 type Item = Schemas['KbItemOut']
@@ -30,6 +33,9 @@ const editorOpen = ref(false)
 const newKind = ref<'faq' | 'doc'>('faq')
 const importOpen = ref(false)
 const searchOpen = ref(false)
+const tab = ref('items')
+const pendingCandidates = ref(0)
+const stale = ref(false)
 
 async function load(): Promise<void> {
   loading.value = true
@@ -39,6 +45,7 @@ async function load(): Promise<void> {
         status: status.value || undefined,
         kind: kind.value || undefined,
         q: keyword.value.trim() || undefined,
+        stale: stale.value || undefined,
         limit: PAGE_SIZE,
         offset: (page.value - 1) * PAGE_SIZE,
       },
@@ -101,8 +108,15 @@ async function remove(item: Item): Promise<void> {
   await load()
 }
 
-watch([status, kind], reload)
-onMounted(load)
+watch([status, kind, stale], reload)
+onMounted(async () => {
+  await load()
+  // 待审核候选数显示在"审核台"页签上。
+  if (canManage.value) {
+    const { data } = await api.GET('/api/v1/kb/candidates', { params: { query: { limit: 1 } } })
+    if (data) pendingCandidates.value = Object.values(data.pending).reduce((a, b) => a + b, 0)
+  }
+})
 </script>
 
 <template>
@@ -126,113 +140,145 @@ onMounted(load)
       </div>
     </div>
 
-    <div class="filters">
-      <el-radio-group v-if="canManage" v-model="status" size="small" data-testid="kb-status-filter">
-        <el-radio-button value="">全部</el-radio-button>
-        <el-radio-button v-for="(label, value) in KB_STATUS" :key="value" :value="value">
-          {{ label }}
-        </el-radio-button>
-      </el-radio-group>
-      <el-select v-model="kind" size="small" class="kind" placeholder="类型">
-        <el-option label="全部类型" value="" />
-        <el-option v-for="(label, value) in KB_KIND" :key="value" :label="label" :value="value" />
-      </el-select>
-      <el-input
-        v-model="keyword"
-        size="small"
-        class="keyword"
-        placeholder="搜索标题或内容"
-        clearable
-        maxlength="100"
-        data-testid="kb-keyword"
-        @keyup.enter="reload"
-        @clear="reload"
-      />
-    </div>
+    <el-tabs v-model="tab" data-testid="kb-tabs">
+      <el-tab-pane label="知识条目" name="items">
+        <div class="filters">
+          <el-radio-group
+            v-if="canManage"
+            v-model="status"
+            size="small"
+            data-testid="kb-status-filter"
+          >
+            <el-radio-button value="">全部</el-radio-button>
+            <el-radio-button v-for="(label, value) in KB_STATUS" :key="value" :value="value">
+              {{ label }}
+            </el-radio-button>
+          </el-radio-group>
+          <el-select v-model="kind" size="small" class="kind" placeholder="类型">
+            <el-option label="全部类型" value="" />
+            <el-option
+              v-for="(label, value) in KB_KIND"
+              :key="value"
+              :label="label"
+              :value="value"
+            />
+          </el-select>
+          <el-input
+            v-model="keyword"
+            size="small"
+            class="keyword"
+            placeholder="搜索标题或内容"
+            clearable
+            maxlength="100"
+            data-testid="kb-keyword"
+            @keyup.enter="reload"
+            @clear="reload"
+          />
+          <el-checkbox v-if="canManage" v-model="stale" data-testid="kb-stale-filter">
+            长期未命中
+          </el-checkbox>
+        </div>
 
-    <el-table
-      v-loading="loading"
-      :data="items"
-      data-testid="kb-table"
-      empty-text="还没有知识，点击右上角新建或批量导入"
-      class="clickable"
-      @row-click="edit"
-    >
-      <el-table-column label="标题" min-width="260">
-        <template #default="{ row }">
-          <el-tag size="small" type="info" class="kind-tag">{{
-            KB_KIND[row.kind] ?? row.kind
-          }}</el-tag>
-          <span>{{ row.title }}</span>
-          <span v-if="row.questions.length" class="muted">+{{ row.questions.length }} 个问法</span>
+        <el-table
+          v-loading="loading"
+          :data="items"
+          data-testid="kb-table"
+          empty-text="还没有知识，点击右上角新建或批量导入"
+          class="clickable"
+          @row-click="edit"
+        >
+          <el-table-column label="标题" min-width="260">
+            <template #default="{ row }">
+              <el-tag size="small" type="info" class="kind-tag">{{
+                KB_KIND[row.kind] ?? row.kind
+              }}</el-tag>
+              <span>{{ row.title }}</span>
+              <span v-if="row.questions.length" class="muted"
+                >+{{ row.questions.length }} 个问法</span
+              >
+            </template>
+          </el-table-column>
+          <el-table-column prop="category" label="分类" width="110" />
+          <el-table-column label="状态" width="90">
+            <template #default="{ row }">
+              <el-tag size="small" :type="KB_STATUS_TAG[row.status]">
+                {{ KB_STATUS[row.status] ?? row.status }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="可见范围" width="140">
+            <template #default="{ row }">{{
+              KB_VISIBILITY[row.visibility] ?? row.visibility
+            }}</template>
+          </el-table-column>
+          <el-table-column label="版本" width="64">
+            <template #default="{ row }">v{{ row.version }}</template>
+          </el-table-column>
+          <el-table-column label="引用" width="70" align="right">
+            <template #default="{ row }">{{ row.hits }}</template>
+          </el-table-column>
+          <el-table-column label="更新时间" width="170">
+            <template #default="{ row }">{{ formatDateTime(row.updated_at) }}</template>
+          </el-table-column>
+          <el-table-column v-if="canManage || canPublish" label="" width="150">
+            <template #default="{ row }">
+              <span @click.stop>
+                <el-button
+                  v-if="canPublish && row.status !== 'published'"
+                  link
+                  type="primary"
+                  size="small"
+                  data-testid="kb-publish"
+                  @click="act(row, 'publish')"
+                >
+                  发布
+                </el-button>
+                <el-button
+                  v-if="canPublish && row.status === 'published'"
+                  link
+                  size="small"
+                  data-testid="kb-archive"
+                  @click="act(row, 'archive')"
+                >
+                  下架
+                </el-button>
+                <el-button
+                  v-if="canManage && row.status !== 'published'"
+                  link
+                  type="danger"
+                  size="small"
+                  @click="remove(row)"
+                >
+                  删除
+                </el-button>
+              </span>
+            </template>
+          </el-table-column>
+        </el-table>
+        <div class="page-footer">
+          <el-pagination
+            v-model:current-page="page"
+            :page-size="PAGE_SIZE"
+            :total="total"
+            layout="total, prev, pager, next"
+            @current-change="load"
+          />
+        </div>
+      </el-tab-pane>
+      <el-tab-pane v-if="canManage" name="review" lazy>
+        <template #label>
+          审核台
+          <el-badge v-if="pendingCandidates" :value="pendingCandidates" class="badge" />
         </template>
-      </el-table-column>
-      <el-table-column prop="category" label="分类" width="110" />
-      <el-table-column label="状态" width="90">
-        <template #default="{ row }">
-          <el-tag size="small" :type="KB_STATUS_TAG[row.status]">
-            {{ KB_STATUS[row.status] ?? row.status }}
-          </el-tag>
-        </template>
-      </el-table-column>
-      <el-table-column label="可见范围" width="140">
-        <template #default="{ row }">{{
-          KB_VISIBILITY[row.visibility] ?? row.visibility
-        }}</template>
-      </el-table-column>
-      <el-table-column label="版本" width="64">
-        <template #default="{ row }">v{{ row.version }}</template>
-      </el-table-column>
-      <el-table-column label="引用" width="70" align="right">
-        <template #default="{ row }">{{ row.hits }}</template>
-      </el-table-column>
-      <el-table-column label="更新时间" width="170">
-        <template #default="{ row }">{{ formatDateTime(row.updated_at) }}</template>
-      </el-table-column>
-      <el-table-column v-if="canManage || canPublish" label="" width="150">
-        <template #default="{ row }">
-          <span @click.stop>
-            <el-button
-              v-if="canPublish && row.status !== 'published'"
-              link
-              type="primary"
-              size="small"
-              data-testid="kb-publish"
-              @click="act(row, 'publish')"
-            >
-              发布
-            </el-button>
-            <el-button
-              v-if="canPublish && row.status === 'published'"
-              link
-              size="small"
-              data-testid="kb-archive"
-              @click="act(row, 'archive')"
-            >
-              下架
-            </el-button>
-            <el-button
-              v-if="canManage && row.status !== 'published'"
-              link
-              type="danger"
-              size="small"
-              @click="remove(row)"
-            >
-              删除
-            </el-button>
-          </span>
-        </template>
-      </el-table-column>
-    </el-table>
-    <div class="page-footer">
-      <el-pagination
-        v-model:current-page="page"
-        :page-size="PAGE_SIZE"
-        :total="total"
-        layout="total, prev, pager, next"
-        @current-change="load"
-      />
-    </div>
+        <ReviewDesk @reviewed="load" @pending="(n: number) => (pendingCandidates = n)" />
+      </el-tab-pane>
+      <el-tab-pane v-if="canManage" label="运营数据" name="metrics" lazy>
+        <KbMetricsPanel />
+      </el-tab-pane>
+      <el-tab-pane label="周报" name="digest" lazy>
+        <KbDigestPanel />
+      </el-tab-pane>
+    </el-tabs>
 
     <KbItemEditor v-model="editorOpen" :item="editing" :kind="newKind" @saved="load" />
     <KbImportDialog v-model="importOpen" @imported="reload" />
@@ -268,6 +314,10 @@ onMounted(load)
 
 .kind-tag {
   margin-right: 6px;
+}
+
+.badge {
+  margin-left: 4px;
 }
 
 .muted {
