@@ -342,10 +342,12 @@ async function run(browser) {
   await fake('complete_transfers')
   execSync(TRANSFERS_CMD, { cwd: ROOT, stdio: 'pipe', shell: '/bin/bash' })
   await page.reload()
+  // 归属记录在客户行的"更多"菜单里。
   await page
     .locator('[data-testid="customer-table"] .el-table__row', { hasText: '客户甲' })
-    .locator('button', { hasText: '归属记录' })
+    .locator('button', { hasText: '更多' })
     .click()
+  await page.locator('.el-dropdown-menu__item:visible', { hasText: '归属记录' }).click()
   const drawer = page.locator('.el-drawer:visible')
   await drawer.locator('.el-timeline-item').first().waitFor()
   await settle(page)
