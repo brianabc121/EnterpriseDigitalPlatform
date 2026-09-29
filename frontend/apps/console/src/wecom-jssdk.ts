@@ -21,11 +21,21 @@ interface Wx {
   invoke(name: string, args: Record<string, unknown>, callback: (res: Result) => void): void
 }
 
-const SCRIPTS = [
+const DEFAULT_SCRIPTS = [
   'https://res.wx.qq.com/open/js/jweixin-1.2.0.js',
   'https://open.work.weixin.qq.com/wwopen/js/jwxwork-1.0.0.js',
 ]
-const JS_API = ['getContext', 'getCurExternalContact', 'getCurExternalChat', 'sendChatMessage']
+// 联调、验收时可以换成模拟的 JS-SDK（逗号分隔，见 backend/tests/fake_wecom.py）。
+const SCRIPTS: string[] = import.meta.env.VITE_WECOM_JSSDK_URLS
+  ? String(import.meta.env.VITE_WECOM_JSSDK_URLS).split(',').filter(Boolean)
+  : DEFAULT_SCRIPTS
+const JS_API = [
+  'getContext',
+  'getCurExternalContact',
+  'getCurExternalChat',
+  'sendChatMessage',
+  'openEnterpriseChat',
+]
 
 function loadScript(src: string): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -103,6 +113,19 @@ export async function loadJssdk(config: Schemas['JssdkConfig']) {
     /** 发送文字到当前聊天（员工确认后发出）。 */
     async sendText(text: string): Promise<void> {
       await invoke('sendChatMessage', { msgtype: 'text', enterChat: true, text: { content: text } })
+    },
+    /**
+     * 一键建群（设计 §10.5）：拉上企业成员（如接单员）和客户，员工在企业微信里确认后建群。
+     * 含外部联系人时最多 40 人。返回新群的 chat_id。
+     */
+    async createGroup(userIds: string[], externalUserIds: string[], name: string): Promise<string> {
+      const res = await invoke('openEnterpriseChat', {
+        userIds: userIds.join(';'),
+        externalUserIds: externalUserIds.join(';'),
+        groupName: name,
+        chatId: '',
+      })
+      return String(res.chatId ?? '')
     },
   }
 }

@@ -28,6 +28,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/integrations/wecom/group-transfers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Group Transfers
+         * @description 最近的客户群继承记录。
+         */
+        get: operations["group_transfers_api_v1_admin_integrations_wecom_group_transfers_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/integrations/wecom/install": {
         parameters: {
             query?: never;
@@ -43,6 +63,44 @@ export interface paths {
          */
         post: operations["start_install_api_v1_admin_integrations_wecom_install_post"];
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/integrations/wecom/join-ways": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Join Ways */
+        get: operations["join_ways_api_v1_admin_integrations_wecom_join_ways_get"];
+        put?: never;
+        /**
+         * Create Join Way
+         * @description 创建"加入群聊"二维码：扫码进入指定客户群，群满后可以自动建新群。
+         */
+        post: operations["create_join_way_api_v1_admin_integrations_wecom_join_ways_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/integrations/wecom/join-ways/{way_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Join Way */
+        delete: operations["delete_join_way_api_v1_admin_integrations_wecom_join_ways__way_id__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -116,6 +174,46 @@ export interface paths {
          * @description 立即全量同步（在后台执行）：成员、客服账号、标签、客户、客户群。
          */
         post: operations["sync_api_v1_admin_integrations_wecom_sync_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/integrations/wecom/unassigned": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Unassigned Customers
+         * @description 企业微信里待分配的离职成员客户。
+         */
+        get: operations["unassigned_customers_api_v1_admin_integrations_wecom_unassigned_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/integrations/wecom/unassigned/assign": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Assign Unassigned
+         * @description 把离职成员的客户分配给接手的员工：平台归属变更，企业微信里离职继承（可同时转移客户群）。
+         */
+        post: operations["assign_unassigned_api_v1_admin_integrations_wecom_unassigned_assign_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -480,6 +578,7 @@ export interface paths {
         /**
          * Hand Over
          * @description 离职或调岗交接：员工名下的全部客户转给指定员工，或平均分给技能组的成员。
+         *     可以同时把他作为群主的企业微信客户群转给接手的员工。
          */
         post: operations["hand_over_api_v1_customers_handover__staff_id__post"];
         delete?: never;
@@ -1356,6 +1455,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/sidebar/customers/{customer_id}/tags": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Sidebar Tags
+         * @description 在侧边栏里修改客户标签（员工能看到的客户，或自己在企业微信里添加的客户）。
+         */
+        put: operations["sidebar_tags_api_v1_sidebar_customers__customer_id__tags_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sidebar/groups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sidebar Group Created
+         * @description 侧边栏一键建群（JS-SDK openEnterpriseChat）后同步这个客户群，关联到客户档案。
+         */
+        post: operations["sidebar_group_created_api_v1_sidebar_groups_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sidebar/members": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Sidebar Members
+         * @description 一键建群时可以拉进群的企业成员（接单员等）。
+         */
+        get: operations["sidebar_members_api_v1_sidebar_members_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/sidebar/sent": {
         parameters: {
             query?: never;
@@ -1387,6 +1546,26 @@ export interface paths {
         put?: never;
         /** Sidebar Suggestions */
         post: operations["sidebar_suggestions_api_v1_sidebar_suggestions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sidebar/tags": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Sidebar Tags Options
+         * @description 企业标签（侧边栏改标签时的候选）。
+         */
+        get: operations["sidebar_tags_options_api_v1_sidebar_tags_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1752,6 +1931,124 @@ export interface paths {
          * @description 上传图片或文件：返回预签名上传 URL 和发送消息时引用的文件链接。
          */
         post: operations["create_upload_api_v1_visitor_uploads_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/wecom/broadcast-options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Broadcast Options
+         * @description 群发表单的候选：客户标签、归属坐席、客户群（限于可见范围）。
+         */
+        get: operations["broadcast_options_api_v1_wecom_broadcast_options_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/wecom/broadcasts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Broadcasts */
+        get: operations["list_broadcasts_api_v1_wecom_broadcasts_get"];
+        put?: never;
+        /**
+         * Create Broadcast
+         * @description 创建群发任务：员工（发给客户）或群主（发到客户群）在企业微信里确认后发出。
+         */
+        post: operations["create_broadcast_api_v1_wecom_broadcasts_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/wecom/broadcasts/{broadcast_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Broadcast Detail */
+        get: operations["broadcast_detail_api_v1_wecom_broadcasts__broadcast_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/wecom/broadcasts/{broadcast_id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancel Broadcast
+         * @description 停止群发：还没确认发送的员工不能再发送。
+         */
+        post: operations["cancel_broadcast_api_v1_wecom_broadcasts__broadcast_id__cancel_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/wecom/broadcasts/{broadcast_id}/refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Refresh Broadcast
+         * @description 立即回收发送结果（调度进程也会定时回收）。
+         */
+        post: operations["refresh_broadcast_api_v1_wecom_broadcasts__broadcast_id__refresh_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/wecom/broadcasts/{broadcast_id}/remind": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Remind Broadcast
+         * @description 提醒还没确认的员工发送。
+         */
+        post: operations["remind_broadcast_api_v1_wecom_broadcasts__broadcast_id__remind_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2269,6 +2566,33 @@ export interface components {
             /** Question */
             question: string;
         };
+        /** AssignUnassignedRequest */
+        AssignUnassignedRequest: {
+            /**
+             * External Userids
+             * @description 要分配的客户；为空表示这位成员的全部客户
+             */
+            external_userids?: string[] | null;
+            /**
+             * Handover Userid
+             * @description 离职成员
+             */
+            handover_userid: string;
+            /** Note */
+            note?: string | null;
+            /**
+             * To Owner Id
+             * Format: uuid
+             * @description 接手的员工（需要绑定企业微信成员）
+             */
+            to_owner_id: string;
+            /**
+             * Transfer Groups
+             * @description 同时把他作为群主的客户群转给接手的员工
+             * @default true
+             */
+            transfer_groups: boolean;
+        };
         /** Attachment */
         Attachment: {
             /** Content Type */
@@ -2299,6 +2623,178 @@ export interface components {
             url: string;
             /** Width */
             width?: number | null;
+        };
+        /**
+         * BroadcastAudience
+         * @description 群发对象。发给客户时按客户、标签、归属坐席筛选（取交集，只含员工可见的客户）；
+         *     发到客户群时按群或群主筛选。
+         */
+        BroadcastAudience: {
+            /**
+             * Chat Ids
+             * @description 客户群
+             */
+            chat_ids?: string[] | null;
+            /** Customer Ids */
+            customer_ids?: string[] | null;
+            /**
+             * Owner Ids
+             * @description 归属坐席
+             */
+            owner_ids?: string[] | null;
+            /**
+             * Tags
+             * @description 带任一标签的客户
+             */
+            tags?: string[] | null;
+        };
+        /** BroadcastCreate */
+        BroadcastCreate: {
+            audience?: components["schemas"]["BroadcastAudience"];
+            /** Content */
+            content: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "single" | "group";
+            link?: components["schemas"]["BroadcastLink"] | null;
+            /**
+             * Title
+             * @description 任务名称（仅平台内显示）
+             */
+            title: string;
+        };
+        /** BroadcastDetail */
+        BroadcastDetail: {
+            /** Content */
+            content: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Created By Name */
+            created_by_name: string | null;
+            /** Error */
+            error: string | null;
+            /**
+             * Fail List
+             * @description 企业微信没有接受的客户（不是好友等）
+             */
+            fail_list: unknown[];
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Kind */
+            kind: string;
+            link: components["schemas"]["BroadcastLink"] | null;
+            /** Members */
+            members: components["schemas"]["BroadcastMemberOut"][];
+            /** Polled At */
+            polled_at: string | null;
+            /** Stats */
+            stats: {
+                [key: string]: unknown;
+            };
+            /** Status */
+            status: string;
+            /** Target Count */
+            target_count: number;
+            /** Title */
+            title: string;
+        };
+        /** BroadcastLink */
+        BroadcastLink: {
+            /** Desc */
+            desc?: string | null;
+            /** Title */
+            title: string;
+            /** Url */
+            url: string;
+        };
+        /** BroadcastList */
+        BroadcastList: {
+            /** Items */
+            items: components["schemas"]["BroadcastOut"][];
+        };
+        /** BroadcastMemberOut */
+        BroadcastMemberOut: {
+            /**
+             * Confirmed
+             * @description 员工是否已在企业微信里确认发送
+             */
+            confirmed: boolean;
+            /** Failed */
+            failed: number;
+            /** Name */
+            name: string | null;
+            /** Send Time */
+            send_time: string | null;
+            /** Sent */
+            sent: number;
+            /** Unsent */
+            unsent: number;
+            /** Userid */
+            userid: string;
+        };
+        /**
+         * BroadcastOptions
+         * @description 创建群发时可选的对象（员工可见范围内）。
+         */
+        BroadcastOptions: {
+            /** Group Chats */
+            group_chats: components["schemas"]["GroupChatOut"][];
+            /** Owners */
+            owners: components["schemas"]["BroadcastOwner"][];
+            /** Tags */
+            tags: string[];
+        };
+        /** BroadcastOut */
+        BroadcastOut: {
+            /** Content */
+            content: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Created By Name */
+            created_by_name: string | null;
+            /** Error */
+            error: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Kind */
+            kind: string;
+            link: components["schemas"]["BroadcastLink"] | null;
+            /** Polled At */
+            polled_at: string | null;
+            /** Stats */
+            stats: {
+                [key: string]: unknown;
+            };
+            /** Status */
+            status: string;
+            /** Target Count */
+            target_count: number;
+            /** Title */
+            title: string;
+        };
+        /** BroadcastOwner */
+        BroadcastOwner: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
         };
         /** CallbackUrls */
         CallbackUrls: {
@@ -2517,7 +3013,7 @@ export interface components {
             note?: string | null;
             /**
              * Sync Wecom
-             * @description 同时变更企业微信里的添加人（在职继承）：90 天内每位客户最多转接 2 次，客户 24 小时后自动接替
+             * @description 同时变更企业微信里的添加人：原成员在职时走在职继承（90 天内每位客户最多转接 2 次，客户 24 小时后自动接替），已离职时走离职继承
              * @default false
              */
             sync_wecom: boolean;
@@ -2742,8 +3238,54 @@ export interface components {
             owner_name: string | null;
             /** Owner Userid */
             owner_userid: string | null;
+            /**
+             * Sentiment
+             * @description 专区返回的群聊情绪
+             */
+            sentiment?: string | null;
             /** Status */
             status: string;
+            /**
+             * Summary
+             * @description 专区返回的最近一次群聊摘要
+             */
+            summary?: string | null;
+        };
+        /** GroupTransferList */
+        GroupTransferList: {
+            /** Items */
+            items: components["schemas"]["GroupTransferOut"][];
+        };
+        /** GroupTransferOut */
+        GroupTransferOut: {
+            /** Chat Id */
+            chat_id: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Error */
+            error: string | null;
+            /** Group Name */
+            group_name: string | null;
+            /** Handover Name */
+            handover_name: string | null;
+            /** Handover Userid */
+            handover_userid: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Kind */
+            kind: string;
+            /** Status */
+            status: string;
+            /** Takeover Name */
+            takeover_name: string | null;
+            /** Takeover Userid */
+            takeover_userid: string;
         };
         /** HandoverRequest */
         HandoverRequest: {
@@ -2751,7 +3293,7 @@ export interface components {
             note?: string | null;
             /**
              * Sync Wecom
-             * @description 同时变更企业微信里的添加人（在职继承）：90 天内每位客户最多转接 2 次，客户 24 小时后自动接替
+             * @description 同时变更企业微信里的添加人：原成员在职时走在职继承（90 天内每位客户最多转接 2 次，客户 24 小时后自动接替），已离职时走离职继承
              * @default false
              */
             sync_wecom: boolean;
@@ -2765,6 +3307,12 @@ export interface components {
              * @description 接手的员工
              */
             to_owner_id?: string | null;
+            /**
+             * Transfer Groups
+             * @description 同时把他作为群主的企业微信客户群转给接手的员工（客户群继承）
+             * @default false
+             */
+            transfer_groups: boolean;
         };
         /** HealthStatus */
         HealthStatus: {
@@ -2798,6 +3346,79 @@ export interface components {
              * @description 企业微信授权页地址：管理员扫码授权后跳回控制台
              */
             url: string;
+        };
+        /**
+         * JoinWayCreate
+         * @description "加入群聊"二维码：扫码进入指定的客户群（最多 5 个），群满后可以自动建新群。
+         */
+        JoinWayCreate: {
+            /**
+             * Auto Create Room
+             * @description 群满后自动新建群
+             * @default true
+             */
+            auto_create_room: boolean;
+            /** Chat Ids */
+            chat_ids: string[];
+            /**
+             * Name
+             * @description 二维码名称（仅平台内显示）
+             */
+            name: string;
+            /**
+             * Room Base Id
+             * @description 自动建群的起始序号
+             */
+            room_base_id?: number | null;
+            /**
+             * Room Base Name
+             * @description 自动建群的群名前缀，如「VIP 客户群」
+             */
+            room_base_name?: string | null;
+        };
+        /** JoinWayList */
+        JoinWayList: {
+            /** Items */
+            items: components["schemas"]["JoinWayOut"][];
+        };
+        /** JoinWayOut */
+        JoinWayOut: {
+            /** Auto Create Room */
+            auto_create_room: boolean;
+            /** Chat Ids */
+            chat_ids: string[];
+            /** Config Id */
+            config_id: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Group Names */
+            group_names: string[];
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Joined
+             * @description 经这个二维码进群、现在仍在群里的客户数
+             */
+            joined: number;
+            /** Name */
+            name: string;
+            /**
+             * Qr Code
+             * @description 二维码图片地址（企业微信提供）
+             */
+            qr_code: string | null;
+            /** Room Base Id */
+            room_base_id: number | null;
+            /** Room Base Name */
+            room_base_name: string | null;
+            /** State */
+            state: string;
         };
         /** JsSignature */
         JsSignature: {
@@ -3919,7 +4540,7 @@ export interface components {
          * Permission
          * @enum {string}
          */
-        Permission: "dashboard:view" | "workbench:use" | "customer:read" | "customer:read_all" | "customer:create" | "customer:assign" | "session:read_all" | "session:read_team" | "session:transfer" | "session:transfer_any" | "routing:manage" | "staff:read" | "staff:manage" | "quick_reply:manage" | "kb:read" | "kb:manage" | "kb:publish" | "report:view" | "settings:manage";
+        Permission: "dashboard:view" | "workbench:use" | "customer:read" | "customer:read_all" | "customer:create" | "customer:assign" | "session:read_all" | "session:read_team" | "session:transfer" | "session:transfer_any" | "routing:manage" | "staff:read" | "staff:manage" | "quick_reply:manage" | "kb:read" | "kb:manage" | "kb:publish" | "report:view" | "settings:manage" | "broadcast:manage";
         /** PlatformLoginRequest */
         PlatformLoginRequest: {
             /** Password */
@@ -4569,6 +5190,16 @@ export interface components {
             /** Tags */
             tags: string[];
         };
+        /**
+         * SidebarGroupCreated
+         * @description 员工在侧边栏用 openEnterpriseChat 建好群后，把群 ID 告诉平台。
+         */
+        SidebarGroupCreated: {
+            /** Chat Id */
+            chat_id: string;
+            /** External Userid */
+            external_userid?: string | null;
+        };
         /** SidebarIdentity */
         SidebarIdentity: {
             /** Channel Name */
@@ -4579,6 +5210,23 @@ export interface components {
             profile: {
                 [key: string]: unknown;
             };
+        };
+        /** SidebarMemberList */
+        SidebarMemberList: {
+            /** Items */
+            items: components["schemas"]["SidebarMemberOut"][];
+        };
+        /**
+         * SidebarMemberOut
+         * @description 可以拉进群的企业成员（接单员等）。
+         */
+        SidebarMemberOut: {
+            /** Name */
+            name: string;
+            /** Staff Name */
+            staff_name: string | null;
+            /** Userid */
+            userid: string;
         };
         /** SidebarSentRequest */
         SidebarSentRequest: {
@@ -4594,6 +5242,11 @@ export interface components {
              * @enum {string}
              */
             origin: "manual" | "quick_reply" | "suggestion" | "knowledge";
+            /**
+             * Question
+             * @description 这条回复针对的客户问题（用于沉淀知识）
+             */
+            question?: string | null;
         };
         /** SidebarSession */
         SidebarSession: {
@@ -4630,6 +5283,11 @@ export interface components {
              * @description 客户的问题（员工粘贴或输入；JS-SDK 读不到聊天内容）
              */
             question: string;
+        };
+        /** SidebarTagsUpdate */
+        SidebarTagsUpdate: {
+            /** Tags */
+            tags: string[];
         };
         /** SkillGroupCreate */
         SkillGroupCreate: {
@@ -4753,6 +5411,14 @@ export interface components {
         SyncRequest: {
             /** Targets */
             targets?: ("members" | "kf" | "tags" | "contacts" | "groups")[];
+        };
+        /** TagOptions */
+        TagOptions: {
+            /**
+             * Items
+             * @description 企业标签（改标签时的候选）
+             */
+            items: string[];
         };
         /** TenantAdminCreate */
         TenantAdminCreate: {
@@ -5056,6 +5722,37 @@ export interface components {
             groups: components["schemas"]["TransferGroup"][];
         };
         /**
+         * UnassignedCustomerOut
+         * @description 企业微信里待分配的离职成员客户。
+         */
+        UnassignedCustomerOut: {
+            /**
+             * Customer Id
+             * @description 平台上的客户档案；为空表示还没有同步
+             */
+            customer_id: string | null;
+            /** Customer Name */
+            customer_name: string | null;
+            /** Dimission Time */
+            dimission_time: string | null;
+            /** External Userid */
+            external_userid: string;
+            /** Handover Name */
+            handover_name: string | null;
+            /** Handover Userid */
+            handover_userid: string;
+            /**
+             * Owner Name
+             * @description 平台上的归属坐席
+             */
+            owner_name: string | null;
+        };
+        /** UnassignedList */
+        UnassignedList: {
+            /** Items */
+            items: components["schemas"]["UnassignedCustomerOut"][];
+        };
+        /**
          * UploadOut
          * @description 用 PUT 把文件上传到 upload_url（Content-Type 与申请时一致），上传后在消息里引用 file_url。
          */
@@ -5298,6 +5995,18 @@ export interface components {
          */
         WecomSettings: {
             /**
+             * Kf Csat Menu
+             * @description 微信客服的会话结束时发送满意度评价按钮（菜单消息）
+             * @default true
+             */
+            kf_csat_menu: boolean;
+            /**
+             * Kf Handoff Menu
+             * @description 微信客服里 AI 的回复带一个「转人工」按钮（菜单消息），客户点选即转人工
+             * @default true
+             */
+            kf_handoff_menu: boolean;
+            /**
              * Notify Agents
              * @description 新会话分配、转接请求、必读知识通过应用消息提醒员工
              * @default true
@@ -5325,6 +6034,22 @@ export interface components {
              * @default 您好，很高兴为您服务！有任何问题，可以点击下方链接随时咨询在线客服。
              */
             welcome_text: string;
+            /**
+             * Zone Ability Id
+             * @description 专区程序的能力 ID
+             */
+            zone_ability_id?: string | null;
+            /**
+             * Zone Enabled
+             * @description 从数据与智能专区取回群聊分析结果（需要企业购买会话存档并授权专区）
+             * @default false
+             */
+            zone_enabled: boolean;
+            /**
+             * Zone Program Id
+             * @description 专区程序 ID
+             */
+            zone_program_id?: string | null;
         };
         /** WecomStatus */
         WecomStatus: {
@@ -5366,6 +6091,11 @@ export interface components {
              * Format: uuid
              */
             id: string;
+            /**
+             * Kind
+             * @description onjob 在职继承，resigned 离职继承
+             */
+            kind: string;
             /** Status */
             status: string;
             /** Takeover At */
@@ -5381,10 +6111,28 @@ export interface components {
              */
             failed: number;
             /**
+             * Groups Failed
+             * @description 转移失败的客户群数
+             * @default 0
+             */
+            groups_failed: number;
+            /**
+             * Groups Transferred
+             * @description 转给接手员工的客户群数
+             * @default 0
+             */
+            groups_transferred: number;
+            /**
              * Requested
-             * @description 已提交在职继承的客户数（结果稍后回收）
+             * @description 已提交客户继承的客户数（结果稍后回收）
              */
             requested: number;
+            /**
+             * Resigned
+             * @description 其中走离职继承的客户数（原成员已离职）
+             * @default 0
+             */
+            resigned: number;
             /**
              * Skipped
              * @description 不需要或无法同步的客户数（没有绑定企业微信成员等）
@@ -5581,6 +6329,80 @@ export interface operations {
             };
         };
     };
+    group_transfers_api_v1_admin_integrations_wecom_group_transfers_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GroupTransferList"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     start_install_api_v1_admin_integrations_wecom_install_post: {
         parameters: {
             query?: never;
@@ -5598,6 +6420,232 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["InstallOut"];
                 };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    join_ways_api_v1_admin_integrations_wecom_join_ways_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JoinWayList"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    create_join_way_api_v1_admin_integrations_wecom_join_ways_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["JoinWayCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JoinWayOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    delete_join_way_api_v1_admin_integrations_wecom_join_ways__way_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                way_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Bad Request */
             400: {
@@ -5907,6 +6955,158 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SyncAccepted"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    unassigned_customers_api_v1_admin_integrations_wecom_unassigned_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UnassignedList"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    assign_unassigned_api_v1_admin_integrations_wecom_unassigned_assign_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AssignUnassignedRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TransferResult"];
                 };
             };
             /** @description Bad Request */
@@ -11915,6 +13115,238 @@ export interface operations {
             };
         };
     };
+    sidebar_tags_api_v1_sidebar_customers__customer_id__tags_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                customer_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SidebarTagsUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SidebarCustomer"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    sidebar_group_created_api_v1_sidebar_groups_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SidebarGroupCreated"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GroupChatOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    sidebar_members_api_v1_sidebar_members_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SidebarMemberList"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     sidebar_sent_api_v1_sidebar_sent_post: {
         parameters: {
             query?: never;
@@ -12011,6 +13443,80 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SuggestionList"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    sidebar_tags_options_api_v1_sidebar_tags_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TagOptions"];
                 };
             };
             /** @description Bad Request */
@@ -13727,6 +15233,534 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["UploadOut"];
                 };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    broadcast_options_api_v1_wecom_broadcast_options_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BroadcastOptions"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    list_broadcasts_api_v1_wecom_broadcasts_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BroadcastList"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    create_broadcast_api_v1_wecom_broadcasts_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BroadcastCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BroadcastOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    broadcast_detail_api_v1_wecom_broadcasts__broadcast_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                broadcast_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BroadcastDetail"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    cancel_broadcast_api_v1_wecom_broadcasts__broadcast_id__cancel_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                broadcast_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BroadcastDetail"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    refresh_broadcast_api_v1_wecom_broadcasts__broadcast_id__refresh_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                broadcast_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BroadcastDetail"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    remind_broadcast_api_v1_wecom_broadcasts__broadcast_id__remind_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                broadcast_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Bad Request */
             400: {

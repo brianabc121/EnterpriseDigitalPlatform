@@ -15,6 +15,7 @@ from app.core.permissions import Permission
 from app.integrations.wecom import WeComError
 from app.modules.ai.schemas import SuggestionList
 from app.modules.audit.service import record_audit
+from app.modules.customer.schemas import TransferResult
 from app.modules.customer.service import get_customer
 from app.modules.iam import service as iam_service
 from app.modules.iam.deps import CurrentPrincipal, TenantDb, require_permission
@@ -22,7 +23,7 @@ from app.modules.iam.models import Staff
 from app.modules.iam.principal import Principal
 from app.modules.iam.router import set_refresh_cookie
 from app.modules.iam.schemas import TokenResponse
-from app.modules.wecom import auth, login, sidebar
+from app.modules.wecom import auth, inherit, login, marketing, sidebar
 from app.modules.wecom.auth import cancel_corp
 from app.modules.wecom.models import (
     MemberStatus,
@@ -35,20 +36,37 @@ from app.modules.wecom.models import (
     WecomTransfer,
 )
 from app.modules.wecom.schemas import (
+    AssignUnassignedRequest,
+    BroadcastCreate,
+    BroadcastDetail,
+    BroadcastList,
+    BroadcastOptions,
+    BroadcastOut,
     CorpOut,
     CustomerWecom,
+    GroupChatOut,
+    GroupTransferList,
     InstallOut,
+    JoinWayCreate,
+    JoinWayList,
+    JoinWayOut,
     JssdkConfig,
     KfAccountOut,
     MemberBind,
     MemberList,
     MemberOut,
     SidebarContext,
+    SidebarCustomer,
+    SidebarGroupCreated,
+    SidebarMemberList,
     SidebarSentRequest,
     SidebarSuggestRequest,
+    SidebarTagsUpdate,
     SsoUrlOut,
     SyncAccepted,
     SyncRequest,
+    TagOptions,
+    UnassignedList,
     WecomCounts,
     WecomLoginRequest,
     WecomSettings,
@@ -390,4 +408,195 @@ async def sidebar_sent(
 ) -> Response:
     """记录员工经侧边栏发出的内容（渠道记为 wecom_sidebar）。"""
     await sidebar.record_sent(session, principal, payload)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.put("/sidebar/customers/{customer_id}/tags", response_model=SidebarCustomer)
+async def sidebar_tags(
+    customer_id: UUID,
+    payload: SidebarTagsUpdate,
+    request: Request,
+    ctx: Context,
+    session: TenantDb,
+    principal: CurrentPrincipal,
+) -> SidebarCustomer:
+    """在侧边栏里修改客户标签（员工能看到的客户，或自己在企业微信里添加的客户）。"""
+    return await sidebar.update_tags(
+        ctx, session, principal, customer_id, payload, ip=client_ip(request)
+    )
+
+
+@router.get("/sidebar/tags", response_model=TagOptions)
+async def sidebar_tags_options(session: TenantDb, _: CurrentPrincipal) -> TagOptions:
+    """企业标签（侧边栏改标签时的候选）。"""
+    rows = await session.scalars(
+        select(WecomTag.name)
+        .where(WecomTag.deleted.is_(False))
+        .order_by(WecomTag.group_id, WecomTag.sort, WecomTag.name)
+    )
+    return TagOptions(items=list(dict.fromkeys(rows.all())))
+
+
+@router.get("/sidebar/members", response_model=SidebarMemberList)
+async def sidebar_members(session: TenantDb, _: CurrentPrincipal) -> SidebarMemberList:
+    """一键建群时可以拉进群的企业成员（接单员等）。"""
+    return await sidebar.members(session)
+
+
+@router.post("/sidebar/groups", response_model=GroupChatOut)
+async def sidebar_group_created(
+    payload: SidebarGroupCreated,
+    request: Request,
+    ctx: Context,
+    session: TenantDb,
+    principal: CurrentPrincipal,
+) -> GroupChatOut:
+    """侧边栏一键建群（JS-SDK openEnterpriseChat）后同步这个客户群，关联到客户档案。"""
+    return await sidebar.group_created(ctx, session, principal, payload, ip=client_ip(request))
+
+
+# ---- 离职继承、客户群继承 ----
+
+
+@router.get(f"{ADMIN}/unassigned", response_model=UnassignedList)
+async def unassigned_customers(ctx: Context, session: TenantDb, _: CanManage) -> UnassignedList:
+    """企业微信里待分配的离职成员客户。"""
+    return UnassignedList(items=await inherit.unassigned(ctx, session))
+
+
+@router.post(f"{ADMIN}/unassigned/assign", response_model=TransferResult)
+async def assign_unassigned(
+    payload: AssignUnassignedRequest,
+    request: Request,
+    ctx: Context,
+    session: TenantDb,
+    principal: CanManage,
+) -> TransferResult:
+    """把离职成员的客户分配给接手的员工：平台归属变更，企业微信里离职继承（可同时转移客户群）。"""
+    result = await inherit.assign_unassigned(ctx, session, principal, payload)
+    record_audit(
+        session,
+        action="wecom.assign_unassigned",
+        actor_type="staff",
+        actor_id=principal.staff_id,
+        tenant_id=principal.tenant_id,
+        resource_type="staff",
+        resource_id=str(payload.to_owner_id),
+        detail={
+            "handover_userid": payload.handover_userid,
+            "customers": len(payload.external_userids or []) or None,
+            "transfer_groups": payload.transfer_groups,
+        },
+        ip=client_ip(request),
+    )
+    await session.commit()
+    return result
+
+
+@router.get(f"{ADMIN}/group-transfers", response_model=GroupTransferList)
+async def group_transfers(session: TenantDb, _: CanManage) -> GroupTransferList:
+    """最近的客户群继承记录。"""
+    return GroupTransferList(items=await inherit.recent_group_transfers(session))
+
+
+# ---- 客户群活码 ----
+
+
+@router.get(f"{ADMIN}/join-ways", response_model=JoinWayList)
+async def join_ways(session: TenantDb, _: CanManage) -> JoinWayList:
+    return JoinWayList(items=await marketing.list_join_ways(session))
+
+
+@router.post(f"{ADMIN}/join-ways", response_model=JoinWayOut, status_code=status.HTTP_201_CREATED)
+async def create_join_way(
+    payload: JoinWayCreate, ctx: Context, session: TenantDb, principal: CanManage
+) -> JoinWayOut:
+    """创建"加入群聊"二维码：扫码进入指定客户群，群满后可以自动建新群。"""
+    return await marketing.create_join_way(ctx, session, principal, payload)
+
+
+@router.delete(f"{ADMIN}/join-ways/{{way_id}}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_join_way(way_id: UUID, ctx: Context, session: TenantDb, _: CanManage) -> Response:
+    await marketing.delete_join_way(ctx, session, way_id)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+# ---- 群发任务 ----
+
+CanBroadcast = Annotated[Principal, Depends(require_permission(Permission.BROADCAST_MANAGE))]
+
+
+@router.get("/wecom/broadcast-options", response_model=BroadcastOptions)
+async def broadcast_options(session: TenantDb, principal: CanBroadcast) -> BroadcastOptions:
+    """群发表单的候选：客户标签、归属坐席、客户群（限于可见范围）。"""
+    return await marketing.broadcast_options(session, principal)
+
+
+@router.get("/wecom/broadcasts", response_model=BroadcastList)
+async def list_broadcasts(session: TenantDb, principal: CanBroadcast) -> BroadcastList:
+    return BroadcastList(items=await marketing.list_broadcasts(session, principal))
+
+
+@router.post("/wecom/broadcasts", response_model=BroadcastOut, status_code=status.HTTP_201_CREATED)
+async def create_broadcast(
+    payload: BroadcastCreate,
+    request: Request,
+    ctx: Context,
+    session: TenantDb,
+    principal: CanBroadcast,
+) -> BroadcastOut:
+    """创建群发任务：员工（发给客户）或群主（发到客户群）在企业微信里确认后发出。"""
+    out = await marketing.create_broadcast(ctx, session, principal, payload)
+    record_audit(
+        session,
+        action="wecom.broadcast",
+        actor_type="staff",
+        actor_id=principal.staff_id,
+        tenant_id=principal.tenant_id,
+        resource_type="wecom_broadcast",
+        resource_id=str(out.id),
+        detail={"kind": out.kind, "targets": out.target_count, "status": out.status},
+        ip=client_ip(request),
+    )
+    await session.commit()
+    return out
+
+
+@router.get("/wecom/broadcasts/{broadcast_id}", response_model=BroadcastDetail)
+async def broadcast_detail(
+    broadcast_id: UUID, session: TenantDb, principal: CanBroadcast
+) -> BroadcastDetail:
+    broadcast = await marketing.get_broadcast(session, principal, broadcast_id)
+    return await marketing.broadcast_detail(session, broadcast)
+
+
+@router.post("/wecom/broadcasts/{broadcast_id}/refresh", response_model=BroadcastDetail)
+async def refresh_broadcast(
+    broadcast_id: UUID, ctx: Context, session: TenantDb, principal: CanBroadcast
+) -> BroadcastDetail:
+    """立即回收发送结果（调度进程也会定时回收）。"""
+    broadcast = await marketing.get_broadcast(session, principal, broadcast_id)
+    await session.commit()
+    await marketing.refresh_broadcast(ctx, principal.tenant_id, broadcast.id)
+    await session.refresh(broadcast)
+    return await marketing.broadcast_detail(session, broadcast)
+
+
+@router.post("/wecom/broadcasts/{broadcast_id}/cancel", response_model=BroadcastDetail)
+async def cancel_broadcast(
+    broadcast_id: UUID, ctx: Context, session: TenantDb, principal: CanBroadcast
+) -> BroadcastDetail:
+    """停止群发：还没确认发送的员工不能再发送。"""
+    broadcast = await marketing.get_broadcast(session, principal, broadcast_id)
+    await marketing.cancel_broadcast(ctx, session, broadcast)
+    return await marketing.broadcast_detail(session, broadcast)
+
+
+@router.post("/wecom/broadcasts/{broadcast_id}/remind", status_code=status.HTTP_204_NO_CONTENT)
+async def remind_broadcast(
+    broadcast_id: UUID, ctx: Context, session: TenantDb, principal: CanBroadcast
+) -> Response:
+    """提醒还没确认的员工发送。"""
+    broadcast = await marketing.get_broadcast(session, principal, broadcast_id)
+    await marketing.remind_broadcast(ctx, session, broadcast)
     return Response(status_code=status.HTTP_204_NO_CONTENT)

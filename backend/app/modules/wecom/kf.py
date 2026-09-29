@@ -35,6 +35,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.context import AppContext
 from app.core.ids import new_id
+from app.integrations.asr import AsrError
+from app.integrations.media import to_mp3
 from app.integrations.storage import StorageError
 from app.integrations.wecom import WeComClient, WeComError, WeComUnavailable
 from app.modules.channels.models import ChannelAccount, ChannelStatus, ChannelType
@@ -49,11 +51,14 @@ from app.modules.conversation.models import (
     Room,
     SenderType,
     SendStatus,
+    SessionEvent,
+    SessionStatus,
 )
 from app.modules.customer.models import Customer, CustomerIdentity
 from app.modules.files.service import file_url, key_of_url, safe_filename
 from app.modules.iam.models import Staff
 from app.modules.tenancy.models import Tenant
+from app.modules.wecom import menus
 from app.modules.wecom.models import CorpStatus, KfAccountStatus, WecomCorp, WecomKfAccount
 from app.modules.wecom.schemas import ReplyWindowOut
 from app.modules.wecom.service import active_corp, client_of, record_sync
@@ -64,6 +69,9 @@ KF_WINDOW = timedelta(hours=48)
 KF_WINDOW_LIMIT = 5
 AI_LABEL = "【AI】"
 TEXT_LIMIT_BYTES = 2048
+# 菜单消息的起始文本最长 1024 字节；更长的回复照常发文本消息（不带按钮）。
+MENU_HEAD_LIMIT_BYTES = 1024
+_CSAT_WINDOW = timedelta(hours=24)
 DEFAULT_ACCOUNT_NAME = "微信客服"
 
 ORIGIN_CUSTOMER = 3
@@ -217,6 +225,7 @@ class _Batch:
     customers: set[str] = field(default_factory=set)  # 发了消息的客户（检查会话状态）
     welcomes: list[tuple[UUID, str, str]] = field(default_factory=list)  # (room, code, text)
     reset_states: set[str] = field(default_factory=set)
+    handoffs: set[UUID] = field(default_factory=set)  # 客户点了「转人工」按钮的 Room
 
 
 @dataclass(frozen=True)
@@ -355,16 +364,26 @@ async def _ingest(
                     session, tenant, account, str(m["external_userid"]), profiles
                 )
                 sender_staff = staff_by_userid.get(m.get("servicer_userid"))
+                content = contents[m["msgid"]]
                 message_id = await _insert(
-                    session, room, identity, m, contents[m["msgid"]], origin, sender_staff
+                    session, room, identity, m, content, origin, sender_staff
                 )
                 if message_id is None:
                     continue
                 outbox.enqueue_mirror(session, room.id, message_id)
-                batch.new_messages.append((room.id, message_id))
                 batch.rooms.add(room.id)
+                menu_id = str(content[1].get("menu_id") or "") if origin == ORIGIN_CUSTOMER else ""
+                score = menus.csat_score(menu_id)
+                if score is not None and await _rate(session, room, message_id, score, now):
+                    # 满意度按钮：评价记在刚结束的会话上，不开始新的会话。
+                    outbox.enqueue_notice(session, room.id, menus.CSAT_THANKS)
+                    batch.customers.add(identity.external_id)
+                    continue
+                batch.new_messages.append((room.id, message_id))
                 if origin == ORIGIN_CUSTOMER:
                     batch.customers.add(identity.external_id)
+                    if menu_id == menus.MENU_HANDOFF:
+                        batch.handoffs.add(room.id)
             elif origin == ORIGIN_EVENT and m.get("msgtype") == "event":
                 await _on_event(
                     session, tenant, account, m.get("event") or {}, kf_config, profiles, batch
@@ -382,6 +401,18 @@ async def _ingest(
         except Exception:
             # 消息已经入库；没有归入会话的消息会被调度进程重新发布。
             logger.exception("publishing message.received for %s failed", message_id)
+    if batch.handoffs:
+        # 延迟导入：会话引擎依赖企业微信模块（菜单、提醒）。
+        from app.modules.sessions import engine
+
+        for room_id in batch.handoffs:
+            await engine.request_handoff(
+                ctx,
+                tenant.id,
+                room_id,
+                reason="customer_request",
+                actor_type=engine.ActorType.VISITOR,
+            )
     await outbox.flush_rooms(ctx, tenant.id, batch.rooms)
     for external_userid in batch.reset_states:
         await ctx.redis.delete(_state_key(account, external_userid))
@@ -390,6 +421,39 @@ async def _ingest(
     for room_id, code, text in batch.welcomes:
         await _send_welcome(ctx, wecom, tenant.id, account, room_id, code, text)
     return len(batch.new_messages)
+
+
+async def _rate(
+    session: AsyncSession, room: Room, message_id: UUID, score: int, now: datetime
+) -> bool:
+    """客户点了满意度按钮：评价记在这个 Room 最近的会话上（结束 24 小时内）。"""
+    chat = await session.scalar(
+        select(ChatSession)
+        .where(ChatSession.room_id == room.id)
+        .order_by(ChatSession.created_at.desc(), ChatSession.id.desc())
+        .limit(1)
+        .with_for_update()
+    )
+    if chat is None or chat.assigned_at is None:
+        return False
+    if chat.status == SessionStatus.CLOSED and (
+        chat.closed_at is None or chat.closed_at < now - _CSAT_WINDOW
+    ):
+        return False
+    chat.csat = score
+    await session.execute(
+        update(Message).where(Message.id == message_id).values(session_id=chat.id)
+    )
+    session.add(
+        SessionEvent(
+            tenant_id=chat.tenant_id,
+            session_id=chat.id,
+            type="csat",
+            actor_type="visitor",
+            payload={"score": score, "via": "wecom_kf_menu"},
+        )
+    )
+    return True
 
 
 def _customer_of(m: dict[str, Any]) -> str | None:
@@ -579,7 +643,8 @@ async def _content(
         except (WeComError, StorageError) as exc:
             logger.warning("kf media %s not stored: %s", m.get("msgid"), exc)
             return "text", {"text": label, "media_error": str(exc)[:200]}, label
-        return msgtype, stored, None
+        # 语音转写的文字作为消息的纯文本，AI 和知识提炼据此理解客户说了什么。
+        return msgtype, stored, stored.get("transcript") or None
     text = _describe(msgtype, body)
     return "text", {"text": text, msgtype or "raw": body}, text
 
@@ -614,19 +679,36 @@ async def _store_media(
     if not media_id:
         raise WeComError(0, "media_id missing", "media/get")
     media = await wecom.download_media(corp_id, str(media_id))
-    extension = mimetypes.guess_extension(media.content_type) or ""
+    data, content_type = media.data, media.content_type
+    extension = mimetypes.guess_extension(content_type) or ""
     if msgtype == "voice" and not extension:
         extension = ".amr"
     name = safe_filename(media.filename or f"{msgtype}-{str(m['msgid'])[-8:]}{extension}")
+    extra: dict[str, Any] = {}
+    if msgtype == "voice":
+        # 语音：可选转写成文字；AMR 转成 MP3 供网页播放（没有 ffmpeg 时保留原文件）。
+        if ctx.asr is not None:
+            try:
+                transcript = await ctx.asr.transcribe(data, name, content_type or "audio/amr")
+            except AsrError as exc:
+                logger.warning("voice transcription for %s failed: %s", m.get("msgid"), exc)
+            else:
+                if transcript:
+                    extra["transcript"] = transcript[:2000]
+        mp3 = await to_mp3(data, ctx.settings.ffmpeg_path)
+        if mp3 is not None:
+            data, content_type = mp3, "audio/mpeg"
+            name = safe_filename(f"{name.rsplit('.', 1)[0]}.mp3")
     key = f"{tenant_code}/wecom/{utcnow():%Y/%m}/{uuid.uuid4().hex}/{name}"
-    await ctx.storage.put(key, media.data, media.content_type)
+    await ctx.storage.put(key, data, content_type)
     return {
         "url": file_url(ctx.settings, key),
         "name": name,
-        "size": len(media.data),
+        "size": len(data),
         "width": None,
         "height": None,
-        "mime": media.content_type,
+        "mime": content_type,
+        **extra,
     }
 
 
@@ -924,4 +1006,22 @@ async def _outbound(
     text = message.text_plain or str(content.get("text") or "")
     if message.sender_type == SenderType.BOT:
         text = f"{AI_LABEL}{text}"
+    menu = content.get("menu")
+    if (
+        menu
+        and message.sender_type in (SenderType.BOT, SenderType.SYSTEM)
+        and len(text.encode()) <= MENU_HEAD_LIMIT_BYTES
+    ):
+        # 菜单消息：回复正文作为起始文本，后面是可点选的按钮（转人工、满意度）。
+        return {
+            "msgtype": "msgmenu",
+            "msgmenu": {
+                "head_content": text,
+                "list": [
+                    {"type": "click", "click": {"id": str(m["id"]), "content": str(m["content"])}}
+                    for m in menu
+                ],
+                "tail_content": "",
+            },
+        }
     return {"msgtype": "text", "text": {"content": _clip(text)}}

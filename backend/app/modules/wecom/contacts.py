@@ -9,8 +9,9 @@
   平台上打的标签写回企业微信（mark_tag）；平台自有的标签不受影响。
 - 新客户欢迎语：add_external_contact 回调带 WelcomeCode 时发送，可附带微信客服链接（AI 客服入口）。
 - 客户群：同步群列表、群成员，外部成员关联客户档案；change_external_chat 回调增量更新。
-- 在职继承：平台上转移客户时可以同步变更企业微信里的添加人（transfer_customer），结果定时回收
-  （设计 §14.3）。90 天内每位客户最多转接 2 次，24 小时后自动接替。
+- 客户继承：平台上转移客户时可以同步变更企业微信里的添加人，结果定时回收（设计 §14.3）。
+  原添加人在职时走在职继承（transfer_customer：90 天内每位客户最多转接 2 次，24 小时后自动接替），
+  已离职时走离职继承（resigned/transfer_customer）。
 """
 
 import logging
@@ -43,6 +44,7 @@ from app.modules.wecom.models import (
     GroupChatStatus,
     GroupMemberType,
     MemberStatus,
+    TransferKind,
     TransferStatus,
     WecomContactFollow,
     WecomCorp,
@@ -65,6 +67,17 @@ logger = logging.getLogger(__name__)
 
 _USER_NAME_BATCH = 500
 _TRANSFER_BATCH = 100
+# (提交转接, 查询结果) 的接口。
+_TRANSFER_PATHS = {
+    TransferKind.ONJOB: (
+        "/cgi-bin/externalcontact/transfer_customer",
+        "/cgi-bin/externalcontact/transfer_result",
+    ),
+    TransferKind.RESIGNED: (
+        "/cgi-bin/externalcontact/resigned/transfer_customer",
+        "/cgi-bin/externalcontact/resigned/transfer_result",
+    ),
+}
 _TRANSFER_RESULTS = {
     1: (TransferStatus.SUCCESS, None),
     2: (TransferStatus.WAITING, None),
@@ -736,6 +749,7 @@ async def refresh_group(ctx: AppContext, tenant_id: UUID, chat_id: str) -> None:
                     customer_id=customers.get(member_id),
                     join_time=_ts(member.get("join_time")),
                     join_scene=member.get("join_scene"),
+                    state=(str(member.get("state") or "")[:64] or None),
                 )
             )
         await session.commit()
@@ -760,7 +774,7 @@ async def on_chat_change(ctx: AppContext, tenant_id: UUID, event: dict[str, Any]
     await refresh_group(ctx, tenant_id, chat_id)
 
 
-# ---- 在职继承 ----
+# ---- 客户继承（在职继承、离职继承） ----
 
 
 @dataclass(frozen=True)
@@ -776,13 +790,29 @@ class TransferSummary:
     requested: int = 0
     skipped: int = 0
     failed: int = 0
+    resigned: int = 0
+
+
+@dataclass(frozen=True)
+class TransferItem:
+    customer_id: UUID
+    external_userid: str
+    history_id: UUID | None
+
+
+async def left_members(session: AsyncSession) -> set[str]:
+    """已经离职（从通讯录删除）的企业成员。"""
+    rows = await session.scalars(
+        select(WecomMember.userid).where(WecomMember.status == MemberStatus.LEFT)
+    )
+    return set(rows.all())
 
 
 async def transfer_owner_changes(
     ctx: AppContext, tenant_id: UUID, actor_id: UUID | None, changes: list[OwnerChange]
 ) -> TransferSummary:
-    """把平台上的客户转移同步到企业微信（在职继承）。原归属坐席或新归属坐席没有绑定企业微信成员、
-    客户不是原归属坐席添加的，都跳过。"""
+    """把平台上的客户转移同步到企业微信：原添加人在职时在职继承，已离职时离职继承。
+    原归属坐席或新归属坐席没有绑定企业微信成员、客户不是原归属坐席添加的，都跳过。"""
     summary = TransferSummary()
     if ctx.wecom is None or not changes:
         summary.skipped = len(changes)
@@ -815,8 +845,9 @@ async def transfer_owner_changes(
                 )
             )
         ).all()
+        left = await left_members(session)
     by_customer = {(customer_id, userid): external for customer_id, userid, external in follows}
-    groups: dict[tuple[str, str], list[tuple[OwnerChange, str]]] = defaultdict(list)
+    groups: dict[tuple[str, str], list[TransferItem]] = defaultdict(list)
     for change in changes:
         handover = userids.get(change.from_owner_id) if change.from_owner_id else None
         takeover = userids.get(change.to_owner_id) if change.to_owner_id else None
@@ -824,65 +855,95 @@ async def transfer_owner_changes(
         if not handover or not takeover or handover == takeover or external is None:
             summary.skipped += 1
             continue
-        groups[(handover, takeover)].append((change, external))
-    rows: list[WecomTransfer] = []
+        groups[(handover, takeover)].append(
+            TransferItem(change.customer_id, external, change.history_id)
+        )
     for (handover, takeover), items in groups.items():
-        for start in range(0, len(items), _TRANSFER_BATCH):
-            chunk = items[start : start + _TRANSFER_BATCH]
-            results: dict[str, int] = {}
-            error: str | None = None
-            try:
-                data = await ctx.wecom.corp_call(
-                    corp_id,
-                    "POST",
-                    "/cgi-bin/externalcontact/transfer_customer",
-                    json={
-                        "handover_userid": handover,
-                        "takeover_userid": takeover,
-                        "external_userid": [external for _, external in chunk],
-                    },
-                )
-                results = {
-                    str(r.get("external_userid")): int(r.get("errcode") or 0)
-                    for r in data.get("customer") or []
-                }
-            except WeComError as exc:
-                error = f"{exc.errmsg or '企业微信拒绝转接'}（{exc.errcode}）"
-                results = {external: exc.errcode or -1 for _, external in chunk}
-            for change, external in chunk:
-                errcode = results.get(external, 0)
-                ok = errcode == 0
-                summary.requested += ok
-                summary.failed += not ok
-                rows.append(
-                    WecomTransfer(
-                        tenant_id=tenant_id,
-                        customer_id=change.customer_id,
-                        history_id=change.history_id,
-                        external_userid=external,
-                        handover_userid=handover,
-                        takeover_userid=takeover,
-                        status=TransferStatus.WAITING if ok else TransferStatus.FAILED,
-                        errcode=None if ok else errcode,
-                        error=None if ok else (error or _transfer_error(errcode)),
-                        created_by=actor_id,
-                    )
-                )
-    if rows:
-        async with ctx.db.tenant_session(tenant_id) as session:
-            session.add_all(rows)
-            for row in rows:
-                if row.history_id is not None:
-                    await session.execute(
-                        update(CustomerOwnerHistory)
-                        .where(CustomerOwnerHistory.id == row.history_id)
-                        .values(wecom_sync_status=row.status)
-                    )
-            await session.commit()
+        kind = TransferKind.RESIGNED if handover in left else TransferKind.ONJOB
+        part = await submit_transfers(
+            ctx, tenant_id, corp_id, actor_id, handover, takeover, kind, items
+        )
+        summary.requested += part.requested
+        summary.failed += part.failed
+        if kind == TransferKind.RESIGNED:
+            summary.resigned += part.requested
     return summary
 
 
-def _transfer_error(errcode: int) -> str:
+async def submit_transfers(
+    ctx: AppContext,
+    tenant_id: UUID,
+    corp_id: str,
+    actor_id: UUID | None,
+    handover: str,
+    takeover: str,
+    kind: TransferKind,
+    items: list[TransferItem],
+) -> TransferSummary:
+    """提交一批客户继承（每次最多 100 位），记录每位客户的继承状态，结果由 poll_transfers 回收。"""
+    summary = TransferSummary()
+    if ctx.wecom is None or not items:
+        return summary
+    path = _TRANSFER_PATHS[kind][0]
+    rows: list[WecomTransfer] = []
+    for start in range(0, len(items), _TRANSFER_BATCH):
+        chunk = items[start : start + _TRANSFER_BATCH]
+        results: dict[str, int] = {}
+        error: str | None = None
+        try:
+            data = await ctx.wecom.corp_call(
+                corp_id,
+                "POST",
+                path,
+                json={
+                    "handover_userid": handover,
+                    "takeover_userid": takeover,
+                    "external_userid": [item.external_userid for item in chunk],
+                },
+            )
+            results = {
+                str(r.get("external_userid")): int(r.get("errcode") or 0)
+                for r in data.get("customer") or []
+            }
+        except WeComError as exc:
+            error = f"{exc.errmsg or '企业微信拒绝转接'}（{exc.errcode}）"
+            results = {item.external_userid: exc.errcode or -1 for item in chunk}
+        for item in chunk:
+            errcode = results.get(item.external_userid, 0)
+            ok = errcode == 0
+            summary.requested += ok
+            summary.failed += not ok
+            rows.append(
+                WecomTransfer(
+                    tenant_id=tenant_id,
+                    customer_id=item.customer_id,
+                    history_id=item.history_id,
+                    external_userid=item.external_userid,
+                    handover_userid=handover,
+                    takeover_userid=takeover,
+                    kind=kind,
+                    status=TransferStatus.WAITING if ok else TransferStatus.FAILED,
+                    errcode=None if ok else errcode,
+                    error=None if ok else (error or _transfer_error(errcode, kind)),
+                    created_by=actor_id,
+                )
+            )
+    async with ctx.db.tenant_session(tenant_id) as session:
+        session.add_all(rows)
+        for row in rows:
+            if row.history_id is not None:
+                await session.execute(
+                    update(CustomerOwnerHistory)
+                    .where(CustomerOwnerHistory.id == row.history_id)
+                    .values(wecom_sync_status=row.status)
+                )
+        await session.commit()
+    return summary
+
+
+def _transfer_error(errcode: int, kind: str = TransferKind.ONJOB) -> str:
+    if kind == TransferKind.RESIGNED:
+        return f"企业微信拒绝离职继承（错误码 {errcode}）：客户可能已经分配过或已不是好友"
     return (
         f"企业微信拒绝转接（错误码 {errcode}）："
         "90 天内每位客户最多转接 2 次，转接中的客户不能再次转接"
@@ -929,7 +990,7 @@ async def _finish_transfers(
 
 
 async def poll_transfers(ctx: AppContext) -> int:
-    """回收在职继承的结果（调度进程每小时）。返回有结果的数量。"""
+    """回收在职继承、离职继承的结果（调度进程每小时）。返回有结果的数量。"""
     if ctx.wecom is None:
         return 0
     async with ctx.db.platform_sessionmaker() as session:
@@ -939,13 +1000,14 @@ async def poll_transfers(ctx: AppContext) -> int:
                     WecomTransfer.tenant_id,
                     WecomTransfer.handover_userid,
                     WecomTransfer.takeover_userid,
+                    WecomTransfer.kind,
                 )
                 .where(WecomTransfer.status == TransferStatus.WAITING)
                 .distinct()
             )
         ).all()
     finished = 0
-    for tenant_id, handover, takeover in pairs:
+    for tenant_id, handover, takeover, kind in pairs:
         loaded = await _load(ctx, tenant_id)
         if loaded is None:
             continue
@@ -956,7 +1018,7 @@ async def poll_transfers(ctx: AppContext) -> int:
                 data = await ctx.wecom.corp_call(
                     loaded.corp.corp_id,
                     "POST",
-                    "/cgi-bin/externalcontact/transfer_result",
+                    _TRANSFER_PATHS[TransferKind(kind)][1],
                     json={
                         "handover_userid": handover,
                         "takeover_userid": takeover,

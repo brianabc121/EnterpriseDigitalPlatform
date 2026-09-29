@@ -178,7 +178,14 @@ async def test_transfer_customers_with_wecom_inheritance(wdesk: WecomDesk) -> No
     # 客户乙本来就归 bob：没有变更。客户甲在企业微信里从张三转给李四。
     assert response.json() == {
         "transferred": 1,
-        "wecom": {"requested": 1, "skipped": 0, "failed": 0},
+        "wecom": {
+            "requested": 1,
+            "skipped": 0,
+            "failed": 0,
+            "resigned": 0,
+            "groups_transferred": 0,
+            "groups_failed": 0,
+        },
     }
     history = await wdesk.client.get(
         f"/api/v1/customers/{a['id']}/owner-history", headers=wdesk.admin
@@ -214,7 +221,14 @@ async def test_transfer_without_binding_is_skipped(wdesk: WecomDesk) -> None:
             "sync_wecom": True,
         },
     )
-    assert response.json()["wecom"] == {"requested": 0, "skipped": 1, "failed": 0}
+    assert response.json()["wecom"] == {
+        "requested": 0,
+        "skipped": 1,
+        "failed": 0,
+        "resigned": 0,
+        "groups_transferred": 0,
+        "groups_failed": 0,
+    }
     assert wdesk.wecom.corp.transfers == {}
 
 

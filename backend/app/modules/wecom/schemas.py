@@ -22,6 +22,22 @@ class WecomSettings(BaseModel):
     notify_agents: bool = Field(
         default=True, description="新会话分配、转接请求、必读知识通过应用消息提醒员工"
     )
+    kf_handoff_menu: bool = Field(
+        default=True,
+        description="微信客服里 AI 的回复带一个「转人工」按钮（菜单消息），客户点选即转人工",
+    )
+    kf_csat_menu: bool = Field(
+        default=True,
+        description="微信客服的会话结束时发送满意度评价按钮（菜单消息）",
+    )
+    zone_enabled: bool = Field(
+        default=False,
+        description="从数据与智能专区取回群聊分析结果（需要企业购买会话存档并授权专区）",
+    )
+    zone_program_id: str | None = Field(default=None, max_length=128, description="专区程序 ID")
+    zone_ability_id: str | None = Field(
+        default=None, max_length=128, description="专区程序的能力 ID"
+    )
 
     @classmethod
     def of(cls, data: dict[str, Any] | None) -> "WecomSettings":
@@ -139,6 +155,8 @@ class GroupChatOut(BaseModel):
     member_count: int
     status: str
     created_time: datetime | None
+    summary: str | None = Field(default=None, description="专区返回的最近一次群聊摘要")
+    sentiment: str | None = Field(default=None, description="专区返回的群聊情绪")
 
 
 class WecomTransferOut(BaseModel):
@@ -146,11 +164,169 @@ class WecomTransferOut(BaseModel):
     external_userid: str
     handover_userid: str
     takeover_userid: str
+    kind: str = Field(description="onjob 在职继承，resigned 离职继承")
     status: str
     errcode: int | None
     error: str | None
     created_at: datetime
     takeover_at: datetime | None
+
+
+class UnassignedCustomerOut(BaseModel):
+    """企业微信里待分配的离职成员客户。"""
+
+    handover_userid: str
+    handover_name: str | None
+    external_userid: str
+    customer_id: UUID | None = Field(description="平台上的客户档案；为空表示还没有同步")
+    customer_name: str | None
+    owner_name: str | None = Field(description="平台上的归属坐席")
+    dimission_time: datetime | None
+
+
+class UnassignedList(BaseModel):
+    items: list[UnassignedCustomerOut]
+
+
+class AssignUnassignedRequest(BaseModel):
+    handover_userid: str = Field(min_length=1, max_length=64, description="离职成员")
+    external_userids: list[str] | None = Field(
+        default=None, max_length=1000, description="要分配的客户；为空表示这位成员的全部客户"
+    )
+    to_owner_id: UUID = Field(description="接手的员工（需要绑定企业微信成员）")
+    transfer_groups: bool = Field(
+        default=True, description="同时把他作为群主的客户群转给接手的员工"
+    )
+    note: str | None = Field(default=None, max_length=500)
+
+
+class GroupTransferOut(BaseModel):
+    id: UUID
+    chat_id: str
+    group_name: str | None
+    handover_userid: str
+    handover_name: str | None
+    takeover_userid: str
+    takeover_name: str | None
+    kind: str
+    status: str
+    error: str | None
+    created_at: datetime
+
+
+class GroupTransferList(BaseModel):
+    items: list[GroupTransferOut]
+
+
+class JoinWayCreate(BaseModel):
+    """ "加入群聊"二维码：扫码进入指定的客户群（最多 5 个），群满后可以自动建新群。"""
+
+    name: str = Field(min_length=1, max_length=30, description="二维码名称（仅平台内显示）")
+    chat_ids: list[str] = Field(min_length=1, max_length=5)
+    auto_create_room: bool = Field(default=True, description="群满后自动新建群")
+    room_base_name: str | None = Field(
+        default=None, max_length=40, description="自动建群的群名前缀，如「VIP 客户群」"
+    )
+    room_base_id: int | None = Field(
+        default=None, ge=1, le=100000, description="自动建群的起始序号"
+    )
+
+
+class JoinWayOut(BaseModel):
+    id: UUID
+    config_id: str
+    name: str
+    chat_ids: list[str]
+    group_names: list[str]
+    auto_create_room: bool
+    room_base_name: str | None
+    room_base_id: int | None
+    state: str
+    qr_code: str | None = Field(description="二维码图片地址（企业微信提供）")
+    joined: int = Field(description="经这个二维码进群、现在仍在群里的客户数")
+    created_at: datetime
+
+
+class JoinWayList(BaseModel):
+    items: list[JoinWayOut]
+
+
+BroadcastKindLiteral = Literal["single", "group"]
+
+
+class BroadcastLink(BaseModel):
+    title: str = Field(min_length=1, max_length=64)
+    url: str = Field(pattern=r"^https?://", max_length=2048)
+    desc: str | None = Field(default=None, max_length=256)
+
+
+class BroadcastAudience(BaseModel):
+    """群发对象。发给客户时按客户、标签、归属坐席筛选（取交集，只含员工可见的客户）；
+    发到客户群时按群或群主筛选。"""
+
+    customer_ids: list[UUID] | None = Field(default=None, max_length=10000)
+    tags: list[str] | None = Field(default=None, max_length=20, description="带任一标签的客户")
+    owner_ids: list[UUID] | None = Field(default=None, max_length=200, description="归属坐席")
+    chat_ids: list[str] | None = Field(default=None, max_length=2000, description="客户群")
+
+
+class BroadcastCreate(BaseModel):
+    kind: BroadcastKindLiteral
+    title: str = Field(min_length=1, max_length=64, description="任务名称（仅平台内显示）")
+    content: str = Field(min_length=1, max_length=4000)
+    link: BroadcastLink | None = None
+    audience: BroadcastAudience = Field(default_factory=BroadcastAudience)
+
+
+class BroadcastMemberOut(BaseModel):
+    userid: str
+    name: str | None
+    confirmed: bool = Field(description="员工是否已在企业微信里确认发送")
+    send_time: datetime | None
+    sent: int
+    failed: int
+    unsent: int
+
+
+class BroadcastOut(BaseModel):
+    id: UUID
+    kind: str
+    title: str
+    content: str
+    link: BroadcastLink | None
+    target_count: int
+    status: str
+    error: str | None
+    stats: dict[str, Any]
+    created_by_name: str | None
+    created_at: datetime
+    polled_at: datetime | None
+
+
+class BroadcastDetail(BroadcastOut):
+    members: list[BroadcastMemberOut]
+    fail_list: list[Any] = Field(description="企业微信没有接受的客户（不是好友等）")
+
+
+class BroadcastList(BaseModel):
+    items: list[BroadcastOut]
+
+
+class BroadcastOwner(BaseModel):
+    id: UUID
+    name: str
+
+
+class BroadcastOptions(BaseModel):
+    """创建群发时可选的对象（员工可见范围内）。"""
+
+    tags: list[str]
+    owners: list[BroadcastOwner]
+    group_chats: list[GroupChatOut]
+
+
+class TagOptions(BaseModel):
+    items: list[str] = Field(description="企业标签（改标签时的候选）")
 
 
 class CustomerWecom(BaseModel):
@@ -238,6 +414,32 @@ class SidebarSentRequest(BaseModel):
     origin: SidebarOrigin = "manual"
     external_userid: str | None = Field(default=None, max_length=64)
     chat_id: str | None = Field(default=None, max_length=64)
+    question: str | None = Field(
+        default=None, max_length=2000, description="这条回复针对的客户问题（用于沉淀知识）"
+    )
+
+
+class SidebarTagsUpdate(BaseModel):
+    tags: list[str] = Field(max_length=20)
+
+
+class SidebarMemberOut(BaseModel):
+    """可以拉进群的企业成员（接单员等）。"""
+
+    userid: str
+    name: str
+    staff_name: str | None
+
+
+class SidebarMemberList(BaseModel):
+    items: list[SidebarMemberOut]
+
+
+class SidebarGroupCreated(BaseModel):
+    """员工在侧边栏用 openEnterpriseChat 建好群后，把群 ID 告诉平台。"""
+
+    chat_id: str = Field(min_length=1, max_length=64)
+    external_userid: str | None = Field(default=None, max_length=64)
 
 
 class WecomLoginRequest(BaseModel):

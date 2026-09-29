@@ -36,15 +36,20 @@ from app.modules.routing.models import AgentState, RoutingPolicy, SkillGroup, Sk
 from app.modules.tenancy.models import PlatformUser, Tenant
 from app.modules.usage.models import UsageDaily
 from app.modules.wecom.models import (
+    WecomBroadcast,
+    WecomBroadcastResult,
     WecomContactFollow,
     WecomCorp,
     WecomGroupChat,
     WecomGroupMember,
+    WecomGroupTransfer,
+    WecomJoinWay,
     WecomKfAccount,
     WecomMember,
     WecomSidebarMessage,
     WecomTag,
     WecomTransfer,
+    WecomZoneResult,
 )
 
 __all__ = [
@@ -86,13 +91,18 @@ __all__ = [
     "Tenant",
     "Ticket",
     "UsageDaily",
+    "WecomBroadcast",
+    "WecomBroadcastResult",
     "WecomContactFollow",
     "WecomCorp",
     "WecomGroupChat",
     "WecomGroupMember",
+    "WecomGroupTransfer",
+    "WecomJoinWay",
     "WecomKfAccount",
     "WecomMember",
     "WecomSidebarMessage",
     "WecomTag",
     "WecomTransfer",
+    "WecomZoneResult",
 ]

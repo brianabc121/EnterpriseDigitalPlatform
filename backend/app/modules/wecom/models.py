@@ -12,7 +12,7 @@ from sqlalchemy import (
     UniqueConstraint,
     func,
 )
-from sqlalchemy.dialects.postgresql import ARRAY
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base, IdMixin, TenantMixin, TimestampMixin
@@ -175,6 +175,8 @@ class WecomGroupMember(TenantMixin, Base):
     customer_id: Mapped[uuid.UUID | None]
     join_time: Mapped[datetime | None]
     join_scene: Mapped[int | None] = mapped_column(SmallInteger)
+    # 经"加入群聊"二维码进群时二维码的 state。
+    state: Mapped[str | None] = mapped_column(String(64))
 
 
 class TransferStatus(StrEnum):
@@ -183,8 +185,14 @@ class TransferStatus(StrEnum):
     FAILED = "failed"
 
 
+class TransferKind(StrEnum):
+    ONJOB = "onjob"  # 在职继承
+    RESIGNED = "resigned"  # 离职继承
+
+
 class WecomTransfer(IdMixin, TimestampMixin, TenantMixin, Base):
-    """在职继承：把客户在企业微信里的添加人从原成员转给接替成员（设计 §14.3）。"""
+    """客户继承：把客户在企业微信里的添加人从原成员转给接替成员（设计 §14.3）。
+    原成员已离职时走离职继承，否则走在职继承。"""
 
     __tablename__ = "wecom_transfers"
     __table_args__ = (
@@ -205,6 +213,117 @@ class WecomTransfer(IdMixin, TimestampMixin, TenantMixin, Base):
     error: Mapped[str | None] = mapped_column(Text)
     created_by: Mapped[uuid.UUID | None]
     takeover_at: Mapped[datetime | None]
+    kind: Mapped[str] = mapped_column(String(16), server_default=TransferKind.ONJOB.value)
+
+
+class WecomGroupTransfer(IdMixin, TimestampMixin, TenantMixin, Base):
+    """客户群继承：把员工作为群主的客户群转给接替的员工（结果同步返回）。"""
+
+    __tablename__ = "wecom_group_transfers"
+
+    chat_id: Mapped[str] = mapped_column(String(64))
+    handover_userid: Mapped[str] = mapped_column(String(64))
+    takeover_userid: Mapped[str] = mapped_column(String(64))
+    kind: Mapped[str] = mapped_column(String(16))
+    status: Mapped[str] = mapped_column(String(16))
+    errcode: Mapped[int | None] = mapped_column(Integer)
+    error: Mapped[str | None] = mapped_column(Text)
+    created_by: Mapped[uuid.UUID | None]
+
+
+class WecomJoinWay(IdMixin, TimestampMixin, TenantMixin, Base):
+    """ "加入群聊"二维码（客户群活码）。"""
+
+    __tablename__ = "wecom_join_ways"
+
+    config_id: Mapped[str] = mapped_column(String(64))
+    name: Mapped[str] = mapped_column(String(64))
+    chat_ids: Mapped[list[str]] = mapped_column(ARRAY(String(64)), server_default="{}")
+    auto_create_room: Mapped[bool] = mapped_column(server_default="true")
+    room_base_name: Mapped[str | None] = mapped_column(String(40))
+    room_base_id: Mapped[int | None] = mapped_column(Integer)
+    state: Mapped[str] = mapped_column(String(30))
+    qr_code: Mapped[str | None] = mapped_column(Text)
+    created_by: Mapped[uuid.UUID | None]
+
+
+class BroadcastKind(StrEnum):
+    SINGLE = "single"  # 发给客户（员工确认后逐个发出）
+    GROUP = "group"  # 发到客户群（群主确认后发出）
+
+
+class BroadcastStatus(StrEnum):
+    CREATED = "created"  # 企业微信已创建任务，等待员工确认发送
+    FAILED = "failed"  # 创建失败
+    CANCELLED = "cancelled"  # 已停止（还没发出的不再发送）
+
+
+class WecomBroadcast(IdMixin, TimestampMixin, TenantMixin, Base):
+    """群发任务（设计 §10.4）：不能经 API 直接给客户发消息，只能由员工或群主确认后发出。"""
+
+    __tablename__ = "wecom_broadcasts"
+    __table_args__ = (UniqueConstraint("tenant_id", "id"),)
+
+    kind: Mapped[str] = mapped_column(String(16))
+    title: Mapped[str] = mapped_column(String(128))
+    content: Mapped[str] = mapped_column(Text)
+    link: Mapped[dict[str, Any] | None]
+    audience: Mapped[dict[str, Any]] = mapped_column(server_default="{}")
+    target_count: Mapped[int] = mapped_column(Integer, server_default="0")
+    msgids: Mapped[list[str]] = mapped_column(ARRAY(String(64)), server_default="{}")
+    status: Mapped[str] = mapped_column(String(16))
+    fail_list: Mapped[list[Any]] = mapped_column(JSONB, server_default="[]")
+    error: Mapped[str | None] = mapped_column(Text)
+    stats: Mapped[dict[str, Any]] = mapped_column(server_default="{}")
+    created_by: Mapped[uuid.UUID | None]
+    polled_at: Mapped[datetime | None]
+
+
+class BroadcastResultStatus:
+    UNSENT = 0
+    SENT = 1
+    NOT_FRIEND = 2  # 客户不是好友，发送失败
+    RECEIVED_OTHER = 3  # 客户已经收到过其他群发消息，发送失败
+
+
+class WecomBroadcastResult(IdMixin, TenantMixin, Base):
+    __tablename__ = "wecom_broadcast_results"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["tenant_id", "broadcast_id"],
+            ["wecom_broadcasts.tenant_id", "wecom_broadcasts.id"],
+            ondelete="CASCADE",
+        ),
+    )
+
+    broadcast_id: Mapped[uuid.UUID]
+    msgid: Mapped[str] = mapped_column(String(64))
+    userid: Mapped[str] = mapped_column(String(64))
+    external_userid: Mapped[str | None] = mapped_column(String(64))
+    chat_id: Mapped[str | None] = mapped_column(String(64))
+    status: Mapped[int] = mapped_column(SmallInteger)
+    send_time: Mapped[datetime | None]
+    updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
+
+
+class ZoneResultKind(StrEnum):
+    SUMMARY = "summary"
+    SENTIMENT = "sentiment"
+    QA_CANDIDATES = "qa_candidates"
+    TAGS = "tags"
+
+
+class WecomZoneResult(IdMixin, TenantMixin, Base):
+    """数据与智能专区里的分析程序返回的群聊分析结果（不含消息原文，设计 §10.6）。"""
+
+    __tablename__ = "wecom_zone_results"
+
+    chat_id: Mapped[str] = mapped_column(String(64))
+    kind: Mapped[str] = mapped_column(String(24))
+    payload: Mapped[dict[str, Any]] = mapped_column(server_default="{}")
+    window_start: Mapped[datetime | None]
+    window_end: Mapped[datetime | None]
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
 
 
 class WecomSidebarMessage(IdMixin, TenantMixin, Base):
@@ -221,4 +340,7 @@ class WecomSidebarMessage(IdMixin, TenantMixin, Base):
     chat_id: Mapped[str | None] = mapped_column(String(64))
     content: Mapped[str] = mapped_column(Text)
     origin: Mapped[str] = mapped_column(String(16), server_default="manual")
+    # 员工粘贴的客户问题（请求 AI 建议时填写），与发出的内容组成一问一答，用于沉淀知识。
+    question: Mapped[str | None] = mapped_column(Text)
+    extracted_at: Mapped[datetime | None]
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())

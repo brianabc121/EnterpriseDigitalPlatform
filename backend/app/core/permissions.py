@@ -24,6 +24,7 @@ class Permission(StrEnum):
     KB_PUBLISH = "kb:publish"
     REPORT_VIEW = "report:view"
     SETTINGS_MANAGE = "settings:manage"
+    BROADCAST_MANAGE = "broadcast:manage"  # 企业微信群发任务（发给可见范围内的客户或客户群）
 
 
 ALL_PERMISSIONS = frozenset(Permission)
@@ -69,6 +70,7 @@ DEFAULT_ROLES: tuple[RoleSpec, ...] = (
                 Permission.SESSION_TRANSFER,
                 Permission.SESSION_TRANSFER_ANY,
                 Permission.QUICK_REPLY_MANAGE,
+                Permission.BROADCAST_MANAGE,
             }
         ),
     ),

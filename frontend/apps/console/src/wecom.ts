@@ -51,15 +51,48 @@ export function inWecom(userAgent: string = navigator.userAgent): boolean {
   return /wxwork/i.test(userAgent)
 }
 
-/** 客户转移同步到企业微信（在职继承）的结果提示。 */
+/** 是否在手机上（企业微信手机端打开工作台时进入手机版）。 */
+export function isMobile(userAgent: string = navigator.userAgent): boolean {
+  return /iPhone|iPad|iPod|Android|Mobile/i.test(userAgent)
+}
+
+/** 客户转移同步到企业微信（在职继承、离职继承、客户群继承）的结果提示。 */
 export function transferSummary(
   transferred: number,
-  wecom: { requested: number; skipped: number; failed: number } | null | undefined,
+  wecom:
+    | {
+        requested: number
+        skipped: number
+        failed: number
+        resigned?: number
+        groups_transferred?: number
+        groups_failed?: number
+      }
+    | null
+    | undefined,
 ): string {
   const base = `已转移 ${transferred} 位客户`
   if (!wecom) return base
-  const parts = [`企业微信已提交在职继承 ${wecom.requested} 位（客户 24 小时后自动接替）`]
+  const parts: string[] = []
+  const onjob = wecom.requested - (wecom.resigned ?? 0)
+  if (onjob || !wecom.resigned) {
+    parts.push(`企业微信已提交在职继承 ${onjob} 位（客户 24 小时后自动接替）`)
+  }
+  if (wecom.resigned) parts.push(`离职继承 ${wecom.resigned} 位`)
   if (wecom.failed) parts.push(`${wecom.failed} 位被企业微信拒绝`)
   if (wecom.skipped) parts.push(`${wecom.skipped} 位无需或无法同步`)
+  if (wecom.groups_transferred) parts.push(`转移客户群 ${wecom.groups_transferred} 个`)
+  if (wecom.groups_failed) parts.push(`${wecom.groups_failed} 个客户群转移失败`)
   return `${base}；${parts.join('，')}`
+}
+
+export const TRANSFER_KIND: Record<string, string> = {
+  onjob: '在职继承',
+  resigned: '离职继承',
+}
+
+export const BROADCAST_STATUS: Record<string, string> = {
+  created: '等待员工确认发送',
+  failed: '创建失败',
+  cancelled: '已停止',
 }

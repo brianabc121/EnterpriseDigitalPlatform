@@ -196,7 +196,7 @@ async function run(browser) {
   await page.fill('textarea[data-testid="kf-welcome-input"]', KF_WELCOME)
   await page.click('[data-testid="kf-welcome-save"]')
   await page.locator('.el-dialog:visible').waitFor({ state: 'hidden' })
-  await tab(page, '欢迎语与提醒')
+  await tab(page, '设置')
   const form = page.locator('[data-testid="wecom-settings"]')
   await form.locator('.el-form-item', { hasText: '新客户欢迎语' }).locator('.el-switch').click()
   await page.fill('textarea[data-testid="welcome-text"]', CONTACT_WELCOME)
@@ -270,10 +270,16 @@ async function run(browser) {
     body: { title: '订单发货后多久能到？', content: ANSWER, questions: ['快递几天能到'], publish: true },
   })
   await fake('customer_says', { text: '快递几天能到', external_userid: 'wmcust0002', nickname: '李小红' })
+  // AI 的回答是菜单消息：正文带"【AI】"标识，后面是「转人工」按钮。
+  const textOf = (m) => m?.text?.content ?? m?.msgmenu?.head_content
   const aiReply = await waitFor(async () =>
-    (await fakeState()).sent.find((m) => m.touser === 'wmcust0002' && m.text?.content?.startsWith('【AI】')),
+    (await fakeState()).sent.find((m) => m.touser === 'wmcust0002' && textOf(m)?.startsWith('【AI】')),
   )
-  check('AI 接待微信客户，回复带"【AI】"标识', aiReply?.text?.content === `【AI】${ANSWER}`, aiReply)
+  check(
+    'AI 接待微信客户，回复带"【AI】"标识和「转人工」按钮',
+    textOf(aiReply) === `【AI】${ANSWER}` && aiReply?.msgmenu?.list?.[0]?.click?.id === 'edp_handoff',
+    aiReply,
+  )
   await json(`${API}/api/v1/routing-policies/${policy.id}`, {
     method: 'PATCH',
     token: adminToken,

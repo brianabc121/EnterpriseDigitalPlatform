@@ -23,7 +23,7 @@ from app.modules.customer.schemas import (
 )
 from app.modules.iam.deps import TenantDb, require_permission
 from app.modules.iam.principal import Principal
-from app.modules.wecom import contacts
+from app.modules.wecom import contacts, inherit
 
 router = APIRouter(prefix="/api/v1/customers", tags=["customers"], responses=ERROR_RESPONSES)
 
@@ -71,7 +71,10 @@ async def _result(
     return TransferResult(
         transferred=len(changes),
         wecom=WecomTransferSummary(
-            requested=summary.requested, skipped=summary.skipped, failed=summary.failed
+            requested=summary.requested,
+            skipped=summary.skipped,
+            failed=summary.failed,
+            resigned=summary.resigned,
         ),
     )
 
@@ -95,7 +98,8 @@ async def hand_over(
     session: TenantDb,
     principal: CanAssign,
 ) -> TransferResult:
-    """离职或调岗交接：员工名下的全部客户转给指定员工，或平均分给技能组的成员。"""
+    """离职或调岗交接：员工名下的全部客户转给指定员工，或平均分给技能组的成员。
+    可以同时把他作为群主的企业微信客户群转给接手的员工。"""
     changes = await ownership.hand_over(
         session,
         principal,
@@ -104,7 +108,21 @@ async def hand_over(
         to_group_id=payload.to_group_id,
         note=payload.note,
     )
-    return await _result(ctx, principal, changes, sync_wecom=payload.sync_wecom)
+    result = await _result(ctx, principal, changes, sync_wecom=payload.sync_wecom)
+    if payload.transfer_groups:
+        groups = await inherit.hand_over_groups(
+            ctx,
+            session,
+            principal,
+            staff_id,
+            to_owner_id=payload.to_owner_id,
+            to_group_id=payload.to_group_id,
+        )
+        wecom = result.wecom or WecomTransferSummary(requested=0, skipped=0, failed=0)
+        wecom.groups_transferred = groups.transferred
+        wecom.groups_failed = groups.failed
+        result.wecom = wecom
+    return result
 
 
 @router.get("/{customer_id}/owner-history", response_model=OwnerHistoryList)

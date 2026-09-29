@@ -7,6 +7,8 @@
   - 转人工摘要：概括最后几句客户消息。
   - 坐席建议回复：把参考资料的答案作为建议。
   - 知识提炼：客户的问题与紧跟的客服回答组成问答；客服没能解答的问题记为缺口。
+- /v1/audio/transcriptions：语音转文字。音频内容里带 "text=..." 时返回这段文字（测试和验收
+  发的"语音"里写好要转写的内容），否则返回固定的文字。
 - 可以切换模式模拟故障：down（503）、bad_json（不是 JSON）、promise（回复里带承诺类话术）、
   handoff（模型要求转人工）。独立运行时用 POST /_control {"mode": "down"} 切换。
 
@@ -203,6 +205,13 @@ class FakeLLM:
             "usage": {"prompt_tokens": sum(len(t) for t in inputs) // 2},
         }
 
+    def transcribe(self, raw: bytes) -> tuple[int, dict[str, Any]]:
+        if self.mode == "down":
+            return 503, {"error": {"message": "service unavailable"}}
+        match = re.search(rb"text=([^\r\n]+)", raw)
+        text = match.group(1).decode(errors="ignore") if match else "（语音内容）"
+        return 200, {"text": text}
+
     def handle(self, method: str, path: str, body: dict[str, Any]) -> tuple[int, dict[str, Any]]:
         if method == "POST" and path.endswith("/chat/completions"):
             return self.chat(body)
@@ -215,6 +224,9 @@ class FakeLLM:
 
     def transport(self) -> httpx.MockTransport:
         def handler(request: httpx.Request) -> httpx.Response:
+            if request.url.path.endswith("/audio/transcriptions"):
+                status, payload = self.transcribe(request.content)
+                return httpx.Response(status, json=payload)
             body = json.loads(request.content or b"{}")
             status, payload = self.handle(request.method, request.url.path, body)
             return httpx.Response(status, json=payload)
@@ -233,11 +245,14 @@ class FakeLLM:
                 raw += message.get("body", b"")
                 if not message.get("more_body"):
                     break
-            try:
-                body = json.loads(raw or b"{}")
-            except json.JSONDecodeError:
-                body = {}
-            status, payload = fake.handle(scope["method"], scope["path"], body)
+            if scope["path"].endswith("/audio/transcriptions"):
+                status, payload = fake.transcribe(raw)
+            else:
+                try:
+                    body = json.loads(raw or b"{}")
+                except json.JSONDecodeError:
+                    body = {}
+                status, payload = fake.handle(scope["method"], scope["path"], body)
             data = json.dumps(payload, ensure_ascii=False).encode()
             await send(
                 {

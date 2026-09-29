@@ -145,6 +145,12 @@ class CandidateStatus(StrEnum):
     REJECTED = "rejected"
 
 
+class CandidateSource(StrEnum):
+    SESSION = "session"  # 已结束的会话（微信客服、网页）
+    SIDEBAR = "sidebar"  # 员工在企业微信侧边栏里的一问一答
+    ZONE = "zone"  # 数据与智能专区返回的群聊问答候选
+
+
 class KbCandidate(IdMixin, TimestampMixin, TenantMixin, Base):
     """从会话提炼的候选（设计文档 §12.4），在审核台处理。"""
 
@@ -172,6 +178,7 @@ class KbCandidate(IdMixin, TimestampMixin, TenantMixin, Base):
     reviewed_by: Mapped[uuid.UUID | None]
     reviewed_at: Mapped[datetime | None]
     result_item_id: Mapped[uuid.UUID | None]
+    source: Mapped[str] = mapped_column(String(16), server_default=CandidateSource.SESSION.value)
 
 
 class KbExtraction(TenantMixin, Base):

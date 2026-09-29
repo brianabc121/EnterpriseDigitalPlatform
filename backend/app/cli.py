@@ -32,7 +32,9 @@ from app.modules.usage.service import RollupReport, rollup_day
 from app.modules.wecom.contacts import poll_transfers
 from app.modules.wecom.handlers import on_sync
 from app.modules.wecom.kf import sync_all as kf_sync_all
+from app.modules.wecom.marketing import poll_broadcasts
 from app.modules.wecom.models import CorpStatus, WecomCorp
+from app.modules.wecom.zone import pull_zone_results
 
 
 def _password(value: str | None) -> str:
@@ -172,10 +174,28 @@ async def wecom_sync(settings: Settings, code: str | None) -> dict[str, list[str
 
 
 async def wecom_transfers(settings: Settings) -> int:
-    """立即回收在职继承的结果（平时由调度进程每小时执行）。"""
+    """立即回收在职继承、离职继承的结果（平时由调度进程每小时执行）。"""
     ctx = AppContext.create(settings)
     try:
         return await poll_transfers(ctx)
+    finally:
+        await ctx.aclose()
+
+
+async def wecom_broadcasts(settings: Settings) -> int:
+    """立即回收群发任务的发送结果（平时由调度进程每 30 分钟执行）。"""
+    ctx = AppContext.create(settings)
+    try:
+        return await poll_broadcasts(ctx)
+    finally:
+        await ctx.aclose()
+
+
+async def wecom_zone(settings: Settings) -> int:
+    """立即从数据与智能专区取回群聊分析结果（平时由调度进程每小时执行）。"""
+    ctx = AppContext.create(settings)
+    try:
+        return await pull_zone_results(ctx)
     finally:
         await ctx.aclose()
 
@@ -224,7 +244,9 @@ def main(argv: list[str] | None = None) -> int:
 
     wecom = commands.add_parser("wecom-sync", help="立即全量同步企业微信数据并拉取微信客服消息")
     wecom.add_argument("--tenant", help="租户编码，不填时处理全部已授权的租户")
-    commands.add_parser("wecom-transfers", help="立即回收企业微信在职继承的结果")
+    commands.add_parser("wecom-transfers", help="立即回收企业微信在职继承、离职继承的结果")
+    commands.add_parser("wecom-broadcasts", help="立即回收企业微信群发任务的发送结果")
+    commands.add_parser("wecom-zone", help="立即从数据与智能专区取回群聊分析结果")
 
     openapi = commands.add_parser("export-openapi", help="导出 OpenAPI 描述（供前端生成类型）")
     openapi.add_argument("output", nargs="?", type=Path)
@@ -278,6 +300,12 @@ def main(argv: list[str] | None = None) -> int:
     elif args.command == "wecom-transfers":
         finished = asyncio.run(wecom_transfers(get_settings()))
         print(json.dumps({"finished": finished}, ensure_ascii=False))
+    elif args.command == "wecom-broadcasts":
+        polled = asyncio.run(wecom_broadcasts(get_settings()))
+        print(json.dumps({"broadcasts": polled}, ensure_ascii=False))
+    elif args.command == "wecom-zone":
+        saved = asyncio.run(wecom_zone(get_settings()))
+        print(json.dumps({"results": saved}, ensure_ascii=False))
     elif args.command == "export-openapi":
         export_openapi(args.output)
     return 0

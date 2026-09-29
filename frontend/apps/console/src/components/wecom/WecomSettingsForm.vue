@@ -16,9 +16,18 @@ const form = reactive<Schemas['WecomSettings']>({ ...props.settings })
 const saving = ref(false)
 
 async function save(): Promise<void> {
+  if (form.zone_enabled && !(form.zone_program_id && form.zone_ability_id)) {
+    ElMessage.warning('开启专区时请填写专区程序 ID 和能力 ID')
+    return
+  }
   saving.value = true
   const { data, error } = await api.PUT('/api/v1/admin/integrations/wecom/settings', {
-    body: { ...form, welcome_kf_id: form.welcome_kf_id || null },
+    body: {
+      ...form,
+      welcome_kf_id: form.welcome_kf_id || null,
+      zone_program_id: form.zone_program_id || null,
+      zone_ability_id: form.zone_ability_id || null,
+    },
   })
   saving.value = false
   if (!data) {
@@ -72,6 +81,39 @@ async function save(): Promise<void> {
     <el-form-item label="应用消息提醒">
       <el-switch v-model="form.notify_agents" />
       <span class="muted hint">新会话分配、转接请求、必读知识、知识周报推送到员工的企业微信</span>
+    </el-form-item>
+    <el-divider content-position="left">微信客服菜单消息</el-divider>
+    <el-form-item label="「转人工」按钮">
+      <el-switch v-model="form.kf_handoff_menu" data-testid="kf-handoff-menu" />
+      <span class="muted hint">AI 的回答带一个按钮，客户点一下就转人工（点选同时重置回复额度）</span>
+    </el-form-item>
+    <el-form-item label="满意度评价">
+      <el-switch v-model="form.kf_csat_menu" data-testid="kf-csat-menu" />
+      <span class="muted hint">人工接待的会话结束时发送评价按钮（与结束提示合并成一条）</span>
+    </el-form-item>
+    <el-divider content-position="left">数据与智能专区（可选）</el-divider>
+    <el-form-item label="取回群聊分析">
+      <el-switch v-model="form.zone_enabled" data-testid="zone-enabled" />
+      <span class="muted hint">
+        需要企业购买会话存档并授权专区；群聊原文只在专区内处理，平台只取回摘要、情绪和问答候选
+      </span>
+    </el-form-item>
+    <el-form-item label="专区程序 ID">
+      <el-input
+        v-model="form.zone_program_id"
+        :disabled="!form.zone_enabled"
+        maxlength="128"
+        class="select"
+        placeholder="在专区部署分析程序后获得"
+      />
+    </el-form-item>
+    <el-form-item label="能力 ID">
+      <el-input
+        v-model="form.zone_ability_id"
+        :disabled="!form.zone_enabled"
+        maxlength="128"
+        class="select"
+      />
     </el-form-item>
     <el-form-item>
       <el-button

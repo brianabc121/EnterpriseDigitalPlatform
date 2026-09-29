@@ -5,12 +5,17 @@ import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import { api, formatDateTime } from '../api'
+import WecomJoinWays from '../components/wecom/WecomJoinWays.vue'
 import WecomKfAccounts from '../components/wecom/WecomKfAccounts.vue'
 import WecomMembers from '../components/wecom/WecomMembers.vue'
+import WecomResigned from '../components/wecom/WecomResigned.vue'
 import WecomSettingsForm from '../components/wecom/WecomSettingsForm.vue'
 import { SYNC_TARGETS } from '../wecom'
 
-/** 企业微信接入（设计 §7.4）：扫码授权代开发应用、同步数据、微信客服、成员绑定、欢迎语与提醒。 */
+/**
+ * 企业微信接入（设计 §7.4）：扫码授权代开发应用、同步数据、微信客服、成员绑定、离职继承、
+ * 客户群活码、欢迎语与提醒、菜单消息、数据与智能专区。
+ */
 const route = useRoute()
 const router = useRouter()
 const status = ref<Schemas['WecomStatus'] | null>(null)
@@ -18,10 +23,11 @@ const loading = ref(false)
 const installing = ref(false)
 const syncing = ref(false)
 const tab = ref('kf')
+const ZONE_ROW = { key: 'zone', label: '专区分析结果' } as const
 
 const corp = computed(() => status.value?.corp ?? null)
 const syncRows = computed(() =>
-  SYNC_TARGETS.map((t) => {
+  [...SYNC_TARGETS, ...(status.value?.settings?.zone_enabled ? [ZONE_ROW] : [])].map((t) => {
     const state = (status.value?.sync_state?.[t.key] ?? null) as {
       at?: string
       count?: number
@@ -195,7 +201,13 @@ onMounted(async () => {
           <el-tab-pane label="成员绑定" name="members" lazy>
             <WecomMembers @changed="load" />
           </el-tab-pane>
-          <el-tab-pane label="欢迎语与提醒" name="settings" lazy>
+          <el-tab-pane label="离职继承" name="resigned" lazy>
+            <WecomResigned @changed="load" />
+          </el-tab-pane>
+          <el-tab-pane label="客户群活码" name="join-ways" lazy>
+            <WecomJoinWays />
+          </el-tab-pane>
+          <el-tab-pane label="设置" name="settings" lazy>
             <WecomSettingsForm
               v-if="status.settings"
               :settings="status.settings"

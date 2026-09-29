@@ -49,6 +49,7 @@ from app.modules.routing.assign import (
 )
 from app.modules.routing.hours import in_business_hours
 from app.modules.routing.models import AgentState, AgentStatus, RoutingMode
+from app.modules.wecom import menus
 from app.modules.wecom.notify import notify_staff
 
 logger = logging.getLogger(__name__)
@@ -660,7 +661,14 @@ async def mark_closed(
         payload={"reason": reason},
     )
     if notice:
-        outbox.enqueue_notice(session, chat.room_id, notice)
+        menu = None
+        if chat.assigned_at is not None and chat.csat is None:
+            # 微信客服：人工接待过的会话，结束提示带满意度评价按钮（与提示合并成一条）。
+            kf = await menus.kf_settings(session, chat.channel_account_id)
+            if kf is not None and kf.kf_csat_menu:
+                notice = f"{notice}{menus.CSAT_PROMPT}"
+                menu = menus.csat_menu()
+        outbox.enqueue_notice(session, chat.room_id, notice, menu=menu)
     if chat.assignee_id is not None:
         outbox.enqueue_signal(
             session,

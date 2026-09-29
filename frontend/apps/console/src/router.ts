@@ -10,6 +10,7 @@ import { onUnauthorized } from './api'
 import MainLayout from './layouts/MainLayout.vue'
 import { MENU, firstAccessiblePath } from './menu'
 import { useAuthStore } from './stores/auth'
+import { inWecom, isMobile } from './wecom'
 
 declare module 'vue-router' {
   interface RouteMeta {
@@ -34,6 +35,7 @@ const VIEWS: Record<string, LazyView> = {
   reports: () => import('./views/ReportsView.vue'),
   settings: () => import('./views/SettingsView.vue'),
   wecom: () => import('./views/WecomView.vue'),
+  broadcasts: () => import('./views/BroadcastsView.vue'),
 }
 
 const pages: RouteRecordRaw[] = MENU.map((item) => ({
@@ -63,6 +65,13 @@ const routes: RouteRecordRaw[] = [
     name: 'wecom-sidebar',
     component: () => import('./views/WecomSidebarView.vue'),
     meta: { public: true, title: '客户助手' },
+  },
+  {
+    // 企业微信手机端的坐席工作台（应用消息提醒点进来后免登进入）。
+    path: '/m',
+    name: 'mobile-workbench',
+    component: () => import('./views/MobileWorkbenchView.vue'),
+    meta: { permission: 'workbench:use', title: '工作台' },
   },
   {
     path: '/',
@@ -98,6 +107,10 @@ router.beforeEach(async (to) => {
   }
   if (!auth.isAuthenticated) return { name: 'login', query: { redirect: to.fullPath } }
   if (to.meta.permission && !auth.can(to.meta.permission)) return { name: 'forbidden' }
+  // 企业微信手机端打开工作台时进入手机版。
+  if (to.name === 'workbench' && inWecom() && isMobile()) {
+    return { name: 'mobile-workbench', query: to.query }
+  }
   return true
 })
 

@@ -8,6 +8,7 @@ import {
   DataLine,
   HomeFilled,
   MagicStick,
+  Promotion,
   Reading,
   Setting,
   Tickets,
@@ -35,6 +36,7 @@ const icons: Record<MenuIcon, Component> = {
   avatar: Avatar,
   chart: DataLine,
   integration: Connection,
+  broadcast: Promotion,
   setting: Setting,
 }
 const menus = computed(() => visibleMenus(auth.permissions))

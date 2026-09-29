@@ -28,6 +28,7 @@ from app.modules.conversation.models import ChatSession, Message, SenderType, Se
 from app.modules.kb import review
 from app.modules.kb.models import (
     CandidateKind,
+    CandidateSource,
     CandidateStatus,
     ItemStatus,
     KbCandidate,
@@ -38,6 +39,7 @@ from app.modules.kb.models import (
 from app.modules.kb.search import search
 from app.modules.kb.text import normalize, similarity, terms
 from app.modules.tenancy.models import Tenant, TenantStatus
+from app.modules.wecom.models import WecomSidebarMessage
 
 logger = logging.getLogger(__name__)
 
@@ -235,6 +237,7 @@ async def _upsert(
     target: KbItem | None = None,
     score: float | None = None,
     pair: Pair | None = None,
+    source: str = CandidateSource.SESSION,
 ) -> KbCandidate:
     """聚类到已有的待审候选（出现次数加一、补充证据），或新建候选。"""
     target_id = target.id if target else None
@@ -270,6 +273,7 @@ async def _upsert(
         last_seen_at=now,
         model=model,
         prompt_version=prompts.EXTRACT_PROMPT_VERSION,
+        source=source,
     )
     session.add(candidate)
     await session.flush()
@@ -305,6 +309,7 @@ async def record_pair(
     now: datetime,
     model: str,
     auto_merge: bool,
+    source: str = CandidateSource.SESSION,
 ) -> KbCandidate | None:
     """一个问答：已有知识里的同一问题 → 相似问法或冲突；否则 → 新问题。问法已存在时不记录。"""
     existing = await _best_existing(ctx, session, tenant_id, pair.question)
@@ -320,6 +325,7 @@ async def record_pair(
             now=now,
             model=model,
             pair=pair,
+            source=source,
         )
     item, score = existing
     if consistent(pair.answer, item.content):
@@ -338,6 +344,7 @@ async def record_pair(
             target=item,
             score=score,
             pair=pair,
+            source=source,
         )
         if (
             auto_merge
@@ -359,6 +366,7 @@ async def record_pair(
         target=item,
         score=score,
         pair=pair,
+        source=source,
     )
 
 
@@ -511,6 +519,81 @@ async def extract_session(
     return "done", recorded_pairs, recorded_gaps
 
 
+async def extract_sidebar(
+    ctx: AppContext,
+    tenant_id: uuid.UUID,
+    *,
+    auto_merge: bool,
+    now: datetime,
+    limit: int = BATCH,
+) -> int:
+    """企业微信侧边栏里的一问一答（员工粘贴的客户问题 + 发出的回复）也进入沉淀流水线
+    （设计 §12.3）。与会话一样先脱敏再提炼，返回记录的候选数。"""
+    async with ctx.db.tenant_session(tenant_id) as session:
+        rows = (
+            await session.scalars(
+                select(WecomSidebarMessage)
+                .where(
+                    WecomSidebarMessage.question.is_not(None),
+                    WecomSidebarMessage.extracted_at.is_(None),
+                    WecomSidebarMessage.created_at >= now - LOOKBACK,
+                )
+                .order_by(WecomSidebarMessage.created_at)
+                .limit(limit)
+            )
+        ).all()
+        items = [(r.id, r.question or "", r.content) for r in rows]
+    recorded = 0
+    for message_id, question, answer in items:
+        mapping: dict[str, str] = {}
+        masked_question, mapping = pii.mask(question.strip(), mapping)
+        masked_answer, mapping = pii.mask(answer.strip(), mapping)
+        lines = [(CUSTOMER, masked_question), (ROLE[SenderType.AGENT], masked_answer)]
+        parsed = None
+        model = ""
+        if masked_question and masked_answer and not _GREETING.match(masked_question):
+            try:
+                result = await gateway.chat(
+                    ctx,
+                    tenant_id,
+                    prompts.extract_messages(transcript=lines),
+                    scene="extract",
+                    json_mode=True,
+                    max_tokens=800,
+                )
+            except LLMUnavailable as exc:
+                logger.warning("sidebar extraction failed: %s", exc)
+                continue
+            parsed = parse(result.content, len(lines))
+            model = result.model
+        async with ctx.db.tenant_session(tenant_id) as session:
+            for pair in (parsed or ([], []))[0]:
+                evidence = {
+                    "session_id": None,
+                    "sidebar_message_id": str(message_id),
+                    "seen_at": now.isoformat(),
+                    "question": pair.question,
+                    "lines": [{"role": role, "text": text[:500]} for role, text in lines],
+                }
+                if await record_pair(
+                    ctx,
+                    session,
+                    tenant_id,
+                    pair,
+                    evidence,
+                    now=now,
+                    model=model,
+                    auto_merge=auto_merge,
+                    source=CandidateSource.SIDEBAR,
+                ):
+                    recorded += 1
+            row = await session.get(WecomSidebarMessage, message_id)
+            if row is not None:
+                row.extracted_at = now
+            await session.commit()
+    return recorded
+
+
 async def run_extraction(
     ctx: AppContext,
     *,
@@ -549,4 +632,10 @@ async def run_extraction(
             report.gaps += gaps
             report.skipped += status == "skipped"
             report.failed += status == "failed"
+        try:
+            report.pairs += await extract_sidebar(
+                ctx, tenant_id, auto_merge=settings.auto_merge_similar, now=now, limit=limit
+            )
+        except Exception:
+            logger.exception("sidebar knowledge extraction failed for tenant %s", tenant_id)
     return report

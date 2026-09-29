@@ -53,7 +53,8 @@ class CustomerCreate(BaseModel):
 
 
 _SYNC_WECOM = (
-    "同时变更企业微信里的添加人（在职继承）：90 天内每位客户最多转接 2 次，客户 24 小时后自动接替"
+    "同时变更企业微信里的添加人：原成员在职时走在职继承（90 天内每位客户最多转接 2 次，"
+    "客户 24 小时后自动接替），已离职时走离职继承"
 )
 
 
@@ -69,12 +70,19 @@ class HandoverRequest(BaseModel):
     to_group_id: UUID | None = Field(default=None, description="或平均分给这个技能组的成员")
     note: str | None = Field(default=None, max_length=500)
     sync_wecom: bool = Field(default=False, description=_SYNC_WECOM)
+    transfer_groups: bool = Field(
+        default=False,
+        description="同时把他作为群主的企业微信客户群转给接手的员工（客户群继承）",
+    )
 
 
 class WecomTransferSummary(BaseModel):
-    requested: int = Field(description="已提交在职继承的客户数（结果稍后回收）")
+    requested: int = Field(description="已提交客户继承的客户数（结果稍后回收）")
     skipped: int = Field(description="不需要或无法同步的客户数（没有绑定企业微信成员等）")
     failed: int = Field(description="企业微信拒绝转接的客户数")
+    resigned: int = Field(default=0, description="其中走离职继承的客户数（原成员已离职）")
+    groups_transferred: int = Field(default=0, description="转给接手员工的客户群数")
+    groups_failed: int = Field(default=0, description="转移失败的客户群数")
 
 
 class TransferResult(BaseModel):

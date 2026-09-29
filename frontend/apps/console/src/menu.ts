@@ -11,6 +11,7 @@ export type MenuIcon =
   | 'avatar'
   | 'chart'
   | 'integration'
+  | 'broadcast'
   | 'setting'
 
 export interface MenuItem {
@@ -57,6 +58,13 @@ export const MENU: readonly MenuItem[] = [
   { name: 'ai', path: '/ai', title: 'AI 接待', icon: 'ai', permission: 'settings:manage' },
   { name: 'staff', path: '/staff', title: '员工', icon: 'avatar', permission: 'staff:read' },
   { name: 'reports', path: '/reports', title: '报表', icon: 'chart', permission: 'report:view' },
+  {
+    name: 'broadcasts',
+    path: '/broadcasts',
+    title: '群发',
+    icon: 'broadcast',
+    permission: 'broadcast:manage',
+  },
   {
     name: 'wecom',
     path: '/integrations/wecom',

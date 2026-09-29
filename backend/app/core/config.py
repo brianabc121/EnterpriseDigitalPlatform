@@ -94,6 +94,12 @@ class Settings(BaseSettings):
     llm_timeout_seconds: float = 30.0
     # 客户连续发消息时，等这么久没有新消息再合并回复。
     ai_debounce_seconds: float = 2.0
+    # 语音转文字（OpenAI 兼容的 /audio/transcriptions）；为空时不转写，AI 只知道客户发了语音。
+    asr_base_url: str = ""
+    asr_api_key: SecretStr = SecretStr("")
+    asr_model: str = ""
+    # 微信客服的 AMR 语音转成 MP3 供网页播放；找不到 ffmpeg 时保留原文件。
+    ffmpeg_path: str = "ffmpeg"
 
     # 渠道凭证（企业微信永久授权码等）的加密密钥，任意长度的随机字符串。
     data_encryption_key: SecretStr = SecretStr(_DEV_DATA_ENCRYPTION_KEY)

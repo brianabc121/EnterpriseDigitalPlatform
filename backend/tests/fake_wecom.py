@@ -66,6 +66,12 @@ class Corp:
     kf_messages: list[dict[str, Any]] = field(default_factory=list)
     kf_states: dict[tuple[str, str], int] = field(default_factory=dict)
     transfers: dict[tuple[str, str, str], dict[str, Any]] = field(default_factory=dict)
+    # 离职成员的待分配客户：(external_userid, handover_userid) → 离职时间
+    unassigned: dict[tuple[str, str], int] = field(default_factory=dict)
+    resigned_transfers: dict[tuple[str, str, str], dict[str, Any]] = field(default_factory=dict)
+    join_ways: dict[str, dict[str, Any]] = field(default_factory=dict)
+    templates: dict[str, dict[str, Any]] = field(default_factory=dict)
+    group_transfers: list[dict[str, Any]] = field(default_factory=list)
 
 
 class FakeWeCom:
@@ -85,6 +91,11 @@ class FakeWeCom:
         self.welcomes: list[dict[str, Any]] = []  # externalcontact/send_welcome_msg
         self.app_messages: list[dict[str, Any]] = []  # message/send
         self.marked: list[dict[str, Any]] = []  # externalcontact/mark_tag
+        self.reminded: list[str] = []  # externalcontact/remind_groupmsg_send
+        self.zone_calls: list[dict[str, Any]] = []  # chatdata/sync_call_program
+        # 侧边栏（假 JS-SDK）当前打开的聊天和经它发出的消息。
+        self.jssdk_context: dict[str, Any] = {"entry": "single_chat_tools"}
+        self.jssdk_sent: list[dict[str, Any]] = []
         self.calls: list[str] = []
         self.down = False
         self.platform: httpx.AsyncClient | None = None
@@ -225,6 +236,43 @@ class FakeWeCom:
         await self.notify_kf(open_kfid)
         return message
 
+    async def customer_clicks(
+        self,
+        menu_id: str,
+        *,
+        external_userid: str = "wmcust0001",
+        open_kfid: str = "wkfake0001",
+    ) -> dict[str, Any]:
+        """客户点选菜单消息里的按钮：推送一条带 menu_id 的文字消息（内容是按钮文字）。"""
+        content = next(
+            (
+                item["click"]["content"]
+                for sent in reversed(self.sent)
+                if sent.get("msgtype") == "msgmenu" and sent.get("touser") == external_userid
+                for item in sent["msgmenu"]["list"]
+                if item["click"]["id"] == menu_id
+            ),
+            menu_id,
+        )
+        message = self.kf_message(
+            open_kfid, external_userid, "text", {"content": content, "menu_id": menu_id}
+        )
+        await self.notify_kf(open_kfid)
+        return message
+
+    async def customer_voice(
+        self,
+        data: bytes,
+        *,
+        external_userid: str = "wmcust0001",
+        open_kfid: str = "wkfake0001",
+    ) -> dict[str, Any]:
+        """客户发一条语音（AMR）。"""
+        media_id = self.add_media(data, "audio/amr", "voice.amr")
+        message = self.kf_message(open_kfid, external_userid, "voice", {"media_id": media_id})
+        await self.notify_kf(open_kfid)
+        return message
+
     async def customer_enters(
         self,
         *,
@@ -347,6 +395,58 @@ class FakeWeCom:
             }
         )
 
+    async def member_leaves(self, userid: str) -> httpx.Response:
+        """成员离职：从通讯录删除，他的客户进入待分配列表，推送 change_contact 回调。"""
+        self.corp.members.pop(userid, None)
+        self.corp.follow_users.discard(userid)
+        for ext, follower in list(self.corp.follows):
+            if follower == userid:
+                self.corp.unassigned[(ext, userid)] = _now()
+        return await self._data_event(
+            {"Event": "change_contact", "ChangeType": "delete_user", "UserID": userid}
+        )
+
+    async def create_chat(
+        self, owner: str, userids: list[str], externals: list[str], name: str = ""
+    ) -> str:
+        """员工在侧边栏一键建群（openEnterpriseChat）：群主是发起的员工。"""
+        chat_id = self.next_id("wrchat")
+        self.add_group(chat_id, name or "新建客户群", owner=owner, externals=externals)
+        members = self.corp.group_chats[chat_id]["member_list"]
+        for userid in userids:
+            if userid != owner:
+                members.append({"userid": userid, "type": 1, "join_time": _now(), "join_scene": 1})
+        await self.group_changed(chat_id, "create")
+        return chat_id
+
+    def join_by_qr(self, config_id: str, external_userid: str) -> str:
+        """客户扫描"加入群聊"二维码进群：进入第一个没满的群（带二维码的 state）。"""
+        way = self.corp.join_ways[config_id]
+        chat_id = way["chat_id_list"][0]
+        self.corp.group_chats[chat_id]["member_list"].append(
+            {
+                "userid": external_userid,
+                "type": 2,
+                "join_time": _now(),
+                "join_scene": 3,
+                "name": external_userid,
+                "state": way.get("state", ""),
+            }
+        )
+        return chat_id
+
+    def confirm_broadcast(self, msgid: str) -> None:
+        """成员在企业微信里确认发送群发消息：客户（或群）逐个收到，不是好友的发送失败。"""
+        template = self.corp.templates[msgid]
+        if template.get("cancelled"):
+            return
+        template["task"]["status"] = 2
+        template["task"]["send_time"] = _now()
+        sender = template["sender"]
+        for target in template["results"]:
+            friend = template["chat_type"] == "group" or (target, sender) in self.corp.follows
+            template["results"][target] = {"status": 1 if friend else 2, "send_time": _now()}
+
     def login_code(self, userid: str) -> str:
         code = self.next_id("logincode")
         self.login_codes[code] = userid
@@ -357,10 +457,23 @@ class FakeWeCom:
         self.corp_tokens.clear()
 
     def sent_texts(self, external_userid: str = "wmcust0001") -> list[str]:
+        """客户收到的文字（菜单消息取起始文本）。"""
+        texts = []
+        for m in self.sent:
+            if m["touser"] != external_userid:
+                continue
+            if m["msgtype"] == "text":
+                texts.append(m["text"]["content"])
+            elif m["msgtype"] == "msgmenu":
+                texts.append(m["msgmenu"]["head_content"])
+        return texts
+
+    def sent_menus(self, external_userid: str = "wmcust0001") -> list[list[str]]:
+        """客户收到的菜单消息里的按钮 ID。"""
         return [
-            m["text"]["content"]
+            [item["click"]["id"] for item in m["msgmenu"]["list"]]
             for m in self.sent
-            if m["touser"] == external_userid and m["msgtype"] == "text"
+            if m["touser"] == external_userid and m["msgtype"] == "msgmenu"
         ]
 
     # ---- 路由 ----
@@ -442,6 +555,20 @@ class FakeWeCom:
             "/cgi-bin/externalcontact/groupchat/get": self._groupchat_get,
             "/cgi-bin/externalcontact/transfer_customer": self._transfer_customer,
             "/cgi-bin/externalcontact/transfer_result": self._transfer_result,
+            "/cgi-bin/externalcontact/get_unassigned_list": self._unassigned_list,
+            "/cgi-bin/externalcontact/resigned/transfer_customer": self._resigned_transfer,
+            "/cgi-bin/externalcontact/resigned/transfer_result": self._resigned_result,
+            "/cgi-bin/externalcontact/groupchat/transfer": self._group_transfer_resigned,
+            "/cgi-bin/externalcontact/groupchat/onjob_transfer": self._group_transfer_onjob,
+            "/cgi-bin/externalcontact/groupchat/add_join_way": self._add_join_way,
+            "/cgi-bin/externalcontact/groupchat/get_join_way": self._get_join_way,
+            "/cgi-bin/externalcontact/groupchat/del_join_way": self._del_join_way,
+            "/cgi-bin/externalcontact/add_msg_template": self._add_msg_template,
+            "/cgi-bin/externalcontact/get_groupmsg_task": self._groupmsg_task,
+            "/cgi-bin/externalcontact/get_groupmsg_send_result": self._groupmsg_send_result,
+            "/cgi-bin/externalcontact/cancel_groupmsg_send": self._cancel_groupmsg,
+            "/cgi-bin/externalcontact/remind_groupmsg_send": self._remind_groupmsg,
+            "/cgi-bin/chatdata/sync_call_program": self._sync_call_program,
             "/cgi-bin/message/send": self._message_send,
         }.get(path)
         if handler is None:
@@ -795,14 +922,241 @@ class FakeWeCom:
         )
 
     def complete_transfers(self) -> None:
-        """模拟 24 小时后自动接替：等待中的转接变为接替完毕，添加人随之变更。"""
-        for (ext, handover, takeover), result in self.corp.transfers.items():
-            if result["status"] != 2:
+        """模拟 24 小时后自动接替：等待中的转接（在职、离职继承）变为接替完毕，添加人随之变更。"""
+        for transfers in (self.corp.transfers, self.corp.resigned_transfers):
+            for (ext, handover, takeover), result in transfers.items():
+                if result["status"] != 2:
+                    continue
+                result.update(status=1, takeover_time=_now())
+                self.corp.unassigned.pop((ext, handover), None)
+                info = self.corp.follows.pop((ext, handover), None)
+                if info is not None:
+                    self.corp.follows[(ext, takeover)] = {**info, "userid": takeover}
+
+    # ---- 离职继承、客户群继承 ----
+
+    def _unassigned_list(self, _: dict[str, str], body: dict[str, Any]) -> dict[str, Any]:
+        items = [
+            {"handover_userid": h, "external_userid": e, "dimission_time": t}
+            for (e, h), t in sorted(self.corp.unassigned.items())
+        ]
+        cursor = int(body.get("cursor") or 0)
+        size = int(body.get("page_size") or 1000)
+        page = items[cursor : cursor + size]
+        last = cursor + size >= len(items)
+        return _ok(
+            {"info": page, "is_last": last, "next_cursor": "" if last else str(cursor + size)}
+        )
+
+    def _resigned_transfer(self, _: dict[str, str], body: dict[str, Any]) -> dict[str, Any]:
+        handover, takeover = str(body.get("handover_userid")), str(body.get("takeover_userid"))
+        if takeover not in self.corp.members:
+            return _error(ERR_NOT_FOUND, "invalid takeover_userid")
+        results = []
+        for ext in body.get("external_userid") or []:
+            if (ext, handover) not in self.corp.unassigned:
+                results.append({"external_userid": ext, "errcode": 40130})
                 continue
-            result.update(status=1, takeover_time=_now())
-            info = self.corp.follows.pop((ext, handover), None)
-            if info is not None:
-                self.corp.follows[(ext, takeover)] = {**info, "userid": takeover}
+            self.corp.resigned_transfers[(ext, handover, takeover)] = {
+                "status": 2,
+                "takeover_time": 0,
+            }
+            # 分配后不再是"待分配"（接替结果另行查询）。
+            self.corp.unassigned.pop((ext, handover), None)
+            results.append({"external_userid": ext, "errcode": 0})
+        return _ok({"customer": results})
+
+    def _resigned_result(self, _: dict[str, str], body: dict[str, Any]) -> dict[str, Any]:
+        handover, takeover = str(body.get("handover_userid")), str(body.get("takeover_userid"))
+        return _ok(
+            {
+                "customer": [
+                    {"external_userid": ext, **result}
+                    for (ext, h, t), result in self.corp.resigned_transfers.items()
+                    if h == handover and t == takeover
+                ],
+                "next_cursor": "",
+            }
+        )
+
+    def _group_transfer(self, body: dict[str, Any], *, resigned: bool) -> dict[str, Any]:
+        new_owner = str(body.get("new_owner") or "")
+        if new_owner not in self.corp.members:
+            return _error(ERR_NOT_FOUND, "invalid new_owner")
+        failed = []
+        for chat_id in body.get("chat_id_list") or []:
+            chat = self.corp.group_chats.get(chat_id)
+            if chat is None:
+                failed.append({"chat_id": chat_id, "errcode": 701008, "errmsg": "chat not exist"})
+                continue
+            owner_left = chat["owner"] not in self.corp.members
+            if resigned and not owner_left:
+                failed.append(
+                    {"chat_id": chat_id, "errcode": 90500, "errmsg": "owner not resigned"}
+                )
+                continue
+            if not resigned and owner_left:
+                failed.append({"chat_id": chat_id, "errcode": 90502, "errmsg": "owner resigned"})
+                continue
+            self.corp.group_transfers.append(
+                {"chat_id": chat_id, "from": chat["owner"], "to": new_owner, "resigned": resigned}
+            )
+            chat["owner"] = new_owner
+        return _ok({"failed_chat_list": failed})
+
+    def _group_transfer_resigned(self, _: dict[str, str], body: dict[str, Any]) -> dict[str, Any]:
+        return self._group_transfer(body, resigned=True)
+
+    def _group_transfer_onjob(self, _: dict[str, str], body: dict[str, Any]) -> dict[str, Any]:
+        return self._group_transfer(body, resigned=False)
+
+    # ---- 客户群活码 ----
+
+    def _add_join_way(self, _: dict[str, str], body: dict[str, Any]) -> dict[str, Any]:
+        chat_ids = list(body.get("chat_id_list") or [])
+        if not chat_ids or len(chat_ids) > 5:
+            return _error(40058, "invalid chat_id_list")
+        if any(c not in self.corp.group_chats for c in chat_ids):
+            return _error(701008, "chat not exist")
+        if len(str(body.get("state") or "")) > 30:
+            return _error(40058, "state too long")
+        config_id = self.next_id("joinway")
+        self.corp.join_ways[config_id] = {
+            **body,
+            "config_id": config_id,
+            "chat_id_list": chat_ids,
+            "qr_code": f"https://wework.qpic.cn/wwpic/{config_id}/0",
+        }
+        return _ok({"config_id": config_id})
+
+    def _get_join_way(self, _: dict[str, str], body: dict[str, Any]) -> dict[str, Any]:
+        way = self.corp.join_ways.get(str(body.get("config_id") or ""))
+        if way is None:
+            return _error(41044, "invalid config_id")
+        return _ok({"join_way": way})
+
+    def _del_join_way(self, _: dict[str, str], body: dict[str, Any]) -> dict[str, Any]:
+        if self.corp.join_ways.pop(str(body.get("config_id") or ""), None) is None:
+            return _error(41044, "invalid config_id")
+        return _ok({})
+
+    # ---- 群发 ----
+
+    def _add_msg_template(self, _: dict[str, str], body: dict[str, Any]) -> dict[str, Any]:
+        chat_type = body.get("chat_type") or "single"
+        sender = str(body.get("sender") or "")
+        if sender not in self.corp.members:
+            return _error(ERR_NOT_FOUND, "invalid sender")
+        if not (body.get("text") or {}).get("content") and not body.get("attachments"):
+            return _error(41048, "empty content")
+        fail_list: list[str] = []
+        if chat_type == "single":
+            targets = []
+            for ext in body.get("external_userid") or []:
+                if (ext, sender) in self.corp.follows:
+                    targets.append(ext)
+                else:
+                    fail_list.append(ext)
+        else:
+            wanted = body.get("chat_id_list")
+            targets = [
+                c
+                for c, chat in sorted(self.corp.group_chats.items())
+                if chat["owner"] == sender and (not wanted or c in wanted)
+            ]
+        if not targets:
+            return _error(41049, "no valid target")
+        msgid = self.next_id("msgtpl")
+        self.corp.templates[msgid] = {
+            "msgid": msgid,
+            "chat_type": chat_type,
+            "sender": sender,
+            "text": body.get("text"),
+            "attachments": body.get("attachments") or [],
+            "task": {"status": 0, "send_time": 0},
+            "results": {t: {"status": 0, "send_time": 0} for t in targets},
+            "cancelled": False,
+        }
+        return _ok({"fail_list": fail_list, "msgid": msgid})
+
+    def _template(self, body: dict[str, Any]) -> dict[str, Any] | None:
+        return self.corp.templates.get(str(body.get("msgid") or ""))
+
+    def _groupmsg_task(self, _: dict[str, str], body: dict[str, Any]) -> dict[str, Any]:
+        template = self._template(body)
+        if template is None:
+            return _error(41063, "invalid msgid")
+        task = {"userid": template["sender"], **template["task"]}
+        return _ok({"task_list": [task], "next_cursor": ""})
+
+    def _groupmsg_send_result(self, _: dict[str, str], body: dict[str, Any]) -> dict[str, Any]:
+        template = self._template(body)
+        if template is None:
+            return _error(41063, "invalid msgid")
+        if str(body.get("userid") or "") != template["sender"]:
+            return _ok({"send_list": [], "next_cursor": ""})
+        key = "chat_id" if template["chat_type"] == "group" else "external_userid"
+        sends = [
+            {key: target, "userid": template["sender"], **result}
+            for target, result in sorted(template["results"].items())
+        ]
+        return _ok({"send_list": sends, "next_cursor": ""})
+
+    def _cancel_groupmsg(self, _: dict[str, str], body: dict[str, Any]) -> dict[str, Any]:
+        template = self._template(body)
+        if template is None:
+            return _error(41063, "invalid msgid")
+        template["cancelled"] = True
+        return _ok({})
+
+    def _remind_groupmsg(self, _: dict[str, str], body: dict[str, Any]) -> dict[str, Any]:
+        template = self._template(body)
+        if template is None:
+            return _error(41063, "invalid msgid")
+        self.reminded.append(template["msgid"])
+        return _ok({})
+
+    # ---- 数据与智能专区 ----
+
+    def _sync_call_program(self, _: dict[str, str], body: dict[str, Any]) -> dict[str, Any]:
+        """模拟专区里的分析程序：对每个客户群返回摘要和情绪，第一个群带一条问答候选。"""
+        if not body.get("program_id") or not body.get("ability_id"):
+            return _error(95000, "invalid program")
+        request = json.loads(body.get("request_data") or "{}")
+        self.zone_calls.append(request)
+        results: list[dict[str, Any]] = []
+        for index, (chat_id, chat) in enumerate(sorted(self.corp.group_chats.items())):
+            window = {"window_start": request.get("since"), "window_end": request.get("until")}
+            results.append(
+                {
+                    "chat_id": chat_id,
+                    "kind": "summary",
+                    "payload": {"text": f"「{chat['name']}」里客户在咨询团购和发货时间"},
+                    **window,
+                }
+            )
+            results.append(
+                {"chat_id": chat_id, "kind": "sentiment", "payload": {"label": "平稳"}, **window}
+            )
+            if index == 0:
+                results.append(
+                    {
+                        "chat_id": chat_id,
+                        "kind": "qa_candidates",
+                        "payload": {
+                            "qa_pairs": [
+                                {
+                                    "question": "团购满多少人有优惠？",
+                                    "answer": "10 人以上团购可享九折优惠。",
+                                    "category": "优惠",
+                                    "confidence": 0.82,
+                                }
+                            ]
+                        },
+                        **window,
+                    }
+                )
+        return _ok({"response_data": json.dumps({"results": results}, ensure_ascii=False)})
 
     def _message_send(self, _: dict[str, str], body: dict[str, Any]) -> dict[str, Any]:
         if int(body.get("agentid") or 0) != self.corp.agent_id:
@@ -945,6 +1299,53 @@ class FakeWeCom:
             case "/_fake/complete_transfers":
                 self.complete_transfers()
                 return self._json({})
+            case "/_fake/member_leaves":
+                await self.member_leaves(body["userid"])
+                return self._json({})
+            case "/_fake/confirm_broadcast":
+                for msgid in body.get("msgids") or list(self.corp.templates):
+                    self.confirm_broadcast(msgid)
+                return self._json({})
+            case "/_fake/customer_voice":
+                # "语音"内容里写好要转写的文字（模拟大模型的语音转文字据此返回）。
+                self.add_kf_customer(
+                    body.get("external_userid", "wmcust0001"), body.get("nickname", "微信用户")
+                )
+                # 合法的 AMR 帧（1 秒）后面附上要转写的文字，ffmpeg 能照常转码。
+                frames = b"#!AMR\n" + (b"\x3c" + b"\x00" * 31) * 50
+                voice = await self.customer_voice(
+                    frames + f"text={body.get('text', '')}\n".encode(),
+                    external_userid=body.get("external_userid", "wmcust0001"),
+                )
+                return self._json({"msgid": voice["msgid"]})
+            case "/_fake/menu_click":
+                message = await self.customer_clicks(
+                    body["menu_id"], external_userid=body.get("external_userid", "wmcust0001")
+                )
+                return self._json({"msgid": message["msgid"]})
+            case "/_fake/join_by_qr":
+                chat_id = self.join_by_qr(body["config_id"], body["external_userid"])
+                await self.group_changed(chat_id)
+                return self._json({"chat_id": chat_id})
+            case "/jssdk/jwxwork.js":
+                return 200, {"content-type": "application/javascript"}, _FAKE_JSSDK.encode()
+            case "/_fake/jssdk/set_context":
+                self.jssdk_context = body
+                return self._json({})
+            case "/_fake/jssdk/context":
+                return _cors(self._json(self.jssdk_context))
+            case "/_fake/jssdk/send":
+                self.jssdk_sent.append({**body, "context": dict(self.jssdk_context)})
+                return _cors(self._json({}))
+            case "/_fake/jssdk/create_chat":
+                owner = str(self.jssdk_context.get("userid") or "zhangsan")
+                chat_id = await self.create_chat(
+                    owner,
+                    [u for u in str(body.get("userIds") or "").split(";") if u],
+                    [e for e in str(body.get("externalUserIds") or "").split(";") if e],
+                    str(body.get("groupName") or ""),
+                )
+                return _cors(self._json({"chat_id": chat_id}))
             case "/_fake/state":
                 return self._json(
                     {
@@ -961,6 +1362,21 @@ class FakeWeCom:
                             {"external_userid": e, "handover": h, "takeover": t, **r}
                             for (e, h, t), r in self.corp.transfers.items()
                         ],
+                        "resigned_transfers": [
+                            {"external_userid": e, "handover": h, "takeover": t, **r}
+                            for (e, h, t), r in self.corp.resigned_transfers.items()
+                        ],
+                        "unassigned": [
+                            {"external_userid": e, "handover": h} for (e, h) in self.corp.unassigned
+                        ],
+                        "group_chats": [
+                            {"chat_id": c, "name": g["name"], "owner": g["owner"]}
+                            for c, g in sorted(self.corp.group_chats.items())
+                        ],
+                        "group_transfers": self.corp.group_transfers,
+                        "join_ways": list(self.corp.join_ways.values()),
+                        "templates": list(self.corp.templates.values()),
+                        "jssdk_sent": self.jssdk_sent,
                     }
                 )
         return 404, {"content-type": "text/plain"}, b"not found"
@@ -971,7 +1387,68 @@ _PAGES = {
     "/3rdapp/install/confirm",
     "/wwlogin/sso/login",
     "/connect/oauth2/authorize",
+    "/jssdk/jwxwork.js",
 }
+
+# 假的企业微信 JS-SDK（浏览器验收用）：侧边栏页面把 JS-SDK 地址配置到这里
+# （VITE_WECOM_JSSDK_URLS），当前聊天、发送和一键建群经模拟服务的 /_fake/jssdk/* 完成。
+# 请求用 text/plain，避免跨域预检。
+_FAKE_JSSDK = """
+(function () {
+  var script = document.currentScript;
+  var base = script ? new URL(script.src).origin : '';
+  function call(path, body) {
+    var init = body === undefined ? {} : {
+      method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify(body)
+    };
+    return fetch(base + path, init).then(function (r) { return r.json(); });
+  }
+  var ready = [];
+  window.wx = {
+    config: function (options) {
+      window.__wxConfig = options;
+      setTimeout(function () {
+        var cbs = ready;
+        ready = null;
+        cbs.forEach(function (cb) { cb(); });
+      }, 0);
+    },
+    ready: function (cb) { if (ready) ready.push(cb); else cb(); },
+    error: function () {},
+    agentConfig: function (options) {
+      window.__wxAgentConfig = options;
+      setTimeout(function () { if (options.success) options.success({}); }, 0);
+    },
+    invoke: function (name, args, cb) {
+      function done(extra) { cb(Object.assign({ err_msg: name + ':ok' }, extra || {})); }
+      function fail(e) { cb({ err_msg: name + ':fail ' + e }); }
+      var context = function (pick) {
+        call('/_fake/jssdk/context').then(function (c) { done(pick(c)); }, fail);
+      };
+      if (name === 'getContext') {
+        context(function (c) { return { entry: c.entry }; });
+      } else if (name === 'getCurExternalContact') {
+        context(function (c) { return { userId: c.external_userid }; });
+      } else if (name === 'getCurExternalChat') {
+        context(function (c) { return { chatId: c.chat_id }; });
+      } else if (name === 'sendChatMessage') {
+        call('/_fake/jssdk/send', args).then(function () { done(); }, fail);
+      } else if (name === 'openEnterpriseChat') {
+        call('/_fake/jssdk/create_chat', args).then(function (r) {
+          done({ chatId: r.chat_id });
+        }, fail);
+      } else {
+        fail('unsupported');
+      }
+    },
+  };
+})();
+"""
+
+
+def _cors(response: tuple[int, dict[str, str], bytes]) -> tuple[int, dict[str, str], bytes]:
+    status, headers, content = response
+    return status, {**headers, "access-control-allow-origin": "*"}, content
 
 
 def _ok(data: dict[str, Any]) -> dict[str, Any]:

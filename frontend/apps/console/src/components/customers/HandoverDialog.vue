@@ -17,11 +17,19 @@ const form = reactive({
   groupId: '',
   note: '',
   syncWecom: false,
+  transferGroups: false,
 })
 
 watch(visible, async (open) => {
   if (!open) return
-  Object.assign(form, { kind: 'staff', ownerId: '', groupId: '', note: '', syncWecom: false })
+  Object.assign(form, {
+    kind: 'staff',
+    ownerId: '',
+    groupId: '',
+    note: '',
+    syncWecom: false,
+    transferGroups: false,
+  })
   const { data } = await api.GET('/api/v1/skill-groups')
   groups.value = data?.items ?? []
 })
@@ -41,6 +49,7 @@ async function submit(): Promise<void> {
       to_group_id: toStaff ? null : form.groupId,
       note: form.note || null,
       sync_wecom: form.syncWecom,
+      transfer_groups: form.transferGroups,
     },
   })
   saving.value = false
@@ -82,7 +91,14 @@ async function submit(): Promise<void> {
         <el-input v-model="form.note" maxlength="500" placeholder="可选，例如离职交接" />
       </el-form-item>
       <el-form-item label="企业微信">
-        <el-checkbox v-model="form.syncWecom">同时变更企业微信里的添加人（在职继承）</el-checkbox>
+        <div class="checks">
+          <el-checkbox v-model="form.syncWecom" data-testid="handover-sync-wecom">
+            同时变更企业微信里的添加人（已离职的成员走离职继承）
+          </el-checkbox>
+          <el-checkbox v-model="form.transferGroups" data-testid="handover-groups">
+            同时把他作为群主的客户群转给接手的员工
+          </el-checkbox>
+        </div>
       </el-form-item>
     </el-form>
     <template #footer>
@@ -93,6 +109,12 @@ async function submit(): Promise<void> {
 </template>
 
 <style scoped>
+.checks {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
 .summary {
   margin-top: 0;
   color: var(--el-text-color-secondary);

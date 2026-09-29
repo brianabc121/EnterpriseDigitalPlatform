@@ -10,6 +10,7 @@ from redis.asyncio import Redis
 from app.core.config import Settings
 from app.db.session import Database
 from app.events.bus import EventBus
+from app.integrations.asr import AsrClient
 from app.integrations.llm import EmbedEndpoint, LLMClient, LLMEndpoint
 from app.integrations.openim import OpenIMClient
 from app.integrations.storage import ObjectStore
@@ -32,6 +33,8 @@ class AppContext:
     storage: ObjectStore
     # 没有配置企业微信服务商（EDP_WECOM_SUITE_ID）时为空。
     wecom: WeComClient | None
+    # 没有配置语音转文字（EDP_ASR_BASE_URL）时为空。
+    asr: AsrClient | None = None
 
     @classmethod
     def create(
@@ -42,6 +45,7 @@ class AppContext:
         llm: LLMClient | None = None,
         wecom_transport: httpx.AsyncBaseTransport | None = None,
         storage_transport: httpx.AsyncBaseTransport | None = None,
+        asr_transport: httpx.AsyncBaseTransport | None = None,
     ) -> "AppContext":
         redis = Redis.from_url(settings.redis_url)
         db = Database(settings)
@@ -56,6 +60,14 @@ class AppContext:
                 corp_secret=partial(corp_secret, db, settings),
                 transport=wecom_transport,
             )
+        asr = None
+        if settings.asr_base_url and settings.asr_model:
+            asr = AsrClient(
+                base_url=settings.asr_base_url,
+                api_key=settings.asr_api_key.get_secret_value(),
+                model=settings.asr_model,
+                transport=asr_transport,
+            )
         return cls(
             settings=settings,
             db=db,
@@ -66,9 +78,12 @@ class AppContext:
             llm=llm or llm_from_settings(settings),
             storage=ObjectStore(storage_config(settings), transport=storage_transport),
             wecom=wecom,
+            asr=asr,
         )
 
     async def aclose(self) -> None:
+        if self.asr is not None:
+            await self.asr.aclose()
         if self.wecom is not None:
             await self.wecom.aclose()
         await self.storage.aclose()

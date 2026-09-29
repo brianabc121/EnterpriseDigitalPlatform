@@ -32,6 +32,7 @@ from app.modules.customer.models import Customer
 from app.modules.kb.models import KbItem
 from app.modules.sessions import engine
 from app.modules.tenancy.models import Tenant
+from app.modules.wecom import menus
 
 logger = logging.getLogger(__name__)
 
@@ -200,7 +201,15 @@ async def respond(
             state.turns += 1
         _release(state, lease)
         if outcome.reply:
-            outbox.enqueue_bot_message(session, room_id, outcome.reply, settings.bot_name)
+            menu = None
+            if outcome.action == DecisionAction.REPLY:
+                # 微信客服：AI 的回答带一个「转人工」按钮（菜单消息）。
+                kf = await menus.kf_settings(session, chat.channel_account_id)
+                if kf is not None and kf.kf_handoff_menu:
+                    menu = menus.handoff_menu()
+            outbox.enqueue_bot_message(
+                session, room_id, outcome.reply, settings.bot_name, menu=menu
+            )
         if outcome.action == DecisionAction.REPLY and outcome.used_items:
             await session.execute(
                 update(KbItem)

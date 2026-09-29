@@ -67,6 +67,12 @@ MATRIX: list[tuple[str, str, dict[str, Any] | None]] = [
     ("POST", "/api/v1/kb/candidates/{candidate_id}/merge", {"item_id": "{own_item_id}"}),
     ("POST", "/api/v1/kb/candidates/{candidate_id}/reject", {"reason": "越权"}),
     ("PUT", "/api/v1/admin/integrations/wecom/members/{userid}", {"staff_id": "{own_staff_id}"}),
+    ("DELETE", "/api/v1/admin/integrations/wecom/join-ways/{way_id}", None),
+    ("PUT", "/api/v1/sidebar/customers/{customer_id}/tags", {"tags": ["越权"]}),
+    ("GET", "/api/v1/wecom/broadcasts/{broadcast_id}", None),
+    ("POST", "/api/v1/wecom/broadcasts/{broadcast_id}/refresh", None),
+    ("POST", "/api/v1/wecom/broadcasts/{broadcast_id}/cancel", None),
+    ("POST", "/api/v1/wecom/broadcasts/{broadcast_id}/remind", None),
 ]
 
 
@@ -132,6 +138,20 @@ async def build(desk: Desk) -> Tenant:
         uuid.uuid4(),
         desk.tenant_id,
     )
+    # 群发任务和客户群活码（直接写库，流程见 test_wecom_extras.py）。
+    [broadcast] = await desk.sql(
+        "INSERT INTO wecom_broadcasts (id, tenant_id, kind, title, content, status)"
+        " VALUES ($1, $2, 'single', '国庆活动', '全场九折', 'created') RETURNING id",
+        uuid.uuid4(),
+        desk.tenant_id,
+    )
+    [way] = await desk.sql(
+        "INSERT INTO wecom_join_ways (id, tenant_id, config_id, name, state)"
+        " VALUES ($1, $2, $3, '活动二维码', $3) RETURNING id",
+        uuid.uuid4(),
+        desk.tenant_id,
+        f"edp{desk.code}",
+    )
     await desk.flush()
     ids = {
         "customer_id": str(chat["customer_id"]),
@@ -146,6 +166,8 @@ async def build(desk: Desk) -> Tenant:
         "reply_id": reply.json()["id"],
         "item_id": knowledge.json()["id"],
         "candidate_id": str(candidate["id"]),
+        "broadcast_id": str(broadcast["id"]),
+        "way_id": str(way["id"]),
         "version": "1",
         "userid": "zhangsan",
         "tenant_id": str(desk.tenant_id),
@@ -207,6 +229,8 @@ async def snapshot(desk: Desk) -> list[Any]:
         "quick_replies": "id, title",
         "kb_items": "id, title, status, version",
         "kb_candidates": "id, status",
+        "wecom_broadcasts": "id, status",
+        "wecom_join_ways": "id, name",
         "messages": "id",
     }
     rows = []
@@ -402,6 +426,8 @@ async def test_agents_only_reach_their_own_sessions_and_customers(
         "group_id": acme.ids["group_id"],
         "policy_id": acme.ids["policy_id"],
         "item_id": acme.ids["item_id"],
+        "broadcast_id": acme.ids["broadcast_id"],
+        "way_id": acme.ids["way_id"],
     }
     before = await snapshot(desk)
 

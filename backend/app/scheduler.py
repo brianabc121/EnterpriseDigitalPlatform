@@ -10,7 +10,9 @@
 - 从最近结束的会话提炼知识候选（每小时）；
 - 每周一生成上一周的知识周报（每小时检查）；
 - 微信客服兜底拉取消息，防止回调丢失（每 5 分钟）；
-- 回收企业微信在职继承的结果（每小时）。
+- 回收企业微信在职继承、离职继承的结果（每小时）；
+- 回收企业微信群发任务的发送结果（每 30 分钟）；
+- 从数据与智能专区取回群聊分析结果（每小时，开启了专区的企业）。
 
 用法：uv run python -m app.scheduler。可以运行多个实例：持有租约的实例执行任务，其他实例待命。
 """
@@ -38,6 +40,8 @@ from app.modules.sessions.transfer import run_transfer_timers
 from app.modules.usage.service import run_usage_rollup
 from app.modules.wecom.contacts import poll_transfers
 from app.modules.wecom.kf import sync_all as kf_sync_all
+from app.modules.wecom.marketing import poll_broadcasts
+from app.modules.wecom.zone import pull_zone_results
 
 logger = logging.getLogger("app.scheduler")
 
@@ -67,6 +71,8 @@ JOBS = (
     Job("kb-digest", 3600, run_digests),
     Job("wecom-kf-sync", 300, kf_sync_all),
     Job("wecom-transfers", 3600, poll_transfers),
+    Job("wecom-broadcasts", 1800, poll_broadcasts),
+    Job("wecom-zone", 3600, pull_zone_results),
 )
 
 

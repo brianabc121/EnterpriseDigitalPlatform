@@ -42,6 +42,15 @@ export interface WorkbenchMessage {
   status: SendStatus | null
   /** 发送失败的原因（如已超过微信客服 48 小时回复窗口）。 */
   error?: string | null
+  /** 语音转写的文字。 */
+  transcript?: string | null
+  /** 微信客服菜单消息里可点选的按钮（转人工、满意度）。 */
+  menu?: MenuOption[] | null
+}
+
+export interface MenuOption {
+  id: string
+  content: string
 }
 
 const CONTENT_TYPES: Record<number, string> = {
@@ -58,12 +67,16 @@ const CONTENT_TYPES: Record<number, string> = {
 const num = (v: unknown): number | null => (typeof v === 'number' ? v : null)
 const str = (v: unknown): string | null => (typeof v === 'string' && v ? v : null)
 
-/** 平台保存的图片、文件消息内容：{url, name, size, width, height, mime}（见后端 ingest.attachment_of）。 */
+/**
+ * 平台保存的图片、文件、语音、视频消息内容：{url, name, size, width, height, mime}
+ * （见后端 ingest.attachment_of、wecom/kf._store_media）。
+ */
 export function attachmentOf(
   contentType: string,
   content: Record<string, unknown>,
 ): Attachment | null {
-  if (!['image', 'file'].includes(contentType) || typeof content.url !== 'string') return null
+  if (!['image', 'file', 'voice', 'video'].includes(contentType)) return null
+  if (typeof content.url !== 'string') return null
   return {
     url: content.url,
     name: str(content.name),
@@ -89,7 +102,18 @@ export function fromApi(m: Schemas['MessageOut']): WorkbenchMessage {
     sentAt: Date.parse(m.sent_at),
     status: (m.send_status as SendStatus | null) ?? null,
     error: m.send_error ?? null,
+    transcript: str(m.content.transcript),
+    menu: menuOf(m.content.menu),
   }
+}
+
+function menuOf(value: unknown): MenuOption[] | null {
+  if (!Array.isArray(value)) return null
+  const options = value
+    .filter((v): v is Record<string, unknown> => typeof v === 'object' && v !== null)
+    .map((v) => ({ id: String(v.id ?? ''), content: String(v.content ?? '') }))
+    .filter((v) => v.content)
+  return options.length ? options : null
 }
 
 /** 从 IM 用户 ID 推断发送者类型（ID 约定见实施计划 §7.2）。 */

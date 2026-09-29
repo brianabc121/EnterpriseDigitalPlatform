@@ -75,13 +75,29 @@ def enqueue_kick(session: AsyncSession, room_id: UUID, staff_id: UUID) -> None:
     _enqueue(session, room_id, ImOpType.KICK, {"staff_id": str(staff_id)})
 
 
-def enqueue_notice(session: AsyncSession, room_id: UUID, text: str) -> None:
-    _enqueue(session, room_id, ImOpType.NOTICE, {"text": text})
+def enqueue_notice(
+    session: AsyncSession, room_id: UUID, text: str, *, menu: list[dict[str, str]] | None = None
+) -> None:
+    """系统提示。menu 是可点选的选项（微信客服发成菜单消息，其他渠道忽略）。"""
+    payload: dict[str, Any] = {"text": text}
+    if menu:
+        payload["menu"] = menu
+    _enqueue(session, room_id, ImOpType.NOTICE, payload)
 
 
-def enqueue_bot_message(session: AsyncSession, room_id: UUID, text: str, nickname: str) -> None:
+def enqueue_bot_message(
+    session: AsyncSession,
+    room_id: UUID,
+    text: str,
+    nickname: str,
+    *,
+    menu: list[dict[str, str]] | None = None,
+) -> None:
     """AI 回复：以机器人身份发到服务群，ex 带 ai 标记（客户端据此显示"AI"标识）。"""
-    _enqueue(session, room_id, ImOpType.BOT_MESSAGE, {"text": text, "nickname": nickname})
+    payload: dict[str, Any] = {"text": text, "nickname": nickname}
+    if menu:
+        payload["menu"] = menu
+    _enqueue(session, room_id, ImOpType.BOT_MESSAGE, payload)
 
 
 def enqueue_signal(
@@ -280,6 +296,9 @@ async def _channel_step(
     if stage == _STAGE_CREATE:
         is_bot = op.op == ImOpType.BOT_MESSAGE
         text = str(op.payload.get("text") or "")
+        content: dict[str, Any] = {"text": text}
+        if op.payload.get("menu"):
+            content["menu"] = op.payload["menu"]
         message = Message(
             id=new_id(),
             tenant_id=room.tenant_id,
@@ -288,7 +307,7 @@ async def _channel_step(
             direction=Direction.OUT,
             sender_type=SenderType.BOT if is_bot else SenderType.SYSTEM,
             content_type="text",
-            content={"text": text},
+            content=content,
             text_plain=text,
             source=MessageSource.API,
             send_status=SendStatus.PENDING,
