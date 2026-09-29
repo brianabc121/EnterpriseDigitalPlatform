@@ -23,6 +23,7 @@ from app.modules.conversation.models import (
     Room,
     SessionEvent,
     SessionStatus,
+    SessionWatcher,
     Ticket,
     TicketSource,
     TicketStatus,
@@ -41,13 +42,28 @@ from app.modules.sessions.schemas import (
     SessionPage,
     TicketOut,
     TicketPage,
+    WatcherOut,
 )
 
 SESSION_NOT_FOUND = "会话不存在"
 TICKET_NOT_FOUND = "留言不存在"
 OPEN = "open"
+# 接待中：AI 或人工正在接待（不含排队）。
+SERVING = "serving"
+SERVING_STATUSES = (
+    SessionStatus.AI_SERVING,
+    SessionStatus.HUMAN_SERVING,
+    SessionStatus.TRANSFERRING,
+)
 
 _Assignee = aliased(Staff)
+
+
+def watching(staff_id: UUID) -> Select[UUID]:
+    """员工正在旁听或协助的会话。"""
+    return select(SessionWatcher.session_id).where(
+        SessionWatcher.staff_id == staff_id, SessionWatcher.left_at.is_(None)
+    )
 
 
 def session_visible_to(principal: Principal) -> ColumnElement[bool]:
@@ -58,6 +74,7 @@ def session_visible_to(principal: Principal) -> ColumnElement[bool]:
     conditions: list[ColumnElement[bool]] = [
         ChatSession.assignee_id == me,
         Customer.owner_id == me,
+        ChatSession.id.in_(watching(me)),
     ]
     if principal.has(Permission.SESSION_READ_TEAM):
         team = team_members(me)
@@ -91,7 +108,11 @@ def _sessions(principal: Principal) -> Select[ChatSession, str, str | None, str]
 
 
 def _session_out(
-    chat: ChatSession, customer_name: str, assignee_name: str | None, group_id: str
+    chat: ChatSession,
+    customer_name: str,
+    assignee_name: str | None,
+    group_id: str,
+    role: str | None = None,
 ) -> dict[str, Any]:
     return {
         "id": chat.id,
@@ -116,8 +137,28 @@ def _session_out(
         "last_agent_message_at": chat.last_agent_message_at,
         "csat": chat.csat,
         "csat_comment": chat.csat_comment,
+        "intent": chat.intent,
+        "overflowed_at": chat.overflowed_at,
+        "my_role": role,
         "created_at": chat.created_at,
     }
+
+
+async def my_roles(
+    session: AsyncSession, principal: Principal, chats: list[ChatSession]
+) -> dict[UUID, str]:
+    """当前员工在这些会话里的身份：接待、旁听或协助。"""
+    roles = {c.id: "assignee" for c in chats if c.assignee_id == principal.staff_id}
+    rows = await session.execute(
+        select(SessionWatcher.session_id, SessionWatcher.role).where(
+            SessionWatcher.staff_id == principal.staff_id,
+            SessionWatcher.left_at.is_(None),
+            SessionWatcher.session_id.in_([c.id for c in chats]),
+        )
+    )
+    for session_id, role in rows:
+        roles.setdefault(session_id, role)
+    return roles
 
 
 async def list_sessions(
@@ -129,10 +170,15 @@ async def list_sessions(
     customer_id: UUID | None,
     limit: int,
     offset: int,
+    watching_only: bool = False,
 ) -> SessionPage:
     query = _sessions(principal)
+    if watching_only:
+        query = query.where(ChatSession.id.in_(watching(principal.staff_id)))
     if status == OPEN:
         query = query.where(ChatSession.status != SessionStatus.CLOSED)
+    elif status == SERVING:
+        query = query.where(ChatSession.status.in_(SERVING_STATUSES))
     elif status is not None:
         query = query.where(ChatSession.status == status)
     if mine:
@@ -150,8 +196,12 @@ async def list_sessions(
             ChatSession.last_agent_message_at,
         )
         order = (activity.desc(), ChatSession.id.desc())
-    rows = await session.execute(query.order_by(*order).limit(limit).offset(offset))
-    return SessionPage(items=[SessionOut(**_session_out(*row)) for row in rows], total=total or 0)
+    rows = (await session.execute(query.order_by(*order).limit(limit).offset(offset))).all()
+    roles = await my_roles(session, principal, [row[0] for row in rows])
+    return SessionPage(
+        items=[SessionOut(**_session_out(*row, roles.get(row[0].id))) for row in rows],
+        total=total or 0,
+    )
 
 
 async def visible_session(
@@ -175,8 +225,22 @@ async def get_session(
             .order_by(SessionEvent.created_at, SessionEvent.id)
         )
     ).all()
+    roles = await my_roles(session, principal, [row[0]])
+    watchers = await session.execute(
+        select(SessionWatcher, Staff.display_name)
+        .join(
+            Staff,
+            and_(Staff.tenant_id == SessionWatcher.tenant_id, Staff.id == SessionWatcher.staff_id),
+        )
+        .where(SessionWatcher.session_id == session_id, SessionWatcher.left_at.is_(None))
+        .order_by(SessionWatcher.joined_at)
+    )
     return SessionDetail(
-        **_session_out(*row),
+        **_session_out(*row, roles.get(session_id)),
+        watchers=[
+            WatcherOut(staff_id=w.staff_id, display_name=name, role=w.role, joined_at=w.joined_at)
+            for w, name in watchers
+        ],
         events=[
             SessionEventOut(
                 id=e.id,

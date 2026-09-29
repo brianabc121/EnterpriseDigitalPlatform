@@ -21,6 +21,7 @@ export const CLOSE_REASON: Record<string, string> = {
   idle_timeout: '长时间无消息',
   leave_message: '转为留言',
   ai_resolved: 'AI 解决',
+  visitor_cancel: '客户取消排队',
 }
 
 export const TICKET_SOURCE: Record<string, string> = {
@@ -40,6 +41,12 @@ export const SESSION_EVENT: Record<string, string> = {
   transferred: '完成转接',
   closed: '会话结束',
   csat: '客户评价',
+  overflowed: '溢出到备用技能组',
+  returned_to_ai: '交还 AI',
+  queue_cancelled: '客户取消排队',
+  monitor_joined: '主管旁听',
+  assist_invited: '邀请协助',
+  watcher_left: '退出旁听/协助',
 }
 
 /** 转人工原因（AI 接待转人工、访客点"转人工"，或 AI 优先却不能接待时）。 */
@@ -56,6 +63,7 @@ export const HANDOFF_REASON: Record<string, string> = {
   plan: '套餐不含 AI 接待',
   disabled: 'AI 接待已关闭',
   not_configured: 'AI 接待未配置',
+  supervisor: '主管转人工',
 }
 
 export const ASSIGN_VIA: Record<string, string> = {
@@ -108,6 +116,9 @@ export const AUDIT_ACTION: Record<string, string> = {
   'customer.merge': '合并客户',
   'customer.personal_data': '个人信息查询',
   'customer.erase': '个人信息删除',
+  'customer.transfer_request': '申请转移客户',
+  'customer.transfer_approve': '批准客户转移',
+  'customer.transfer_reject': '驳回客户转移',
   'channel.update': '修改渠道',
   'channel.rotate_identity_secret': '更换身份校验密钥',
   'skill_group.create': '新建技能组',
@@ -167,4 +178,18 @@ export const ACTOR_TYPE: Record<string, string> = {
 
 export function auditActionLabel(action: string): string {
   return AUDIT_ACTION[action] ?? action
+}
+
+/** 会话里的协作身份。 */
+export const WATCHER_ROLE: Record<string, string> = {
+  monitor: '旁听',
+  assist: '协助',
+}
+
+/** 客户转移申请的状态。 */
+export const TRANSFER_REQUEST_STATUS: Record<string, string> = {
+  pending: '待审批',
+  approved: '已批准',
+  rejected: '已驳回',
+  cancelled: '已撤回',
 }

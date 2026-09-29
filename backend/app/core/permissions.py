@@ -18,6 +18,7 @@ class Permission(StrEnum):
     SESSION_READ_TEAM = "session:read_team"  # 组长查看所带技能组的会话、组员的客户
     SESSION_TRANSFER = "session:transfer"  # 转接自己接待中的会话
     SESSION_TRANSFER_ANY = "session:transfer_any"  # 转接或强制转接可见范围内的任意会话
+    SESSION_MONITOR = "session:monitor"  # 旁听可见范围内的会话（客户看不到旁听者）
     ROUTING_MANAGE = "routing:manage"  # 技能组、路由策略、坐席并发
     STAFF_READ = "staff:read"
     STAFF_MANAGE = "staff:manage"
@@ -42,6 +43,7 @@ PERMISSION_INFO: dict[Permission, tuple[str, str]] = {
     Permission.SESSION_TRANSFER_ANY: ("转接或强制转接任意会话", "接待"),
     Permission.SESSION_READ_TEAM: ("查看所带技能组的会话和组员的客户", "接待"),
     Permission.SESSION_READ_ALL: ("查看全部会话", "接待"),
+    Permission.SESSION_MONITOR: ("旁听会话", "接待"),
     Permission.QUICK_REPLY_MANAGE: ("维护全员共享的快捷话术", "接待"),
     Permission.CUSTOMER_READ: ("查看客户（自己的和正在接待的）", "客户"),
     Permission.CUSTOMER_READ_ALL: ("查看全部客户", "客户"),
@@ -103,6 +105,7 @@ DEFAULT_ROLES: tuple[RoleSpec, ...] = (
                 Permission.SESSION_READ_TEAM,
                 Permission.SESSION_TRANSFER,
                 Permission.SESSION_TRANSFER_ANY,
+                Permission.SESSION_MONITOR,
                 Permission.QUICK_REPLY_MANAGE,
                 Permission.BROADCAST_MANAGE,
             }

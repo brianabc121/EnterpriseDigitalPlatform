@@ -150,7 +150,11 @@ class OwnerHistoryOut(BaseModel):
     to_owner_id: UUID | None
     to_owner_name: str | None
     actor_name: str | None
-    reason: str = Field(description="session_transfer、manual、handover 或 wecom（企业微信添加人）")
+    reason: str = Field(
+        description=(
+            "session_transfer、manual、handover、wecom（企业微信添加人）或 request（申请审批）"
+        )
+    )
     wecom_sync_status: str | None = Field(
         default=None, description="在职继承同步状态：waiting、success、failed；为空表示没有同步"
     )
@@ -227,3 +231,39 @@ class PrivacyRequestOut(BaseModel):
 
 class PrivacyRequestList(BaseModel):
     items: list[PrivacyRequestOut]
+
+
+# ---- 客户转移申请 ----
+
+
+class TransferRequestCreate(BaseModel):
+    to_owner_id: UUID | None = Field(default=None, description="转给谁；不填表示转给申请人自己")
+    reason: str = Field(min_length=1, max_length=500)
+
+
+class TransferDecision(BaseModel):
+    note: str | None = Field(default=None, max_length=500)
+    sync_wecom: bool = Field(default=False, description=_SYNC_WECOM)
+
+
+class TransferRequestOut(BaseModel):
+    id: UUID
+    customer_id: UUID
+    customer_name: str
+    from_owner_id: UUID | None
+    from_owner_name: str | None
+    to_owner_id: UUID | None
+    to_owner_name: str | None
+    requested_by: UUID | None
+    requested_by_name: str | None
+    reason: str | None
+    status: str = Field(description="pending、approved、rejected、cancelled")
+    decided_by_name: str | None
+    decided_at: datetime | None
+    decision_note: str | None
+    created_at: datetime
+
+
+class TransferRequestList(BaseModel):
+    items: list[TransferRequestOut]
+    pending: int = Field(description="待审批的申请数（有分配权限时为全部待审批数）")

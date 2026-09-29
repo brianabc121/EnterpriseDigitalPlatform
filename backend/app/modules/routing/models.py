@@ -4,6 +4,7 @@ from enum import StrEnum
 from typing import Any
 
 from sqlalchemy import ForeignKeyConstraint, String, UniqueConstraint, func
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base, IdMixin, TenantMixin, TimestampMixin
@@ -14,6 +15,9 @@ class SkillGroup(IdMixin, TimestampMixin, TenantMixin, Base):
     __table_args__ = (UniqueConstraint("tenant_id", "id"), UniqueConstraint("tenant_id", "name"))
 
     name: Mapped[str] = mapped_column(String(64))
+    # 排队超过 overflow_after_seconds 仍没有分配时，改由备用技能组接待（设计文档 §11.3）。
+    overflow_group_id: Mapped[uuid.UUID | None]
+    overflow_after_seconds: Mapped[int] = mapped_column(server_default="0")
 
 
 class SkillGroupMember(TenantMixin, Base):
@@ -64,6 +68,13 @@ class RoutingPolicy(IdMixin, TimestampMixin, TenantMixin, Base):
     resume_window_minutes: Mapped[int] = mapped_column(server_default="10")
     # 为空表示全天服务；否则形如 {"tz": "Asia/Shanghai", "days": {"1": [["09:00", "18:00"]]}}。
     business_hours: Mapped[dict[str, Any] | None]
+    # 排队优先级：带这些标签的客户（VIP）排在最前；urgent_first 时投诉、情绪激动的客户次之。
+    priority_tags: Mapped[list[str]] = mapped_column(server_default="{VIP}")
+    urgent_first: Mapped[bool] = mapped_column(server_default="true")
+    # 排队期间 AI 继续回答客户的其他问题（需要启用 AI 接待）。
+    ai_while_queued: Mapped[bool] = mapped_column(server_default="false")
+    # 按意图分配：[{"intent": "售后", "keywords": ["退货"], "skill_group_id": "..."}]。
+    intent_routes: Mapped[list[Any]] = mapped_column(JSONB, server_default="[]")
 
 
 class AgentStatus(StrEnum):

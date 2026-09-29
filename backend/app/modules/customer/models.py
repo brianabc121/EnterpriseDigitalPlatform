@@ -66,6 +66,7 @@ class OwnerChangeReason(StrEnum):
     MANUAL = "manual"  # 管理员转移
     HANDOVER = "handover"  # 离职或调岗交接
     WECOM = "wecom"  # 企业微信里添加客户的员工成为默认归属坐席
+    REQUEST = "request"  # 坐席申请、管理员审批通过的转移
 
 
 class CustomerOwnerHistory(IdMixin, TenantMixin, Base):
@@ -84,4 +85,37 @@ class CustomerOwnerHistory(IdMixin, TenantMixin, Base):
     note: Mapped[str | None] = mapped_column(Text)
     # 同步到企业微信（在职继承）的状态：waiting、success、failed；为空表示没有同步。
     wecom_sync_status: Mapped[str | None] = mapped_column(String(16))
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+
+class TransferRequestStatus(StrEnum):
+    PENDING = "pending"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+    CANCELLED = "cancelled"
+
+
+class CustomerTransferRequest(IdMixin, TenantMixin, Base):
+    """客户转移申请（设计文档 §14.1）：坐席申请变更客户的归属坐席，有分配权限的员工审批。"""
+
+    __tablename__ = "customer_transfer_requests"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["tenant_id", "customer_id"],
+            ["customers.tenant_id", "customers.id"],
+            ondelete="CASCADE",
+        ),
+    )
+
+    customer_id: Mapped[uuid.UUID]
+    from_owner_id: Mapped[uuid.UUID | None]
+    to_owner_id: Mapped[uuid.UUID | None]
+    requested_by: Mapped[uuid.UUID | None]
+    reason: Mapped[str | None] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(
+        String(16), server_default=TransferRequestStatus.PENDING.value
+    )
+    decided_by: Mapped[uuid.UUID | None]
+    decided_at: Mapped[datetime | None]
+    decision_note: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())

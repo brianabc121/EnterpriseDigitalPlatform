@@ -10,6 +10,8 @@ import OwnerHistoryDrawer from '../components/customers/OwnerHistoryDrawer.vue'
 import OwnerTransferDialog from '../components/customers/OwnerTransferDialog.vue'
 import PrivacyDialog from '../components/customers/PrivacyDialog.vue'
 import PrivacyRequestsDrawer from '../components/customers/PrivacyRequestsDrawer.vue'
+import TransferRequestDialog from '../components/customers/TransferRequestDialog.vue'
+import TransferRequestsDrawer from '../components/customers/TransferRequestsDrawer.vue'
 import CustomerPanel from '../components/workbench/CustomerPanel.vue'
 import { CUSTOMER_SOURCE } from '../labels'
 import { useAuthStore } from '../stores/auth'
@@ -35,6 +37,10 @@ const mergeOpen = ref(false)
 const privacyOpen = ref(false)
 const requestsOpen = ref(false)
 const profileOpen = ref(false)
+/** 坐席申请转移客户（没有分配权限时），管理员在"转移申请"里审批。 */
+const transferRequestOpen = ref(false)
+const transferRequestsOpen = ref(false)
+const pendingRequests = ref(0)
 const current = ref<Schemas['CustomerOut'] | null>(null)
 
 function openWith(customer: Schemas['CustomerOut'], dialog: 'merge' | 'privacy' | 'profile'): void {
@@ -46,7 +52,17 @@ function openWith(customer: Schemas['CustomerOut'], dialog: 'merge' | 'privacy' 
 
 function onAction(command: string, customer: Schemas['CustomerOut']): void {
   if (command === 'history') showHistory(customer)
-  else openWith(customer, command as 'merge' | 'privacy')
+  else if (command === 'request') {
+    current.value = customer
+    transferRequestOpen.value = true
+  } else openWith(customer, command as 'merge' | 'privacy')
+}
+
+async function loadPendingRequests(): Promise<void> {
+  const { data } = await api.GET('/api/v1/customers/transfer-requests', {
+    params: { query: { status: 'pending' } },
+  })
+  pendingRequests.value = data?.pending ?? 0
 }
 
 async function search(): Promise<void> {
@@ -99,6 +115,7 @@ async function load(): Promise<void> {
   }
   items.value = data.items
   total.value = data.total
+  void loadPendingRequests()
 }
 
 async function openCreate(): Promise<void> {
@@ -153,6 +170,15 @@ onMounted(load)
           @keyup.enter="search"
           @clear="search"
         />
+        <el-button data-testid="transfer-requests-button" @click="transferRequestsOpen = true">
+          转移申请
+          <el-badge
+            v-if="pendingRequests"
+            :value="pendingRequests"
+            class="pending-badge"
+            data-testid="transfer-requests-pending"
+          />
+        </el-button>
         <el-button v-if="canManage" @click="requestsOpen = true">个人信息请求</el-button>
         <el-button v-if="canExport" data-testid="export-customers" @click="exportOpen = true">
           导出
@@ -226,6 +252,7 @@ onMounted(load)
             <template #dropdown>
               <el-dropdown-menu>
                 <el-dropdown-item command="history">归属记录</el-dropdown-item>
+                <el-dropdown-item v-if="!canTransfer" command="request">申请转移</el-dropdown-item>
                 <el-dropdown-item v-if="canManage" command="merge">合并重复客户</el-dropdown-item>
                 <el-dropdown-item v-if="canManage" command="privacy">个人信息请求</el-dropdown-item>
               </el-dropdown-menu>
@@ -244,6 +271,12 @@ onMounted(load)
     <MergeDialog v-model="mergeOpen" :target="current" @done="load" />
     <PrivacyDialog v-model="privacyOpen" :customer="current" @erased="load" />
     <PrivacyRequestsDrawer v-model="requestsOpen" />
+    <TransferRequestDialog
+      v-model="transferRequestOpen"
+      :customer="current"
+      @done="loadPendingRequests"
+    />
+    <TransferRequestsDrawer v-model="transferRequestsOpen" @changed="load" />
     <el-drawer v-model="profileOpen" :title="current?.display_name" size="380px" @closed="load">
       <CustomerPanel v-if="current && profileOpen" :key="current.id" :customer-id="current.id" />
     </el-drawer>
@@ -297,6 +330,15 @@ onMounted(load)
 
 .tag {
   margin-right: 4px;
+}
+
+.pending-badge {
+  margin-left: 6px;
+}
+
+.pending-badge :deep(.el-badge__content) {
+  position: static;
+  transform: none;
 }
 
 .toolbar {

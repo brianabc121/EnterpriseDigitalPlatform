@@ -7,7 +7,7 @@ from app.core.errors import Forbidden, NotFound, Unprocessable
 from app.core.permissions import Permission
 from app.modules.audit.service import record_audit
 from app.modules.channels.models import ChannelAccount
-from app.modules.conversation.models import ChatSession, SessionStatus
+from app.modules.conversation.models import ChatSession, SessionStatus, SessionWatcher
 from app.modules.customer import sensitive
 from app.modules.customer.models import Customer, CustomerIdentity
 from app.modules.customer.schemas import (
@@ -29,7 +29,8 @@ def visible_to(principal: Principal) -> ColumnElement[bool]:
     """数据范围（DataScope，设计文档 §13.2）。
 
     - customer:read_all 或 session:read_all：本租户全部客户；
-    - 否则：归属自己的客户，加上当前有会话分配给自己的客户（服务期间临时可见，能看到完整历史）；
+    - 否则：归属自己的客户，加上当前有会话分配给自己的客户（服务期间临时可见，能看到完整历史），
+      以及正在旁听或协助的会话的客户；
     - 另有 session:read_team 时：组员名下的客户、组员正在接待的客户。
 
     租户之间的隔离由数据库 RLS 保证，这里只处理租户内部的可见性。
@@ -40,6 +41,14 @@ def visible_to(principal: Principal) -> ColumnElement[bool]:
     conditions: list[ColumnElement[bool]] = [
         Customer.owner_id == me,
         _serving(ChatSession.assignee_id == me),
+        # 正在旁听或协助这位客户的会话。
+        _serving(
+            ChatSession.id.in_(
+                select(SessionWatcher.session_id).where(
+                    SessionWatcher.staff_id == me, SessionWatcher.left_at.is_(None)
+                )
+            )
+        ),
     ]
     if principal.has(Permission.SESSION_READ_TEAM):
         team = team_members(me)

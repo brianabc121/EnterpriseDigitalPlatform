@@ -27,6 +27,8 @@ import { useAuthStore } from './auth'
 
 export type AgentStatus = Schemas['AgentStatus']
 type Session = Schemas['SessionOut']
+/** 会话详情（带事件和正在旁听、协助的员工）。 */
+type SessionDetail = Schemas['SessionDetail']
 
 /** 心跳间隔；后端超过 90 秒没有心跳就把坐席置为离线。 */
 export const HEARTBEAT_MS = 30_000
@@ -59,7 +61,13 @@ export const useWorkbenchStore = defineStore('workbench', () => {
   const agent = ref<Schemas['MyAgentState'] | null>(null)
   const sessions = ref<Session[]>([])
   const queued = ref<Session[]>([])
-  const active = ref<Session | null>(null)
+  /** 进行中：AI 接待和其他坐席接待中的会话（主管、管理员可见，可以旁听、转人工）。 */
+  const ongoing = ref<Session[]>([])
+  /** 我正在旁听或协助的会话。 */
+  const watching = ref<Session[]>([])
+  /** 我最近结束的会话（打开"已结束"页签时加载）。 */
+  const closed = ref<Session[]>([])
+  const active = ref<Session | SessionDetail | null>(null)
   const replyWindow = ref<Schemas['ReplyWindowOut'] | null>(null)
   const messages = ref<Record<string, WorkbenchMessage[]>>({})
   const hasMore = ref<Record<string, boolean>>({})
@@ -83,12 +91,19 @@ export const useWorkbenchStore = defineStore('workbench', () => {
 
   const canSeeQueue = computed(() => auth.can('session:read_all') || auth.can('session:read_team'))
   const canManageOthers = computed(() => auth.can('session:transfer_any'))
+  const canMonitor = computed(() => auth.can('session:monitor'))
   const activeMessages = computed(() =>
     active.value ? (messages.value[active.value.room_id] ?? []) : [],
   )
 
   function isMine(session: Session): boolean {
     return session.assignee_id === auth.me?.id
+  }
+
+  /** 我在会话里的身份：assignee（接待）、monitor（旁听）、assist（协助）；都不是时为空。 */
+  function roleIn(session: Session): string | null {
+    if (isMine(session)) return 'assignee'
+    return session.my_role ?? watching.value.find((s) => s.id === session.id)?.my_role ?? null
   }
 
   // ---- 接待状态与心跳 ----
@@ -148,6 +163,9 @@ export const useWorkbenchStore = defineStore('workbench', () => {
     im = null
     sessions.value = []
     queued.value = []
+    ongoing.value = []
+    watching.value = []
+    closed.value = []
     incoming.value = []
     outgoing.value = {}
     active.value = null
@@ -193,30 +211,54 @@ export const useWorkbenchStore = defineStore('workbench', () => {
       if (active.value && !mine.data.items.some((s) => s.id === active.value!.id)) {
         await refreshActive()
       } else if (active.value) {
-        active.value = mine.data.items.find((s) => s.id === active.value!.id) ?? active.value
+        const fresh = mine.data.items.find((s) => s.id === active.value!.id)
+        // 列表项没有旁听、协助的员工：保留详情里的，其余字段用最新的。
+        if (fresh) active.value = { ...active.value, ...fresh }
       }
     }
+    const watched = await api.GET('/api/v1/sessions', {
+      params: { query: { status: 'open', watching: true, limit: 100 } },
+    })
+    if (watched.data) watching.value = watched.data.items
     if (canSeeQueue.value) {
-      const waiting = await api.GET('/api/v1/sessions', {
-        params: { query: { status: 'queued', limit: 100 } },
-      })
+      const [waiting, serving] = await Promise.all([
+        api.GET('/api/v1/sessions', { params: { query: { status: 'queued', limit: 100 } } }),
+        api.GET('/api/v1/sessions', { params: { query: { status: 'serving', limit: 100 } } }),
+      ])
       if (waiting.data) queued.value = waiting.data.items
+      if (serving.data) ongoing.value = serving.data.items.filter((s) => !isMine(s))
     }
   }
 
-  async function refreshActive(): Promise<void> {
-    if (!active.value) return
-    const { data } = await api.GET('/api/v1/sessions/{session_id}', {
-      params: { path: { session_id: active.value.id } },
+  async function loadClosed(): Promise<void> {
+    const { data } = await api.GET('/api/v1/sessions', {
+      params: { query: { status: 'closed', mine: true, limit: 30 } },
     })
+    if (data) closed.value = data.items
+  }
+
+  async function refreshActive(): Promise<void> {
+    const id = active.value?.id
+    if (!id) return
+    const { data, response } = await api.GET('/api/v1/sessions/{session_id}', {
+      params: { path: { session_id: id } },
+    })
+    if (active.value?.id !== id) return
     if (data) active.value = data
+    // 协助结束后看不到这个会话了。
+    else if (response.status === 404) active.value = null
   }
 
   async function open(session: Session): Promise<void> {
     active.value = session
     replyWindow.value = null
     unread.value = { ...unread.value, [session.id]: 0 }
-    await Promise.all([loadHistory(session.room_id), refreshReplyWindow()])
+    await Promise.all([loadHistory(session.room_id), refreshReplyWindow(), refreshActive()])
+  }
+
+  /** 正在旁听、协助这个会话的员工（打开会话后从详情加载）。 */
+  function watchersOf(session: Session | SessionDetail): Schemas['WatcherOut'][] {
+    return 'watchers' in session ? (session.watchers ?? []) : []
   }
 
   /** 当前会话的回复限制（微信客服：客户最后一次发消息后 48 小时内最多 5 条）。 */
@@ -305,6 +347,59 @@ export const useWorkbenchStore = defineStore('workbench', () => {
     return data
   }
 
+  async function sessionAction(
+    session: Session,
+    action: 'return-to-ai' | 'handoff' | 'monitor',
+  ): Promise<void> {
+    const path = `/api/v1/sessions/{session_id}/${action}` as const
+    const { error: err, response } = await api.POST(path, {
+      params: { path: { session_id: session.id } },
+    })
+    if (!response.ok) throw new Error(errorMessage(err))
+    await loadSessions()
+    if (action === 'return-to-ai' && active.value?.id === session.id) active.value = null
+    else await refreshActive()
+  }
+
+  /** 交还 AI：会话回到 AI 接待，我退出服务群。 */
+  async function returnToAi(session: Session): Promise<void> {
+    await sessionAction(session, 'return-to-ai')
+  }
+
+  /** 主管把 AI 接待中的会话转人工。 */
+  async function handoff(session: Session): Promise<void> {
+    await sessionAction(session, 'handoff')
+  }
+
+  /** 旁听：加入服务群实时查看，客户看不到。 */
+  async function monitor(session: Session): Promise<void> {
+    await sessionAction(session, 'monitor')
+    await loadHistory(session.room_id)
+  }
+
+  async function inviteAssist(session: Session, staffId: string): Promise<void> {
+    const { data, error: err } = await api.POST('/api/v1/sessions/{session_id}/assists', {
+      params: { path: { session_id: session.id } },
+      body: { staff_id: staffId },
+    })
+    if (!data) throw new Error(errorMessage(err))
+    if (active.value?.id === session.id) active.value = data
+  }
+
+  /** 退出旁听或协助（staffId 为空时是我自己；接待坐席、主管可以请协助者退出）。 */
+  async function leave(session: Session, staffId?: string): Promise<void> {
+    const me = staffId ?? auth.me?.id
+    if (!me) return
+    const { error: err, response } = await api.DELETE(
+      '/api/v1/sessions/{session_id}/watchers/{staff_id}',
+      { params: { path: { session_id: session.id, staff_id: me } } },
+    )
+    if (!response.ok) throw new Error(errorMessage(err))
+    if (!staffId && active.value?.id === session.id) active.value = null
+    await loadSessions()
+    if (staffId) await refreshActive()
+  }
+
   async function close(session: Session): Promise<void> {
     const { data, error: err } = await api.POST('/api/v1/sessions/{session_id}/close', {
       params: { path: { session_id: session.id } },
@@ -319,6 +414,7 @@ export const useWorkbenchStore = defineStore('workbench', () => {
   function onImMessage(message: ChatMessage): void {
     const session =
       sessions.value.find((s) => s.im_group_id === message.groupID) ??
+      watching.value.find((s) => s.im_group_id === message.groupID) ??
       (active.value?.im_group_id === message.groupID ? active.value : undefined)
     if (!session) {
       // 刚分配的会话还没出现在列表里：刷新列表，历史在打开时从接口加载。
@@ -395,6 +491,9 @@ export const useWorkbenchStore = defineStore('workbench', () => {
     if (signal.type === 'transfer.requested' || signal.type === 'transfer.cancelled') {
       void loadIncoming()
     }
+    if (signal.type === 'session.assist') {
+      ElNotification({ title: '邀请协助', message: '同事邀请您协助接待一位客户', type: 'info' })
+    }
     const result = TRANSFER_RESULT[signal.type]
     if (result) {
       forgetOutgoing(signal.data.transfer_id)
@@ -407,6 +506,18 @@ export const useWorkbenchStore = defineStore('workbench', () => {
     agent,
     sessions,
     queued,
+    ongoing,
+    watching,
+    closed,
+    loadClosed,
+    canMonitor,
+    roleIn,
+    watchersOf,
+    returnToAi,
+    handoff,
+    monitor,
+    inviteAssist,
+    leave,
     active,
     replyWindow,
     refreshReplyWindow,

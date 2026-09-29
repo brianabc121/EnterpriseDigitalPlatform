@@ -15,6 +15,7 @@ const REASON: Record<string, string> = {
   manual: '管理员转移',
   handover: '离职交接',
   wecom: '企业微信添加人',
+  request: '申请审批',
 }
 
 watch(visible, async (open) => {

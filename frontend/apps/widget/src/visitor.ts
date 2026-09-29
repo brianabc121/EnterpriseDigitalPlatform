@@ -94,6 +94,13 @@ export async function requestHuman(token: string): Promise<SessionState> {
   return data
 }
 
+/** 取消排队：回到智能客服接待；智能客服不可用时结束会话。 */
+export async function cancelQueue(token: string): Promise<SessionState> {
+  const { data, error } = await api.POST('/api/v1/visitor/cancel-queue', { params: auth(token) })
+  if (!data) throw new Error(errorMessage(error))
+  return data
+}
+
 export async function rate(
   token: string,
   sessionId: string,

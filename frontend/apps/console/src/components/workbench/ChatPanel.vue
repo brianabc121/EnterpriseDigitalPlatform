@@ -2,16 +2,19 @@
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { computed, nextTick, ref, watch } from 'vue'
 
-import { HANDOFF_REASON } from '../../labels'
+import { HANDOFF_REASON, WATCHER_ROLE } from '../../labels'
 import { useWorkbenchStore } from '../../stores/workbench'
 import type { ReplyOrigin, WorkbenchMessage } from '../../workbench/messages'
 import MessageContent from '../chat/MessageContent.vue'
 import { IMAGE_TYPES, MAX_FILE_BYTES, MAX_IMAGE_BYTES } from '../../workbench/upload'
+import AssistDialog from './AssistDialog.vue'
 import QuickReplies from './QuickReplies.vue'
 import TransferDialog from './TransferDialog.vue'
 
 const wb = useWorkbenchStore()
 const transferOpen = ref(false)
+const assistOpen = ref(false)
+const acting = ref(false)
 
 const STATUS_TEXT: Record<string, string> = {
   queued: '排队中',
@@ -37,6 +40,60 @@ const pendingTransfer = computed(() =>
 const canTransfer = computed(
   () => !!session.value && (wb.isMine(session.value) || wb.canManageOthers),
 )
+/** 我在这个会话里的身份：assignee（接待）、monitor（旁听）、assist（协助），都不是时为空。 */
+const role = computed(() => (session.value ? wb.roleIn(session.value) : null))
+const inHumanService = computed(
+  () => !!session.value && ['human_serving', 'transferring'].includes(session.value.status),
+)
+const watchers = computed(() => (session.value ? wb.watchersOf(session.value) : []))
+// 主管可以旁听自己能看到的、别人接待中或 AI 接待中的会话。
+const canWatch = computed(
+  () =>
+    !!session.value && wb.canMonitor && session.value.status !== 'closed' && role.value === null,
+)
+
+async function act(action: () => Promise<void>, done: string): Promise<void> {
+  if (acting.value) return
+  acting.value = true
+  try {
+    await action()
+    ElMessage.success(done)
+  } catch (e) {
+    ElMessage.error(e instanceof Error ? e.message : String(e))
+  } finally {
+    acting.value = false
+  }
+}
+
+async function returnToAi(): Promise<void> {
+  const s = session.value
+  if (!s) return
+  try {
+    await ElMessageBox.confirm(
+      '会话交回智能客服继续接待，您会退出这个会话；客户需要时可以再次转人工。',
+      '交还 AI',
+      { confirmButtonText: '交还', cancelButtonText: '取消', type: 'info' },
+    )
+  } catch {
+    return
+  }
+  await act(() => wb.returnToAi(s), '已交还 AI 接待')
+}
+
+function handoff(): void {
+  const s = session.value
+  if (s) void act(() => wb.handoff(s), '已转人工，正在分配坐席')
+}
+
+function startMonitor(): void {
+  const s = session.value
+  if (s) void act(() => wb.monitor(s), '已加入旁听，客户看不到您')
+}
+
+function leave(staffId?: string): void {
+  const s = session.value
+  if (s) void act(() => wb.leave(s, staffId), staffId ? '已请同事退出' : '已退出')
+}
 
 async function cancelTransfer(): Promise<void> {
   if (!pendingTransfer.value) return
@@ -53,10 +110,18 @@ const handoffReason = computed(() => {
   return reason ? (HANDOFF_REASON[reason] ?? reason) : null
 })
 
-// 只有接待这个会话的坐席可以回复；主管查看他人的会话时只读。
-const replyable = computed(() => {
+// 接待这个会话的坐席和受邀协助的同事可以回复；旁听、查看他人的会话时只读。
+const replyable = computed(
+  () => inHumanService.value && (role.value === 'assignee' || role.value === 'assist'),
+)
+const readonlyText = computed(() => {
   const s = session.value
-  return !!s && ['human_serving', 'transferring'].includes(s.status) && wb.isMine(s)
+  if (!s) return ''
+  if (s.status === 'closed') return '会话已结束'
+  if (role.value === 'monitor') return '旁听中：只能查看，客户看不到您'
+  if (s.status === 'ai_serving') return '智能客服接待中'
+  if (s.status === 'queued') return '排队中，等待分配坐席'
+  return '只读：这个会话由其他坐席接待'
 })
 
 // 微信客服等渠道的回复限制：客户最后一次发消息后 48 小时内最多 5 条。
@@ -241,10 +306,67 @@ function insert(text: string, origin: ReplyOrigin = 'quick_reply'): void {
             等待对方接受转接
             <el-button link type="primary" size="small" @click="cancelTransfer">撤回</el-button>
           </span>
+          <span v-if="watchers.length" class="watchers" data-testid="session-watchers">
+            <el-tag
+              v-for="w in watchers"
+              :key="w.staff_id"
+              size="small"
+              type="info"
+              :closable="w.role === 'assist' && canTransfer && role !== 'assist'"
+              class="watcher"
+              @close="leave(w.staff_id)"
+            >
+              {{ WATCHER_ROLE[w.role] ?? w.role }}：{{ w.display_name }}
+            </el-tag>
+          </span>
         </div>
         <div class="header-actions">
           <el-button
-            v-if="session.status === 'human_serving' && canTransfer"
+            v-if="role === 'monitor' || role === 'assist'"
+            size="small"
+            :loading="acting"
+            data-testid="leave-session"
+            @click="leave()"
+          >
+            {{ role === 'monitor' ? '退出旁听' : '退出协助' }}
+          </el-button>
+          <el-button
+            v-if="canWatch"
+            size="small"
+            :loading="acting"
+            data-testid="monitor-session"
+            @click="startMonitor"
+          >
+            旁听
+          </el-button>
+          <el-button
+            v-if="session.status === 'ai_serving' && wb.canManageOthers"
+            size="small"
+            :loading="acting"
+            data-testid="handoff-session"
+            @click="handoff"
+          >
+            转人工
+          </el-button>
+          <el-button
+            v-if="inHumanService && canTransfer && role !== 'assist'"
+            size="small"
+            data-testid="invite-assist"
+            @click="assistOpen = true"
+          >
+            邀请协助
+          </el-button>
+          <el-button
+            v-if="session.status === 'human_serving' && canTransfer && role !== 'assist'"
+            size="small"
+            :loading="acting"
+            data-testid="return-to-ai"
+            @click="returnToAi"
+          >
+            交还 AI
+          </el-button>
+          <el-button
+            v-if="session.status === 'human_serving' && canTransfer && role !== 'assist'"
             size="small"
             data-testid="transfer-session"
             @click="transferOpen = true"
@@ -262,6 +384,7 @@ function insert(text: string, origin: ReplyOrigin = 'quick_reply'): void {
         </div>
       </header>
       <TransferDialog v-model="transferOpen" :session="session" />
+      <AssistDialog v-model="assistOpen" :session="session" />
       <div v-if="handoffReason || session.ai_summary" class="handoff" data-testid="ai-summary">
         <span class="handoff-title"
           >转人工<template v-if="handoffReason">：{{ handoffReason }}</template></span
@@ -376,8 +499,8 @@ function insert(text: string, origin: ReplyOrigin = 'quick_reply'): void {
           </el-button>
         </div>
       </footer>
-      <footer v-else class="readonly">
-        {{ session.status === 'closed' ? '会话已结束' : '只读：这个会话由其他坐席接待' }}
+      <footer v-else class="readonly" data-testid="chat-readonly">
+        {{ readonlyText }}
       </footer>
     </template>
     <div v-else class="empty">从左侧选择一个会话开始接待</div>
@@ -394,8 +517,15 @@ function insert(text: string, origin: ReplyOrigin = 'quick_reply'): void {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 8px;
   padding: 10px 16px;
   border-bottom: 1px solid var(--el-border-color-lighter);
+}
+
+/* 标题一侧可以换行，按钮保持一行。 */
+.header > :first-child {
+  flex: 1;
+  min-width: 0;
 }
 
 .title {
@@ -430,7 +560,20 @@ function insert(text: string, origin: ReplyOrigin = 'quick_reply'): void {
 
 .header-actions {
   display: flex;
+  flex-shrink: 0;
   gap: 8px;
+}
+
+.header-actions .el-button + .el-button {
+  margin-left: 0;
+}
+
+.watchers {
+  margin-left: 8px;
+}
+
+.watcher {
+  margin-right: 4px;
 }
 
 .messages {

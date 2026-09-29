@@ -34,12 +34,14 @@ from app.modules.conversation.models import (
     SessionEvent,
     SessionStatus,
     SessionTransfer,
+    SessionWatcher,
     Ticket,
     TicketSource,
     TicketStatus,
     TransferStatus,
 )
 from app.modules.customer.models import Customer
+from app.modules.routing import priority as prio
 from app.modules.routing.assign import (
     HEARTBEAT_TTL,
     AgentSlot,
@@ -48,7 +50,13 @@ from app.modules.routing.assign import (
     pick_agent,
 )
 from app.modules.routing.hours import in_business_hours
-from app.modules.routing.models import AgentState, AgentStatus, RoutingMode
+from app.modules.routing.models import (
+    AgentState,
+    AgentStatus,
+    RoutingMode,
+    RoutingPolicy,
+    SkillGroup,
+)
 from app.modules.wecom import menus
 from app.modules.wecom.notify import notify_staff
 
@@ -58,13 +66,16 @@ _ASSIGN_LOCK = 1002
 # 非工作时间的留言：这段时间内客户的后续消息追加到同一条留言。
 _OFF_HOURS_TICKET_WINDOW = timedelta(hours=12)
 _TICKET_TEXT_LIMIT = 2000
-_MAX_REQUEUE_PRIORITY = 10
 
 
 class Notice:
     """发给客户的系统提示。"""
 
     QUEUED = "正在为您转接人工客服，您前面还有 {ahead} 位，请稍候。"
+    QUEUED_WITH_AI = (
+        "正在为您转接人工客服，您前面还有 {ahead} 位，请稍候。"
+        "排队期间您可以继续提问，智能客服会先为您解答。"
+    )
     ASSIGNED = "客服 {name} 为您服务。"
     OFF_HOURS = "您好，现在是非工作时间。您的留言已记录，我们会在工作时间尽快联系您。"
     QUEUE_TIMEOUT = "当前咨询较多，您的问题已登记为留言，我们会尽快联系您。"
@@ -176,15 +187,22 @@ async def on_message_received(ctx: AppContext, event: Event) -> None:
         if chat is not None:
             message.session_id = chat.id
             touch_session(chat, message)
-            if (
-                chat.status == SessionStatus.AI_SERVING
-                and message.sender_type == SenderType.CUSTOMER
-            ):
-                # AI 接待中：稍等片刻（合并客户连续发的消息）后由 AI 回复，见 ai/responder.py。
+            if message.sender_type == SenderType.CUSTOMER and await _ai_answers(session, chat):
+                # AI 接待中（或排队期间允许 AI 继续回答）：稍等片刻（合并客户连续发的消息）后由
+                # AI 回复，见 ai/responder.py。
                 delay = timedelta(seconds=ctx.settings.ai_debounce_seconds)
                 await schedule_reply(session, chat, now + delay)
         await session.commit()
     await _run_after_commit(ctx, event.tenant_id, todo)
+
+
+async def _ai_answers(session: AsyncSession, chat: ChatSession) -> bool:
+    if chat.status == SessionStatus.AI_SERVING:
+        return True
+    if chat.status == SessionStatus.QUEUED:
+        policy = await PolicyResolver(session).for_channel(chat.channel_account_id)
+        return bool(policy.ai_while_queued)
+    return False
 
 
 async def open_session_of_room(session: AsyncSession, room_id: uuid.UUID) -> ChatSession | None:
@@ -264,11 +282,12 @@ async def start_session(
         queued_at=now,
         handoff_reason=blocker,
     )
+    placed = await place_in_queue(session, chat, policy, text=text, reason=None)
     session.add(chat)
     await session.flush()
     record_event(session, chat, "created", actor_type=ActorType.VISITOR)
     payload = {"reason": reason} if blocker is None else {"reason": "ai_unavailable", "ai": blocker}
-    record_event(session, chat, "queued", payload=payload)
+    record_event(session, chat, "queued", payload={**payload, **placed})
     todo.assign = True
     todo.newly_queued.add(chat.id)
     return chat
@@ -362,7 +381,11 @@ async def request_handoff(
             if in_business_hours(policy.business_hours, now):
                 chat.status = SessionStatus.QUEUED
                 chat.queued_at = now
-                record_event(session, chat, "queued", payload={"reason": "handoff"})
+                texts = await _customer_texts(session, chat.id)
+                placed = await place_in_queue(
+                    session, chat, policy, text="\n".join(texts), reason=reason
+                )
+                record_event(session, chat, "queued", payload={"reason": "handoff", **placed})
                 todo.assign = True
                 todo.newly_queued.add(chat.id)
             else:
@@ -372,23 +395,59 @@ async def request_handoff(
     return chat
 
 
-async def _handoff_off_hours(
-    session: AsyncSession, chat: ChatSession, now: datetime, todo: _AfterCommit
-) -> None:
-    """非工作时间转人工：结束 AI 接待，以交接摘要（或客户消息）生成留言，工作时间跟进。"""
+async def place_in_queue(
+    session: AsyncSession,
+    chat: ChatSession,
+    policy: RoutingPolicy,
+    *,
+    text: str,
+    reason: str | None,
+) -> dict[str, Any]:
+    """进入排队前：按意图选技能组，按客户标签和诉求定优先级（设计文档 §11.3）。
+    返回写入 queued 事件的说明。"""
+    placed: dict[str, Any] = {}
+    matched = prio.match_intent(policy.intent_routes or [], text=text, ai_intent=chat.intent)
+    if matched is not None:
+        chat.intent = matched.intent
+        chat.skill_group_id = matched.skill_group_id
+        placed.update(intent=matched.intent, intent_by=matched.by)
+    tags = await session.scalar(select(Customer.tags).where(Customer.id == chat.customer_id))
+    chat.priority = prio.base_priority(
+        priority_tags=policy.priority_tags or [],
+        urgent_first=policy.urgent_first,
+        customer_tags=tags or [],
+        text=text,
+        reason=reason,
+    )
+    if chat.priority:
+        placed["priority"] = prio.tier_of(chat.priority)
+    return placed
+
+
+async def _customer_texts(
+    session: AsyncSession, session_id: uuid.UUID, limit: int = 10
+) -> list[str]:
+    """会话里客户最近的文字消息（按时间顺序）。"""
     texts = (
         await session.scalars(
             select(Message.text_plain)
             .where(
-                Message.session_id == chat.id,
+                Message.session_id == session_id,
                 Message.sender_type == SenderType.CUSTOMER,
                 Message.text_plain.is_not(None),
             )
             .order_by(Message.sent_at.desc())
-            .limit(10)
+            .limit(limit)
         )
     ).all()
-    content = chat.ai_summary or "\n".join(t for t in reversed(texts) if t)
+    return [t for t in reversed(texts) if t]
+
+
+async def _handoff_off_hours(
+    session: AsyncSession, chat: ChatSession, now: datetime, todo: _AfterCommit
+) -> None:
+    """非工作时间转人工：结束 AI 接待，以交接摘要（或客户消息）生成留言，工作时间跟进。"""
+    content = chat.ai_summary or "\n".join(await _customer_texts(session, chat.id))
     if chat.handoff_reason:
         content = f"【{reasons.label(chat.handoff_reason)}】{content}"
     session.add(
@@ -501,7 +560,9 @@ async def assign_queued(
             notices.append((agent.staff_id, chat.customer_id))
         for ahead, chat in enumerate(waiting):
             if chat.id in notify:
-                outbox.enqueue_notice(session, chat.room_id, Notice.QUEUED.format(ahead=ahead))
+                policy = await policies.for_channel(chat.channel_account_id)
+                notice = Notice.QUEUED_WITH_AI if policy.ai_while_queued else Notice.QUEUED
+                outbox.enqueue_notice(session, chat.room_id, notice.format(ahead=ahead))
                 rooms.add(chat.room_id)
         names = (
             dict(
@@ -572,6 +633,7 @@ async def assign_to(
     chat.status = SessionStatus.HUMAN_SERVING
     chat.assignee_id = agent.staff_id
     chat.assigned_at = now
+    await leave_as_watcher(session, chat.id, agent.staff_id, now)
     agent.load += 1
     agent.last_assigned_at = now
     state = await session.get(AgentState, agent.staff_id)
@@ -593,6 +655,45 @@ async def assign_to(
         agent.staff_id,
         {"type": Signal.ASSIGNED, "session_id": str(chat.id), "room_id": str(chat.room_id)},
     )
+
+
+# ---- 旁听与协助 ----
+
+
+async def leave_as_watcher(
+    session: AsyncSession, session_id: uuid.UUID, staff_id: uuid.UUID, now: datetime
+) -> None:
+    """旁听或协助的员工成为接待坐席：不再作为旁听者（仍在服务群里，不需要移出）。"""
+    await session.execute(
+        update(SessionWatcher)
+        .where(
+            SessionWatcher.session_id == session_id,
+            SessionWatcher.staff_id == staff_id,
+            SessionWatcher.left_at.is_(None),
+        )
+        .values(left_at=now)
+    )
+
+
+async def release_watchers(session: AsyncSession, chat: ChatSession, now: datetime) -> None:
+    """会话结束或交还 AI：旁听、协助的员工退出服务群（接待坐席除外）。"""
+    watchers = (
+        await session.scalars(
+            select(SessionWatcher).where(
+                SessionWatcher.session_id == chat.id, SessionWatcher.left_at.is_(None)
+            )
+        )
+    ).all()
+    for watcher in watchers:
+        watcher.left_at = now
+        if watcher.staff_id != chat.assignee_id:
+            outbox.enqueue_signal(
+                session,
+                chat.room_id,
+                watcher.staff_id,
+                {"type": Signal.REVOKED, "session_id": str(chat.id), "room_id": str(chat.room_id)},
+            )
+            outbox.enqueue_kick(session, chat.room_id, watcher.staff_id)
 
 
 # ---- 结束 ----
@@ -643,6 +744,7 @@ async def mark_closed(
     chat.status = SessionStatus.CLOSED
     chat.closed_at = now
     chat.close_reason = reason
+    await release_watchers(session, chat, now)
     # 会话结束时，待确认的转接一并撤销。
     await session.execute(
         update(SessionTransfer)
@@ -701,7 +803,7 @@ async def requeue_unanswered(
         chat.assignee_id = None
         chat.assigned_at = None
         chat.queued_at = now
-        chat.priority = min(chat.priority + 1, _MAX_REQUEUE_PRIORITY)
+        chat.priority = prio.bump(chat.priority)
         record_event(
             session, chat, "requeued", payload={"staff_id": str(staff_id), "reason": reason}
         )
@@ -726,6 +828,7 @@ class TimerReport:
     queue_timeouts: int = 0
     idle_closed: int = 0
     assigned: int = 0
+    overflowed: int = 0
     errors: int = 0
 
 
@@ -794,6 +897,7 @@ async def _run_tenant_timers(
                 .with_for_update()
             )
         ).all()
+        groups = {g.id: g for g in (await session.scalars(select(SkillGroup))).all()}
         for chat in open_chats:
             policy = await policies.for_channel(chat.channel_account_id)
             if chat.status == SessionStatus.QUEUED:
@@ -802,6 +906,8 @@ async def _run_tenant_timers(
                     await _queue_timeout(session, chat, now)
                     rooms.add(chat.room_id)
                     report.queue_timeouts += 1
+                elif _overflow(session, chat, groups, now):
+                    report.overflowed += 1
             elif chat.status == SessionStatus.AI_SERVING:
                 last = chat.last_customer_message_at or chat.created_at
                 if last <= now - timedelta(minutes=policy.idle_close_minutes):
@@ -842,26 +948,41 @@ async def _run_tenant_timers(
     report.assigned += await assign_queued(ctx, tenant_id, now=now)
 
 
+def _overflow(
+    session: AsyncSession, chat: ChatSession, groups: dict[uuid.UUID, SkillGroup], now: datetime
+) -> bool:
+    """排队超过技能组的溢出时间：改由备用技能组接待（每个会话只溢出一次）。"""
+    group = groups.get(chat.skill_group_id) if chat.skill_group_id else None
+    if (
+        group is None
+        or group.overflow_group_id is None
+        or group.overflow_after_seconds <= 0
+        or chat.overflowed_at is not None
+    ):
+        return False
+    waited_since = chat.queued_at or chat.created_at
+    if waited_since > now - timedelta(seconds=group.overflow_after_seconds):
+        return False
+    chat.skill_group_id = group.overflow_group_id
+    chat.overflowed_at = now
+    record_event(
+        session,
+        chat,
+        "overflowed",
+        payload={"from": str(group.id), "to": str(group.overflow_group_id)},
+    )
+    return True
+
+
 async def _queue_timeout(session: AsyncSession, chat: ChatSession, now: datetime) -> None:
-    texts = (
-        await session.scalars(
-            select(Message.text_plain)
-            .where(
-                Message.session_id == chat.id,
-                Message.sender_type == SenderType.CUSTOMER,
-                Message.text_plain.is_not(None),
-            )
-            .order_by(Message.sent_at.desc())
-            .limit(10)
-        )
-    ).all()
+    texts = await _customer_texts(session, chat.id)
     session.add(
         Ticket(
             tenant_id=chat.tenant_id,
             customer_id=chat.customer_id,
             session_id=chat.id,
             source=TicketSource.QUEUE_TIMEOUT,
-            content=_clip("\n".join(t for t in reversed(texts) if t) or "（客户没有留下文字内容）"),
+            content=_clip("\n".join(texts) or "（客户没有留下文字内容）"),
             assignee_id=await _owner_of(session, chat.customer_id),
             skill_group_id=chat.skill_group_id,
         )

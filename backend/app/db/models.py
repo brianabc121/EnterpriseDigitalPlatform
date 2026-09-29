@@ -18,9 +18,15 @@ from app.modules.conversation.models import (
     Room,
     SessionEvent,
     SessionTransfer,
+    SessionWatcher,
     Ticket,
 )
-from app.modules.customer.models import Customer, CustomerIdentity, CustomerOwnerHistory
+from app.modules.customer.models import (
+    Customer,
+    CustomerIdentity,
+    CustomerOwnerHistory,
+    CustomerTransferRequest,
+)
 from app.modules.iam.models import RefreshToken, Role, Staff, StaffRole
 from app.modules.kb.models import (
     KbCandidate,
@@ -69,6 +75,7 @@ __all__ = [
     "Customer",
     "CustomerIdentity",
     "CustomerOwnerHistory",
+    "CustomerTransferRequest",
     "FileScan",
     "ImOp",
     "Invoice",
@@ -94,6 +101,7 @@ __all__ = [
     "RoutingPolicy",
     "SessionEvent",
     "SessionTransfer",
+    "SessionWatcher",
     "SkillGroup",
     "SkillGroupMember",
     "Staff",

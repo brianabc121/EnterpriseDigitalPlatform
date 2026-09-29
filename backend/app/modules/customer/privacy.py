@@ -27,7 +27,9 @@ from app.modules.customer import sensitive
 from app.modules.customer.models import (
     CustomerIdentity,
     CustomerOwnerHistory,
+    CustomerTransferRequest,
     OwnerChangeReason,
+    TransferRequestStatus,
 )
 from app.modules.customer.ownership import change_owner
 from app.modules.customer.schemas import ErasureResult, PersonalData, PrivacyRequestOut
@@ -56,6 +58,7 @@ _MOVED: tuple[type[Any], ...] = (
     WecomGroupMember,
     WecomSidebarMessage,
     WecomTransfer,
+    CustomerTransferRequest,
 )
 MAX_MESSAGES = 20000
 
@@ -114,6 +117,15 @@ async def merge_customers(
                 note="合并客户时沿用原档案的归属坐席",
             )
     ids = [s.id for s in sources]
+    # 来源客户待审批的转移申请撤销（同一客户只能有一条待审批的申请）。
+    await session.execute(
+        update(CustomerTransferRequest)
+        .where(
+            CustomerTransferRequest.customer_id.in_(ids),
+            CustomerTransferRequest.status == TransferRequestStatus.PENDING,
+        )
+        .values(status=TransferRequestStatus.CANCELLED, decided_at=_now())
+    )
     moved: dict[str, int] = {}
     for model in _MOVED:
         result = await session.execute(

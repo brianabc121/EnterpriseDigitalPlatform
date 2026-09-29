@@ -18,7 +18,7 @@ from app.modules.conversation.models import (
 from app.modules.customer.models import Customer
 from app.modules.files import service as files
 from app.modules.routing.assign import PolicyResolver
-from app.modules.sessions import engine
+from app.modules.sessions import collab, engine
 from app.modules.tenancy.models import Tenant
 from app.modules.visitor.deps import VisitorContext
 from app.modules.visitor.schemas import CsatRequest, LeaveMessageRequest
@@ -105,6 +105,12 @@ async def request_human(ctx: AppContext, visitor: VisitorContext) -> None:
         reason="visitor_request",
         actor_type=engine.ActorType.VISITOR,
     )
+
+
+async def cancel_queue(ctx: AppContext, visitor: VisitorContext) -> None:
+    room = await _room(visitor)
+    await visitor.session.commit()
+    await collab.cancel_queue(ctx, visitor.claims.tenant_id, room.id)
 
 
 async def tenant_code(visitor: VisitorContext, tenant_id: UUID) -> str:

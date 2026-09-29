@@ -1,19 +1,23 @@
 <script setup lang="ts">
 import type { Schemas } from '@edp/api-client'
 import { ElMessage } from 'element-plus'
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 
 import KbFeedPanel from '../components/knowledge/KbFeedPanel.vue'
 import KbSearchPanel from '../components/knowledge/KbSearchPanel.vue'
 import ChatPanel from '../components/workbench/ChatPanel.vue'
 import CustomerPanel from '../components/workbench/CustomerPanel.vue'
 import IncomingTransfer from '../components/workbench/IncomingTransfer.vue'
+import { WATCHER_ROLE } from '../labels'
 import { useAuthStore } from '../stores/auth'
 import { STATUS_LABEL, useWorkbenchStore, type AgentStatus } from '../stores/workbench'
+import { priorityTag } from '../workbench/routing'
+
+type ListTab = 'mine' | 'queued' | 'ongoing' | 'closed'
 
 const wb = useWorkbenchStore()
 const auth = useAuthStore()
-const tab = ref<'mine' | 'queued'>('mine')
+const tab = ref<ListTab>('mine')
 const sideTab = ref<'customer' | 'knowledge' | 'feed'>('customer')
 /** 待确认的必读知识数（显示在"动态"页签上）。 */
 const unreadKnowledge = ref(0)
@@ -35,7 +39,27 @@ const SESSION_LABEL: Record<string, string> = {
   closed: '已结束',
 }
 
-const list = computed(() => (tab.value === 'mine' ? wb.sessions : wb.queued))
+/** "接待中"：我接待的会话，加上我正在旁听、协助的会话（带标记）。 */
+const mine = computed(() => [
+  ...wb.sessions,
+  ...wb.watching.filter((w) => !wb.sessions.some((s) => s.id === w.id)),
+])
+const list = computed(() => {
+  switch (tab.value) {
+    case 'queued':
+      return wb.queued
+    case 'ongoing':
+      return wb.ongoing
+    case 'closed':
+      return wb.closed
+    default:
+      return mine.value
+  }
+})
+
+watch(tab, (value) => {
+  if (value === 'closed') void wb.loadClosed()
+})
 const status = computed({
   get: () => wb.agent?.status ?? 'offline',
   set: (value: AgentStatus) => void changeStatus(value),
@@ -95,9 +119,15 @@ onMounted(() => void wb.start())
         </el-tag>
       </div>
       <el-alert v-if="wb.error" :title="wb.error" type="error" :closable="false" show-icon />
-      <el-tabs v-model="tab" class="tabs" stretch>
-        <el-tab-pane :label="`接待中 ${wb.sessions.length}`" name="mine" />
+      <el-tabs v-model="tab" class="tabs" stretch data-testid="session-tabs">
+        <el-tab-pane :label="`接待中 ${mine.length}`" name="mine" />
         <el-tab-pane v-if="wb.canSeeQueue" :label="`排队 ${wb.queued.length}`" name="queued" />
+        <el-tab-pane
+          v-if="wb.canSeeQueue"
+          :label="`进行中 ${wb.ongoing.length}`"
+          name="ongoing"
+        />
+        <el-tab-pane label="已结束" name="closed" />
       </el-tabs>
       <div class="list">
         <div
@@ -114,10 +144,31 @@ onMounted(() => void wb.start())
           </div>
           <div class="row">
             <span class="meta">
+              <el-tag
+                v-if="s.my_role && !wb.isMine(s)"
+                size="small"
+                type="warning"
+                class="role"
+                data-testid="watch-role"
+              >
+                {{ WATCHER_ROLE[s.my_role] ?? s.my_role }}
+              </el-tag>
               {{ SESSION_LABEL[s.status] ?? s.status }}
-              <template v-if="tab === 'queued' && s.assignee_display_name">
+              <template v-if="tab !== 'mine' && s.assignee_display_name">
                 · {{ s.assignee_display_name }}
               </template>
+              <el-tag
+                v-if="tab === 'queued' && priorityTag(s.priority)"
+                size="small"
+                type="danger"
+                class="flag"
+                data-testid="priority-tag"
+              >
+                {{ priorityTag(s.priority) }}
+              </el-tag>
+              <el-tag v-if="s.intent" size="small" class="flag" data-testid="intent-tag">
+                {{ s.intent }}
+              </el-tag>
             </span>
             <el-badge v-if="wb.unread[s.id]" :value="wb.unread[s.id]" data-testid="unread" />
           </div>
@@ -171,7 +222,7 @@ onMounted(() => void wb.start())
 <style scoped>
 .workbench {
   display: grid;
-  grid-template-columns: 260px minmax(0, 1fr) 300px;
+  grid-template-columns: 280px minmax(0, 1fr) 300px;
   gap: 12px;
   height: calc(100vh - 60px - 40px);
   min-height: 480px;
@@ -215,6 +266,19 @@ onMounted(() => void wb.start())
 
 .tabs :deep(.el-tabs__header) {
   margin-bottom: 0;
+}
+
+.tabs :deep(.el-tabs__item) {
+  padding: 0 6px;
+  font-size: 13px;
+}
+
+.flag {
+  margin-left: 4px;
+}
+
+.role {
+  margin-right: 4px;
 }
 
 .list {

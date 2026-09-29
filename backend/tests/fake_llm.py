@@ -115,6 +115,8 @@ def _extract(transcript: str) -> str:
 class FakeLLM:
     mode: str = "normal"
     requests: list[dict[str, Any]] = field(default_factory=list)
+    # 回复里带的意图（提示词要求判断意图时）。
+    intent: str | None = None
 
     def chat(self, body: dict[str, Any]) -> tuple[int, dict[str, Any]]:
         self.requests.append(body)
@@ -186,6 +188,8 @@ class FakeLLM:
                 "handoff": True,
                 "reason": "资料中没有相关内容",
             }
+        if self.intent and '"intent"' in system:
+            reply["intent"] = self.intent
         return json.dumps(reply, ensure_ascii=False)
 
     def embeddings(self, body: dict[str, Any]) -> tuple[int, dict[str, Any]]:

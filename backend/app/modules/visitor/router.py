@@ -92,6 +92,13 @@ async def request_human(ctx: Context, visitor: CurrentVisitor) -> VisitorSession
     return await conversation.session_state(visitor)
 
 
+@router.post("/cancel-queue", response_model=VisitorSessionState)
+async def cancel_queue(ctx: Context, visitor: CurrentVisitor) -> VisitorSessionState:
+    """取消排队：回到智能客服接待；智能客服不可用时结束会话。"""
+    await actions.cancel_queue(ctx, visitor)
+    return await conversation.session_state(visitor)
+
+
 @router.post("/uploads", response_model=UploadOut)
 async def create_upload(
     payload: UploadRequest, ctx: Context, visitor: CurrentVisitor, limiter: Limiter

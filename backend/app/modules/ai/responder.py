@@ -30,6 +30,8 @@ from app.modules.conversation.models import (
 )
 from app.modules.customer.models import Customer
 from app.modules.kb.models import KbItem
+from app.modules.routing.assign import PolicyResolver
+from app.modules.routing.priority import intent_names
 from app.modules.sessions import engine
 from app.modules.tenancy.models import Tenant
 from app.modules.wecom import menus
@@ -106,12 +108,21 @@ async def respond(
         state = await session.get(AiSessionState, session_id)
         if chat is None or state is None:
             return
-        if chat.status != SessionStatus.AI_SERVING:
+        policy = await PolicyResolver(session).for_channel(chat.channel_account_id)
+        # 排队中：策略允许时 AI 继续回答客户的其他问题，但不再转人工（已经在排队）。
+        queued = chat.status == SessionStatus.QUEUED
+        serving = chat.status == SessionStatus.AI_SERVING or (queued and policy.ai_while_queued)
+        if not serving:
             _release(state, lease)
             await session.commit()
             return
+        intents = intent_names(policy.intent_routes or [])
         settings = await ai_service.load(session, tenant_id)
         unavailable = await ai_service.unavailable_reason(ctx, session, settings, now)
+        if unavailable and queued:
+            _release(state, lease)
+            await session.commit()
+            return
         customer = await session.get(Customer, chat.customer_id)
         company = await session.scalar(select(Tenant.name).where(Tenant.id == tenant_id)) or ""
         messages = (
@@ -154,10 +165,16 @@ async def respond(
         outcome = pipeline.Outcome(action=DecisionAction.HANDOFF, reason=unavailable)
     else:
         outcome = await pipeline.evaluate(
-            ctx, tenant_id, settings, context, company=company, session_id=session_id
+            ctx,
+            tenant_id,
+            settings,
+            context,
+            company=company,
+            session_id=session_id,
+            intents=intents,
         )
     summary = None
-    if outcome.action == DecisionAction.HANDOFF:
+    if outcome.action == DecisionAction.HANDOFF and not queued:
         summary = await pipeline.summarize(
             ctx,
             tenant_id,
@@ -172,11 +189,14 @@ async def respond(
         state = await session.get(AiSessionState, session_id, with_for_update=True)
         if chat is None or state is None:
             return
-        if chat.status != SessionStatus.AI_SERVING:
-            # 访客在这期间点了"转人工"，不再回复。
+        expected = SessionStatus.QUEUED if queued else SessionStatus.AI_SERVING
+        if chat.status != expected:
+            # 访客在这期间点了"转人工"，或者排队的会话已经分配给坐席：不再回复。
             _release(state, lease)
             await session.commit()
             return
+        if outcome.intent:
+            chat.intent = outcome.intent
         signals = dict(outcome.signals)
         if outcome.guard:
             signals["guard"] = outcome.guard
@@ -200,7 +220,8 @@ async def respond(
         if outcome.action == DecisionAction.REPLY:
             state.turns += 1
         _release(state, lease)
-        if outcome.reply:
+        # 排队中的会话只发回答，不发转人工的过渡话术（客户已经在等人工）。
+        if outcome.reply and not (queued and outcome.action == DecisionAction.HANDOFF):
             menu = None
             if outcome.action == DecisionAction.REPLY:
                 # 微信客服：AI 的回答带一个「转人工」按钮（菜单消息）。
@@ -220,7 +241,7 @@ async def respond(
             chat.ai_summary = summary
         await session.commit()
     await outbox.flush_rooms(ctx, tenant_id, [room_id])
-    if outcome.action == DecisionAction.HANDOFF:
+    if outcome.action == DecisionAction.HANDOFF and not queued:
         await engine.request_handoff(
             ctx, tenant_id, room_id, reason=outcome.reason or "ai", actor_type=engine.ActorType.AI
         )

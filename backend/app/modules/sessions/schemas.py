@@ -37,6 +37,12 @@ class SessionOut(BaseModel):
     last_agent_message_at: datetime | None
     csat: int | None = Field(default=None, description="客户满意度评分（1-5），未评价为空")
     csat_comment: str | None = None
+    intent: str | None = Field(default=None, description="识别出的意图（按意图分配）")
+    overflowed_at: datetime | None = Field(default=None, description="排队溢出到备用技能组的时间")
+    my_role: str | None = Field(
+        default=None,
+        description="当前员工在会话里的身份：assignee（接待）、monitor（旁听）、assist（协助）",
+    )
     created_at: datetime
 
 
@@ -54,8 +60,20 @@ class SessionEventOut(BaseModel):
     created_at: datetime
 
 
+class WatcherOut(BaseModel):
+    staff_id: UUID
+    display_name: str
+    role: str = Field(description="monitor（旁听）或 assist（协助）")
+    joined_at: datetime
+
+
 class SessionDetail(SessionOut):
     events: list[SessionEventOut]
+    watchers: list[WatcherOut] = Field(default_factory=list, description="正在旁听、协助的员工")
+
+
+class AssistRequest(BaseModel):
+    staff_id: UUID = Field(description="邀请协助的员工")
 
 
 class TicketOut(BaseModel):

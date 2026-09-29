@@ -30,6 +30,8 @@ from app.modules.conversation.models import (
     SenderType,
     SendStatus,
     SessionStatus,
+    SessionWatcher,
+    WatcherRole,
 )
 from app.modules.conversation.schemas import MessageOut
 from app.modules.conversation.service import messages_out
@@ -45,6 +47,19 @@ SENDABLE = (SessionStatus.HUMAN_SERVING, SessionStatus.TRANSFERRING)
 SEND_FAILED = "消息发送失败，请稍后重试"
 
 
+async def _assisting(session: AsyncSession, session_id: UUID, staff_id: UUID) -> bool:
+    """被邀请协助（可以发言）的员工。旁听的主管只能看。"""
+    return (
+        await session.scalar(
+            select(SessionWatcher.role).where(
+                SessionWatcher.session_id == session_id,
+                SessionWatcher.staff_id == staff_id,
+                SessionWatcher.left_at.is_(None),
+            )
+        )
+    ) == WatcherRole.ASSIST
+
+
 async def send_message(
     ctx: AppContext,
     session: AsyncSession,
@@ -53,8 +68,10 @@ async def send_message(
     payload: SendMessageRequest,
 ) -> MessageOut:
     chat, *_ = await visible_session(session, principal, session_id)
-    if chat.assignee_id != principal.staff_id:
-        raise Forbidden("只有接待这个会话的坐席可以回复")
+    if chat.assignee_id != principal.staff_id and not await _assisting(
+        session, chat.id, principal.staff_id
+    ):
+        raise Forbidden("只有接待或协助这个会话的坐席可以回复")
     if chat.status not in SENDABLE:
         raise Conflict(
             "会话已结束" if chat.status == SessionStatus.CLOSED else "会话不在人工接待中"

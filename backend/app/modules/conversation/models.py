@@ -132,6 +132,7 @@ class CloseReason(StrEnum):
     IDLE_TIMEOUT = "idle_timeout"  # 长时间没有新消息
     LEAVE_MESSAGE = "leave_message"  # 排队超时或非工作时间，转为留言
     AI_RESOLVED = "ai_resolved"  # AI 接待结束（P3）
+    VISITOR_CANCEL = "visitor_cancel"  # 客户取消排队，且 AI 不能接待
 
 
 class ChatSession(IdMixin, TimestampMixin, TenantMixin, Base):
@@ -171,6 +172,9 @@ class ChatSession(IdMixin, TimestampMixin, TenantMixin, Base):
     csat_comment: Mapped[str | None] = mapped_column(Text)
     last_customer_message_at: Mapped[datetime | None]
     last_agent_message_at: Mapped[datetime | None]
+    # 识别出的意图（按意图分配到技能组）；排队溢出到备用技能组的时间。
+    intent: Mapped[str | None] = mapped_column(String(32))
+    overflowed_at: Mapped[datetime | None]
 
 
 class SessionEvent(IdMixin, TenantMixin, Base):
@@ -293,3 +297,29 @@ class SessionTransfer(IdMixin, TimestampMixin, TenantMixin, Base):
     expires_at: Mapped[datetime | None]
     decided_at: Mapped[datetime | None]
     created_by: Mapped[uuid.UUID | None]
+
+
+class WatcherRole(StrEnum):
+    MONITOR = "monitor"  # 主管旁听：只看，客户看不到
+    ASSIST = "assist"  # 邀请协助：可以发言
+
+
+class SessionWatcher(TenantMixin, Base):
+    """加入服务群旁听或协助的员工（设计文档 §8.3、§14.1）。left_at 不为空表示已经退出。"""
+
+    __tablename__ = "session_watchers"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["tenant_id", "session_id"], ["sessions.tenant_id", "sessions.id"], ondelete="CASCADE"
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "staff_id"], ["staff.tenant_id", "staff.id"], ondelete="CASCADE"
+        ),
+    )
+
+    session_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    staff_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    role: Mapped[str] = mapped_column(String(16))
+    invited_by: Mapped[uuid.UUID | None]
+    joined_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    left_at: Mapped[datetime | None]

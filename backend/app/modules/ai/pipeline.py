@@ -51,6 +51,8 @@ class Outcome:
     knowledge: list[dict[str, Any]] = field(default_factory=list)
     repeats: int = 0
     guard_failures: int = 0
+    # 模型判断的客户意图（策略配置了按意图分配时）。
+    intent: str | None = None
 
     @property
     def used_items(self) -> list[uuid.UUID]:
@@ -77,6 +79,7 @@ def parse_reply(content: str) -> dict[str, Any] | None:
         "confidence": min(1.0, max(0.0, confidence)),
         "handoff": bool(data.get("handoff")),
         "reason": str(data.get("reason") or "")[:200],
+        "intent": str(data.get("intent") or "").strip()[:32] or None,
     }
 
 
@@ -89,6 +92,7 @@ async def evaluate(
     company: str,
     session_id: uuid.UUID | None = None,
     scene: str = "reply",
+    intents: list[str] | None = None,
 ) -> Outcome:
     question = context.question
     async with ctx.db.tenant_session(tenant_id) as db:
@@ -126,6 +130,7 @@ async def evaluate(
         passages=passages,
         history=history[-HISTORY_LIMIT:],
         question=masked_question,
+        intents=intents,
     )
     try:
         result = await gateway.chat(
@@ -166,6 +171,7 @@ async def evaluate(
             guard_failures=failures,
         )
 
+    intent = parsed["intent"] if intents and parsed["intent"] in intents else None
     if parsed["handoff"]:
         return Outcome(
             action="handoff",
@@ -173,6 +179,7 @@ async def evaluate(
             reply=parsed["reply"] or None,
             signals={"model_reason": parsed["reason"]},
             knowledge=knowledge,
+            intent=intent,
         )
 
     found, repeats = decision.signals(
@@ -194,6 +201,7 @@ async def evaluate(
             signals=signal_values,
             knowledge=knowledge,
             repeats=repeats,
+            intent=intent,
         )
     return Outcome(
         action="reply",
@@ -202,6 +210,7 @@ async def evaluate(
         signals=signal_values,
         knowledge=knowledge,
         repeats=repeats,
+        intent=intent,
     )
 
 

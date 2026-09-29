@@ -837,6 +837,21 @@
         "title": "AssignUnassignedRequest",
         "type": "object"
       },
+      "AssistRequest": {
+        "properties": {
+          "staff_id": {
+            "description": "邀请协助的员工",
+            "format": "uuid",
+            "title": "Staff Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "staff_id"
+        ],
+        "title": "AssistRequest",
+        "type": "object"
+      },
       "Attachment": {
         "properties": {
           "content_type": {
@@ -3728,6 +3743,39 @@
           "url"
         ],
         "title": "InstallOut",
+        "type": "object"
+      },
+      "IntentRoute": {
+        "description": "按意图分配：AI 识别出这个意图，或客户的话里出现关键词时，分配到这个技能组。",
+        "properties": {
+          "intent": {
+            "description": "意图名称，如 售前、售后、技术、投诉",
+            "maxLength": 32,
+            "minLength": 1,
+            "title": "Intent",
+            "type": "string"
+          },
+          "keywords": {
+            "items": {
+              "maxLength": 32,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 50,
+            "title": "Keywords",
+            "type": "array"
+          },
+          "skill_group_id": {
+            "format": "uuid",
+            "title": "Skill Group Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "intent",
+          "skill_group_id"
+        ],
+        "title": "IntentRoute",
         "type": "object"
       },
       "InvoiceGenerate": {
@@ -7587,7 +7635,7 @@
             "title": "Note"
           },
           "reason": {
-            "description": "session_transfer、manual、handover 或 wecom（企业微信添加人）",
+            "description": "session_transfer、manual、handover、wecom（企业微信添加人）或 request（申请审批）",
             "title": "Reason",
             "type": "string"
           },
@@ -7693,6 +7741,7 @@
           "session:read_team",
           "session:transfer",
           "session:transfer_any",
+          "session:monitor",
           "routing:manage",
           "staff:read",
           "staff:manage",
@@ -9217,6 +9266,12 @@
       },
       "RoutingPolicyCreate": {
         "properties": {
+          "ai_while_queued": {
+            "default": false,
+            "description": "排队期间 AI 继续回答客户的其他问题（需要启用 AI 接待）",
+            "title": "Ai While Queued",
+            "type": "boolean"
+          },
           "business_hours": {
             "anyOf": [
               {
@@ -9266,6 +9321,14 @@
             "title": "Idle Close Minutes",
             "type": "integer"
           },
+          "intent_routes": {
+            "items": {
+              "$ref": "#/components/schemas/IntentRoute"
+            },
+            "maxItems": 20,
+            "title": "Intent Routes",
+            "type": "array"
+          },
           "max_wait_seconds": {
             "default": 300,
             "maximum": 86400.0,
@@ -9289,6 +9352,17 @@
             "title": "Owner First",
             "type": "boolean"
           },
+          "priority_tags": {
+            "description": "带这些标签的客户排队时排在最前（VIP）",
+            "items": {
+              "maxLength": 32,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 20,
+            "title": "Priority Tags",
+            "type": "array"
+          },
           "resume_window_minutes": {
             "default": 10,
             "description": "会话结束后多少分钟内再来咨询优先分配给上次的坐席；0 关闭",
@@ -9296,6 +9370,12 @@
             "minimum": 0.0,
             "title": "Resume Window Minutes",
             "type": "integer"
+          },
+          "urgent_first": {
+            "default": true,
+            "description": "投诉、退款等敏感诉求或情绪激动的客户排在普通客户前面",
+            "title": "Urgent First",
+            "type": "boolean"
           }
         },
         "required": [
@@ -9322,6 +9402,12 @@
       },
       "RoutingPolicyOut": {
         "properties": {
+          "ai_while_queued": {
+            "default": false,
+            "description": "排队期间 AI 继续回答客户的其他问题（需要启用 AI 接待）",
+            "title": "Ai While Queued",
+            "type": "boolean"
+          },
           "business_hours": {
             "anyOf": [
               {
@@ -9369,6 +9455,13 @@
             "title": "Idle Close Minutes",
             "type": "integer"
           },
+          "intent_routes": {
+            "items": {
+              "$ref": "#/components/schemas/IntentRoute"
+            },
+            "title": "Intent Routes",
+            "type": "array"
+          },
           "is_default": {
             "title": "Is Default",
             "type": "boolean"
@@ -9388,9 +9481,23 @@
             "title": "Owner First",
             "type": "boolean"
           },
+          "priority_tags": {
+            "description": "带这些标签的客户排队时排在最前（VIP）",
+            "items": {
+              "type": "string"
+            },
+            "title": "Priority Tags",
+            "type": "array"
+          },
           "resume_window_minutes": {
             "title": "Resume Window Minutes",
             "type": "integer"
+          },
+          "urgent_first": {
+            "default": true,
+            "description": "投诉、退款等敏感诉求或情绪激动的客户排在普通客户前面",
+            "title": "Urgent First",
+            "type": "boolean"
           }
         },
         "required": [
@@ -9412,6 +9519,17 @@
       },
       "RoutingPolicyUpdate": {
         "properties": {
+          "ai_while_queued": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ai While Queued"
+          },
           "business_hours": {
             "anyOf": [
               {
@@ -9466,6 +9584,21 @@
               }
             ],
             "title": "Idle Close Minutes"
+          },
+          "intent_routes": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/IntentRoute"
+                },
+                "maxItems": 20,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Intent Routes"
           },
           "is_default": {
             "anyOf": [
@@ -9527,6 +9660,23 @@
             ],
             "title": "Owner First"
           },
+          "priority_tags": {
+            "anyOf": [
+              {
+                "items": {
+                  "maxLength": 32,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "maxItems": 20,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Priority Tags"
+          },
           "resume_window_minutes": {
             "anyOf": [
               {
@@ -9539,6 +9689,17 @@
               }
             ],
             "title": "Resume Window Minutes"
+          },
+          "urgent_first": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Urgent First"
           }
         },
         "title": "RoutingPolicyUpdate",
@@ -9760,6 +9921,18 @@
             "title": "Im Group Id",
             "type": "string"
           },
+          "intent": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "识别出的意图（按意图分配）",
+            "title": "Intent"
+          },
           "last_agent_message_at": {
             "anyOf": [
               {
@@ -9783,6 +9956,31 @@
               }
             ],
             "title": "Last Customer Message At"
+          },
+          "my_role": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "当前员工在会话里的身份：assignee（接待）、monitor（旁听）、assist（协助）",
+            "title": "My Role"
+          },
+          "overflowed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "排队溢出到备用技能组的时间",
+            "title": "Overflowed At"
           },
           "priority": {
             "title": "Priority",
@@ -9819,6 +10017,14 @@
           },
           "status": {
             "$ref": "#/components/schemas/SessionStatus"
+          },
+          "watchers": {
+            "description": "正在旁听、协助的员工",
+            "items": {
+              "$ref": "#/components/schemas/WatcherOut"
+            },
+            "title": "Watchers",
+            "type": "array"
           }
         },
         "required": [
@@ -10043,6 +10249,18 @@
             "title": "Im Group Id",
             "type": "string"
           },
+          "intent": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "识别出的意图（按意图分配）",
+            "title": "Intent"
+          },
           "last_agent_message_at": {
             "anyOf": [
               {
@@ -10066,6 +10284,31 @@
               }
             ],
             "title": "Last Customer Message At"
+          },
+          "my_role": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "当前员工在会话里的身份：assignee（接待）、monitor（旁听）、assist（协助）",
+            "title": "My Role"
+          },
+          "overflowed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "排队溢出到备用技能组的时间",
+            "title": "Overflowed At"
           },
           "priority": {
             "title": "Priority",
@@ -10757,6 +11000,27 @@
             "minLength": 1,
             "title": "Name",
             "type": "string"
+          },
+          "overflow_after_seconds": {
+            "default": 0,
+            "description": "排队超过这么多秒仍没有分配时，改由备用技能组接待；0 表示不溢出",
+            "maximum": 86400.0,
+            "minimum": 0.0,
+            "title": "Overflow After Seconds",
+            "type": "integer"
+          },
+          "overflow_group_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "备用技能组",
+            "title": "Overflow Group Id"
           }
         },
         "required": [
@@ -10846,6 +11110,23 @@
           "name": {
             "title": "Name",
             "type": "string"
+          },
+          "overflow_after_seconds": {
+            "default": 0,
+            "title": "Overflow After Seconds",
+            "type": "integer"
+          },
+          "overflow_group_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Overflow Group Id"
           }
         },
         "required": [
@@ -10886,6 +11167,33 @@
               }
             ],
             "title": "Name"
+          },
+          "overflow_after_seconds": {
+            "anyOf": [
+              {
+                "maximum": 86400.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "排队超过这么多秒仍没有分配时，改由备用技能组接待；0 表示不溢出",
+            "title": "Overflow After Seconds"
+          },
+          "overflow_group_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "备用技能组；null 表示取消",
+            "title": "Overflow Group Id"
           }
         },
         "title": "SkillGroupUpdate",
@@ -12831,6 +13139,30 @@
         "title": "TransferAgent",
         "type": "object"
       },
+      "TransferDecision": {
+        "properties": {
+          "note": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "sync_wecom": {
+            "default": false,
+            "description": "同时变更企业微信里的添加人：原成员在职时走在职继承（90 天内每位客户最多转接 2 次，客户 24 小时后自动接替），已离职时走离职继承",
+            "title": "Sync Wecom",
+            "type": "boolean"
+          }
+        },
+        "title": "TransferDecision",
+        "type": "object"
+      },
       "TransferGroup": {
         "properties": {
           "id": {
@@ -13060,6 +13392,217 @@
           }
         },
         "title": "TransferRequest",
+        "type": "object"
+      },
+      "TransferRequestCreate": {
+        "properties": {
+          "reason": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          },
+          "to_owner_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "转给谁；不填表示转给申请人自己",
+            "title": "To Owner Id"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "title": "TransferRequestCreate",
+        "type": "object"
+      },
+      "TransferRequestList": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/TransferRequestOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "pending": {
+            "description": "待审批的申请数（有分配权限时为全部待审批数）",
+            "title": "Pending",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "pending"
+        ],
+        "title": "TransferRequestList",
+        "type": "object"
+      },
+      "TransferRequestOut": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "customer_id": {
+            "format": "uuid",
+            "title": "Customer Id",
+            "type": "string"
+          },
+          "customer_name": {
+            "title": "Customer Name",
+            "type": "string"
+          },
+          "decided_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decided At"
+          },
+          "decided_by_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decided By Name"
+          },
+          "decision_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decision Note"
+          },
+          "from_owner_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "From Owner Id"
+          },
+          "from_owner_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "From Owner Name"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "requested_by": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Requested By"
+          },
+          "requested_by_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Requested By Name"
+          },
+          "status": {
+            "description": "pending、approved、rejected、cancelled",
+            "title": "Status",
+            "type": "string"
+          },
+          "to_owner_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "To Owner Id"
+          },
+          "to_owner_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "To Owner Name"
+          }
+        },
+        "required": [
+          "id",
+          "customer_id",
+          "customer_name",
+          "from_owner_id",
+          "from_owner_name",
+          "to_owner_id",
+          "to_owner_name",
+          "requested_by",
+          "requested_by_name",
+          "reason",
+          "status",
+          "decided_by_name",
+          "decided_at",
+          "decision_note",
+          "created_at"
+        ],
+        "title": "TransferRequestOut",
         "type": "object"
       },
       "TransferResult": {
@@ -13722,6 +14265,37 @@
           "status"
         ],
         "title": "VisitorSessionState",
+        "type": "object"
+      },
+      "WatcherOut": {
+        "properties": {
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "joined_at": {
+            "format": "date-time",
+            "title": "Joined At",
+            "type": "string"
+          },
+          "role": {
+            "description": "monitor（旁听）或 assist（协助）",
+            "title": "Role",
+            "type": "string"
+          },
+          "staff_id": {
+            "format": "uuid",
+            "title": "Staff Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "staff_id",
+          "display_name",
+          "role",
+          "joined_at"
+        ],
+        "title": "WatcherOut",
         "type": "object"
       },
       "WecomBinding": {
@@ -18734,6 +19308,428 @@
         ]
       }
     },
+    "/api/v1/customers/transfer-requests": {
+      "get": {
+        "description": "客户转移申请：有分配权限时看到全部，否则只看自己提交的。",
+        "operationId": "transfer_requests_api_v1_customers_transfer_requests_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "pattern": "^(pending|approved|rejected|cancelled)$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TransferRequestList"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Transfer Requests",
+        "tags": [
+          "customers"
+        ]
+      }
+    },
+    "/api/v1/customers/transfer-requests/{request_id}/approve": {
+      "post": {
+        "description": "通过转移申请：变更客户归属；可以同时在企业微信里在职继承。",
+        "operationId": "approve_transfer_request_api_v1_customers_transfer_requests__request_id__approve_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "request_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Request Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TransferDecision"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TransferRequestOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Approve Transfer Request",
+        "tags": [
+          "customers"
+        ]
+      }
+    },
+    "/api/v1/customers/transfer-requests/{request_id}/cancel": {
+      "post": {
+        "description": "撤回自己提交、还没审批的申请。",
+        "operationId": "cancel_transfer_request_api_v1_customers_transfer_requests__request_id__cancel_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "request_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Request Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TransferRequestOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Cancel Transfer Request",
+        "tags": [
+          "customers"
+        ]
+      }
+    },
+    "/api/v1/customers/transfer-requests/{request_id}/reject": {
+      "post": {
+        "operationId": "reject_transfer_request_api_v1_customers_transfer_requests__request_id__reject_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "request_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Request Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TransferDecision"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TransferRequestOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Reject Transfer Request",
+        "tags": [
+          "customers"
+        ]
+      }
+    },
     "/api/v1/customers/{customer_id}": {
       "get": {
         "description": "客户档案、备注、标签、联系方式（掩码）和各渠道身份（工作台客户面板使用）。",
@@ -19460,6 +20456,115 @@
           }
         ],
         "summary": "Reveal Sensitive",
+        "tags": [
+          "customers"
+        ]
+      }
+    },
+    "/api/v1/customers/{customer_id}/transfer-requests": {
+      "post": {
+        "description": "申请变更客户的归属坐席（转给自己或同事），由有分配权限的员工审批。",
+        "operationId": "request_transfer_api_v1_customers__customer_id__transfer_requests_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "customer_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Customer Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TransferRequestCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TransferRequestOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Request Transfer",
         "tags": [
           "customers"
         ]
@@ -24236,7 +25341,7 @@
         "operationId": "list_sessions_api_v1_sessions_get",
         "parameters": [
           {
-            "description": "open 表示所有未结束的会话",
+            "description": "open 表示所有未结束的会话；serving 表示 AI 或人工接待中（不含排队）",
             "in": "query",
             "name": "status",
             "required": false,
@@ -24246,14 +25351,17 @@
                   "$ref": "#/components/schemas/SessionStatus"
                 },
                 {
-                  "const": "open",
+                  "enum": [
+                    "open",
+                    "serving"
+                  ],
                   "type": "string"
                 },
                 {
                   "type": "null"
                 }
               ],
-              "description": "open 表示所有未结束的会话",
+              "description": "open 表示所有未结束的会话；serving 表示 AI 或人工接待中（不含排队）",
               "title": "Status"
             }
           },
@@ -24266,6 +25374,18 @@
               "default": false,
               "description": "只看分配给自己的会话",
               "title": "Mine",
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "只看自己正在旁听或协助的会话",
+            "in": "query",
+            "name": "watching",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "只看自己正在旁听或协助的会话",
+              "title": "Watching",
               "type": "boolean"
             }
           },
@@ -24590,6 +25710,115 @@
         ]
       }
     },
+    "/api/v1/sessions/{session_id}/assists": {
+      "post": {
+        "description": "邀请同事协助：同事加入会话并可以发言。",
+        "operationId": "invite_assist_api_v1_sessions__session_id__assists_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AssistRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Invite Assist",
+        "tags": [
+          "sessions"
+        ]
+      }
+    },
     "/api/v1/sessions/{session_id}/close": {
       "post": {
         "description": "结束会话（已结束时直接返回）。坐席被移出服务群，客户收到结束提示。",
@@ -24684,6 +25913,105 @@
           }
         ],
         "summary": "Close Session",
+        "tags": [
+          "sessions"
+        ]
+      }
+    },
+    "/api/v1/sessions/{session_id}/handoff": {
+      "post": {
+        "description": "主管把 AI 接待中的会话转入人工排队。",
+        "operationId": "supervisor_handoff_api_v1_sessions__session_id__handoff_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Supervisor Handoff",
         "tags": [
           "sessions"
         ]
@@ -24926,6 +26254,105 @@
         ]
       }
     },
+    "/api/v1/sessions/{session_id}/monitor": {
+      "post": {
+        "description": "旁听：加入服务群实时查看消息，客户看不到旁听者。",
+        "operationId": "monitor_session_api_v1_sessions__session_id__monitor_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Monitor Session",
+        "tags": [
+          "sessions"
+        ]
+      }
+    },
     "/api/v1/sessions/{session_id}/reply-window": {
       "get": {
         "description": "渠道的回复限制（微信客服：客户最后一次发消息后 48 小时内最多 5 条）。",
@@ -25020,6 +26447,98 @@
           }
         ],
         "summary": "Reply Window",
+        "tags": [
+          "sessions"
+        ]
+      }
+    },
+    "/api/v1/sessions/{session_id}/return-to-ai": {
+      "post": {
+        "description": "把人工接待中的会话交还 AI 接待（AI 接待可用时）。坐席退出服务群，之后看不到这个会话\n（客户归属自己时除外）。",
+        "operationId": "return_to_ai_api_v1_sessions__session_id__return_to_ai_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Return To Ai",
         "tags": [
           "sessions"
         ]
@@ -25228,6 +26747,108 @@
           }
         ],
         "summary": "Transfer Session",
+        "tags": [
+          "sessions"
+        ]
+      }
+    },
+    "/api/v1/sessions/{session_id}/watchers/{staff_id}": {
+      "delete": {
+        "description": "退出旁听或协助（本人），或由接待坐席请协助者退出。",
+        "operationId": "leave_session_api_v1_sessions__session_id__watchers__staff_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Session Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "staff_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Staff Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Leave Session",
         "tags": [
           "sessions"
         ]
@@ -28785,6 +30406,108 @@
         "summary": "My Usage",
         "tags": [
           "usage"
+        ]
+      }
+    },
+    "/api/v1/visitor/cancel-queue": {
+      "post": {
+        "description": "取消排队：回到智能客服接待；智能客服不可用时结束会话。",
+        "operationId": "cancel_queue_api_v1_visitor_cancel_queue_post",
+        "parameters": [
+          {
+            "description": "访客初始化返回的 visitor_token",
+            "in": "header",
+            "name": "X-Visitor-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "访客初始化返回的 visitor_token",
+              "title": "X-Visitor-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VisitorSessionState"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "summary": "Cancel Queue",
+        "tags": [
+          "visitor"
         ]
       }
     },

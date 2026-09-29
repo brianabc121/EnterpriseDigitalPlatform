@@ -770,6 +770,83 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/customers/transfer-requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Transfer Requests
+         * @description 客户转移申请：有分配权限时看到全部，否则只看自己提交的。
+         */
+        get: operations["transfer_requests_api_v1_customers_transfer_requests_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/customers/transfer-requests/{request_id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Approve Transfer Request
+         * @description 通过转移申请：变更客户归属；可以同时在企业微信里在职继承。
+         */
+        post: operations["approve_transfer_request_api_v1_customers_transfer_requests__request_id__approve_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/customers/transfer-requests/{request_id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancel Transfer Request
+         * @description 撤回自己提交、还没审批的申请。
+         */
+        post: operations["cancel_transfer_request_api_v1_customers_transfer_requests__request_id__cancel_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/customers/transfer-requests/{request_id}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reject Transfer Request */
+        post: operations["reject_transfer_request_api_v1_customers_transfer_requests__request_id__reject_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/customers/{customer_id}": {
         parameters: {
             query?: never;
@@ -890,6 +967,26 @@ export interface paths {
         get: operations["reveal_sensitive_api_v1_customers__customer_id__sensitive_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/customers/{customer_id}/transfer-requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Request Transfer
+         * @description 申请变更客户的归属坐席（转给自己或同事），由有分配权限的员工审批。
+         */
+        post: operations["request_transfer_api_v1_customers__customer_id__transfer_requests_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1642,6 +1739,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/sessions/{session_id}/assists": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Invite Assist
+         * @description 邀请同事协助：同事加入会话并可以发言。
+         */
+        post: operations["invite_assist_api_v1_sessions__session_id__assists_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/sessions/{session_id}/close": {
         parameters: {
             query?: never;
@@ -1656,6 +1773,26 @@ export interface paths {
          * @description 结束会话（已结束时直接返回）。坐席被移出服务群，客户收到结束提示。
          */
         post: operations["close_session_api_v1_sessions__session_id__close_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sessions/{session_id}/handoff": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Supervisor Handoff
+         * @description 主管把 AI 接待中的会话转入人工排队。
+         */
+        post: operations["supervisor_handoff_api_v1_sessions__session_id__handoff_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1686,6 +1823,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/sessions/{session_id}/monitor": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Monitor Session
+         * @description 旁听：加入服务群实时查看消息，客户看不到旁听者。
+         */
+        post: operations["monitor_session_api_v1_sessions__session_id__monitor_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/sessions/{session_id}/reply-window": {
         parameters: {
             query?: never;
@@ -1700,6 +1857,27 @@ export interface paths {
         get: operations["reply_window_api_v1_sessions__session_id__reply_window_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sessions/{session_id}/return-to-ai": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Return To Ai
+         * @description 把人工接待中的会话交还 AI 接待（AI 接待可用时）。坐席退出服务群，之后看不到这个会话
+         *     （客户归属自己时除外）。
+         */
+        post: operations["return_to_ai_api_v1_sessions__session_id__return_to_ai_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1741,6 +1919,26 @@ export interface paths {
          */
         post: operations["transfer_session_api_v1_sessions__session_id__transfer_post"];
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sessions/{session_id}/watchers/{staff_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Leave Session
+         * @description 退出旁听或协助（本人），或由接待坐席请协助者退出。
+         */
+        delete: operations["leave_session_api_v1_sessions__session_id__watchers__staff_id__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -2294,6 +2492,26 @@ export interface paths {
         get: operations["my_usage_api_v1_usage_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/visitor/cancel-queue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancel Queue
+         * @description 取消排队：回到智能客服接待；智能客服不可用时结束会话。
+         */
+        post: operations["cancel_queue_api_v1_visitor_cancel_queue_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3710,6 +3928,15 @@ export interface components {
              */
             transfer_groups: boolean;
         };
+        /** AssistRequest */
+        AssistRequest: {
+            /**
+             * Staff Id
+             * Format: uuid
+             * @description 邀请协助的员工
+             */
+            staff_id: string;
+        };
         /** Attachment */
         Attachment: {
             /** Content Type */
@@ -4782,6 +5009,24 @@ export interface components {
              * @description 企业微信授权页地址：管理员扫码授权后跳回控制台
              */
             url: string;
+        };
+        /**
+         * IntentRoute
+         * @description 按意图分配：AI 识别出这个意图，或客户的话里出现关键词时，分配到这个技能组。
+         */
+        IntentRoute: {
+            /**
+             * Intent
+             * @description 意图名称，如 售前、售后、技术、投诉
+             */
+            intent: string;
+            /** Keywords */
+            keywords?: string[];
+            /**
+             * Skill Group Id
+             * Format: uuid
+             */
+            skill_group_id: string;
         };
         /** InvoiceGenerate */
         InvoiceGenerate: {
@@ -6381,7 +6626,7 @@ export interface components {
             note: string | null;
             /**
              * Reason
-             * @description session_transfer、manual、handover 或 wecom（企业微信添加人）
+             * @description session_transfer、manual、handover、wecom（企业微信添加人）或 request（申请审批）
              */
             reason: string;
             /** To Owner Id */
@@ -6410,7 +6655,7 @@ export interface components {
          * Permission
          * @enum {string}
          */
-        Permission: "dashboard:view" | "workbench:use" | "customer:read" | "customer:read_all" | "customer:create" | "customer:assign" | "customer:view_sensitive" | "customer:export" | "customer:manage" | "session:read_all" | "session:read_team" | "session:transfer" | "session:transfer_any" | "routing:manage" | "staff:read" | "staff:manage" | "quick_reply:manage" | "kb:read" | "kb:manage" | "kb:publish" | "report:view" | "settings:manage" | "broadcast:manage" | "tenant:manage" | "audit:read";
+        Permission: "dashboard:view" | "workbench:use" | "customer:read" | "customer:read_all" | "customer:create" | "customer:assign" | "customer:view_sensitive" | "customer:export" | "customer:manage" | "session:read_all" | "session:read_team" | "session:transfer" | "session:transfer_any" | "session:monitor" | "routing:manage" | "staff:read" | "staff:manage" | "quick_reply:manage" | "kb:read" | "kb:manage" | "kb:publish" | "report:view" | "settings:manage" | "broadcast:manage" | "tenant:manage" | "audit:read";
         /** PermissionInfo */
         PermissionInfo: {
             code: components["schemas"]["Permission"];
@@ -7064,6 +7309,12 @@ export interface components {
         /** RoutingPolicyCreate */
         RoutingPolicyCreate: {
             /**
+             * Ai While Queued
+             * @description 排队期间 AI 继续回答客户的其他问题（需要启用 AI 接待）
+             * @default false
+             */
+            ai_while_queued: boolean;
+            /**
              * Business Hours
              * @description 工作时间，为空表示全天服务。形如 {"tz": "Asia/Shanghai", "days": {"1": [["09:00", "18:00"]]}}，1 为周一，7 为周日；没有列出的日子休息
              * @example {
@@ -7092,6 +7343,8 @@ export interface components {
              * @default 30
              */
             idle_close_minutes: number;
+            /** Intent Routes */
+            intent_routes?: components["schemas"]["IntentRoute"][];
             /**
              * Max Wait Seconds
              * @default 300
@@ -7110,11 +7363,22 @@ export interface components {
              */
             owner_first: boolean;
             /**
+             * Priority Tags
+             * @description 带这些标签的客户排队时排在最前（VIP）
+             */
+            priority_tags?: string[];
+            /**
              * Resume Window Minutes
              * @description 会话结束后多少分钟内再来咨询优先分配给上次的坐席；0 关闭
              * @default 10
              */
             resume_window_minutes: number;
+            /**
+             * Urgent First
+             * @description 投诉、退款等敏感诉求或情绪激动的客户排在普通客户前面
+             * @default true
+             */
+            urgent_first: boolean;
         };
         /** RoutingPolicyList */
         RoutingPolicyList: {
@@ -7123,6 +7387,12 @@ export interface components {
         };
         /** RoutingPolicyOut */
         RoutingPolicyOut: {
+            /**
+             * Ai While Queued
+             * @description 排队期间 AI 继续回答客户的其他问题（需要启用 AI 接待）
+             * @default false
+             */
+            ai_while_queued: boolean;
             /** Business Hours */
             business_hours: {
                 [key: string]: unknown;
@@ -7146,6 +7416,8 @@ export interface components {
             id: string;
             /** Idle Close Minutes */
             idle_close_minutes: number;
+            /** Intent Routes */
+            intent_routes?: components["schemas"]["IntentRoute"][];
             /** Is Default */
             is_default: boolean;
             /** Max Wait Seconds */
@@ -7155,11 +7427,24 @@ export interface components {
             name: string;
             /** Owner First */
             owner_first: boolean;
+            /**
+             * Priority Tags
+             * @description 带这些标签的客户排队时排在最前（VIP）
+             */
+            priority_tags?: string[];
             /** Resume Window Minutes */
             resume_window_minutes: number;
+            /**
+             * Urgent First
+             * @description 投诉、退款等敏感诉求或情绪激动的客户排在普通客户前面
+             * @default true
+             */
+            urgent_first: boolean;
         };
         /** RoutingPolicyUpdate */
         RoutingPolicyUpdate: {
+            /** Ai While Queued */
+            ai_while_queued?: boolean | null;
             /**
              * Business Hours
              * @description 工作时间，为空表示全天服务。形如 {"tz": "Asia/Shanghai", "days": {"1": [["09:00", "18:00"]]}}，1 为周一，7 为周日；没有列出的日子休息
@@ -7186,6 +7471,8 @@ export interface components {
             default_skill_group_id?: string | null;
             /** Idle Close Minutes */
             idle_close_minutes?: number | null;
+            /** Intent Routes */
+            intent_routes?: components["schemas"]["IntentRoute"][] | null;
             /**
              * Is Default
              * @description 设为租户默认策略（原默认策略自动取消）
@@ -7198,8 +7485,12 @@ export interface components {
             name?: string | null;
             /** Owner First */
             owner_first?: boolean | null;
+            /** Priority Tags */
+            priority_tags?: string[] | null;
             /** Resume Window Minutes */
             resume_window_minutes?: number | null;
+            /** Urgent First */
+            urgent_first?: boolean | null;
         };
         /** SendMessageRequest */
         SendMessageRequest: {
@@ -7283,10 +7574,25 @@ export interface components {
             id: string;
             /** Im Group Id */
             im_group_id: string;
+            /**
+             * Intent
+             * @description 识别出的意图（按意图分配）
+             */
+            intent?: string | null;
             /** Last Agent Message At */
             last_agent_message_at: string | null;
             /** Last Customer Message At */
             last_customer_message_at: string | null;
+            /**
+             * My Role
+             * @description 当前员工在会话里的身份：assignee（接待）、monitor（旁听）、assist（协助）
+             */
+            my_role?: string | null;
+            /**
+             * Overflowed At
+             * @description 排队溢出到备用技能组的时间
+             */
+            overflowed_at?: string | null;
             /** Priority */
             priority: number;
             /** Queued At */
@@ -7299,6 +7605,11 @@ export interface components {
             /** Skill Group Id */
             skill_group_id: string | null;
             status: components["schemas"]["SessionStatus"];
+            /**
+             * Watchers
+             * @description 正在旁听、协助的员工
+             */
+            watchers?: components["schemas"]["WatcherOut"][];
         };
         /** SessionEventOut */
         SessionEventOut: {
@@ -7378,10 +7689,25 @@ export interface components {
             id: string;
             /** Im Group Id */
             im_group_id: string;
+            /**
+             * Intent
+             * @description 识别出的意图（按意图分配）
+             */
+            intent?: string | null;
             /** Last Agent Message At */
             last_agent_message_at: string | null;
             /** Last Customer Message At */
             last_customer_message_at: string | null;
+            /**
+             * My Role
+             * @description 当前员工在会话里的身份：assignee（接待）、monitor（旁听）、assist（协助）
+             */
+            my_role?: string | null;
+            /**
+             * Overflowed At
+             * @description 排队溢出到备用技能组的时间
+             */
+            overflowed_at?: string | null;
             /** Priority */
             priority: number;
             /** Queued At */
@@ -7614,6 +7940,17 @@ export interface components {
             members?: components["schemas"]["SkillGroupMemberIn"][];
             /** Name */
             name: string;
+            /**
+             * Overflow After Seconds
+             * @description 排队超过这么多秒仍没有分配时，改由备用技能组接待；0 表示不溢出
+             * @default 0
+             */
+            overflow_after_seconds: number;
+            /**
+             * Overflow Group Id
+             * @description 备用技能组
+             */
+            overflow_group_id?: string | null;
         };
         /** SkillGroupList */
         SkillGroupList: {
@@ -7661,6 +7998,13 @@ export interface components {
             members: components["schemas"]["SkillGroupMemberOut"][];
             /** Name */
             name: string;
+            /**
+             * Overflow After Seconds
+             * @default 0
+             */
+            overflow_after_seconds: number;
+            /** Overflow Group Id */
+            overflow_group_id?: string | null;
         };
         /** SkillGroupUpdate */
         SkillGroupUpdate: {
@@ -7671,6 +8015,16 @@ export interface components {
             members?: components["schemas"]["SkillGroupMemberIn"][] | null;
             /** Name */
             name?: string | null;
+            /**
+             * Overflow After Seconds
+             * @description 排队超过这么多秒仍没有分配时，改由备用技能组接待；0 表示不溢出
+             */
+            overflow_after_seconds?: number | null;
+            /**
+             * Overflow Group Id
+             * @description 备用技能组；null 表示取消
+             */
+            overflow_group_id?: string | null;
         };
         /** SsoUrlOut */
         SsoUrlOut: {
@@ -8432,6 +8786,17 @@ export interface components {
              */
             staff_id: string;
         };
+        /** TransferDecision */
+        TransferDecision: {
+            /** Note */
+            note?: string | null;
+            /**
+             * Sync Wecom
+             * @description 同时变更企业微信里的添加人：原成员在职时走在职继承（90 天内每位客户最多转接 2 次，客户 24 小时后自动接替），已离职时走离职继承
+             * @default false
+             */
+            sync_wecom: boolean;
+        };
         /** TransferGroup */
         TransferGroup: {
             /**
@@ -8515,6 +8880,71 @@ export interface components {
              * @default false
              */
             transfer_ownership: boolean;
+        };
+        /** TransferRequestCreate */
+        TransferRequestCreate: {
+            /** Reason */
+            reason: string;
+            /**
+             * To Owner Id
+             * @description 转给谁；不填表示转给申请人自己
+             */
+            to_owner_id?: string | null;
+        };
+        /** TransferRequestList */
+        TransferRequestList: {
+            /** Items */
+            items: components["schemas"]["TransferRequestOut"][];
+            /**
+             * Pending
+             * @description 待审批的申请数（有分配权限时为全部待审批数）
+             */
+            pending: number;
+        };
+        /** TransferRequestOut */
+        TransferRequestOut: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Customer Id
+             * Format: uuid
+             */
+            customer_id: string;
+            /** Customer Name */
+            customer_name: string;
+            /** Decided At */
+            decided_at: string | null;
+            /** Decided By Name */
+            decided_by_name: string | null;
+            /** Decision Note */
+            decision_note: string | null;
+            /** From Owner Id */
+            from_owner_id: string | null;
+            /** From Owner Name */
+            from_owner_name: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Reason */
+            reason: string | null;
+            /** Requested By */
+            requested_by: string | null;
+            /** Requested By Name */
+            requested_by_name: string | null;
+            /**
+             * Status
+             * @description pending、approved、rejected、cancelled
+             */
+            status: string;
+            /** To Owner Id */
+            to_owner_id: string | null;
+            /** To Owner Name */
+            to_owner_name: string | null;
         };
         /** TransferResult */
         TransferResult: {
@@ -8783,6 +9213,26 @@ export interface components {
              * @description none（还没有会话）、ai_serving、queued、human_serving、transferring、closed
              */
             status: string;
+        };
+        /** WatcherOut */
+        WatcherOut: {
+            /** Display Name */
+            display_name: string;
+            /**
+             * Joined At
+             * Format: date-time
+             */
+            joined_at: string;
+            /**
+             * Role
+             * @description monitor（旁听）或 assist（协助）
+             */
+            role: string;
+            /**
+             * Staff Id
+             * Format: uuid
+             */
+            staff_id: string;
         };
         /** WecomBinding */
         WecomBinding: {
@@ -12609,6 +13059,318 @@ export interface operations {
             };
         };
     };
+    transfer_requests_api_v1_customers_transfer_requests_get: {
+        parameters: {
+            query?: {
+                status?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TransferRequestList"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    approve_transfer_request_api_v1_customers_transfer_requests__request_id__approve_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                request_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TransferDecision"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TransferRequestOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    cancel_transfer_request_api_v1_customers_transfer_requests__request_id__cancel_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                request_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TransferRequestOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    reject_transfer_request_api_v1_customers_transfer_requests__request_id__reject_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                request_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TransferDecision"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TransferRequestOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     get_customer_api_v1_customers__customer_id__get: {
         parameters: {
             query?: never;
@@ -13099,6 +13861,86 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CustomerSensitive"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    request_transfer_api_v1_customers__customer_id__transfer_requests_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                customer_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TransferRequestCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TransferRequestOut"];
                 };
             };
             /** @description Bad Request */
@@ -16648,10 +17490,12 @@ export interface operations {
     list_sessions_api_v1_sessions_get: {
         parameters: {
             query?: {
-                /** @description open 表示所有未结束的会话 */
-                status?: components["schemas"]["SessionStatus"] | "open" | null;
+                /** @description open 表示所有未结束的会话；serving 表示 AI 或人工接待中（不含排队） */
+                status?: components["schemas"]["SessionStatus"] | ("open" | "serving") | null;
                 /** @description 只看分配给自己的会话 */
                 mine?: boolean;
+                /** @description 只看自己正在旁听或协助的会话 */
+                watching?: boolean;
                 customer_id?: string | null;
                 limit?: number;
                 offset?: number;
@@ -16879,6 +17723,86 @@ export interface operations {
             };
         };
     };
+    invite_assist_api_v1_sessions__session_id__assists_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AssistRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionDetail"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     close_session_api_v1_sessions__session_id__close_post: {
         parameters: {
             query?: never;
@@ -16897,6 +17821,82 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SessionOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    supervisor_handoff_api_v1_sessions__session_id__handoff_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionDetail"];
                 };
             };
             /** @description Bad Request */
@@ -17115,6 +18115,82 @@ export interface operations {
             };
         };
     };
+    monitor_session_api_v1_sessions__session_id__monitor_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionDetail"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     reply_window_api_v1_sessions__session_id__reply_window_get: {
         parameters: {
             query?: never;
@@ -17134,6 +18210,80 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["ReplyWindowOut"];
                 };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    return_to_ai_api_v1_sessions__session_id__return_to_ai_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Bad Request */
             400: {
@@ -17290,6 +18440,81 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["TransferOut"];
                 };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    leave_session_api_v1_sessions__session_id__watchers__staff_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+                staff_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Bad Request */
             400: {
@@ -20120,6 +21345,83 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["UsageReport"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    cancel_queue_api_v1_visitor_cancel_queue_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description 访客初始化返回的 visitor_token */
+                "X-Visitor-Token"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VisitorSessionState"];
                 };
             };
             /** @description Bad Request */

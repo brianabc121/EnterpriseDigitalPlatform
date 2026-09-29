@@ -4,6 +4,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 
 import { fromApi, fromIm, mergeMessages, senderLabel, type WidgetMessage } from './chat'
 import {
+  cancelQueue,
   embedOrigin,
   fetchMessages,
   fetchState,
@@ -244,6 +245,15 @@ async function askHuman(): Promise<void> {
   }
 }
 
+async function leaveQueue(): Promise<void> {
+  if (!session.value) return
+  try {
+    service.value = await cancelQueue(session.value.visitor_token)
+  } catch (e) {
+    error.value = e instanceof Error ? e.message : '请稍后再试'
+  }
+}
+
 async function submitRating(): Promise<void> {
   const s = service.value
   if (!session.value || !s?.session_id || !csat.value.score) return
@@ -312,6 +322,15 @@ onBeforeUnmount(() => {
         @click="askHuman"
       >
         转人工
+      </button>
+      <button
+        v-if="service?.status === 'queued'"
+        type="button"
+        class="link"
+        data-testid="cancel-queue"
+        @click="leaveQueue"
+      >
+        取消排队
       </button>
     </p>
     <p v-if="error" class="error" role="alert">{{ error }}</p>

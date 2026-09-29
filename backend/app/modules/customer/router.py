@@ -11,7 +11,7 @@ from app.core.errors import ERROR_RESPONSES
 from app.core.permissions import Permission
 from app.core.ratelimit import PASSWORD_CHECK, RateLimiter
 from app.modules.audit.service import record_audit
-from app.modules.customer import export, ownership, privacy, service
+from app.modules.customer import export, ownership, privacy, requests, service
 from app.modules.customer.models import CustomerOwnerHistory
 from app.modules.customer.schemas import (
     CustomerCreate,
@@ -30,6 +30,10 @@ from app.modules.customer.schemas import (
     PersonalData,
     PersonalDataRequest,
     PrivacyRequestList,
+    TransferDecision,
+    TransferRequestCreate,
+    TransferRequestList,
+    TransferRequestOut,
     TransferResult,
     WecomTransferSummary,
 )
@@ -125,6 +129,55 @@ async def privacy_requests(session: TenantDb, _: CanManage) -> PrivacyRequestLis
     return PrivacyRequestList(items=await privacy.list_requests(session))
 
 
+@router.get("/transfer-requests", response_model=TransferRequestList)
+async def transfer_requests(
+    session: TenantDb,
+    principal: CanRead,
+    status: Annotated[str | None, Query(pattern="^(pending|approved|rejected|cancelled)$")] = None,
+) -> TransferRequestList:
+    """客户转移申请：有分配权限时看到全部，否则只看自己提交的。"""
+    return await requests.list_requests(session, principal, status=status)
+
+
+@router.post("/transfer-requests/{request_id}/approve", response_model=TransferRequestOut)
+async def approve_transfer_request(
+    request_id: UUID,
+    payload: TransferDecision,
+    request: Request,
+    ctx: Context,
+    session: TenantDb,
+    principal: CanAssign,
+) -> TransferRequestOut:
+    """通过转移申请：变更客户归属；可以同时在企业微信里在职继承。"""
+    approved, history = await requests.approve(
+        session, principal, request_id, note=payload.note, ip=client_ip(request)
+    )
+    if history is not None and payload.sync_wecom:
+        await _result(ctx, principal, [history], sync_wecom=True)
+    return approved
+
+
+@router.post("/transfer-requests/{request_id}/reject", response_model=TransferRequestOut)
+async def reject_transfer_request(
+    request_id: UUID,
+    payload: TransferDecision,
+    request: Request,
+    session: TenantDb,
+    principal: CanAssign,
+) -> TransferRequestOut:
+    return await requests.reject(
+        session, principal, request_id, note=payload.note, ip=client_ip(request)
+    )
+
+
+@router.post("/transfer-requests/{request_id}/cancel", response_model=TransferRequestOut)
+async def cancel_transfer_request(
+    request_id: UUID, session: TenantDb, principal: CanRead
+) -> TransferRequestOut:
+    """撤回自己提交、还没审批的申请。"""
+    return await requests.cancel(session, principal, request_id)
+
+
 async def _result(
     ctx: AppContext,
     principal: Principal,
@@ -207,6 +260,24 @@ async def owner_history(
     """客户的归属变更记录（能看到这个客户的员工可以查看）。"""
     await service.ensure_visible(session, principal, customer_id)
     return OwnerHistoryList(items=await ownership.owner_history(session, customer_id))
+
+
+@router.post(
+    "/{customer_id}/transfer-requests",
+    response_model=TransferRequestOut,
+    status_code=status.HTTP_201_CREATED,
+)
+async def request_transfer(
+    customer_id: UUID,
+    payload: TransferRequestCreate,
+    request: Request,
+    session: TenantDb,
+    principal: CanRead,
+) -> TransferRequestOut:
+    """申请变更客户的归属坐席（转给自己或同事），由有分配权限的员工审批。"""
+    return await requests.create_request(
+        session, principal, customer_id, payload, ip=client_ip(request)
+    )
 
 
 @router.post("/{customer_id}/merge", response_model=CustomerDetail)

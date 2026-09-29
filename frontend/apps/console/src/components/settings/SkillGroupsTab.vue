@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { errorMessage, type Schemas } from '@edp/api-client'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 
 import { api } from '../../api'
 
@@ -13,7 +13,24 @@ const loading = ref(false)
 const dialogOpen = ref(false)
 const saving = ref(false)
 const editing = ref<Group | null>(null)
-const form = reactive({ name: '', members: [] as string[], leads: [] as string[] })
+const form = reactive({
+  name: '',
+  members: [] as string[],
+  leads: [] as string[],
+  overflow_group_id: null as string | null,
+  overflow_minutes: 0,
+})
+
+const groupName = computed(() => new Map(groups.value.map((g) => [g.id, g.name])))
+/** 可以作为备用的技能组（不能是自己）。 */
+const backups = computed(() => groups.value.filter((g) => g.id !== editing.value?.id))
+
+watch(
+  () => form.overflow_group_id,
+  (id) => {
+    if (id && !form.overflow_minutes) form.overflow_minutes = 5
+  },
+)
 
 async function load(): Promise<void> {
   loading.value = true
@@ -32,6 +49,8 @@ function openDialog(group: Group | null): void {
   form.name = group?.name ?? ''
   form.members = group?.members.map((m) => m.staff_id) ?? []
   form.leads = group?.members.filter((m) => m.is_lead).map((m) => m.staff_id) ?? []
+  form.overflow_group_id = group?.overflow_group_id ?? null
+  form.overflow_minutes = Math.round((group?.overflow_after_seconds ?? 0) / 60)
   dialogOpen.value = true
 }
 
@@ -43,6 +62,12 @@ async function save(): Promise<void> {
   const body = {
     name: form.name.trim(),
     members: form.members.map((id) => ({ staff_id: id, is_lead: form.leads.includes(id) })),
+    overflow_group_id: form.overflow_group_id,
+    overflow_after_seconds: form.overflow_group_id ? form.overflow_minutes * 60 : 0,
+  }
+  if (body.overflow_group_id && !body.overflow_after_seconds) {
+    ElMessage.warning('请填写排队多久后溢出')
+    return
   }
   saving.value = true
   const { error } = editing.value
@@ -112,6 +137,15 @@ onMounted(load)
           <span v-if="row.members.length === 0" class="hint">暂无成员</span>
         </template>
       </el-table-column>
+      <el-table-column label="溢出" min-width="160">
+        <template #default="{ row }">
+          <span v-if="row.overflow_group_id" data-testid="group-overflow">
+            排队 {{ Math.round(row.overflow_after_seconds / 60) }} 分钟 →
+            {{ groupName.get(row.overflow_group_id) ?? '' }}
+          </span>
+          <span v-else class="hint">不溢出</span>
+        </template>
+      </el-table-column>
       <el-table-column label="" width="120">
         <template #default="{ row }">
           <el-button link type="primary" size="small" @click="openDialog(row)">编辑</el-button>
@@ -143,6 +177,25 @@ onMounted(load)
             }}</el-checkbox>
           </el-checkbox-group>
           <span v-if="form.members.length === 0" class="hint">先选择成员</span>
+        </el-form-item>
+        <el-form-item label="溢出到">
+          <el-select
+            v-model="form.overflow_group_id"
+            clearable
+            placeholder="不溢出"
+            data-testid="group-overflow-group"
+          >
+            <el-option v-for="g in backups" :key="g.id" :label="g.name" :value="g.id" />
+          </el-select>
+        </el-form-item>
+        <el-form-item v-if="form.overflow_group_id" label="排队超过">
+          <el-input-number
+            v-model="form.overflow_minutes"
+            :min="1"
+            :max="1440"
+            data-testid="group-overflow-minutes"
+          />
+          <span class="hint gap">分钟仍没有分配时，改由备用技能组接待</span>
         </el-form-item>
       </el-form>
       <template #footer>
@@ -176,5 +229,9 @@ onMounted(load)
 
 .member {
   margin: 2px 6px 2px 0;
+}
+
+.gap {
+  margin-left: 10px;
 }
 </style>

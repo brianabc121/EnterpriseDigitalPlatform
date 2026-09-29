@@ -1,7 +1,7 @@
 from typing import Annotated, Literal
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Response, status
 
 from app.context import AppContext
 from app.core.deps import get_context
@@ -10,10 +10,11 @@ from app.core.permissions import Permission
 from app.modules.conversation.models import Message, SessionStatus, TicketStatus
 from app.modules.conversation.schemas import MessageOut, MessagePage
 from app.modules.conversation.service import message_page
-from app.modules.iam.deps import TenantDb, require_permission
+from app.modules.iam.deps import CurrentPrincipal, TenantDb, require_permission
 from app.modules.iam.principal import Principal
-from app.modules.sessions import messages, service, transfer
+from app.modules.sessions import collab, messages, service, transfer
 from app.modules.sessions.schemas import (
+    AssistRequest,
     SendMessageRequest,
     SessionDetail,
     SessionOut,
@@ -31,6 +32,8 @@ from app.modules.wecom.schemas import ReplyWindowOut
 router = APIRouter(prefix="/api/v1", tags=["sessions"], responses=ERROR_RESPONSES)
 
 CanServe = Annotated[Principal, Depends(require_permission(Permission.WORKBENCH_USE))]
+CanMonitor = Annotated[Principal, Depends(require_permission(Permission.SESSION_MONITOR))]
+CanTransferAny = Annotated[Principal, Depends(require_permission(Permission.SESSION_TRANSFER_ANY))]
 Context = Annotated[AppContext, Depends(get_context)]
 
 
@@ -39,10 +42,11 @@ async def list_sessions(
     session: TenantDb,
     principal: CanServe,
     status: Annotated[
-        SessionStatus | Literal["open"] | None,
-        Query(description="open 表示所有未结束的会话"),
+        SessionStatus | Literal["open", "serving"] | None,
+        Query(description="open 表示所有未结束的会话；serving 表示 AI 或人工接待中（不含排队）"),
     ] = None,
     mine: Annotated[bool, Query(description="只看分配给自己的会话")] = False,
+    watching: Annotated[bool, Query(description="只看自己正在旁听或协助的会话")] = False,
     customer_id: UUID | None = None,
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
     offset: Annotated[int, Query(ge=0)] = 0,
@@ -56,6 +60,7 @@ async def list_sessions(
         customer_id=customer_id,
         limit=limit,
         offset=offset,
+        watching_only=watching,
     )
 
 
@@ -165,3 +170,63 @@ async def cancel_transfer(
 async def transfer_targets(session: TenantDb, principal: CanServe) -> TransferTargets:
     """可以转给的在线坐席和技能组。"""
     return await transfer.transfer_targets(session, principal)
+
+
+# ---- 协作：交还 AI、主管转人工、旁听与协助 ----
+
+
+@router.post("/sessions/{session_id}/return-to-ai", status_code=status.HTTP_204_NO_CONTENT)
+async def return_to_ai(
+    session_id: UUID, ctx: Context, session: TenantDb, principal: CanServe
+) -> Response:
+    """把人工接待中的会话交还 AI 接待（AI 接待可用时）。坐席退出服务群，之后看不到这个会话
+    （客户归属自己时除外）。"""
+    await collab.return_to_ai(ctx, session, principal, session_id)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post("/sessions/{session_id}/handoff", response_model=SessionDetail)
+async def supervisor_handoff(
+    session_id: UUID, ctx: Context, session: TenantDb, principal: CanTransferAny
+) -> SessionDetail:
+    """主管把 AI 接待中的会话转入人工排队。"""
+    await collab.supervisor_handoff(ctx, session, principal, session_id)
+    session.expire_all()
+    return await service.get_session(session, principal, session_id)
+
+
+@router.post("/sessions/{session_id}/monitor", response_model=SessionDetail)
+async def monitor_session(
+    session_id: UUID, ctx: Context, session: TenantDb, principal: CanMonitor
+) -> SessionDetail:
+    """旁听：加入服务群实时查看消息，客户看不到旁听者。"""
+    await collab.monitor(ctx, session, principal, session_id)
+    session.expire_all()
+    return await service.get_session(session, principal, session_id)
+
+
+@router.post("/sessions/{session_id}/assists", response_model=SessionDetail)
+async def invite_assist(
+    session_id: UUID,
+    payload: AssistRequest,
+    ctx: Context,
+    session: TenantDb,
+    principal: CanServe,
+) -> SessionDetail:
+    """邀请同事协助：同事加入会话并可以发言。"""
+    await collab.invite_assist(ctx, session, principal, session_id, payload.staff_id)
+    session.expire_all()
+    return await service.get_session(session, principal, session_id)
+
+
+@router.delete("/sessions/{session_id}/watchers/{staff_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def leave_session(
+    session_id: UUID,
+    staff_id: UUID,
+    ctx: Context,
+    session: TenantDb,
+    principal: CurrentPrincipal,
+) -> Response:
+    """退出旁听或协助（本人），或由接待坐席请协助者退出。"""
+    await collab.leave(ctx, session, principal, session_id, staff_id)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

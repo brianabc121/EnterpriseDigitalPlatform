@@ -12,6 +12,7 @@ REASON_LABELS = {
     "quota": "AI 额度已用完",
     "disabled": "AI 接待已关闭",
     "not_configured": "AI 接待未配置",
+    "supervisor": "主管转人工",
 }
 
 

@@ -159,6 +159,24 @@ export EDP_LLM_BASE_URL=http://127.0.0.1:8900/v1 EDP_LLM_CHAT_MODEL=fake-chat ED
   只把早期直接用主密钥加密的租户密文换成租户密钥加密。租户注销删除数据时密钥一并删除（加密擦除）。
   需要立即清理或扫描时执行 `uv run python -m app.cli security-jobs`。
 
+会话与路由：
+
+- **排队优先级**：路由策略里设置 VIP 标签（默认"VIP"），带这些标签的客户排在最前；开启"投诉优先"时，
+  说到投诉、退款等敏感诉求或情绪激动的客户排在普通客户前面。退回队列的会话在同一档内往前排。访客窗口显示
+  前面还有几位，工作台"排队"里用 VIP、优先标记区分。
+- **按意图分配**：路由策略里配置意图（如售前、售后、技术）和对应技能组，可以附带关键词。AI 接待时由大模型
+  判断意图，客户的话里出现关键词时也会命中；转人工时分配到对应技能组，工作台显示识别出的意图。
+- **技能组溢出**：技能组可以设置备用技能组和等待时间，排队超过这么久仍没有分配时改由备用技能组接待（只溢出一次）。
+- **排队期间 AI 继续回答**：路由策略开启后，客户转人工排队时 AI 继续回答其他问题（不再重复转人工）。
+  访客窗口排队时可以"取消排队"：AI 可以接待时回到 AI，否则结束会话。
+- **交还 AI、主管转人工**：坐席可以把人工接待中的会话交还 AI（坐席退出服务群，名额立即用于分配）；
+  主管在工作台"进行中"里查看 AI 接待和其他坐席接待中的会话，可以把 AI 会话直接转人工。
+- **旁听与协助**：主管可以旁听组内的会话（加入服务群，只看不说，客户看不到）；接待坐席可以邀请在线同事协助，
+  协助者能看到客户资料并直接回复，客户会看到"客服 X 加入了会话"。旁听、协助的会话带标记出现在"接待中"，
+  会话结束或交还 AI 时一并退出。"已结束"页签列出自己最近结束的会话。
+- **客户转移申请**：没有分配权限的坐席在客户列表"更多 → 申请转移"里申请把客户转给自己或在线同事，
+  管理员在"转移申请"里批准或驳回（可以同时变更企业微信添加人），批准后归属记录显示"申请审批"。
+
 默认配置适用于本地环境；需要修改时，把 `backend/.env.example` 复制为 `backend/.env`。
 OpenIM 的镜像名都可以用环境变量替换（见 `deploy/compose/openim/docker-compose.yml`），便于使用镜像加速地址。
 
@@ -225,6 +243,7 @@ make frontend-build
   NODE_PATH=$(npm root -g) PLATFORM_PASSWORD=<平台账号密码> node scripts/e2e/g1-wecom-extras.cjs
   NODE_PATH=$(npm root -g) PLATFORM_PASSWORD=<平台账号密码> node scripts/e2e/g2-commerce-ops.cjs
   NODE_PATH=$(npm root -g) PLATFORM_PASSWORD=<平台账号密码> node scripts/e2e/g3-compliance.cjs
+  NODE_PATH=$(npm root -g) PLATFORM_PASSWORD=<平台账号密码> node scripts/e2e/g4-routing-collab.cjs
   ```
 
 - **企业微信补充**（`scripts/e2e/g1-wecom-extras.cjs`）：群发任务与结果回收、客户群活码、侧边栏（模拟 JS-SDK）
@@ -243,6 +262,11 @@ make frontend-build
   生成个人信息副本并删除客户；设置保留期；操作日志；修改自己的密码；坐席发送含 EICAR 测试串的文件后被病毒扫描
   拦截；运营后台轮换数据密钥。前置同 M4，另外运行模拟 clamd（`uv run python -m tests.fake_clamd --port 3310`），
   后端和调度进程设置 `EDP_CLAMAV_HOST=127.0.0.1`。
+
+- **会话与路由**（`scripts/e2e/g4-routing-collab.cjs`）：界面上设置技能组溢出和路由策略（VIP 标签、排队时 AI
+  回答、按意图分配）；三位访客排队，VIP 和投诉的客户排在前面，按意图排到售后组；访客取消排队；1 分钟后溢出到
+  备用技能组；主管旁听、坐席邀请同事协助；交还 AI 后 AI 继续回答，主管再把 AI 会话转人工；排队期间 AI 继续回答、
+  取消排队回到 AI；坐席申请转移客户，管理员批准。前置同 P3（脚本等待溢出，约需 3 分钟）。
 
 - **P1 M1**（`scripts/e2e/m1-im-acceptance.cjs`）：访客在 Widget 里发消息、实时收到机器人回复，消息经回调入库；
   刷新后仍是同一个访客。需要 OpenIM、后端和 Widget。提供停止/启动后端和对账的命令时，还会验证

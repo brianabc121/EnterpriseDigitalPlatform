@@ -32,6 +32,7 @@ from app.modules.routing.schemas import (
     AgentIMCredentials,
     AgentList,
     AgentOut,
+    IntentRoute,
     MyAgentState,
     RoutingPolicyCreate,
     RoutingPolicyOut,
@@ -103,7 +104,14 @@ async def list_skill_groups(session: AsyncSession) -> list[SkillGroupOut]:
             SkillGroupMemberOut(staff_id=staff_id, display_name=name, is_lead=is_lead)
         )
     return [
-        SkillGroupOut(id=g.id, name=g.name, members=members.get(g.id, []), created_at=g.created_at)
+        SkillGroupOut(
+            id=g.id,
+            name=g.name,
+            members=members.get(g.id, []),
+            overflow_group_id=g.overflow_group_id,
+            overflow_after_seconds=g.overflow_after_seconds,
+            created_at=g.created_at,
+        )
         for g in groups
     ]
 
@@ -142,10 +150,25 @@ async def _replace_members(
         )
 
 
+async def _check_overflow(
+    session: AsyncSession, group_id: UUID | None, overflow_group_id: UUID | None
+) -> None:
+    if overflow_group_id is None:
+        return
+    if overflow_group_id == group_id:
+        raise Unprocessable("备用技能组不能是它自己")
+    await _check_group(session, overflow_group_id)
+
+
 async def create_skill_group(
     session: AsyncSession, principal: Principal, payload: SkillGroupCreate, *, ip: str | None
 ) -> SkillGroupOut:
-    group = SkillGroup(name=payload.name)
+    await _check_overflow(session, None, payload.overflow_group_id)
+    group = SkillGroup(
+        name=payload.name,
+        overflow_group_id=payload.overflow_group_id,
+        overflow_after_seconds=payload.overflow_after_seconds,
+    )
     session.add(group)
     try:
         await session.flush()
@@ -178,6 +201,12 @@ async def update_skill_group(
             raise Conflict("技能组名称已存在") from exc
     if payload.members is not None:
         await _replace_members(session, group.id, payload.members)
+    changes = payload.model_dump(exclude_unset=True)
+    if "overflow_group_id" in changes:
+        await _check_overflow(session, group.id, payload.overflow_group_id)
+        group.overflow_group_id = payload.overflow_group_id
+    if payload.overflow_after_seconds is not None:
+        group.overflow_after_seconds = payload.overflow_after_seconds
     _audit(
         session,
         principal,
@@ -239,6 +268,10 @@ def _policy_out(policy: RoutingPolicy, channel_ids: list[UUID]) -> RoutingPolicy
         idle_close_minutes=policy.idle_close_minutes,
         resume_window_minutes=policy.resume_window_minutes,
         business_hours=policy.business_hours,
+        priority_tags=list(policy.priority_tags or []),
+        urgent_first=policy.urgent_first,
+        ai_while_queued=policy.ai_while_queued,
+        intent_routes=[IntentRoute.model_validate(r) for r in policy.intent_routes or []],
         channel_ids=channel_ids,
         created_at=policy.created_at,
     )
@@ -256,11 +289,19 @@ async def _check_group(session: AsyncSession, group_id: UUID | None) -> None:
         raise Unprocessable(SKILL_GROUP_NOT_FOUND)
 
 
+async def _intent_routes(session: AsyncSession, routes: list[IntentRoute]) -> list[dict[str, Any]]:
+    for route in routes:
+        await _check_group(session, route.skill_group_id)
+    return [route.model_dump(mode="json") for route in routes]
+
+
 async def create_policy(
     session: AsyncSession, principal: Principal, payload: RoutingPolicyCreate, *, ip: str | None
 ) -> RoutingPolicyOut:
     await _check_group(session, payload.default_skill_group_id)
-    policy = RoutingPolicy(**payload.model_dump(), is_default=False)
+    values = payload.model_dump(exclude={"intent_routes"})
+    values["intent_routes"] = await _intent_routes(session, payload.intent_routes)
+    policy = RoutingPolicy(**values, is_default=False)
     session.add(policy)
     await session.flush()
     _audit(
@@ -290,6 +331,8 @@ async def update_policy(
     changes = payload.model_dump(exclude_unset=True)
     if "default_skill_group_id" in changes:
         await _check_group(session, changes["default_skill_group_id"])
+    if payload.intent_routes is not None:
+        changes["intent_routes"] = await _intent_routes(session, payload.intent_routes)
     if changes.pop("is_default", None) and not policy.is_default:
         await session.execute(
             update(RoutingPolicy)

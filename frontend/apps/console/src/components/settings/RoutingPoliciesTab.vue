@@ -4,10 +4,13 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { computed, onMounted, reactive, ref } from 'vue'
 
 import { api } from '../../api'
+import { splitKeywords } from '../../workbench/routing'
 import BusinessHoursEditor from './BusinessHoursEditor.vue'
 import { asBusinessHours, summarize, type BusinessHours } from './hours'
 
 type Policy = Schemas['RoutingPolicyOut']
+/** 编辑中的意图路由：关键词用逗号或空格分隔。 */
+type RouteRow = { intent: string; keywords: string; skill_group_id: string | null }
 
 const MODES: Record<string, string> = { human_first: '人工优先', ai_first: 'AI 优先' }
 
@@ -27,6 +30,10 @@ const form = reactive({
   idle_close_minutes: 30,
   resume_window_minutes: 10,
   business_hours: null as BusinessHours | null,
+  priority_tags: ['VIP'] as string[],
+  urgent_first: true,
+  ai_while_queued: false,
+  intent_routes: [] as RouteRow[],
 })
 
 const groupName = computed(() => new Map(groups.value.map((g) => [g.id, g.name])))
@@ -60,11 +67,28 @@ function openDialog(policy: Policy | null): void {
     idle_close_minutes: policy?.idle_close_minutes ?? 30,
     resume_window_minutes: policy?.resume_window_minutes ?? 10,
     business_hours: asBusinessHours(policy?.business_hours),
+    priority_tags: [...(policy?.priority_tags ?? ['VIP'])],
+    urgent_first: policy?.urgent_first ?? true,
+    ai_while_queued: policy?.ai_while_queued ?? false,
+    intent_routes: (policy?.intent_routes ?? []).map((r) => ({
+      intent: r.intent,
+      keywords: (r.keywords ?? []).join('，'),
+      skill_group_id: r.skill_group_id,
+    })),
   })
   dialogOpen.value = true
 }
 
+function addRoute(): void {
+  form.intent_routes.push({ intent: '', keywords: '', skill_group_id: null })
+}
+
 async function save(): Promise<void> {
+  const routes = form.intent_routes.filter((r) => r.intent.trim() || r.skill_group_id)
+  if (routes.some((r) => !r.intent.trim() || !r.skill_group_id)) {
+    ElMessage.warning('每条意图分配都要填写意图名称并选择技能组')
+    return
+  }
   const body = {
     name: form.name.trim(),
     mode: form.mode,
@@ -74,6 +98,14 @@ async function save(): Promise<void> {
     idle_close_minutes: form.idle_close_minutes,
     resume_window_minutes: form.resume_window_minutes,
     business_hours: form.business_hours,
+    priority_tags: form.priority_tags.map((t) => t.trim()).filter(Boolean),
+    urgent_first: form.urgent_first,
+    ai_while_queued: form.ai_while_queued,
+    intent_routes: routes.map((r) => ({
+      intent: r.intent.trim(),
+      keywords: splitKeywords(r.keywords),
+      skill_group_id: r.skill_group_id!,
+    })),
   }
   saving.value = true
   const { error } = editing.value
@@ -155,6 +187,21 @@ onMounted(load)
             {{ row.idle_close_minutes }} 分钟结束 ·
             {{ row.resume_window_minutes ? `${row.resume_window_minutes} 分钟内续接` : '不续接' }}
           </div>
+          <div class="muted" data-testid="policy-priority">
+            优先：{{ row.priority_tags.length ? row.priority_tags.join('、') : '不按标签' }}
+            {{ row.urgent_first ? '· 投诉优先' : '' }}
+            {{ row.ai_while_queued ? '· 排队时 AI 继续回答' : '' }}
+          </div>
+          <div v-if="row.intent_routes.length" class="muted" data-testid="policy-intents">
+            意图：{{
+              row.intent_routes
+                .map(
+                  (r: Schemas['IntentRoute']) =>
+                    `${r.intent} → ${groupName.get(r.skill_group_id) ?? '?'}`,
+                )
+                .join('；')
+            }}
+          </div>
         </template>
       </el-table-column>
       <el-table-column label="工作时间" min-width="200">
@@ -224,6 +271,66 @@ onMounted(load)
         <el-form-item label="工作时间">
           <BusinessHoursEditor v-model="form.business_hours" />
         </el-form-item>
+        <el-divider content-position="left">排队优先级</el-divider>
+        <el-form-item label="VIP 标签">
+          <el-input-tag
+            v-model="form.priority_tags"
+            :max="20"
+            placeholder="输入客户标签，回车添加"
+            data-testid="policy-priority-tags"
+          />
+          <div class="field-hint block">带这些标签的客户排在最前面</div>
+        </el-form-item>
+        <el-form-item label="投诉优先">
+          <el-switch v-model="form.urgent_first" data-testid="policy-urgent-first" />
+          <span class="field-hint">投诉、退款等敏感诉求或情绪激动的客户排在普通客户前面</span>
+        </el-form-item>
+        <el-form-item label="排队时 AI 回答">
+          <el-switch v-model="form.ai_while_queued" data-testid="policy-ai-while-queued" />
+          <span class="field-hint">排队期间 AI 继续回答客户的其他问题（需要启用 AI 接待）</span>
+        </el-form-item>
+        <el-divider content-position="left">按意图分配</el-divider>
+        <p class="field-hint section-hint">
+          AI 识别出意图，或客户的话里出现关键词时，分配到对应技能组；都不匹配时按上面的技能组分配。
+        </p>
+        <div
+          v-for="(route, i) in form.intent_routes"
+          :key="i"
+          class="route"
+          data-testid="intent-route"
+        >
+          <el-input
+            v-model="route.intent"
+            maxlength="32"
+            placeholder="意图，如 售后"
+            class="route-intent"
+            data-testid="intent-name"
+          />
+          <el-input
+            v-model="route.keywords"
+            placeholder="关键词，用逗号分隔（可不填）"
+            class="route-keywords"
+            data-testid="intent-keywords"
+          />
+          <el-select
+            v-model="route.skill_group_id"
+            placeholder="技能组"
+            class="route-group"
+            data-testid="intent-group"
+          >
+            <el-option v-for="g in groups" :key="g.id" :label="g.name" :value="g.id" />
+          </el-select>
+          <el-button link type="danger" @click="form.intent_routes.splice(i, 1)">删除</el-button>
+        </div>
+        <el-button
+          size="small"
+          :disabled="!groups.length || form.intent_routes.length >= 20"
+          data-testid="add-intent-route"
+          @click="addRoute"
+        >
+          添加意图
+        </el-button>
+        <span v-if="!groups.length" class="field-hint">先在"技能组"里建好技能组</span>
       </el-form>
       <template #footer>
         <el-button @click="dialogOpen = false">取消</el-button>
@@ -262,5 +369,33 @@ onMounted(load)
 
 .tag {
   margin-left: 6px;
+}
+
+.block {
+  display: block;
+  margin-left: 0;
+}
+
+.section-hint {
+  margin: 0 0 8px;
+}
+
+.route {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.route-intent {
+  width: 120px;
+}
+
+.route-keywords {
+  flex: 1;
+}
+
+.route-group {
+  width: 140px;
 }
 </style>

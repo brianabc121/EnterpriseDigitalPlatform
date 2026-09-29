@@ -33,6 +33,15 @@ MATRIX: list[tuple[str, str, dict[str, Any] | None]] = [
     ("POST", "/api/v1/customers/{customer_id}/merge", {"source_ids": ["{own_customer_id}"]}),
     ("POST", "/api/v1/customers/{customer_id}/personal-data", {"reason": "越权查询"}),
     ("POST", "/api/v1/customers/{customer_id}/erase", {"confirm_name": "x", "reason": "越权"}),
+    ("POST", "/api/v1/customers/{customer_id}/transfer-requests", {"reason": "越权申请"}),
+    ("POST", "/api/v1/customers/transfer-requests/{request_id}/approve", {}),
+    ("POST", "/api/v1/customers/transfer-requests/{request_id}/reject", {}),
+    ("POST", "/api/v1/customers/transfer-requests/{request_id}/cancel", None),
+    ("POST", "/api/v1/sessions/{session_id}/return-to-ai", None),
+    ("POST", "/api/v1/sessions/{session_id}/handoff", None),
+    ("POST", "/api/v1/sessions/{session_id}/monitor", None),
+    ("POST", "/api/v1/sessions/{session_id}/assists", {"staff_id": "{own_staff_id}"}),
+    ("DELETE", "/api/v1/sessions/{session_id}/watchers/{staff_id}", None),
     ("PATCH", "/api/v1/staff/{staff_id}", {"display_name": "越权修改"}),
     ("POST", "/api/v1/staff/{staff_id}/password", {"password": "cross-tenant-reset"}),
     ("PATCH", "/api/v1/roles/{role_id}", {"name": "越权修改"}),
@@ -162,6 +171,12 @@ async def build(desk: Desk) -> Tenant:
         desk.tenant_id,
         f"edp{desk.code}",
     )
+    request = await client.post(
+        f"/api/v1/customers/{chat['customer_id']}/transfer-requests",
+        headers=desk.admin,
+        json={"to_owner_id": str(agent.staff_id), "reason": "由 Carol 跟进"},
+    )
+    assert request.status_code == 201, request.text
     role = await client.post(
         "/api/v1/roles",
         headers=desk.admin,
@@ -200,6 +215,7 @@ async def build(desk: Desk) -> Tenant:
         "export_id": str(export["id"]),
         "grant_id": str(grant["id"]),
         "role_id": role.json()["id"],
+        "request_id": request.json()["id"],
         "version": "1",
         "userid": "zhangsan",
         "tenant_id": str(desk.tenant_id),
@@ -271,6 +287,8 @@ async def snapshot(desk: Desk) -> list[Any]:
         "refresh_tokens": "id, revoked_at",
         "privacy_requests": "id",
         "rooms": "id, customer_id",
+        "customer_transfer_requests": "id, status",
+        "session_watchers": "session_id, staff_id, left_at",
     }
     rows = []
     for table, columns in tables.items():
