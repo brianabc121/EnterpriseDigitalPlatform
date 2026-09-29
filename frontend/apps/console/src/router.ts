@@ -53,6 +53,12 @@ const routes: RouteRecordRaw[] = [
     meta: { public: true, title: '登录' },
   },
   {
+    path: '/signup',
+    name: 'signup',
+    component: () => import('./views/SignupView.vue'),
+    meta: { public: true, title: '免费试用' },
+  },
+  {
     // 企业微信扫码登录、企业微信内网页授权（免登）、员工自行绑定后跳回这里。
     path: '/wecom/login',
     name: 'wecom-login',

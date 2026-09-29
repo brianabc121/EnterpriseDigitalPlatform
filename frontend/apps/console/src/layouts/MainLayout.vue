@@ -14,7 +14,7 @@ import {
   Tickets,
   User,
 } from '@element-plus/icons-vue'
-import { computed, type Component } from 'vue'
+import { computed, ref, type Component } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import { visibleMenus, type MenuIcon } from '../menu'
@@ -39,7 +39,13 @@ const icons: Record<MenuIcon, Component> = {
   broadcast: Promotion,
   setting: Setting,
 }
-const menus = computed(() => visibleMenus(auth.permissions))
+const menus = computed(() => visibleMenus(auth.permissions, auth.me?.features ?? {}))
+const noticeClosed = ref(sessionStorage.getItem('edp:billing-notice') === auth.me?.billing_notice)
+
+function closeNotice(): void {
+  noticeClosed.value = true
+  sessionStorage.setItem('edp:billing-notice', auth.me?.billing_notice ?? '')
+}
 
 async function logout(): Promise<void> {
   // 先离线：分配给自己但还没回复的会话立即退回队列，不必等心跳超时。
@@ -76,6 +82,17 @@ async function logout(): Promise<void> {
         </el-dropdown>
       </el-header>
       <el-main>
+        <el-alert
+          v-if="auth.me?.billing_notice && !noticeClosed"
+          :title="auth.me.billing_notice"
+          type="warning"
+          show-icon
+          class="billing-notice"
+          data-testid="billing-banner"
+          @close="closeNotice"
+        >
+          <router-link to="/settings" class="link">查看套餐</router-link>
+        </el-alert>
         <router-view />
       </el-main>
     </el-container>
@@ -83,6 +100,14 @@ async function logout(): Promise<void> {
 </template>
 
 <style scoped>
+.billing-notice {
+  margin-bottom: 12px;
+}
+
+.link {
+  font-size: 12px;
+}
+
 .layout {
   height: 100%;
 }

@@ -22,6 +22,7 @@ from app.core.security import (
 from app.db.errors import violated_unique_constraint
 from app.db.session import bind_tenant
 from app.modules.audit.service import record_audit
+from app.modules.billing.entitlements import check_limit
 from app.modules.iam.models import RefreshToken, Role, Staff, StaffRole, StaffStatus
 from app.modules.iam.principal import Principal
 from app.modules.iam.schemas import StaffCreate, StaffOut
@@ -224,6 +225,7 @@ async def create_staff(
         raise Forbidden("不能分配超出自身权限的角色")
     if await session.scalar(select(Staff.id).where(Staff.username == payload.username)):
         raise Conflict("用户名已存在")
+    await check_limit(session, principal.tenant_id, "seats")
 
     staff = Staff(
         id=new_id(),

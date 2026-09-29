@@ -25,7 +25,7 @@ async def ai_loop(ctx: AppContext, stop: asyncio.Event) -> None:
     """AI 接待：定期处理到期的待回复会话（大模型没有配置时空转）。"""
     while not stop.is_set():
         handled = 0
-        if ctx.llm.enabled:
+        if await ctx.llms.any_enabled():
             try:
                 handled = await run_due(ctx)
             except Exception:

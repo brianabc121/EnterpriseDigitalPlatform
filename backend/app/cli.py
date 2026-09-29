@@ -20,11 +20,14 @@ from app.db.session import Database
 from app.events.bus import Event, EventType
 from app.integrations.storage import ensure_bucket
 from app.main import create_app
+from app.modules.billing.service import generate_invoices, run_invoices, run_lifecycle
 from app.modules.conversation.reconcile import ReconcileReport, reconcile_all
 from app.modules.files.service import storage_config
 from app.modules.kb.extraction import ExtractionReport, run_extraction
 from app.modules.kb.metrics import generate_digest, week_of
 from app.modules.kb.service import reindex_all
+from app.modules.lifecycle.closure import run_purges
+from app.modules.lifecycle.export import run_exports
 from app.modules.tenancy import service as tenancy
 from app.modules.tenancy.models import Tenant
 from app.modules.tenancy.schemas import TenantAdminCreate, TenantCreate
@@ -200,6 +203,35 @@ async def wecom_zone(settings: Settings) -> int:
         await ctx.aclose()
 
 
+async def billing_lifecycle(settings: Settings) -> dict[str, int]:
+    ctx = AppContext.create(settings)
+    try:
+        return dataclasses.asdict(await run_lifecycle(ctx))
+    finally:
+        await ctx.aclose()
+
+
+async def billing_invoices(settings: Settings, month: str | None) -> dict[str, int]:
+    ctx = AppContext.create(settings)
+    try:
+        if month:
+            year, number = (int(part) for part in month.split("-"))
+            result = await generate_invoices(ctx, date(year, number, 1))
+        else:
+            result = await run_invoices(ctx)
+        return result.model_dump()
+    finally:
+        await ctx.aclose()
+
+
+async def tenant_jobs(settings: Settings) -> dict[str, int]:
+    ctx = AppContext.create(settings)
+    try:
+        return {"exports": await run_exports(ctx), "purged": await run_purges(ctx)}
+    finally:
+        await ctx.aclose()
+
+
 def export_openapi(output: Path | None) -> None:
     schema = create_app(get_settings()).openapi()
     text = json.dumps(schema, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
@@ -224,6 +256,8 @@ def main(argv: list[str] | None = None) -> int:
     tenant.add_argument("--admin-username", default="admin")
     tenant.add_argument("--admin-display-name", default="管理员")
     tenant.add_argument("--admin-password", help="不填时读取 EDP_BOOTSTRAP_PASSWORD 或交互输入")
+    tenant.add_argument("--plan", help="套餐代码（如 trial、standard），不填时不按套餐计费")
+    tenant.add_argument("--months", type=int, default=12, help="正式套餐的订阅月数")
 
     commands.add_parser("im-reconcile", help="立即按 seq 对账一次（补录回调丢失的消息）")
     commands.add_parser("storage-init", help="创建对象存储桶（已存在时跳过）")
@@ -248,6 +282,11 @@ def main(argv: list[str] | None = None) -> int:
     commands.add_parser("wecom-broadcasts", help="立即回收企业微信群发任务的发送结果")
     commands.add_parser("wecom-zone", help="立即从数据与智能专区取回群聊分析结果")
 
+    commands.add_parser("billing-lifecycle", help="立即标记到期的订阅，停用宽限期已过的租户")
+    invoices = commands.add_parser("billing-invoices", help="生成账单（默认上个月）")
+    invoices.add_argument("--month", help="账单月份 YYYY-MM")
+    commands.add_parser("tenant-jobs", help="立即生成排队中的数据导出，删除保留期已到的租户数据")
+
     openapi = commands.add_parser("export-openapi", help="导出 OpenAPI 描述（供前端生成类型）")
     openapi.add_argument("output", nargs="?", type=Path)
 
@@ -271,6 +310,8 @@ def main(argv: list[str] | None = None) -> int:
                 display_name=args.admin_display_name,
                 password=_password(args.admin_password),
             ),
+            plan_code=args.plan,
+            months=args.months,
         )
         tenant_id = asyncio.run(provision_tenant(get_settings(), payload))
         print(f"已开通租户：{args.code}（{tenant_id}），管理员：{args.admin_username}")
@@ -306,6 +347,13 @@ def main(argv: list[str] | None = None) -> int:
     elif args.command == "wecom-zone":
         saved = asyncio.run(wecom_zone(get_settings()))
         print(json.dumps({"results": saved}, ensure_ascii=False))
+    elif args.command == "billing-lifecycle":
+        print(json.dumps(asyncio.run(billing_lifecycle(get_settings())), ensure_ascii=False))
+    elif args.command == "billing-invoices":
+        generated = asyncio.run(billing_invoices(get_settings(), args.month))
+        print(json.dumps(generated, ensure_ascii=False))
+    elif args.command == "tenant-jobs":
+        print(json.dumps(asyncio.run(tenant_jobs(get_settings())), ensure_ascii=False))
     elif args.command == "export-openapi":
         export_openapi(args.output)
     return 0

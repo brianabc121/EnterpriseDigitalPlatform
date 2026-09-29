@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { errorMessage } from '@edp/api-client'
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
-import { reactive, ref } from 'vue'
+import { onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import { api } from '../api'
@@ -16,7 +16,18 @@ const router = useRouter()
 
 const formRef = ref<FormInstance>()
 const loading = ref(false)
-const form = reactive({ tenantCode: '', username: '', password: '' })
+const form = reactive({
+  tenantCode: typeof route.query.tenant === 'string' ? route.query.tenant : '',
+  username: typeof route.query.username === 'string' ? route.query.username : '',
+  password: '',
+})
+/** 平台开放了自助注册时显示"免费试用"入口。 */
+const signupOpen = ref(false)
+
+onMounted(async () => {
+  const { data } = await api.GET('/api/v1/signup')
+  signupOpen.value = data?.enabled ?? false
+})
 const rules: FormRules = {
   tenantCode: [{ required: true, message: '请输入企业代码', trigger: 'blur' }],
   username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
@@ -99,6 +110,10 @@ async function submit(): Promise<void> {
       >
         企业微信扫码登录
       </el-button>
+      <p v-if="signupOpen" class="signup">
+        还没有账号？
+        <router-link to="/signup" data-testid="signup-link">免费试用</router-link>
+      </p>
     </el-card>
   </div>
 </template>
@@ -129,5 +144,12 @@ async function submit(): Promise<void> {
 
 .submit {
   width: 100%;
+}
+
+.signup {
+  margin: 16px 0 0;
+  text-align: center;
+  font-size: 13px;
+  color: var(--el-text-color-secondary);
 }
 </style>

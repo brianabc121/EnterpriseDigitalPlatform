@@ -144,7 +144,8 @@ async def _find_tenant(db: Database, channel_key: str) -> Tenant:
         tenant = await session.scalar(select(Tenant).where(Tenant.code == tenant_code))
     if tenant is None:
         raise NotFound(CHANNEL_NOT_FOUND)
-    if tenant.status != TenantStatus.ACTIVE:
+    # 申请注销后不再接待新的访客。
+    if tenant.status != TenantStatus.ACTIVE or tenant.closing_requested_at is not None:
         raise Forbidden(CHANNEL_UNAVAILABLE)
     return tenant
 

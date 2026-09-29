@@ -13,6 +13,8 @@ from app.core.ratelimit import RateLimiter
 from app.integrations.llm import LLMClient
 from app.integrations.openim import OpenIMClient
 from app.modules.ai.router import router as ai_router
+from app.modules.billing.router import platform_router as platform_billing_router
+from app.modules.billing.router import router as billing_router
 from app.modules.channels.router import router as channels_router
 from app.modules.conversation.hooks import router as openim_hooks_router
 from app.modules.conversation.router import router as conversation_router
@@ -22,6 +24,10 @@ from app.modules.health.router import router as health_router
 from app.modules.iam.router import auth_router
 from app.modules.iam.router import router as iam_router
 from app.modules.kb.router import router as kb_router
+from app.modules.lifecycle.router import platform_router as platform_lifecycle_router
+from app.modules.lifecycle.router import public_router as signup_router
+from app.modules.lifecycle.router import router as tenant_router
+from app.modules.platform.router import router as platform_ops_router
 from app.modules.quickreply.router import router as quick_reply_router
 from app.modules.reports.router import router as reports_router
 from app.modules.routing.router import router as routing_router
@@ -41,11 +47,12 @@ def create_app(
     llm: LLMClient | None = None,
     wecom_transport: httpx.AsyncBaseTransport | None = None,
     storage_transport: httpx.AsyncBaseTransport | None = None,
+    llm_transport: httpx.AsyncBaseTransport | None = None,
 ) -> FastAPI:
     """应用工厂。开发环境：uvicorn app.main:create_app --factory --reload。
 
-    im、llm 和两个 transport 供测试注入（内存版 OpenIM、模拟大模型、模拟企业微信、内存对象存储）；
-    默认按配置连接。
+    im、llm 和几个 transport 供测试注入（内存版 OpenIM、模拟大模型、模拟企业微信、内存对象存储；
+    llm_transport 用于运营后台配置的供应商）；默认按配置连接。
     """
     ctx = AppContext.create(
         settings or get_settings(),
@@ -53,6 +60,7 @@ def create_app(
         llm=llm,
         wecom_transport=wecom_transport,
         storage_transport=storage_transport,
+        llm_transport=llm_transport,
     )
 
     @asynccontextmanager
@@ -96,6 +104,12 @@ def create_app(
     app.include_router(wecom_hooks_router)
     app.include_router(reports_router)
     app.include_router(usage_router)
+    app.include_router(billing_router)
+    app.include_router(signup_router)
+    app.include_router(tenant_router)
     app.include_router(platform_router)
     app.include_router(platform_usage_router)
+    app.include_router(platform_billing_router)
+    app.include_router(platform_lifecycle_router)
+    app.include_router(platform_ops_router)
     return app

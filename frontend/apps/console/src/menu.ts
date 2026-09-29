@@ -21,6 +21,8 @@ export interface MenuItem {
   icon: MenuIcon
   /** 类型来自后端 OpenAPI 的 Permission 枚举，写错权限点会在编译期报错。 */
   permission: Permission
+  /** 套餐功能：当前套餐不包含时隐藏（/api/v1/me 的 features）。 */
+  feature?: string
 }
 
 /** 菜单与路由的唯一来源：router.ts 按这里生成页面路由。 */
@@ -64,6 +66,7 @@ export const MENU: readonly MenuItem[] = [
     title: '群发',
     icon: 'broadcast',
     permission: 'broadcast:manage',
+    feature: 'broadcast',
   },
   {
     name: 'wecom',
@@ -81,8 +84,14 @@ export const MENU: readonly MenuItem[] = [
   },
 ]
 
-export function visibleMenus(permissions: ReadonlySet<Permission>): MenuItem[] {
-  return MENU.filter((item) => permissions.has(item.permission))
+export function visibleMenus(
+  permissions: ReadonlySet<Permission>,
+  features: Readonly<Record<string, boolean>> = {},
+): MenuItem[] {
+  return MENU.filter(
+    (item) =>
+      permissions.has(item.permission) && (!item.feature || features[item.feature] !== false),
+  )
 }
 
 /** 登录后的落地页：第一个有权限的菜单；一个都没有时去"无权限"页。 */

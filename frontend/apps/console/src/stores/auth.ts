@@ -71,6 +71,7 @@ export const useAuthStore = defineStore('auth', () => {
     permissions,
     isAuthenticated,
     can,
+    fetchMe,
     login,
     loginWithWecom,
     restore,

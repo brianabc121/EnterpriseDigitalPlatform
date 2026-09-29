@@ -36,6 +36,8 @@ LOGIN_PER_IP = Limit("login-ip", 30, 60)
 LOGIN_FAILURES = Limit("login-fail", 10, 15 * 60)
 # 访客初始化会创建客户、IM 用户和服务群，按 IP 限制。
 VISITOR_INIT_PER_IP = Limit("visitor-init-ip", 30, 60)
+# 企业自助注册：每个 IP 每小时 5 次。
+SIGNUP_PER_IP = Limit("signup-ip", 5, 3600)
 
 
 @dataclass(frozen=True)

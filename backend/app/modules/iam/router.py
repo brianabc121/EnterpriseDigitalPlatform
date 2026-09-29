@@ -1,8 +1,10 @@
 from typing import Annotated
+from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Cookie, Depends, Request, Response, status
 
 from app.core.config import Settings
+from app.core.dates import today
 from app.core.deps import client_ip, get_app_settings, get_database, get_rate_limiter
 from app.core.errors import ERROR_RESPONSES, ErrorResponse, Unauthorized
 from app.core.permissions import ALL_PERMISSIONS, Permission
@@ -10,11 +12,14 @@ from app.core.ratelimit import RateLimiter, login_attempt
 from app.core.security import RefreshClaims, TokenError, decode_refresh_token
 from app.db.session import Database
 from app.modules.audit.service import record_audit
+from app.modules.billing.entitlements import entitlements
+from app.modules.billing.service import billing_notice
 from app.modules.iam import service
 from app.modules.iam.deps import CurrentPrincipal, TenantDb, require_permission
 from app.modules.iam.principal import Principal
 from app.modules.iam.schemas import (
     LoginRequest,
+    MePlan,
     MeResponse,
     RoleList,
     RoleOut,
@@ -130,7 +135,10 @@ async def logout(
 
 
 @router.get("/me", response_model=MeResponse)
-async def me(principal: CurrentPrincipal) -> MeResponse:
+async def me(principal: CurrentPrincipal, session: TenantDb, settings: SettingsDep) -> MeResponse:
+    entitled = await entitlements(session, principal.tenant_id)
+    sub, plan = entitled.subscription, entitled.plan
+    days_left, notice = billing_notice(sub, [], today(ZoneInfo(settings.usage_timezone)))
     return MeResponse(
         id=principal.staff_id,
         username=principal.username,
@@ -141,6 +149,17 @@ async def me(principal: CurrentPrincipal) -> MeResponse:
         roles=list(principal.role_codes),
         # 自定义角色里可能残留已下线的权限点，只返回当前版本认识的。
         permissions=sorted(Permission(p) for p in principal.permissions if p in ALL_PERMISSIONS),
+        features=dict(entitled.features),
+        plan=MePlan(
+            code=plan.code,
+            name=plan.name,
+            status=sub.status,
+            period_end=sub.period_end,
+            days_left=days_left or 0,
+        )
+        if sub is not None and plan is not None
+        else None,
+        billing_notice=notice if principal.has(Permission.SETTINGS_MANAGE) else None,
     )
 
 

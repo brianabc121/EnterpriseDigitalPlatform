@@ -73,6 +73,8 @@ MATRIX: list[tuple[str, str, dict[str, Any] | None]] = [
     ("POST", "/api/v1/wecom/broadcasts/{broadcast_id}/refresh", None),
     ("POST", "/api/v1/wecom/broadcasts/{broadcast_id}/cancel", None),
     ("POST", "/api/v1/wecom/broadcasts/{broadcast_id}/remind", None),
+    ("GET", "/api/v1/tenant/exports/{export_id}/download", None),
+    ("DELETE", "/api/v1/tenant/support-grants/{grant_id}", None),
 ]
 
 
@@ -152,6 +154,20 @@ async def build(desk: Desk) -> Tenant:
         desk.tenant_id,
         f"edp{desk.code}",
     )
+    # 已完成的数据导出和平台访问授权（流程见 test_lifecycle.py）。
+    [export] = await desk.sql(
+        "INSERT INTO tenant_exports (id, tenant_id, status, object_key, expires_at)"
+        " VALUES ($1, $2, 'done', $3, now() + interval '1 day') RETURNING id",
+        uuid.uuid4(),
+        desk.tenant_id,
+        f"{desk.code}/_exports/x.zip",
+    )
+    [grant] = await desk.sql(
+        "INSERT INTO support_grants (id, tenant_id, reason, expires_at)"
+        " VALUES ($1, $2, '排查问题', now() + interval '1 day') RETURNING id",
+        uuid.uuid4(),
+        desk.tenant_id,
+    )
     await desk.flush()
     ids = {
         "customer_id": str(chat["customer_id"]),
@@ -168,6 +184,8 @@ async def build(desk: Desk) -> Tenant:
         "candidate_id": str(candidate["id"]),
         "broadcast_id": str(broadcast["id"]),
         "way_id": str(way["id"]),
+        "export_id": str(export["id"]),
+        "grant_id": str(grant["id"]),
         "version": "1",
         "userid": "zhangsan",
         "tenant_id": str(desk.tenant_id),
@@ -231,6 +249,8 @@ async def snapshot(desk: Desk) -> list[Any]:
         "kb_candidates": "id, status",
         "wecom_broadcasts": "id, status",
         "wecom_join_ways": "id, name",
+        "tenant_exports": "id, status, object_key",
+        "support_grants": "id, revoked_at",
         "messages": "id",
     }
     rows = []
@@ -428,6 +448,8 @@ async def test_agents_only_reach_their_own_sessions_and_customers(
         "item_id": acme.ids["item_id"],
         "broadcast_id": acme.ids["broadcast_id"],
         "way_id": acme.ids["way_id"],
+        "export_id": acme.ids["export_id"],
+        "grant_id": acme.ids["grant_id"],
     }
     before = await snapshot(desk)
 

@@ -1,8 +1,10 @@
 """平台运营：平台账号与租户开通。这些函数使用 edp_platform 连接（可以访问所有租户的行）。"""
 
+from datetime import UTC, date, datetime
 from uuid import UUID
 
 from sqlalchemy import select
+from sqlalchemy.dialects.postgresql import distinct_on
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -12,11 +14,14 @@ from app.core.permissions import DEFAULT_ROLES, TENANT_ADMIN_ROLE
 from app.core.security import hash_password, verify_password
 from app.db.errors import violated_unique_constraint
 from app.modules.audit.service import record_audit
+from app.modules.billing import service as billing
+from app.modules.billing.models import Plan, Subscription, SubscriptionStatus
+from app.modules.billing.schemas import SubscriptionCreate
 from app.modules.channels.service import default_web_channel
 from app.modules.iam.models import Role, Staff, StaffRole
 from app.modules.routing.models import RoutingPolicy
-from app.modules.tenancy.models import PlatformUser, PlatformUserStatus, Tenant
-from app.modules.tenancy.schemas import TenantCreate, TenantUpdate
+from app.modules.tenancy.models import PlatformUser, PlatformUserStatus, Tenant, TenantStatus
+from app.modules.tenancy.schemas import TenantCreate, TenantOut, TenantUpdate
 
 MIN_PASSWORD_LENGTH = 8
 
@@ -49,14 +54,22 @@ async def create_platform_user(
 
 
 async def provision_tenant(
-    session: AsyncSession, payload: TenantCreate, *, actor_id: UUID | None, ip: str | None
+    session: AsyncSession,
+    payload: TenantCreate,
+    *,
+    actor_id: UUID | None,
+    ip: str | None,
+    actor_type: str = "platform",
+    current_day: date | None = None,
 ) -> Tenant:
-    """在一个事务里创建租户、系统角色、默认 Web 渠道、默认路由策略和首个租户管理员。
+    """在一个事务里创建租户、系统角色、默认 Web 渠道、默认路由策略和首个租户管理员；
+    指定了套餐时开始订阅（有试用天数的套餐先试用）。
 
     模型之间没有声明 relationship，ORM 不会按外键排序 INSERT，所以按依赖顺序逐步 flush。
     """
     if await session.scalar(select(Tenant.id).where(Tenant.code == payload.code)):
         raise Conflict("企业代码已被使用")
+    plan = await billing.plan_by_code(session, payload.plan_code) if payload.plan_code else None
 
     tenant = Tenant(id=new_id(), code=payload.code, name=payload.name)
     session.add(tenant)
@@ -97,14 +110,29 @@ async def provision_tenant(
     record_audit(
         session,
         action="tenant.provision",
-        actor_type="platform",
+        actor_type=actor_type,
         actor_id=actor_id,
         tenant_id=tenant.id,
         resource_type="tenant",
         resource_id=str(tenant.id),
-        detail={"code": tenant.code, "admin_username": admin.username},
+        detail={"code": tenant.code, "admin_username": admin.username, "plan": payload.plan_code},
         ip=ip,
     )
+    if plan is not None:
+        trial = plan.trial_days > 0
+        await billing.start_subscription(
+            session,
+            tenant,
+            SubscriptionCreate(
+                plan_code=plan.code,
+                status=SubscriptionStatus.TRIAL if trial else SubscriptionStatus.ACTIVE,
+                months=None if trial else payload.months,
+            ),
+            actor_type=actor_type,
+            actor_id=actor_id,
+            ip=ip,
+            current_day=current_day or datetime.now(UTC).date(),
+        )
     await session.commit()
     await session.refresh(tenant)
     return tenant
@@ -112,6 +140,28 @@ async def provision_tenant(
 
 async def list_tenants(session: AsyncSession) -> list[Tenant]:
     return list((await session.scalars(select(Tenant).order_by(Tenant.created_at.desc()))).all())
+
+
+async def tenant_outs(session: AsyncSession, tenants: list[Tenant]) -> list[TenantOut]:
+    """带当前套餐与订阅状态的租户列表。"""
+    ids = [t.id for t in tenants]
+    latest = (
+        await session.scalars(
+            select(Subscription)
+            .where(Subscription.tenant_id.in_(ids))
+            .order_by(
+                Subscription.tenant_id, Subscription.created_at.desc(), Subscription.id.desc()
+            )
+            .ext(distinct_on(Subscription.tenant_id))
+        )
+    ).all()
+    subs = {s.tenant_id: s for s in latest}
+    plans = {p.id: p for p in (await session.scalars(select(Plan))).all()}
+    out = []
+    for tenant in tenants:
+        sub = subs.get(tenant.id)
+        out.append(TenantOut.of(tenant, sub, plans.get(sub.plan_id) if sub else None))
+    return out
 
 
 async def get_tenant(session: AsyncSession, tenant_id: UUID) -> Tenant:
@@ -130,13 +180,26 @@ async def update_tenant(
     ip: str | None,
 ) -> Tenant:
     tenant = await get_tenant(session, tenant_id)
+    if tenant.status == TenantStatus.CLOSED:
+        raise Conflict("租户已注销")
     changes = payload.model_dump(exclude_unset=True, exclude_none=True, mode="json")
     changes.pop("ai_monthly_quota", None)
     for field, value in changes.items():
         setattr(tenant, field, value)
+    if "status" in changes:
+        # 运营手动启用或停用后，不再按"订阅到期停用"自动恢复。
+        tenant.settings = {
+            k: v for k, v in (tenant.settings or {}).items() if k != billing.SUSPENDED_REASON
+        }
     if "ai_monthly_quota" in payload.model_fields_set:
-        # 套餐额度保存在租户设置里；显式传 null 表示不限。
-        tenant.settings = {**(tenant.settings or {}), "ai_monthly_quota": payload.ai_monthly_quota}
+        # 覆盖套餐的 AI 额度保存在租户设置 limits 里；显式传 null 表示按套餐。
+        settings = {k: v for k, v in (tenant.settings or {}).items() if k != "ai_monthly_quota"}
+        limits = dict(settings.get("limits") or {})
+        if payload.ai_monthly_quota is None:
+            limits.pop("ai_replies_monthly", None)
+        else:
+            limits["ai_replies_monthly"] = payload.ai_monthly_quota
+        tenant.settings = {**settings, "limits": limits}
         changes["ai_monthly_quota"] = payload.ai_monthly_quota
     if changes:
         record_audit(

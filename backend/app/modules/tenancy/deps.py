@@ -10,6 +10,7 @@ from app.core.deps import get_app_settings, get_database
 from app.core.errors import Unauthorized
 from app.core.security import PlatformClaims, TokenError, decode_platform_token
 from app.db.session import Database
+from app.modules.tenancy.mfa import MfaSetupRequired
 from app.modules.tenancy.models import PlatformUser, PlatformUserStatus
 
 platform_bearer = HTTPBearer(
@@ -41,12 +42,25 @@ async def get_platform_db(
 PlatformDb = Annotated[AsyncSession, Depends(get_platform_db, scope="function")]
 
 
-async def get_current_platform_user(
+async def get_platform_user_for_setup(
     claims: Annotated[PlatformClaims, Depends(get_platform_claims)], session: PlatformDb
 ) -> PlatformUser:
+    """已登录的运营人员（不检查二次验证是否已经设置，只用于设置二次验证的接口）。"""
     user = await session.get(PlatformUser, claims.user_id)
     if user is None or user.status != PlatformUserStatus.ACTIVE:
         raise Unauthorized("登录已失效，请重新登录")
+    return user
+
+
+PlatformUserForSetup = Annotated[PlatformUser, Depends(get_platform_user_for_setup)]
+
+
+async def get_current_platform_user(
+    user: PlatformUserForSetup,
+    settings: Annotated[Settings, Depends(get_app_settings)],
+) -> PlatformUser:
+    if settings.platform_mfa_enforced and user.mfa_enabled_at is None:
+        raise MfaSetupRequired("平台要求运营账号启用二次验证，请先完成设置")
     return user
 
 

@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from typing import Literal
 from uuid import UUID
 
@@ -27,6 +27,14 @@ class TenantBrief(BaseModel):
     name: str
 
 
+class MePlan(BaseModel):
+    code: str
+    name: str
+    status: str = Field(description="订阅状态：trial、active、expired、cancelled")
+    period_end: date
+    days_left: int
+
+
 class MeResponse(BaseModel):
     id: UUID
     username: str
@@ -35,6 +43,14 @@ class MeResponse(BaseModel):
     roles: list[str]
     # 使用枚举类型：生成的前端类型会包含全部权限点，菜单配置写错会在编译期报错。
     permissions: list[Permission]
+    features: dict[str, bool] = Field(
+        default_factory=dict,
+        description="套餐包含的功能（ai、wecom、broadcast、extraction、zone），前端据此隐藏菜单",
+    )
+    plan: MePlan | None = Field(default=None, description="当前套餐；不按套餐计费的租户为空")
+    billing_notice: str | None = Field(
+        default=None, description="试用或到期提醒（只返回给有设置权限的员工）"
+    )
 
 
 class RoleOut(BaseModel):

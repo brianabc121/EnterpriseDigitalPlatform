@@ -25,6 +25,7 @@ class Permission(StrEnum):
     REPORT_VIEW = "report:view"
     SETTINGS_MANAGE = "settings:manage"
     BROADCAST_MANAGE = "broadcast:manage"  # 企业微信群发任务（发给可见范围内的客户或客户群）
+    TENANT_MANAGE = "tenant:manage"  # 数据导出、注销、授权平台运维访问（只有租户管理员）
 
 
 ALL_PERMISSIONS = frozenset(Permission)

@@ -24,6 +24,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.context import AppContext
 from app.integrations.wecom import WeComError
 from app.modules.ai import service as ai_service
+from app.modules.billing.entitlements import has_feature
 from app.modules.kb.extraction import Pair, record_pair
 from app.modules.kb.models import CandidateSource
 from app.modules.wecom.models import (
@@ -75,6 +76,9 @@ async def pull_zone_results(ctx: AppContext) -> int:
     for tenant_id, settings in rows:
         if not zone_configured(WecomSettings.of(settings)):
             continue
+        async with ctx.db.tenant_session(tenant_id) as session:
+            if not await has_feature(session, tenant_id, "zone"):
+                continue
         try:
             total += await pull_tenant(ctx, tenant_id)
         except WeComError as exc:

@@ -31,6 +31,7 @@ from tests.fake_llm import DIM as FAKE_EMBED_DIM
 from tests.fake_llm import FakeLLM
 from tests.fake_openim import SECRET as FAKE_OPENIM_SECRET
 from tests.fake_openim import FakeOpenIM
+from tests.fake_storage import FakeStorage
 from tests.fake_wecom import FakeWeCom
 from tests.support import (
     REDIS_URL,
@@ -46,12 +47,13 @@ ALL_TABLES = (
     "channel_accounts, customer_identities, rooms, messages, skill_groups, skill_group_members, "
     "routing_policies, agent_states, sessions, session_events, tickets, im_ops, quick_replies, "
     "session_transfers, customer_owner_history, usage_daily, ai_settings, kb_items, kb_chunks, "
-    "ai_session_states, ai_decisions, llm_calls, ai_eval_runs"
+    "ai_session_states, ai_decisions, llm_calls, ai_eval_runs, llm_providers, platform_settings"
 )
+SEEDED_PLANS = "'trial', 'standard', 'enterprise'"
 BACKEND_DIR = Path(__file__).resolve().parents[1]
 
 if TYPE_CHECKING:
-    from tests.wecom_desk import FakeStorage, WecomDesk
+    from tests.wecom_desk import WecomDesk
 
 
 async def _create_database(dbname: str) -> None:
@@ -100,6 +102,8 @@ async def _clean_tables(database_urls: DatabaseUrls) -> None:
     conn = await asyncpg.connect(database_urls.owner_dsn)
     try:
         await conn.execute(f"TRUNCATE {ALL_TABLES} CASCADE")
+        # 迁移预置的套餐保留，测试里新建的删除。
+        await conn.execute(f"DELETE FROM plans WHERE code NOT IN ({SEEDED_PLANS})")
     finally:
         await conn.close()
 
@@ -164,11 +168,19 @@ def fake_llm_client(fake: FakeLLM) -> LLMClient:
 
 
 @pytest.fixture
-async def app(settings: Settings, fake_im: FakeOpenIM, fake_llm: FakeLLM) -> AsyncIterator[FastAPI]:
+async def app(
+    settings: Settings, fake_im: FakeOpenIM, fake_llm: FakeLLM, fake_storage: FakeStorage
+) -> AsyncIterator[FastAPI]:
     im = OpenIMClient(
         settings.openim_api_url, secret=FAKE_OPENIM_SECRET, transport=fake_im.transport()
     )
-    application = create_app(settings, im=im, llm=fake_llm_client(fake_llm))
+    application = create_app(
+        settings,
+        im=im,
+        llm=fake_llm_client(fake_llm),
+        storage_transport=fake_storage.transport(),
+        llm_transport=fake_llm.transport(),
+    )
     yield application
     await application.state.ctx.llm.aclose()
     await application.state.ctx.storage.aclose()
@@ -193,9 +205,7 @@ def fake_wecom() -> FakeWeCom:
 
 
 @pytest.fixture
-def fake_storage() -> "FakeStorage":
-    from tests.wecom_desk import FakeStorage
-
+def fake_storage() -> FakeStorage:
     return FakeStorage()
 
 
@@ -205,7 +215,7 @@ async def wecom_app(
     fake_im: FakeOpenIM,
     fake_llm: FakeLLM,
     fake_wecom: FakeWeCom,
-    fake_storage: "FakeStorage",
+    fake_storage: FakeStorage,
 ) -> AsyncIterator[FastAPI]:
     """配置了企业微信服务商的应用：接到模拟企业微信和内存对象存储。"""
     from tests.wecom_desk import wecom_settings
@@ -219,6 +229,7 @@ async def wecom_app(
         llm=fake_llm_client(fake_llm),
         wecom_transport=fake_wecom.transport(),
         storage_transport=fake_storage.transport(),
+        llm_transport=fake_llm.transport(),
     )
     yield application
     await application.state.ctx.aclose()
@@ -243,7 +254,7 @@ async def wdesk(
     settings: Settings,
     database_urls: DatabaseUrls,
     fake_wecom: FakeWeCom,
-    fake_storage: "FakeStorage",
+    fake_storage: FakeStorage,
 ) -> "WecomDesk":
     from tests.wecom_desk import WecomDesk, wecom_settings
 

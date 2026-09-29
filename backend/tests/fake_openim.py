@@ -116,6 +116,7 @@ class FakeOpenIM:
             "/group/get_group_members_info": self._members_info,
             "/group/invite_user_to_group": self._invite,
             "/group/kick_group": self._kick,
+            "/group/dismiss_group": self._dismiss,
             "/friend/import_friend": self._import_friend,
             "/msg/send_msg": self._send_msg,
             "/msg/get_conversations_has_read_and_max_seq": self._max_seq,
@@ -214,6 +215,11 @@ class FakeOpenIM:
         self._notify(group.group_id, MEMBER_KICKED_NOTIFICATION)
         if self.kick_quirk:
             return _error(1001, "ArgsError", "maxSeq is invalid")
+        return _ok(None)
+
+    def _dismiss(self, body: dict[str, Any], _: str) -> httpx.Response:
+        if self.groups.pop(body["groupID"], None) is None:
+            return _error(1201, "GroupIDNotFoundError")
         return _ok(None)
 
     def _import_friend(self, body: dict[str, Any], _: str) -> httpx.Response:

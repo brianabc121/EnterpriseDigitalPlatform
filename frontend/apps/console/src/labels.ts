@@ -53,6 +53,7 @@ export const HANDOFF_REASON: Record<string, string> = {
   guardrail: '回复未通过安全检查',
   ai_unavailable: 'AI 暂时不可用',
   quota: 'AI 额度已用完',
+  plan: '套餐不含 AI 接待',
   disabled: 'AI 接待已关闭',
   not_configured: 'AI 接待未配置',
 }

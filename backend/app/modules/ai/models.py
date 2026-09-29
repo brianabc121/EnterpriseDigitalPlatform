@@ -28,6 +28,11 @@ class AiSettings(Base):
     sensitive_keywords: Mapped[list[str]] = mapped_column(server_default="{}")
     extraction_enabled: Mapped[bool] = mapped_column(server_default="true")
     auto_merge_similar: Mapped[bool] = mapped_column(server_default="false")
+    # 平台运营给租户指定的供应商；租户自带的接口（base_url、api_key_enc、chat_model、fast_model）。
+    llm_provider_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("llm_providers.id", ondelete="SET NULL")
+    )
+    byo_llm: Mapped[dict[str, Any] | None]
     updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
 
 

@@ -103,7 +103,7 @@ async def search(
             chunks[chunk_id] = (item_id, kind, chunk_text)
             lexical[chunk_id] = matched / len(query_terms)
 
-    if ctx.llm.can_embed:
+    if await ctx.llms.embed_enabled():
         try:
             [vector] = await gateway.embed(ctx, tenant_id, [query], scene="search")
         except LLMUnavailable as exc:

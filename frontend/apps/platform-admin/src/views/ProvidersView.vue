@@ -1,0 +1,290 @@
+<script setup lang="ts">
+import { errorMessage, type Schemas } from '@edp/api-client'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { onMounted, reactive, ref } from 'vue'
+
+import { api } from '../api'
+
+type Provider = Schemas['LlmProviderOut']
+
+const providers = ref<Provider[]>([])
+const routes = ref<Schemas['LlmRoutesOut'] | null>(null)
+const routeForm = reactive<Record<string, string>>({})
+const loading = ref(false)
+const saving = ref(false)
+const dialogOpen = ref(false)
+const editing = ref<Provider | null>(null)
+const results = reactive<Record<string, string>>({})
+
+function emptyForm() {
+  return {
+    name: '',
+    baseUrl: '',
+    apiKey: '',
+    chatModel: '',
+    fastModel: '',
+    embedModel: '',
+    embedDim: 1024,
+    sendDimensions: false,
+    priceInput: 0,
+    priceOutput: 0,
+    isDefault: false,
+    enabled: true,
+  }
+}
+const form = reactive(emptyForm())
+
+async function load(): Promise<void> {
+  loading.value = true
+  const [list, routing] = await Promise.all([
+    api.GET('/platform/v1/llm-providers'),
+    api.GET('/platform/v1/settings/llm-routes'),
+  ])
+  loading.value = false
+  if (!list.data) {
+    ElMessage.error(errorMessage(list.error))
+    return
+  }
+  providers.value = list.data.items
+  routes.value = routing.data ?? null
+  for (const scene of Object.keys(routing.data?.scenes ?? {})) {
+    routeForm[scene] = routing.data?.routes[scene] ?? ''
+  }
+}
+
+function openCreate(): void {
+  editing.value = null
+  Object.assign(form, emptyForm())
+  dialogOpen.value = true
+}
+
+function openEdit(p: Provider): void {
+  editing.value = p
+  Object.assign(form, {
+    name: p.name,
+    baseUrl: p.base_url,
+    apiKey: '',
+    chatModel: p.chat_model,
+    fastModel: p.fast_model,
+    embedModel: p.embed_model,
+    embedDim: p.embed_dim,
+    sendDimensions: p.send_dimensions,
+    priceInput: p.prices.input,
+    priceOutput: p.prices.output,
+    isDefault: p.is_default,
+    enabled: p.enabled,
+  })
+  dialogOpen.value = true
+}
+
+async function save(): Promise<void> {
+  saving.value = true
+  const body = {
+    name: form.name.trim(),
+    base_url: form.baseUrl.trim(),
+    chat_model: form.chatModel.trim(),
+    fast_model: form.fastModel.trim(),
+    embed_model: form.embedModel.trim(),
+    embed_dim: form.embedDim,
+    send_dimensions: form.sendDimensions,
+    prices: { input: form.priceInput, output: form.priceOutput },
+    is_default: form.isDefault,
+    enabled: form.enabled,
+  }
+  const result = editing.value
+    ? await api.PATCH('/platform/v1/llm-providers/{provider_id}', {
+        params: { path: { provider_id: editing.value.id } },
+        body: { ...body, api_key: form.apiKey ? form.apiKey : undefined },
+      })
+    : await api.POST('/platform/v1/llm-providers', { body: { ...body, api_key: form.apiKey } })
+  saving.value = false
+  if (!result.data) {
+    ElMessage.error(errorMessage(result.error))
+    return
+  }
+  ElMessage.success('已保存，几秒内所有服务生效')
+  dialogOpen.value = false
+  await load()
+}
+
+async function test(p: Provider): Promise<void> {
+  results[p.id] = '检查中…'
+  const { data, error } = await api.POST('/platform/v1/llm-providers/{provider_id}/test', {
+    params: { path: { provider_id: p.id } },
+  })
+  if (!data) {
+    results[p.id] = errorMessage(error)
+    return
+  }
+  const chat = data.chat.ok ? `对话正常（${data.chat.latency_ms} ms）` : `对话失败：${data.chat.error}`
+  const embed = data.embed
+    ? data.embed.ok
+      ? `，向量正常（${data.embed.latency_ms} ms）`
+      : `，向量失败：${data.embed.error}`
+    : ''
+  results[p.id] = chat + embed
+}
+
+async function remove(p: Provider): Promise<void> {
+  const confirmed = await ElMessageBox.confirm(
+    `删除「${p.name}」：指定了它的租户改用默认供应商，按场景路由里引用它的场景一并去掉。`,
+    '删除供应商',
+    { type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消' },
+  ).catch(() => false)
+  if (!confirmed) return
+  const { error } = await api.DELETE('/platform/v1/llm-providers/{provider_id}', {
+    params: { path: { provider_id: p.id } },
+  })
+  if (error) {
+    ElMessage.error(errorMessage(error))
+    return
+  }
+  await load()
+}
+
+async function saveRoutes(): Promise<void> {
+  const body: Record<string, string> = {}
+  for (const [scene, id] of Object.entries(routeForm)) if (id) body[scene] = id
+  const { data, error } = await api.PUT('/platform/v1/settings/llm-routes', {
+    body: { routes: body },
+  })
+  if (!data) {
+    ElMessage.error(errorMessage(error))
+    return
+  }
+  routes.value = data
+  ElMessage.success('已保存')
+}
+
+onMounted(load)
+</script>
+
+<template>
+  <div>
+    <div class="page-header">
+      <h2>模型供应商</h2>
+      <el-button type="primary" data-testid="provider-create" @click="openCreate">添加供应商</el-button>
+    </div>
+    <p class="sub">
+      OpenAI 兼容接口（DeepSeek、通义千问、智谱、豆包、Kimi、自部署 vLLM 等）。默认供应商用于没有单独指定的租户；
+      没有配置任何供应商时使用环境变量里的配置。更换向量模型后需要执行 kb-reindex 重建知识库向量。
+    </p>
+    <el-table v-loading="loading" :data="providers" data-testid="provider-table" empty-text="暂无供应商">
+      <el-table-column label="名称" min-width="140">
+        <template #default="{ row }">
+          <strong>{{ row.name }}</strong>
+          <el-tag disable-transitions v-if="row.is_default" size="small" type="success" class="tag">默认</el-tag>
+          <el-tag disable-transitions v-if="!row.enabled" size="small" type="info" class="tag">停用</el-tag>
+          <div class="sub">{{ row.base_url }}</div>
+        </template>
+      </el-table-column>
+      <el-table-column label="模型" min-width="200">
+        <template #default="{ row }">
+          <div class="sub">对话：{{ row.chat_model }}</div>
+          <div v-if="row.fast_model" class="sub">轻量：{{ row.fast_model }}</div>
+          <div v-if="row.embed_model" class="sub">向量：{{ row.embed_model }}（{{ row.embed_dim }} 维）</div>
+        </template>
+      </el-table-column>
+      <el-table-column label="密钥" width="110">
+        <template #default="{ row }">{{ row.api_key_set ? `****${row.api_key_hint}` : '未设置' }}</template>
+      </el-table-column>
+      <el-table-column label="指定租户" width="90" prop="tenants" />
+      <el-table-column label="操作" min-width="260">
+        <template #default="{ row }">
+          <el-button link type="primary" data-testid="provider-test" @click="test(row)">检查连通</el-button>
+          <el-button link type="primary" @click="openEdit(row)">编辑</el-button>
+          <el-button link type="danger" @click="remove(row)">删除</el-button>
+          <div v-if="results[row.id]" class="sub" data-testid="provider-test-result">{{ results[row.id] }}</div>
+        </template>
+      </el-table-column>
+    </el-table>
+
+    <h3>按场景路由</h3>
+    <p class="sub">没有指定的场景用默认供应商；给租户单独指定了供应商时以租户的为准。</p>
+    <el-form v-if="routes" label-width="150px" class="routes">
+      <el-form-item v-for="(label, scene) in routes.scenes" :key="scene" :label="label">
+        <el-select v-model="routeForm[scene]" placeholder="默认供应商" clearable>
+          <el-option v-for="p in providers" :key="p.id" :label="p.name" :value="p.id" />
+        </el-select>
+      </el-form-item>
+      <el-form-item>
+        <el-button type="primary" @click="saveRoutes">保存路由</el-button>
+      </el-form-item>
+    </el-form>
+
+    <el-dialog v-model="dialogOpen" :title="editing ? `编辑 · ${editing.name}` : '添加供应商'" width="600px">
+      <el-form label-width="120px">
+        <el-form-item label="名称" required><el-input v-model="form.name" data-testid="provider-name" /></el-form-item>
+        <el-form-item label="接口地址" required>
+          <el-input v-model="form.baseUrl" placeholder="https://api.deepseek.com/v1" data-testid="provider-url" />
+        </el-form-item>
+        <el-form-item label="API Key">
+          <el-input
+            v-model="form.apiKey"
+            type="password"
+            show-password
+            :placeholder="editing ? '不填表示不修改' : ''"
+            data-testid="provider-key"
+          />
+        </el-form-item>
+        <el-form-item label="对话模型" required>
+          <el-input v-model="form.chatModel" data-testid="provider-chat-model" />
+        </el-form-item>
+        <el-form-item label="轻量模型"><el-input v-model="form.fastModel" placeholder="摘要、分类等，可不填" /></el-form-item>
+        <el-form-item label="向量模型">
+          <el-input v-model="form.embedModel" placeholder="默认供应商的向量模型用于知识库检索，可不填" />
+        </el-form-item>
+        <el-form-item v-if="form.embedModel" label="向量维度">
+          <el-input-number v-model="form.embedDim" :min="1" :max="8192" />
+          <el-checkbox v-model="form.sendDimensions" class="gap">请求时传 dimensions</el-checkbox>
+        </el-form-item>
+        <el-form-item label="价格（分/千 tokens）">
+          输入 <el-input-number v-model="form.priceInput" :min="0" :precision="3" :step="0.1" size="small" />
+          输出 <el-input-number v-model="form.priceOutput" :min="0" :precision="3" :step="0.1" size="small" />
+        </el-form-item>
+        <el-form-item label="设为默认"><el-switch v-model="form.isDefault" /></el-form-item>
+        <el-form-item label="启用"><el-switch v-model="form.enabled" /></el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="dialogOpen = false">取消</el-button>
+        <el-button type="primary" :loading="saving" data-testid="provider-save" @click="save">保存</el-button>
+      </template>
+    </el-dialog>
+  </div>
+</template>
+
+<style scoped>
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.page-header h2 {
+  margin: 0;
+  font-size: 18px;
+}
+
+h3 {
+  margin: 24px 0 8px;
+  font-size: 15px;
+}
+
+.tag {
+  margin-left: 6px;
+}
+
+.gap {
+  margin-left: 12px;
+}
+
+.routes {
+  max-width: 560px;
+}
+
+.sub {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+}
+</style>

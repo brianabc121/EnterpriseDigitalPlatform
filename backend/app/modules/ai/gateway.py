@@ -34,10 +34,11 @@ async def chat(
     json_mode: bool = False,
     max_tokens: int = 800,
 ) -> ChatResult:
+    client = await ctx.llms.chat_client(tenant_id, scene)
     try:
-        result = await ctx.llm.chat(messages, fast=fast, json_mode=json_mode, max_tokens=max_tokens)
+        result = await client.chat(messages, fast=fast, json_mode=json_mode, max_tokens=max_tokens)
     except LLMUnavailable as exc:
-        primary = ctx.llm.primary
+        primary = client.primary
         await _record(
             ctx,
             tenant_id,
@@ -67,9 +68,10 @@ async def chat(
 async def embed(
     ctx: AppContext, tenant_id: uuid.UUID, texts: list[str], *, scene: str = "embed"
 ) -> list[list[float]]:
-    endpoint = ctx.llm.embedding
+    client = await ctx.llms.embed_client()
+    endpoint = client.embedding
     try:
-        result = await ctx.llm.embed(texts)
+        result = await client.embed(texts)
     except LLMUnavailable as exc:
         await _record(
             ctx,

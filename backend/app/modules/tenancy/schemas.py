@@ -1,11 +1,10 @@
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.modules.iam.schemas import USERNAME_PATTERN
-from app.modules.tenancy.models import TenantStatus
 
 TENANT_CODE_PATTERN = r"^[a-z][a-z0-9-]{2,31}$"
 
@@ -13,12 +12,18 @@ TENANT_CODE_PATTERN = r"^[a-z][a-z0-9-]{2,31}$"
 class PlatformLoginRequest(BaseModel):
     username: str = Field(min_length=1, max_length=64)
     password: str = Field(min_length=1, max_length=128)
+    otp: str | None = Field(
+        default=None, max_length=10, description="二次验证码（启用了二次验证的账号必填）"
+    )
 
 
 class PlatformTokenResponse(BaseModel):
     access_token: str
     token_type: Literal["bearer"] = "bearer"
     expires_in: int
+    mfa_setup_required: bool = Field(
+        default=False, description="平台要求二次验证而这个账号还没有设置：先完成设置才能使用"
+    )
 
 
 class PlatformMe(BaseModel):
@@ -27,6 +32,22 @@ class PlatformMe(BaseModel):
     id: UUID
     username: str
     display_name: str
+    mfa_enabled: bool = False
+    mfa_required: bool = False
+
+
+class MfaSetupOut(BaseModel):
+    secret: str = Field(description="Base32 密钥，也可以手动输入到验证器应用")
+    otpauth_uri: str = Field(description="生成二维码用的 otpauth:// 地址")
+
+
+class MfaCode(BaseModel):
+    code: str = Field(min_length=6, max_length=10)
+
+
+class MfaDisable(BaseModel):
+    password: str = Field(min_length=1, max_length=128)
+    code: str = Field(min_length=6, max_length=10)
 
 
 class TenantAdminCreate(BaseModel):
@@ -39,16 +60,22 @@ class TenantCreate(BaseModel):
     code: str = Field(pattern=TENANT_CODE_PATTERN, description="企业代码，员工登录时填写")
     name: str = Field(min_length=1, max_length=128)
     admin: TenantAdminCreate
+    plan_code: str | None = Field(
+        default=None,
+        max_length=32,
+        description="套餐；有试用天数的套餐先试用，否则开通正式订阅。为空时不按套餐计费",
+    )
+    months: int = Field(default=12, ge=1, le=60, description="正式订阅的月数")
 
 
 class TenantUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=128)
-    status: TenantStatus | None = None
+    status: Literal["active", "suspended"] | None = None
     ai_monthly_quota: int | None = Field(
         default=None,
         ge=0,
         le=10_000_000,
-        description="每月 AI 回复条数上限（套餐额度）；超出后 AI 接待转人工。显式传 null 表示不限",
+        description="单独给本租户设置的每月 AI 回复条数上限（覆盖套餐）；显式传 null 表示按套餐",
     )
 
 
@@ -60,12 +87,31 @@ class TenantOut(BaseModel):
     name: str
     status: str
     created_at: datetime
-    ai_monthly_quota: int | None = Field(default=None, description="每月 AI 回复条数上限，空为不限")
+    ai_monthly_quota: int | None = Field(
+        default=None, description="单独设置的每月 AI 回复条数上限；为空表示按套餐"
+    )
+    plan_code: str | None = None
+    plan_name: str | None = None
+    subscription_status: str | None = None
+    period_end: date | None = None
+    suspended_reason: str | None = Field(default=None, description="因订阅到期停用时为该原因")
+    closing_requested_at: datetime | None = None
+    deletion_scheduled_at: datetime | None = None
+    purged_at: datetime | None = None
 
     @classmethod
-    def of(cls, tenant: Any) -> "TenantOut":
+    def of(cls, tenant: Any, subscription: Any = None, plan: Any = None) -> "TenantOut":
         out = cls.model_validate(tenant)
-        out.ai_monthly_quota = (tenant.settings or {}).get("ai_monthly_quota")
+        settings = tenant.settings or {}
+        limits = settings.get("limits") or {}
+        out.ai_monthly_quota = limits.get("ai_replies_monthly", settings.get("ai_monthly_quota"))
+        out.suspended_reason = settings.get("suspended_reason")
+        if subscription is not None:
+            out.subscription_status = subscription.status
+            out.period_end = subscription.period_end
+        if plan is not None:
+            out.plan_code = plan.code
+            out.plan_name = plan.name
         return out
 
 

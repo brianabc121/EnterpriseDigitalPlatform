@@ -15,6 +15,7 @@ from app.core.permissions import Permission
 from app.integrations.wecom import WeComError
 from app.modules.ai.schemas import SuggestionList
 from app.modules.audit.service import record_audit
+from app.modules.billing.entitlements import require_feature
 from app.modules.customer.schemas import TransferResult
 from app.modules.customer.service import get_customer
 from app.modules.iam import service as iam_service
@@ -157,6 +158,7 @@ async def wecom_status(ctx: Context, session: TenantDb, _: CanManage) -> WecomSt
 @router.post(f"{ADMIN}/install", response_model=InstallOut)
 async def start_install(ctx: Context, session: TenantDb, principal: CanManage) -> InstallOut:
     """生成企业微信授权链接：管理员扫码授权代开发应用后跳回控制台。"""
+    await require_feature(session, principal.tenant_id, "wecom")
     corp = await active_corp(session)
     if corp is not None:
         raise Unprocessable(f"已经绑定了企业微信「{corp.corp_name}」")
@@ -546,6 +548,7 @@ async def create_broadcast(
     principal: CanBroadcast,
 ) -> BroadcastOut:
     """创建群发任务：员工（发给客户）或群主（发到客户群）在企业微信里确认后发出。"""
+    await require_feature(session, principal.tenant_id, "broadcast")
     out = await marketing.create_broadcast(ctx, session, principal, payload)
     record_audit(
         session,

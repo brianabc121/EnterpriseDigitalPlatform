@@ -16,6 +16,7 @@ from app.modules.ai import decision, gateway, pii, prompts, reasons
 from app.modules.ai.models import AiSettings
 from app.modules.ai.prompts import Passage, Turn
 from app.modules.kb.search import search
+from app.modules.platform.content import ai_words
 
 logger = logging.getLogger(__name__)
 
@@ -90,10 +91,13 @@ async def evaluate(
     scene: str = "reply",
 ) -> Outcome:
     question = context.question
+    async with ctx.db.tenant_session(tenant_id) as db:
+        platform_words = await ai_words(db)
+    sensitive = [*settings.sensitive_keywords, *platform_words]
     trigger = decision.hard_trigger(
         question,
         extra_handoff=list(settings.handoff_keywords),
-        extra_sensitive=list(settings.sensitive_keywords),
+        extra_sensitive=sensitive,
         customer_tags=context.customer_tags,
     )
     if trigger:
@@ -140,7 +144,7 @@ async def evaluate(
         violation = decision.guard(
             parsed["reply"],
             references=prompts.references(passages),
-            sensitive=[*decision.SENSITIVE, *settings.sensitive_keywords],
+            sensitive=[*decision.SENSITIVE, *sensitive],
         )
     if violation or parsed is None:
         failures = context.guard_failures + 1
@@ -213,7 +217,7 @@ async def summarize(
     label = reasons.label(reason)
     customer = [t.text for t in history if t.role == "customer"]
     fallback = f"客户最近的问题：{'；'.join(customer[-3:])[:200]}"
-    if not ctx.llm.enabled or not history:
+    if not history or not await ctx.llms.chat_enabled(tenant_id, "summary"):
         return fallback
     mapping: dict[str, str] = {}
     masked = [Turn(t.role, pii.mask(t.text, mapping)[0]) for t in history[-HISTORY_LIMIT:]]

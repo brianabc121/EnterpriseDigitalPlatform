@@ -22,8 +22,9 @@ const AGENT_PASSWORD = 'alice-demo-2026'
 
 const summary = { tenants: [TENANT_A, TENANT_B], menus: {}, customers: {}, failedRequests: [], consoleErrors: [], checks: [] }
 
-function check(name, ok) {
-  summary.checks.push(`${ok ? 'PASS' : 'FAIL'} ${name}`)
+function check(name, ok, detail) {
+  const suffix = ok || detail === undefined ? '' : ` -> ${JSON.stringify(detail)}`
+  summary.checks.push(`${ok ? 'PASS' : 'FAIL'} ${name}${suffix}`)
 }
 
 async function newPage(browser, label) {
@@ -173,10 +174,18 @@ async function run(browser) {
 
   const menus = summary.menus
   const customers = summary.customers
-  check('管理员看到全部 7 个菜单', menus['租户 A 管理员'].length === 7)
+  // 与控制台 menu.ts 一致：管理员有全部权限；坐席只有接待相关的菜单。
+  const ALL_MENUS = ['首页', '工作台', '会话记录', '留言', '客户', '知识库', 'AI 接待', '员工', '报表', '群发', '企业微信', '设置']
+  const AGENT_MENUS = ['首页', '工作台', '会话记录', '留言', '客户', '知识库']
   check(
-    '坐席只看到 首页/工作台/客户/知识库',
-    JSON.stringify(menus['租户 A 坐席']) === JSON.stringify(['首页', '工作台', '客户', '知识库']),
+    `管理员看到全部 ${ALL_MENUS.length} 个菜单`,
+    JSON.stringify(menus['租户 A 管理员']) === JSON.stringify(ALL_MENUS),
+    menus['租户 A 管理员'],
+  )
+  check(
+    `坐席只看到 ${AGENT_MENUS.join('/')}`,
+    JSON.stringify(menus['租户 A 坐席']) === JSON.stringify(AGENT_MENUS),
+    menus['租户 A 坐席'],
   )
   check('管理员看到本租户全部 2 个客户', customers['租户 A 管理员'].length === 2)
   check(

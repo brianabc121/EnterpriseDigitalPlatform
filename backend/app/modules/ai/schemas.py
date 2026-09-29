@@ -118,3 +118,29 @@ class EvalRunOut(BaseModel):
 
 class EvalRunList(BaseModel):
     items: list[EvalRunOut]
+
+
+class OwnLlmOut(BaseModel):
+    base_url: str
+    chat_model: str
+    fast_model: str
+    enabled: bool
+    api_key_set: bool
+
+
+class TenantLlmConfig(BaseModel):
+    source: str = Field(
+        description="tenant 自带密钥、provider 平台指定、default 平台默认、env、none"
+    )
+    provider_name: str | None
+    own: OwnLlmOut | None = Field(description="租户自带的接口配置")
+
+
+class OwnLlmUpdate(BaseModel):
+    """自带大模型接口（OpenAI 兼容）：AI 接待、坐席助手、知识提炼都改用它，费用由租户承担。"""
+
+    base_url: str = Field(min_length=8, max_length=500, pattern=r"^https?://\S+$")
+    api_key: str | None = Field(default=None, max_length=500, description="不传表示不修改")
+    chat_model: str = Field(min_length=1, max_length=128)
+    fast_model: str = Field(default="", max_length=128)
+    enabled: bool = True

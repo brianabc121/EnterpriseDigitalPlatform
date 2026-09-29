@@ -15,6 +15,7 @@ from app.modules.ai import gateway, pii, prompts
 from app.modules.ai.models import AiSuggestion
 from app.modules.ai.prompts import Passage, Turn
 from app.modules.ai.schemas import KnowledgeRef, SuggestionList
+from app.modules.billing.entitlements import has_feature
 from app.modules.conversation.models import Message, SenderType
 from app.modules.iam.principal import Principal
 from app.modules.kb.search import search
@@ -101,7 +102,9 @@ async def draft(
         KnowledgeRef(item_id=h.item_id, title=h.title, score=round(h.score, 4)) for h in hits
     ]
     fallback = [h.text for h in hits][:MAX_SUGGESTIONS]
-    if not ctx.llm.enabled:
+    if not await ctx.llms.chat_enabled(principal.tenant_id, "suggest") or not await has_feature(
+        session, principal.tenant_id, "ai"
+    ):
         return fallback, knowledge
     mapping: dict[str, str] = {}
     masked = [Turn(t.role, pii.mask(t.text, mapping)[0]) for t in history]

@@ -11,30 +11,11 @@ from pydantic import SecretStr
 from app.core.config import Settings
 from tests.desk import Agent, Desk
 from tests.fake_openim import FakeOpenIM
+from tests.fake_storage import FakeStorage
 from tests.fake_wecom import AES_KEY, SUITE_ID, SUITE_SECRET, TOKEN, FakeWeCom
 from tests.support import DatabaseUrls
 
 API = "/api/v1/admin/integrations/wecom"
-
-
-class FakeStorage:
-    """内存对象存储：按路径保存 PUT 的内容。"""
-
-    def __init__(self) -> None:
-        self.objects: dict[str, tuple[bytes, str]] = {}
-
-    def transport(self) -> httpx.MockTransport:
-        def handler(request: httpx.Request) -> httpx.Response:
-            path = request.url.path
-            if request.method == "PUT":
-                self.objects[path] = (request.content, request.headers.get("content-type", ""))
-                return httpx.Response(200)
-            if request.method == "GET" and path in self.objects:
-                data, content_type = self.objects[path]
-                return httpx.Response(200, content=data, headers={"content-type": content_type})
-            return httpx.Response(404)
-
-        return httpx.MockTransport(handler)
 
 
 def wecom_settings(settings: Settings) -> Settings:

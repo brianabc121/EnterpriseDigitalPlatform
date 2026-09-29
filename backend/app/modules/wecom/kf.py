@@ -39,6 +39,7 @@ from app.integrations.asr import AsrError
 from app.integrations.media import to_mp3
 from app.integrations.storage import StorageError
 from app.integrations.wecom import WeComClient, WeComError, WeComUnavailable
+from app.modules.billing.entitlements import PlanLimitReached, check_limit
 from app.modules.channels.models import ChannelAccount, ChannelStatus, ChannelType
 from app.modules.channels.service import new_public_key
 from app.modules.conversation import imids, outbox
@@ -139,6 +140,12 @@ async def sync_accounts(ctx: AppContext, tenant_id: UUID) -> int:
             name = str(item.get("name") or DEFAULT_ACCOUNT_NAME)
             account = existing.get(open_kfid)
             if account is None:
+                # 超出套餐的渠道数时，新账号的渠道先停用（升级套餐后在渠道管理里启用）。
+                try:
+                    await check_limit(session, tenant_id, "channels")
+                    channel_status = ChannelStatus.ACTIVE
+                except PlanLimitReached:
+                    channel_status = ChannelStatus.DISABLED
                 channel = ChannelAccount(
                     id=new_id(),
                     tenant_id=tenant_id,
@@ -146,6 +153,7 @@ async def sync_accounts(ctx: AppContext, tenant_id: UUID) -> int:
                     name=name[:64],
                     public_key=new_public_key(tenant.code),
                     config={"kf": {"open_kfid": open_kfid}},
+                    status=channel_status,
                 )
                 session.add(channel)
                 await session.flush()

@@ -12,7 +12,11 @@
 - 微信客服兜底拉取消息，防止回调丢失（每 5 分钟）；
 - 回收企业微信在职继承、离职继承的结果（每小时）；
 - 回收企业微信群发任务的发送结果（每 30 分钟）；
-- 从数据与智能专区取回群聊分析结果（每小时，开启了专区的企业）。
+- 从数据与智能专区取回群聊分析结果（每小时，开启了专区的企业）；
+- 标记到期的订阅，宽限期过后停用租户（每小时）；
+- 生成上个月的账单（每 6 小时检查，已收款的不变）；
+- 生成排队中的数据导出、删除过期的导出文件（每 30 秒）；
+- 删除注销保留期已到的租户数据（每小时）。
 
 用法：uv run python -m app.scheduler。可以运行多个实例：持有租约的实例执行任务，其他实例待命。
 """
@@ -30,11 +34,14 @@ from app.context import AppContext
 from app.core.config import get_settings
 from app.events.bus import wait_or_stop
 from app.events.lease import Lease
+from app.modules.billing.service import run_invoices, run_lifecycle
 from app.modules.conversation.outbox import dispatch_due
 from app.modules.conversation.reconcile import reconcile_all
 from app.modules.kb.extraction import run_extraction
 from app.modules.kb.metrics import run_digests
 from app.modules.kb.service import expire_items
+from app.modules.lifecycle.closure import run_purges
+from app.modules.lifecycle.export import run_exports
 from app.modules.sessions.engine import republish_orphans, run_session_timers
 from app.modules.sessions.transfer import run_transfer_timers
 from app.modules.usage.service import run_usage_rollup
@@ -73,6 +80,10 @@ JOBS = (
     Job("wecom-transfers", 3600, poll_transfers),
     Job("wecom-broadcasts", 1800, poll_broadcasts),
     Job("wecom-zone", 3600, pull_zone_results),
+    Job("billing-lifecycle", 3600, run_lifecycle),
+    Job("billing-invoices", 6 * 3600, run_invoices),
+    Job("tenant-exports", 30, run_exports),
+    Job("tenant-purge", 3600, run_purges),
 )
 
 

@@ -31,6 +31,8 @@ class Settings(BaseSettings):
     access_token_ttl_seconds: int = 15 * 60
     refresh_token_ttl_seconds: int = 7 * 24 * 3600
     platform_token_ttl_seconds: int = 2 * 3600
+    # 平台运营账号是否必须启用二次验证（TOTP）；不设置时生产环境必须启用（设计文档 §13）。
+    platform_mfa_required: bool | None = None
 
     visitor_jwt_secret: SecretStr = SecretStr(_DEV_VISITOR_JWT_SECRET)
     visitor_token_ttl_seconds: int = 365 * 24 * 3600
@@ -122,6 +124,12 @@ class Settings(BaseSettings):
     @property
     def wecom_enabled(self) -> bool:
         return bool(self.wecom_suite_id)
+
+    @property
+    def platform_mfa_enforced(self) -> bool:
+        if self.platform_mfa_required is not None:
+            return self.platform_mfa_required
+        return self.env == "prod"
 
     @model_validator(mode="after")
     def _check_wecom(self) -> "Settings":

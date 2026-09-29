@@ -35,6 +35,7 @@ from app.modules.conversation.schemas import MessageOut
 from app.modules.conversation.service import messages_out
 from app.modules.files.service import IMAGE_TYPES
 from app.modules.iam.principal import Principal
+from app.modules.platform.content import check_agent_text
 from app.modules.sessions.engine import touch_session
 from app.modules.sessions.schemas import SendMessageRequest
 from app.modules.sessions.service import visible_session
@@ -67,6 +68,8 @@ async def send_message(
             Message.client_msg_id == payload.client_msg_id,
         )
     )
+    if message is None:
+        await check_agent_text(session, payload.text)
     channel = await session.get(ChannelAccount, chat.channel_account_id)
     if channel is not None and channel.type == ChannelType.WECOM_KF:
         return await _send_via_channel(ctx, session, principal, chat, message, payload)

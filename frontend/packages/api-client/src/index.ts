@@ -6,6 +6,13 @@ import type { components, paths } from './schema'
 export { createAuthFetch, memoryTokenStore, type AuthFetchOptions, type TokenStore } from './auth-fetch'
 export type { components, paths }
 export { formatUsage, totalHint } from './usage'
+export {
+  formatLimit,
+  formatMoney,
+  INVOICE_STATUS,
+  SUBSCRIPTION_STATUS,
+  usagePercent,
+} from './billing'
 
 export type Schemas = components['schemas']
 export type Permission = Schemas['Permission']
@@ -58,6 +65,15 @@ export function createPlatformApi(options: ClientOptions): ApiClient {
 /** 访客 Widget 使用的客户端：不需要登录，访客身份由请求体中的访客令牌表示。 */
 export function createVisitorApi(baseUrl = ''): ApiClient {
   return createClient<paths>({ baseUrl })
+}
+
+/** 后端统一错误结构里的错误码（如 plan_limit、mfa_required）。 */
+export function errorCode(error: unknown): string | null {
+  if (typeof error === 'object' && error !== null && 'error' in error) {
+    const detail = (error as { error?: { code?: unknown } }).error
+    if (detail && typeof detail.code === 'string') return detail.code
+  }
+  return null
 }
 
 /** 从后端统一错误结构 {"error": {"message": ...}} 中取出提示文案。 */

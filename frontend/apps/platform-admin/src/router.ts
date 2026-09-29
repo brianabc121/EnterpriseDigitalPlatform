@@ -18,6 +18,50 @@ export const router = createRouter({
       component: AdminLayout,
       children: [
         { path: '', name: 'tenants', component: () => import('./views/TenantsView.vue') },
+        {
+          path: 'tenants/:id',
+          name: 'tenant',
+          component: () => import('./views/TenantDetailView.vue'),
+          props: true,
+        },
+        { path: 'plans', name: 'plans', component: () => import('./views/PlansView.vue') },
+        {
+          path: 'invoices',
+          name: 'invoices',
+          component: () => import('./views/InvoicesView.vue'),
+        },
+        {
+          path: 'channels',
+          name: 'channels',
+          component: () => import('./views/ChannelsView.vue'),
+        },
+        {
+          path: 'providers',
+          name: 'providers',
+          component: () => import('./views/ProvidersView.vue'),
+        },
+        {
+          path: 'content',
+          name: 'content',
+          component: () => import('./views/ContentPolicyView.vue'),
+        },
+        { path: 'health', name: 'health', component: () => import('./views/HealthView.vue') },
+        { path: 'audit', name: 'audit', component: () => import('./views/AuditView.vue') },
+        {
+          path: 'deletions',
+          name: 'deletions',
+          component: () => import('./views/DeletionsView.vue'),
+        },
+        {
+          path: 'settings',
+          name: 'settings',
+          component: () => import('./views/SettingsView.vue'),
+        },
+        {
+          path: 'security',
+          name: 'security',
+          component: () => import('./views/SecurityView.vue'),
+        },
       ],
     },
     { path: '/:pathMatch(.*)*', redirect: '/' },
@@ -27,7 +71,10 @@ export const router = createRouter({
 router.beforeEach((to) => {
   const auth = useAuthStore()
   if (to.meta.public) return true
-  return auth.isAuthenticated ? true : { name: 'login' }
+  if (!auth.isAuthenticated) return { name: 'login' }
+  // 平台要求二次验证而账号还没有设置：先完成设置。
+  if (auth.needsMfaSetup && to.name !== 'security') return { name: 'security' }
+  return true
 })
 
 onUnauthorized(() => {

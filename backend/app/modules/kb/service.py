@@ -21,6 +21,7 @@ from app.core.permissions import Permission
 from app.integrations.llm import LLMUnavailable
 from app.modules.ai import gateway
 from app.modules.audit.service import record_audit
+from app.modules.billing.entitlements import check_limit
 from app.modules.iam.principal import Principal
 from app.modules.kb.models import (
     ChunkKind,
@@ -172,7 +173,7 @@ async def reindex(ctx: AppContext, session: AsyncSession, item: KbItem) -> None:
     await session.execute(delete(KbChunk).where(KbChunk.item_id == item.id))
     texts = chunk_texts(item)
     vectors: list[list[float]] | None = None
-    if ctx.llm.can_embed and texts:
+    if texts and await ctx.llms.embed_enabled():
         try:
             vectors = await gateway.embed(ctx, item.tenant_id, [t for _, t in texts])
         except LLMUnavailable as exc:
@@ -202,6 +203,7 @@ async def create_item(
 ) -> KbItem:
     if payload.publish and not principal.has(Permission.KB_PUBLISH):
         raise Forbidden("没有发布知识的权限")
+    await check_limit(session, principal.tenant_id, "kb_items")
     item = KbItem(
         tenant_id=principal.tenant_id,
         kind=payload.kind,
@@ -512,6 +514,8 @@ async def import_faqs(
     if publish and not principal.has(Permission.KB_PUBLISH):
         raise Forbidden("没有发布知识的权限")
     items, errors = parse_faq_csv(data)
+    if items:
+        await check_limit(session, principal.tenant_id, "kb_items", adding=len(items))
     created = 0
     for payload in items:
         payload.publish = publish

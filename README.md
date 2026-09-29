@@ -109,6 +109,30 @@ export EDP_LLM_BASE_URL=http://127.0.0.1:8900/v1 EDP_LLM_CHAT_MODEL=fake-chat ED
 没有服务商资质时可以用模拟企业微信联调（`uv run python -m tests.fake_wecom --port 8901 --platform http://127.0.0.1:8000`，
 环境变量见 `backend/.env.example`）。
 
+套餐、计费与租户生命周期：
+
+- **套餐与额度**：运营后台"套餐"维护试用版、标准版、旗舰版等套餐（月费、坐席数、每月 AI 回复条数、知识条目数、
+  渠道数、功能开关、超额策略）。开通租户时选择套餐（有试用天数的先试用），也可以开放企业在登录页"免费试用"
+  自助注册（每个 IP 每小时 5 次）。超出坐席、知识条目、渠道额度时操作被拒绝；AI 回复额度用完后按套餐的策略
+  转人工或继续回复并按条计费；套餐不含的功能（AI、企业微信、群发、知识提炼、专区）自动关闭，控制台隐藏相应入口。
+  运营可以在租户详情里单独调整某个租户的额度和功能。启用计费之前开通的租户不按套餐限制。
+- **订阅与账单**：租户详情里开始新订阅（试用转正式、升级、降级）、续费或取消。调度进程每小时把到期的订阅标记为
+  已到期，宽限期（默认 7 天）后停用租户，续费后自动恢复；每天生成上个月的账单（按天折算月费、超额 AI 回复），
+  运营在"账单"里标记已付款。控制台"设置 → 套餐与账单"显示额度用量、账单和可选套餐，试用或即将到期时顶部提醒。
+- **数据导出与注销**：租户管理员在"设置 → 数据与注销"里导出全部业务数据（ZIP，每张表一个 JSON Lines 文件和
+  聊天文件，由调度进程生成，保留 7 天）；申请注销时核对密码和企业代码，自动导出一次，保留期（默认 30 天）内
+  可以撤销，之后删除全部业务数据（IM 群、对象存储文件、各租户表）并生成带 SHA-256 摘要的删除记录。
+- **平台访问授权**：平台运营默认看不到租户的业务数据；租户在"设置 → 平台访问授权"里授权一段时间后，
+  运营可以在租户详情里只读查看会话和消息，每次查看都记入审计日志，租户可以看到访问记录。
+
+运营后台另外提供：渠道授权状态、模型供应商（OpenAI 兼容接口，设为默认后取代环境变量里的配置，也可以按场景
+路由或给大客户单独指定；租户也可以在"AI 接待 → 大模型接口"里使用自带的接口密钥）、全局敏感词（AI 转人工、
+拦截 AI 回复和坐席消息）、系统健康（数据库、Redis、OpenIM、对象存储、大模型、企业微信、发件箱、实时消费与调度
+进程）、审计日志、删除记录、平台设置（自助注册、宽限期、保留期）。运营账号可以在"账号安全"里启用二次验证
+（TOTP 验证器应用）；生产环境强制要求（`EDP_PLATFORM_MFA_REQUIRED` 可以覆盖）。需要立即处理时执行
+`cd backend && uv run python -m app.cli billing-lifecycle`、`billing-invoices --month 2026-09` 或 `tenant-jobs`
+（生成导出、删除到期的租户数据）；`provision-tenant` 可以用 `--plan` 指定套餐。
+
 默认配置适用于本地环境；需要修改时，把 `backend/.env.example` 复制为 `backend/.env`。
 OpenIM 的镜像名都可以用环境变量替换（见 `deploy/compose/openim/docker-compose.yml`），便于使用镜像加速地址。
 
@@ -173,12 +197,19 @@ make frontend-build
   NODE_PATH=$(npm root -g) PLATFORM_PASSWORD=<平台账号密码> node scripts/e2e/p4-knowledge-acceptance.cjs
   NODE_PATH=$(npm root -g) PLATFORM_PASSWORD=<平台账号密码> node scripts/e2e/p2-wecom-acceptance.cjs
   NODE_PATH=$(npm root -g) PLATFORM_PASSWORD=<平台账号密码> node scripts/e2e/g1-wecom-extras.cjs
+  NODE_PATH=$(npm root -g) PLATFORM_PASSWORD=<平台账号密码> node scripts/e2e/g2-commerce-ops.cjs
   ```
 
 - **企业微信补充**（`scripts/e2e/g1-wecom-extras.cjs`）：群发任务与结果回收、客户群活码、侧边栏（模拟 JS-SDK）
   改标签和一键建群、手机版工作台（语音转写、回复、满意度按钮）、离职继承与客户群继承。前置同 P2，另外控制台以
   `VITE_WECOM_JSSDK_URLS=http://127.0.0.1:8901/jssdk/jwxwork.js` 启动，后端配置语音转文字
   （`EDP_ASR_BASE_URL=http://127.0.0.1:8900/v1 EDP_ASR_MODEL=fake-asr`，模拟大模型提供），并安装 ffmpeg。
+
+- **套餐与运营后台**（`scripts/e2e/g2-commerce-ops.cjs`）：企业自助注册并试用；运营账号启用二次验证后登录要验证码；
+  新建套餐、转正式订阅、单独调整坐席额度后新增员工被拒绝；生成账单并标记已付款；添加模型供应商并检查连通；
+  全局敏感词让 AI 转人工；系统健康；授权平台运维访问与访问记录；导出数据并下载；申请注销后立即删除数据并生成
+  删除记录；审计日志；关闭自助注册。前置同 P3（需要运营后台、实时消费进程和调度进程）；脚本结束时关闭运营账号的
+  二次验证并删除测试用的供应商和敏感词。
 
 - **P1 M1**（`scripts/e2e/m1-im-acceptance.cjs`）：访客在 Widget 里发消息、实时收到机器人回复，消息经回调入库；
   刷新后仍是同一个访客。需要 OpenIM、后端和 Widget。提供停止/启动后端和对账的命令时，还会验证

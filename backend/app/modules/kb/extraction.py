@@ -24,6 +24,7 @@ from app.context import AppContext
 from app.integrations.llm import LLMUnavailable
 from app.modules.ai import gateway, pii, prompts
 from app.modules.ai import service as ai_service
+from app.modules.billing.entitlements import has_feature
 from app.modules.conversation.models import ChatSession, Message, SenderType, SessionStatus
 from app.modules.kb import review
 from app.modules.kb.models import (
@@ -251,7 +252,7 @@ async def _upsert(
             existing.category = pair.category or existing.category
         return existing
     embedding = None
-    if ctx.llm.can_embed:
+    if await ctx.llms.embed_enabled():
         try:
             [embedding] = await gateway.embed(ctx, tenant_id, [question], scene="extract")
         except LLMUnavailable as exc:
@@ -603,7 +604,7 @@ async def run_extraction(
 ) -> ExtractionReport:
     """调度任务：逐个租户提炼最近结束的会话。没有配置大模型或租户关闭了自动提炼时跳过。"""
     report = ExtractionReport()
-    if not ctx.llm.enabled:
+    if not await ctx.llms.any_enabled():
         return report
     now = now or datetime.now(UTC)
     async with ctx.db.platform_sessionmaker() as session:
@@ -614,7 +615,11 @@ async def run_extraction(
     for tenant_id in tenant_ids:
         async with ctx.db.tenant_session(tenant_id) as session:
             settings = await ai_service.load(session, tenant_id)
-            if not settings.extraction_enabled:
+            if not settings.extraction_enabled or not await has_feature(
+                session, tenant_id, "extraction"
+            ):
+                continue
+            if not await ctx.llms.chat_enabled(tenant_id, "extract"):
                 continue
             session_ids = list((await session.scalars(eligible(now, limit))).all())
         report.tenants += 1

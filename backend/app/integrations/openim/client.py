@@ -159,6 +159,10 @@ class OpenIMClient:
     async def aclose(self) -> None:
         await self._http.aclose()
 
+    async def ping(self) -> None:
+        """健康检查：用管理员身份调用一个只读接口。"""
+        await self._admin_call("/user/account_check", {"checkUserIDs": [self._admin_user_id]})
+
     # ---- 用户 ----
 
     async def ensure_users(self, users: Sequence[IMUser]) -> None:
@@ -261,6 +265,18 @@ class OpenIMClient:
         except OpenIMError as exc:
             if exc.code != ErrCode.ARGS or await self.group_member_ids(group_id, sorted(present)):
                 raise
+
+    async def dismiss_group(self, group_id: str) -> bool:
+        """解散群（租户注销删除数据时）。群不存在时返回 False。"""
+        try:
+            await self._admin_call(
+                "/group/dismiss_group", {"groupID": group_id, "deleteMember": True}
+            )
+        except OpenIMError as exc:
+            if exc.code in (ErrCode.GROUP_NOT_FOUND, ErrCode.RECORD_NOT_FOUND):
+                return False
+            raise
+        return True
 
     # ---- 好友 ----
 

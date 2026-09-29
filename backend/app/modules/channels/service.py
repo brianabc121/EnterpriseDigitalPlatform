@@ -7,7 +7,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.errors import NotFound, Unprocessable
 from app.core.ids import new_id
 from app.modules.audit.service import record_audit
-from app.modules.channels.models import ChannelAccount, ChannelType
+from app.modules.billing.entitlements import check_limit
+from app.modules.channels.models import ChannelAccount, ChannelStatus, ChannelType
 from app.modules.channels.schemas import ChannelUpdate
 from app.modules.iam.principal import Principal
 from app.modules.routing.models import RoutingPolicy
@@ -54,6 +55,8 @@ async def update_channel(
     if channel is None:
         raise NotFound("渠道不存在")
     changes = payload.model_dump(exclude_unset=True)
+    if changes.get("status") == ChannelStatus.ACTIVE and channel.status != ChannelStatus.ACTIVE:
+        await check_limit(session, principal.tenant_id, "channels")
     policy_id = changes.get("routing_policy_id")
     if policy_id is not None and await session.get(RoutingPolicy, policy_id) is None:
         raise Unprocessable("路由策略不存在")

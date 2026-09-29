@@ -9,6 +9,7 @@ from app.modules.ai.models import (
     LlmCall,
 )
 from app.modules.audit.models import AuditLog
+from app.modules.billing.models import Invoice, Plan, Subscription
 from app.modules.channels.models import ChannelAccount
 from app.modules.conversation.models import (
     ChatSession,
@@ -31,6 +32,8 @@ from app.modules.kb.models import (
     KbItemVersion,
     KbRead,
 )
+from app.modules.lifecycle.models import SupportGrant, TenantDeletion, TenantExport
+from app.modules.platform.models import LlmProvider, PlatformSetting
 from app.modules.quickreply.models import QuickReply
 from app.modules.routing.models import AgentState, RoutingPolicy, SkillGroup, SkillGroupMember
 from app.modules.tenancy.models import PlatformUser, Tenant
@@ -66,6 +69,7 @@ __all__ = [
     "CustomerIdentity",
     "CustomerOwnerHistory",
     "ImOp",
+    "Invoice",
     "KbCandidate",
     "KbChunk",
     "KbDigest",
@@ -75,7 +79,10 @@ __all__ = [
     "KbItemVersion",
     "KbRead",
     "LlmCall",
+    "LlmProvider",
     "Message",
+    "Plan",
+    "PlatformSetting",
     "PlatformUser",
     "QuickReply",
     "RefreshToken",
@@ -88,7 +95,11 @@ __all__ = [
     "SkillGroupMember",
     "Staff",
     "StaffRole",
+    "Subscription",
+    "SupportGrant",
     "Tenant",
+    "TenantDeletion",
+    "TenantExport",
     "Ticket",
     "UsageDaily",
     "WecomBroadcast",

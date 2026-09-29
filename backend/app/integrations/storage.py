@@ -9,6 +9,7 @@
 
 import hashlib
 import hmac
+import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from urllib.parse import quote, urlsplit
@@ -18,6 +19,7 @@ import httpx
 _ALGORITHM = "AWS4-HMAC-SHA256"
 _SERVICE = "s3"
 _UNSIGNED = "UNSIGNED-PAYLOAD"
+_S3_NS = "{http://s3.amazonaws.com/doc/2006-03-01/}"
 
 
 @dataclass(frozen=True)
@@ -146,3 +148,60 @@ class ObjectStore:
         if response.status_code >= 300:
             raise StorageError(f"get {key}: HTTP {response.status_code}")
         return response.content
+
+    async def ping(self) -> None:
+        """健康检查：存储桶是否可以访问。"""
+        try:
+            response = await self._http.head(self._url("HEAD", ""))
+        except httpx.HTTPError as exc:
+            raise StorageError(f"head bucket: {exc}") from exc
+        if response.status_code >= 300:
+            raise StorageError(f"head bucket: HTTP {response.status_code}")
+
+    async def delete(self, key: str) -> None:
+        """删除对象（不存在时也算成功）。"""
+        try:
+            response = await self._http.delete(self._url("DELETE", key))
+        except httpx.HTTPError as exc:
+            raise StorageError(f"delete {key}: {exc}") from exc
+        if response.status_code >= 300 and response.status_code != 404:
+            raise StorageError(f"delete {key}: HTTP {response.status_code}")
+
+    async def list_keys(self, prefix: str) -> list[tuple[str, int]]:
+        """列出前缀下的全部对象（key，字节数），用 ListObjectsV2 分页。"""
+        keys: list[tuple[str, int]] = []
+        token: str | None = None
+        while True:
+            query = {"list-type": "2", "prefix": prefix, "max-keys": "1000"}
+            if token:
+                query["continuation-token"] = token
+            url = presign(
+                self._config, "GET", "", expires=300, endpoint=self._config.endpoint, query=query
+            )
+            try:
+                response = await self._http.get(url)
+            except httpx.HTTPError as exc:
+                raise StorageError(f"list {prefix}: {exc}") from exc
+            if response.status_code >= 300:
+                raise StorageError(f"list {prefix}: HTTP {response.status_code}")
+            try:
+                root = ET.fromstring(response.content)
+            except ET.ParseError as exc:
+                raise StorageError(f"list {prefix}: {exc}") from exc
+            for item in root.iter(f"{_S3_NS}Contents"):
+                key = item.findtext(f"{_S3_NS}Key") or ""
+                size = int(item.findtext(f"{_S3_NS}Size") or 0)
+                if key:
+                    keys.append((key, size))
+            token = root.findtext(f"{_S3_NS}NextContinuationToken")
+            if root.findtext(f"{_S3_NS}IsTruncated") != "true" or not token:
+                return keys
+
+    async def delete_prefix(self, prefix: str) -> tuple[int, int]:
+        """删除前缀下的全部对象，返回（对象数，字节数）。"""
+        if not prefix.strip("/"):
+            raise ValueError("refusing to delete the whole bucket")
+        objects = await self.list_keys(prefix)
+        for key, _ in objects:
+            await self.delete(key)
+        return len(objects), sum(size for _, size in objects)

@@ -1,14 +1,18 @@
 <script setup lang="ts">
-import { errorMessage, formatUsage, type Schemas } from '@edp/api-client'
+import { errorMessage, formatUsage, SUBSCRIPTION_STATUS, type Schemas } from '@edp/api-client'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { computed, onMounted, reactive, ref } from 'vue'
+import { useRouter } from 'vue-router'
 
 import { api, formatDateTime } from '../api'
 import TenantUsageDrawer from '../components/TenantUsageDrawer.vue'
+import { TENANT_STATUS } from '../labels'
 
 type Tenant = Schemas['TenantOut']
 
+const router = useRouter()
 const tenants = ref<Tenant[]>([])
+const plans = ref<Schemas['PlanOut'][]>([])
 const usage = ref<Schemas['TenantUsageList'] | null>(null)
 const usageOf = ref<Tenant | null>(null)
 const loading = ref(false)
@@ -31,13 +35,18 @@ const form = reactive({
   adminUsername: 'admin',
   adminDisplayName: '管理员',
   adminPassword: '',
+  planCode: '',
+  months: 12,
 })
+const activePlans = computed(() => plans.value.filter((p) => p.status === 'active'))
+const chosenPlan = computed(() => plans.value.find((p) => p.code === form.planCode) ?? null)
 
 async function load(): Promise<void> {
   loading.value = true
-  const [list, summary] = await Promise.all([
+  const [list, summary, planList] = await Promise.all([
     api.GET('/platform/v1/tenants'),
     api.GET('/platform/v1/usage'),
+    api.GET('/platform/v1/plans'),
   ])
   loading.value = false
   if (!list.data) {
@@ -46,6 +55,7 @@ async function load(): Promise<void> {
   }
   tenants.value = list.data.items
   usage.value = summary.data ?? null
+  plans.value = planList.data?.items ?? []
 }
 
 function openCreate(): void {
@@ -55,6 +65,8 @@ function openCreate(): void {
     adminUsername: 'admin',
     adminDisplayName: '管理员',
     adminPassword: '',
+    planCode: '',
+    months: 12,
   })
   dialogVisible.value = true
 }
@@ -70,6 +82,8 @@ async function create(): Promise<void> {
         display_name: form.adminDisplayName.trim(),
         password: form.adminPassword,
       },
+      plan_code: form.planCode || null,
+      months: form.months,
     },
   })
   saving.value = false
@@ -126,6 +140,17 @@ async function saveQuota(): Promise<void> {
   await load()
 }
 
+function statusText(tenant: Tenant): string {
+  if (tenant.status === 'active' && tenant.closing_requested_at) return '注销中'
+  return TENANT_STATUS[tenant.status] ?? tenant.status
+}
+
+function statusType(tenant: Tenant): 'success' | 'warning' | 'danger' | 'info' {
+  if (tenant.status === 'closed') return 'info'
+  if (tenant.status !== 'active') return 'danger'
+  return tenant.closing_requested_at ? 'warning' : 'success'
+}
+
 function quotaText(tenant: Tenant): string {
   const q = tenant.ai_monthly_quota
   return q === null || q === undefined ? '不限' : `${q.toLocaleString('zh-CN')} 条/月`
@@ -145,9 +170,19 @@ onMounted(load)
       <el-table-column prop="name" label="企业名称" min-width="200" />
       <el-table-column label="状态" width="100">
         <template #default="{ row }">
-          <el-tag :type="row.status === 'active' ? 'success' : 'danger'">
-            {{ row.status === 'active' ? '正常' : '已停用' }}
-          </el-tag>
+          <el-tag disable-transitions :type="statusType(row)">{{ statusText(row) }}</el-tag>
+        </template>
+      </el-table-column>
+      <el-table-column label="套餐" min-width="150">
+        <template #default="{ row }">
+          <template v-if="row.plan_name">
+            {{ row.plan_name }}
+            <el-tag disable-transitions size="small" :type="row.subscription_status === 'active' ? 'success' : 'warning'">
+              {{ SUBSCRIPTION_STATUS[row.subscription_status ?? ''] ?? row.subscription_status }}
+            </el-tag>
+            <div class="sub">至 {{ row.period_end }}</div>
+          </template>
+          <span v-else class="sub">不按套餐计费</span>
         </template>
       </el-table-column>
       <el-table-column label="开通时间" width="170">
@@ -164,8 +199,16 @@ onMounted(load)
       <el-table-column label="AI 回复额度" width="120">
         <template #default="{ row }">{{ quotaText(row) }}</template>
       </el-table-column>
-      <el-table-column label="操作" width="170" fixed="right">
+      <el-table-column label="操作" width="220" fixed="right">
         <template #default="{ row }">
+          <el-button
+            link
+            type="primary"
+            data-testid="tenant-detail-button"
+            @click="router.push({ name: 'tenant', params: { id: row.id } })"
+          >
+            详情
+          </el-button>
           <el-button link type="primary" data-testid="tenant-usage-button" @click="usageOf = row">
             用量
           </el-button>
@@ -173,6 +216,7 @@ onMounted(load)
             AI 额度
           </el-button>
           <el-button
+            v-if="row.status !== 'closed'"
             link
             :type="row.status === 'active' ? 'danger' : 'primary'"
             @click="toggleStatus(row)"
@@ -222,6 +266,17 @@ onMounted(load)
         <el-form-item label="企业名称" required>
           <el-input v-model="form.name" />
         </el-form-item>
+        <el-form-item label="套餐">
+          <el-select v-model="form.planCode" placeholder="不按套餐计费" clearable data-testid="create-plan">
+            <el-option v-for="p in activePlans" :key="p.code" :label="p.name" :value="p.code" />
+          </el-select>
+        </el-form-item>
+        <el-form-item v-if="chosenPlan && chosenPlan.trial_days === 0" label="订阅月数">
+          <el-input-number v-model="form.months" :min="1" :max="60" />
+        </el-form-item>
+        <p v-if="chosenPlan && chosenPlan.trial_days > 0" class="hint">
+          开通后先试用 {{ chosenPlan.trial_days }} 天。
+        </p>
         <el-divider content-position="left">首个管理员</el-divider>
         <el-form-item label="用户名" required>
           <el-input v-model="form.adminUsername" />
@@ -257,6 +312,11 @@ onMounted(load)
 .page-header h2 {
   margin: 0;
   font-size: 18px;
+}
+
+.sub {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
 }
 
 .hint {

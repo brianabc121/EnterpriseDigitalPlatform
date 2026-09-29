@@ -36,6 +36,15 @@ describe('visibleMenus', () => {
   it('shows knowledge managers only knowledge menus', () => {
     expect(names(KNOWLEDGE_MANAGER)).toEqual(['dashboard', 'knowledge'])
   })
+
+  it('hides menus for features the plan does not include', () => {
+    const all = new Set(MENU.map((item) => item.permission))
+    const names = (features: Record<string, boolean>) =>
+      visibleMenus(all, features).map((item) => item.name)
+    expect(names({ broadcast: false })).not.toContain('broadcasts')
+    expect(names({ broadcast: true })).toContain('broadcasts')
+    expect(names({})).toContain('broadcasts')
+  })
 })
 
 describe('firstAccessiblePath', () => {

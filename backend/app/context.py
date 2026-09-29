@@ -15,6 +15,7 @@ from app.integrations.llm import EmbedEndpoint, LLMClient, LLMEndpoint
 from app.integrations.openim import OpenIMClient
 from app.integrations.storage import ObjectStore
 from app.integrations.wecom import WeComClient
+from app.modules.ai.llm_router import LlmRouter
 from app.modules.conversation.deps import openim_from_settings
 from app.modules.conversation.provisioning import IMProvisioner
 from app.modules.files.service import storage_config
@@ -33,6 +34,9 @@ class AppContext:
     storage: ObjectStore
     # 没有配置企业微信服务商（EDP_WECOM_SUITE_ID）时为空。
     wecom: WeComClient | None
+    # 按租户和场景选择大模型供应商（运营后台配置的供应商、租户自带的接口密钥）；llm 是环境变量
+    # 配置的供应商，没有在运营后台配置供应商时使用。
+    llms: LlmRouter
     # 没有配置语音转文字（EDP_ASR_BASE_URL）时为空。
     asr: AsrClient | None = None
 
@@ -46,6 +50,7 @@ class AppContext:
         wecom_transport: httpx.AsyncBaseTransport | None = None,
         storage_transport: httpx.AsyncBaseTransport | None = None,
         asr_transport: httpx.AsyncBaseTransport | None = None,
+        llm_transport: httpx.AsyncBaseTransport | None = None,
     ) -> "AppContext":
         redis = Redis.from_url(settings.redis_url)
         db = Database(settings)
@@ -68,6 +73,7 @@ class AppContext:
                 model=settings.asr_model,
                 transport=asr_transport,
             )
+        env_llm = llm or llm_from_settings(settings, transport=llm_transport)
         return cls(
             settings=settings,
             db=db,
@@ -75,9 +81,10 @@ class AppContext:
             im=im,
             provisioner=IMProvisioner(im),
             bus=EventBus(redis),
-            llm=llm or llm_from_settings(settings),
+            llm=env_llm,
             storage=ObjectStore(storage_config(settings), transport=storage_transport),
             wecom=wecom,
+            llms=LlmRouter(settings, db, env_llm, transport=llm_transport),
             asr=asr,
         )
 
@@ -87,6 +94,7 @@ class AppContext:
         if self.wecom is not None:
             await self.wecom.aclose()
         await self.storage.aclose()
+        await self.llms.aclose()
         await self.llm.aclose()
         await self.im.aclose()
         await self.redis.aclose()
