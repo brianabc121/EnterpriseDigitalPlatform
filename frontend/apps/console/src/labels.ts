@@ -31,6 +31,7 @@ export const TICKET_SOURCE: Record<string, string> = {
 
 export const SESSION_EVENT: Record<string, string> = {
   created: '会话开始',
+  ai_serving: 'AI 接待',
   queued: '进入排队',
   handoff: '转人工',
   assigned: '分配坐席',
@@ -39,6 +40,21 @@ export const SESSION_EVENT: Record<string, string> = {
   transferred: '完成转接',
   closed: '会话结束',
   csat: '客户评价',
+}
+
+/** 转人工原因（AI 接待转人工、访客点"转人工"，或 AI 优先却不能接待时）。 */
+export const HANDOFF_REASON: Record<string, string> = {
+  visitor_request: '访客点击转人工',
+  customer_request: '客户要求人工',
+  sensitive: '敏感诉求',
+  vip: 'VIP 客户',
+  model_request: 'AI 判断需要人工',
+  score: 'AI 把握不足',
+  guardrail: '回复未通过安全检查',
+  ai_unavailable: 'AI 暂时不可用',
+  quota: 'AI 额度已用完',
+  disabled: 'AI 接待已关闭',
+  not_configured: 'AI 接待未配置',
 }
 
 export const ASSIGN_VIA: Record<string, string> = {

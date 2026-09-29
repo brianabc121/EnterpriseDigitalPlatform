@@ -124,7 +124,8 @@ export function fromIm(m: ChatMessage): WorkbenchMessage {
     clientMsgID: null,
     senderType,
     senderID: objectIdOf(m.sendID),
-    senderName: senderType === 'agent' ? m.senderNickname || null : null,
+    // 坐席显示姓名，智能客服显示租户设置的名称。
+    senderName: senderType === 'agent' || senderType === 'bot' ? m.senderNickname || null : null,
     text: m.text,
     contentType: CONTENT_TYPES[m.contentType] ?? 'other',
     attachment: m.attachment ? { ...m.attachment, mime: null } : null,

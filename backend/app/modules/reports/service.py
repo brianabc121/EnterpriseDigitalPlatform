@@ -86,17 +86,29 @@ def _scoped_sessions(principal: Principal, start: datetime, end: datetime) -> Su
             func.min(SessionEvent.created_at)
             .filter(SessionEvent.type == "assigned")
             .label("first_assigned_at"),
+            func.min(SessionEvent.created_at)
+            .filter(SessionEvent.type == "ai_serving")
+            .label("ai_started_at"),
+            func.min(SessionEvent.created_at)
+            .filter(SessionEvent.type == "handoff")
+            .label("handed_off_at"),
         )
         .where(
             SessionEvent.tenant_id == principal.tenant_id,
             SessionEvent.session_id.in_(select(base.c.id)),
-            SessionEvent.type.in_(("queued", "assigned")),
+            SessionEvent.type.in_(("queued", "assigned", "ai_serving", "handoff")),
         )
         .group_by(SessionEvent.session_id)
         .subquery()
     )
     return (
-        select(base, firsts.c.first_queued_at, firsts.c.first_assigned_at)
+        select(
+            base,
+            firsts.c.first_queued_at,
+            firsts.c.first_assigned_at,
+            firsts.c.ai_started_at,
+            firsts.c.handed_off_at,
+        )
         .outerjoin(firsts, firsts.c.session_id == base.c.id)
         .subquery("sessions_in_range")
     )
@@ -117,6 +129,9 @@ def _stats_columns(r: Subquery) -> list[Any]:
         func.avg(r.c.csat).label("csat_avg"),
         func.count(r.c.csat).label("csat_count"),
         func.count().filter(r.c.csat >= SATISFIED).label("satisfied"),
+        func.count(r.c.ai_started_at).label("ai_sessions"),
+        func.count().filter(r.c.close_reason == CloseReason.AI_RESOLVED).label("ai_resolved"),
+        func.count(r.c.handed_off_at).filter(r.c.ai_started_at.is_not(None)).label("ai_handoffs"),
     ]
 
 
@@ -135,6 +150,10 @@ _EMPTY_STATS: dict[str, Any] = {
     "csat_avg": None,
     "csat_count": 0,
     "satisfied_rate": None,
+    "ai_sessions": 0,
+    "ai_resolved": 0,
+    "ai_handoffs": 0,
+    "ai_resolution_rate": None,
 }
 
 
@@ -153,6 +172,12 @@ def _stats(row: Row[Any] | None) -> dict[str, Any]:
         "csat_avg": _round(m["csat_avg"], 2),
         "csat_count": m["csat_count"],
         "satisfied_rate": (round(m["satisfied"] / m["csat_count"], 4) if m["csat_count"] else None),
+        "ai_sessions": m["ai_sessions"],
+        "ai_resolved": m["ai_resolved"],
+        "ai_handoffs": m["ai_handoffs"],
+        "ai_resolution_rate": (
+            round(m["ai_resolved"] / m["ai_sessions"], 4) if m["ai_sessions"] else None
+        ),
     }
 
 
@@ -338,10 +363,15 @@ async def realtime(
 ) -> Realtime:
     now = now or datetime.now(UTC)
     tenant = principal.tenant_id
-    queued, oldest = (
+    queued, oldest, ai_serving = (
         await session.execute(
-            select(func.count(), func.min(ChatSession.queued_at)).where(
-                ChatSession.tenant_id == tenant, ChatSession.status == SessionStatus.QUEUED
+            select(
+                func.count().filter(ChatSession.status == SessionStatus.QUEUED),
+                func.min(ChatSession.queued_at).filter(ChatSession.status == SessionStatus.QUEUED),
+                func.count().filter(ChatSession.status == SessionStatus.AI_SERVING),
+            ).where(
+                ChatSession.tenant_id == tenant,
+                ChatSession.status.in_((SessionStatus.QUEUED, SessionStatus.AI_SERVING)),
             )
         )
     ).one()
@@ -376,6 +406,7 @@ async def realtime(
     ).one()
     return Realtime(
         queued=queued,
+        ai_serving=ai_serving,
         longest_wait_seconds=int((now - oldest).total_seconds()) if oldest else None,
         serving=serving or 0,
         agents_online=by_status.get(AgentStatus.ONLINE, 0),

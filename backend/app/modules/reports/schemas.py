@@ -21,14 +21,25 @@ class ServiceStats(BaseModel):
     satisfied_rate: float | None = Field(description="满意率：4 分及以上占已评价的比例")
 
 
-class OverviewTotals(ServiceStats):
+class AiStats(BaseModel):
+    """AI 接待指标（P3）。"""
+
+    ai_sessions: int = Field(description="由 AI 接待的会话")
+    ai_resolved: int = Field(description="AI 独立解决的会话（AI 接待中结束、未转人工）")
+    ai_handoffs: int = Field(description="AI 接待后转人工的会话")
+    ai_resolution_rate: float | None = Field(
+        description="AI 独立解决率：AI 解决的会话占 AI 接待会话的比例"
+    )
+
+
+class OverviewTotals(ServiceStats, AiStats):
     messages_in: int = Field(description="客户消息数（按发送时间统计）")
     agent_messages: int = Field(description="坐席消息数")
     tickets: int = Field(description="新增留言")
     transfers: int = Field(description="完成的会话转接")
 
 
-class DailyStats(ServiceStats):
+class DailyStats(ServiceStats, AiStats):
     day: date
 
 
@@ -59,6 +70,7 @@ class Realtime(BaseModel):
     """首页实时数据。坐席只看到自己的接待数据；主管看到所带团队；管理员看到全部。"""
 
     queued: int = Field(description="正在排队的会话（全租户）")
+    ai_serving: int = Field(description="AI 正在接待的会话（全租户）")
     longest_wait_seconds: int | None = Field(description="排队最久的会话已等待的秒数")
     serving: int = Field(description="可见范围内正在接待的会话")
     agents_online: int = Field(description="可见范围内在线的坐席")

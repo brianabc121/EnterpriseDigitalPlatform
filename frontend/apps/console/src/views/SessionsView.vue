@@ -14,6 +14,7 @@ const PAGE_SIZE = 20
 const FILTERS: { value: Status | ''; label: string }[] = [
   { value: '', label: '全部' },
   { value: 'open', label: '未结束' },
+  { value: 'ai_serving', label: 'AI 接待' },
   { value: 'queued', label: '排队中' },
   { value: 'human_serving', label: '接待中' },
   { value: 'closed', label: '已结束' },

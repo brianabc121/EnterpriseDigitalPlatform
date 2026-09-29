@@ -1393,6 +1393,33 @@
       },
       "DailyStats": {
         "properties": {
+          "ai_handoffs": {
+            "description": "AI 接待后转人工的会话",
+            "title": "Ai Handoffs",
+            "type": "integer"
+          },
+          "ai_resolution_rate": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "AI 独立解决率：AI 解决的会话占 AI 接待会话的比例",
+            "title": "Ai Resolution Rate"
+          },
+          "ai_resolved": {
+            "description": "AI 独立解决的会话（AI 接待中结束、未转人工）",
+            "title": "Ai Resolved",
+            "type": "integer"
+          },
+          "ai_sessions": {
+            "description": "由 AI 接待的会话",
+            "title": "Ai Sessions",
+            "type": "integer"
+          },
           "avg_first_response_seconds": {
             "anyOf": [
               {
@@ -1484,6 +1511,10 @@
           }
         },
         "required": [
+          "ai_sessions",
+          "ai_resolved",
+          "ai_handoffs",
+          "ai_resolution_rate",
           "sessions",
           "human_sessions",
           "closed_sessions",
@@ -2544,7 +2575,7 @@
                 "type": "null"
               }
             ],
-            "description": "坐席消息为坐席姓名",
+            "description": "坐席消息为坐席姓名，智能客服消息为设置的名称",
             "title": "Sender Name"
           },
           "sender_type": {
@@ -2716,6 +2747,33 @@
             "title": "Agent Messages",
             "type": "integer"
           },
+          "ai_handoffs": {
+            "description": "AI 接待后转人工的会话",
+            "title": "Ai Handoffs",
+            "type": "integer"
+          },
+          "ai_resolution_rate": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "AI 独立解决率：AI 解决的会话占 AI 接待会话的比例",
+            "title": "Ai Resolution Rate"
+          },
+          "ai_resolved": {
+            "description": "AI 独立解决的会话（AI 接待中结束、未转人工）",
+            "title": "Ai Resolved",
+            "type": "integer"
+          },
+          "ai_sessions": {
+            "description": "由 AI 接待的会话",
+            "title": "Ai Sessions",
+            "type": "integer"
+          },
           "avg_first_response_seconds": {
             "anyOf": [
               {
@@ -2817,6 +2875,10 @@
           }
         },
         "required": [
+          "ai_sessions",
+          "ai_resolved",
+          "ai_handoffs",
+          "ai_resolution_rate",
           "sessions",
           "human_sessions",
           "closed_sessions",
@@ -3222,6 +3284,11 @@
             "title": "Agents Online",
             "type": "integer"
           },
+          "ai_serving": {
+            "description": "AI 正在接待的会话（全租户）",
+            "title": "Ai Serving",
+            "type": "integer"
+          },
           "longest_wait_seconds": {
             "anyOf": [
               {
@@ -3281,6 +3348,7 @@
         },
         "required": [
           "queued",
+          "ai_serving",
           "longest_wait_seconds",
           "serving",
           "agents_online",
@@ -3820,6 +3888,18 @@
       },
       "SessionDetail": {
         "properties": {
+          "ai_summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "AI 转人工时写给坐席的交接摘要",
+            "title": "Ai Summary"
+          },
           "assigned_at": {
             "anyOf": [
               {
@@ -3948,6 +4028,7 @@
                 "type": "null"
               }
             ],
+            "description": "转人工原因（AI 接待转人工，或 AI 优先却不能接待时的原因）",
             "title": "Handoff Reason"
           },
           "id": {
@@ -4097,6 +4178,18 @@
       },
       "SessionOut": {
         "properties": {
+          "ai_summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "AI 转人工时写给坐席的交接摘要",
+            "title": "Ai Summary"
+          },
           "assigned_at": {
             "anyOf": [
               {
@@ -4218,6 +4311,7 @@
                 "type": "null"
               }
             ],
+            "description": "转人工原因（AI 接待转人工，或 AI 优先却不能接待时的原因）",
             "title": "Handoff Reason"
           },
           "id": {

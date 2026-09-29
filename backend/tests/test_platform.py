@@ -120,3 +120,30 @@ async def test_tenant_provisioning_is_audited(app: FastAPI, client: httpx.AsyncC
     async with db.platform_sessionmaker() as session:
         actions = (await session.scalars(select(AuditLog.action))).all()
     assert actions == ["tenant.provision"]
+
+
+async def test_ai_quota_can_be_set_and_cleared(app: FastAPI, client: httpx.AsyncClient) -> None:
+    await create_platform_admin(app)
+    token = await platform_login(client)
+    created = await client.post(TENANTS, headers=bearer(token), json=_tenant_payload("acme"))
+    tenant_id = created.json()["id"]
+    assert created.json()["ai_monthly_quota"] is None
+
+    limited = await client.patch(
+        f"{TENANTS}/{tenant_id}", headers=bearer(token), json={"ai_monthly_quota": 5000}
+    )
+    renamed = await client.patch(
+        f"{TENANTS}/{tenant_id}", headers=bearer(token), json={"name": "新名称"}
+    )
+    cleared = await client.patch(
+        f"{TENANTS}/{tenant_id}", headers=bearer(token), json={"ai_monthly_quota": None}
+    )
+
+    assert limited.json()["ai_monthly_quota"] == 5000
+    # 只改名称时额度不变；显式传 null 表示不限。
+    assert (renamed.json()["name"], renamed.json()["ai_monthly_quota"]) == ("新名称", 5000)
+    assert cleared.json()["ai_monthly_quota"] is None
+    negative = await client.patch(
+        f"{TENANTS}/{tenant_id}", headers=bearer(token), json={"ai_monthly_quota": -1}
+    )
+    assert negative.status_code == 422

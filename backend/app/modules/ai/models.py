@@ -3,7 +3,7 @@ from datetime import datetime
 from enum import StrEnum
 from typing import Any
 
-from sqlalchemy import REAL, ForeignKey, ForeignKeyConstraint, String, Text, func, text
+from sqlalchemy import Double, ForeignKey, ForeignKeyConstraint, String, Text, func, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -21,9 +21,9 @@ class AiSettings(Base):
     enabled: Mapped[bool] = mapped_column(server_default="false")
     bot_name: Mapped[str] = mapped_column(String(32), server_default="智能客服")
     persona: Mapped[str | None] = mapped_column(Text)
-    handoff_threshold: Mapped[float] = mapped_column(REAL, server_default="0.6")
+    handoff_threshold: Mapped[float] = mapped_column(Double, server_default="0.6")
     max_turns: Mapped[int] = mapped_column(server_default="8")
-    relevance_threshold: Mapped[float] = mapped_column(REAL, server_default="0.55")
+    relevance_threshold: Mapped[float] = mapped_column(Double, server_default="0.55")
     handoff_keywords: Mapped[list[str]] = mapped_column(server_default="{}")
     sensitive_keywords: Mapped[list[str]] = mapped_column(server_default="{}")
     updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
@@ -68,7 +68,7 @@ class AiDecision(IdMixin, TenantMixin, Base):
     question: Mapped[str] = mapped_column(Text)
     action: Mapped[str] = mapped_column(String(12))
     reason: Mapped[str | None] = mapped_column(String(32))
-    score: Mapped[float] = mapped_column(REAL, server_default="0")
+    score: Mapped[float] = mapped_column(Double, server_default="0")
     signals: Mapped[dict[str, Any]] = mapped_column(server_default="{}")
     reply: Mapped[str | None] = mapped_column(Text)
     knowledge: Mapped[list[Any]] = mapped_column(JSONB, server_default="[]")
@@ -99,7 +99,7 @@ class AiEvalRun(IdMixin, TenantMixin, Base):
 
     created_by: Mapped[uuid.UUID | None]
     cases: Mapped[int]
-    answer_accuracy: Mapped[float | None] = mapped_column(REAL)
-    handoff_accuracy: Mapped[float | None] = mapped_column(REAL)
+    answer_accuracy: Mapped[float | None] = mapped_column(Double)
+    handoff_accuracy: Mapped[float | None] = mapped_column(Double)
     results: Mapped[list[Any]] = mapped_column(JSONB, server_default="[]")
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())

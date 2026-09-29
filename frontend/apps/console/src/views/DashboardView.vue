@@ -58,6 +58,12 @@ onBeforeUnmount(() => {
       <template v-if="oversees">
         <StatTile label="接待中" :value="String(live.serving)" testid="rt-serving" />
         <StatTile
+          v-if="live.ai_serving"
+          label="AI 接待中"
+          :value="String(live.ai_serving)"
+          testid="rt-ai-serving"
+        />
+        <StatTile
           label="在线坐席"
           :value="String(live.agents_online + live.agents_busy)"
           :hint="`忙碌 ${live.agents_busy}，小休 ${live.agents_away}`"

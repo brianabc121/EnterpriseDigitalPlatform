@@ -7,6 +7,7 @@ export type MenuIcon =
   | 'ticket'
   | 'user'
   | 'reading'
+  | 'ai'
   | 'avatar'
   | 'chart'
   | 'setting'
@@ -28,6 +29,7 @@ export const MENU: readonly MenuItem[] = [
   { name: 'tickets', path: '/tickets', title: '留言', icon: 'ticket', permission: 'workbench:use' },
   { name: 'customers', path: '/customers', title: '客户', icon: 'user', permission: 'customer:read' },
   { name: 'knowledge', path: '/knowledge', title: '知识库', icon: 'reading', permission: 'kb:read' },
+  { name: 'ai', path: '/ai', title: 'AI 接待', icon: 'ai', permission: 'settings:manage' },
   { name: 'staff', path: '/staff', title: '员工', icon: 'avatar', permission: 'staff:read' },
   { name: 'reports', path: '/reports', title: '报表', icon: 'chart', permission: 'report:view' },
   { name: 'settings', path: '/settings', title: '设置', icon: 'setting', permission: 'settings:manage' },

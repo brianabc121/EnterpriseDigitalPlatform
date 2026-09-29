@@ -60,6 +60,20 @@ make widget-dev      # 访客 Widget：http://localhost:5175/?key=<渠道 key>
 在"设置 → 用量"里查看每日用量；运营后台的租户列表显示各租户用量。用量由调度进程每 10 分钟汇总，
 也可以执行 `cd backend && uv run python -m app.cli usage-rollup` 立即汇总（`--day`、`--to` 补算历史日期）。
 
+AI 接待需要在 `backend/.env` 中配置大模型（OpenAI 兼容协议：DeepSeek、通义千问、智谱、豆包、Kimi、自建 vLLM
+等，见 `backend/.env.example`）。租户管理员在"知识库"里录入或批量导入问答和文档并发布，在"AI 接待"里启用 AI、
+设置名称与转人工规则，用"试一试"和"评测"检验效果；再把路由策略的接待方式改为"AI 优先"，访客就先由 AI 依据
+知识库回答，客户要求人工、敏感诉求、AI 把握不足或模型故障时自动转人工，并给坐席写好交接摘要。坐席在工作台用
+"AI 建议"和知识库检索回复客户。没有模型 Key 时可以用模拟服务联调：
+
+```bash
+cd backend && uv run python -m tests.fake_llm --port 8900
+# 后端、实时消费进程和调度进程启动前设置：
+export EDP_LLM_BASE_URL=http://127.0.0.1:8900/v1 EDP_LLM_CHAT_MODEL=fake-chat EDP_LLM_EMBED_MODEL=fake-embed
+```
+
+更换向量模型后执行 `cd backend && uv run python -m app.cli kb-reindex` 重建知识检索单元。
+
 默认配置适用于本地环境；需要修改时，把 `backend/.env.example` 复制为 `backend/.env`。
 OpenIM 的镜像名都可以用环境变量替换（见 `deploy/compose/openim/docker-compose.yml`），便于使用镜像加速地址。
 
@@ -102,11 +116,17 @@ make frontend-build
   （端口 5176）用 `embed.js` 嵌入 Widget 并为会员签名。检查实名访客与换设备续接、欢迎语与隐私提示、
   双方收发图片和文件、收起时的未读角标、满意度评价、留言、未授权网站被拒绝。前置同上，另需 MinIO。
 
+- **P3**（`scripts/e2e/p3-ai-acceptance.cjs`）：管理员维护知识库（新建、CSV 导入、检索测试）、启用 AI 接待并
+  试一试和评测；访客得到 AI 依据知识的回答，要求人工后 AI 写好摘要转给坐席；坐席用 AI 建议和知识检索回复；
+  检查会话记录里的 AI 判定、报表的 AI 指标和运营后台的 AI 额度。前置同 M6，后端、实时消费进程和调度进程
+  需要接到大模型（可以用上面的模拟服务）。
+
   ```bash
   NODE_PATH=$(npm root -g) PLATFORM_PASSWORD=<平台账号密码> node scripts/e2e/m4-workbench-acceptance.cjs
   NODE_PATH=$(npm root -g) PLATFORM_PASSWORD=<平台账号密码> node scripts/e2e/m5-transfer-acceptance.cjs
   NODE_PATH=$(npm root -g) PLATFORM_PASSWORD=<平台账号密码> node scripts/e2e/m3-widget-acceptance.cjs
   NODE_PATH=$(npm root -g) PLATFORM_PASSWORD=<平台账号密码> node scripts/e2e/m6-admin-acceptance.cjs
+  NODE_PATH=$(npm root -g) PLATFORM_PASSWORD=<平台账号密码> node scripts/e2e/p3-ai-acceptance.cjs
   ```
 
 - **P1 M1**（`scripts/e2e/m1-im-acceptance.cjs`）：访客在 Widget 里发消息、实时收到机器人回复，消息经回调入库；

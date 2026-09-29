@@ -1904,6 +1904,26 @@ export interface components {
         /** DailyStats */
         DailyStats: {
             /**
+             * Ai Handoffs
+             * @description AI 接待后转人工的会话
+             */
+            ai_handoffs: number;
+            /**
+             * Ai Resolution Rate
+             * @description AI 独立解决率：AI 解决的会话占 AI 接待会话的比例
+             */
+            ai_resolution_rate: number | null;
+            /**
+             * Ai Resolved
+             * @description AI 独立解决的会话（AI 接待中结束、未转人工）
+             */
+            ai_resolved: number;
+            /**
+             * Ai Sessions
+             * @description 由 AI 接待的会话
+             */
+            ai_sessions: number;
+            /**
              * Avg First Response Seconds
              * @description 平均首次响应时长：首次分配到坐席第一条回复
              */
@@ -2351,7 +2371,7 @@ export interface components {
             sender_id: string | null;
             /**
              * Sender Name
-             * @description 坐席消息为坐席姓名
+             * @description 坐席消息为坐席姓名，智能客服消息为设置的名称
              */
             sender_name?: string | null;
             /** Sender Type */
@@ -2420,6 +2440,26 @@ export interface components {
              * @description 坐席消息数
              */
             agent_messages: number;
+            /**
+             * Ai Handoffs
+             * @description AI 接待后转人工的会话
+             */
+            ai_handoffs: number;
+            /**
+             * Ai Resolution Rate
+             * @description AI 独立解决率：AI 解决的会话占 AI 接待会话的比例
+             */
+            ai_resolution_rate: number | null;
+            /**
+             * Ai Resolved
+             * @description AI 独立解决的会话（AI 接待中结束、未转人工）
+             */
+            ai_resolved: number;
+            /**
+             * Ai Sessions
+             * @description 由 AI 接待的会话
+             */
+            ai_sessions: number;
             /**
              * Avg First Response Seconds
              * @description 平均首次响应时长：首次分配到坐席第一条回复
@@ -2634,6 +2674,11 @@ export interface components {
              * @description 可见范围内在线的坐席
              */
             agents_online: number;
+            /**
+             * Ai Serving
+             * @description AI 正在接待的会话（全租户）
+             */
+            ai_serving: number;
             /**
              * Longest Wait Seconds
              * @description 排队最久的会话已等待的秒数
@@ -2898,6 +2943,11 @@ export interface components {
         };
         /** SessionDetail */
         SessionDetail: {
+            /**
+             * Ai Summary
+             * @description AI 转人工时写给坐席的交接摘要
+             */
+            ai_summary?: string | null;
             /** Assigned At */
             assigned_at: string | null;
             /** Assignee Display Name */
@@ -2936,7 +2986,10 @@ export interface components {
             events: components["schemas"]["SessionEventOut"][];
             /** First Response At */
             first_response_at: string | null;
-            /** Handoff Reason */
+            /**
+             * Handoff Reason
+             * @description 转人工原因（AI 接待转人工，或 AI 优先却不能接待时的原因）
+             */
             handoff_reason: string | null;
             /**
              * Id
@@ -2987,6 +3040,11 @@ export interface components {
         };
         /** SessionOut */
         SessionOut: {
+            /**
+             * Ai Summary
+             * @description AI 转人工时写给坐席的交接摘要
+             */
+            ai_summary?: string | null;
             /** Assigned At */
             assigned_at: string | null;
             /** Assignee Display Name */
@@ -3023,7 +3081,10 @@ export interface components {
             customer_id: string;
             /** First Response At */
             first_response_at: string | null;
-            /** Handoff Reason */
+            /**
+             * Handoff Reason
+             * @description 转人工原因（AI 接待转人工，或 AI 优先却不能接待时的原因）
+             */
             handoff_reason: string | null;
             /**
              * Id

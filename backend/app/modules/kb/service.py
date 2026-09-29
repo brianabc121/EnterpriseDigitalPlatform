@@ -213,14 +213,18 @@ async def update_item(
     for field in ("title", "content", "category"):
         if changes.get(field) is not None:
             changes[field] = changes[field].strip()
+    changed: set[str] = set()
     for field, value in changes.items():
         if value is None and field not in ("valid_from", "valid_to"):
             continue
-        setattr(item, field, value)
+        if getattr(item, field) != value:
+            setattr(item, field, value)
+            changed.add(field)
     if item.valid_from and item.valid_to and item.valid_from >= item.valid_to:
         raise Unprocessable("失效时间必须晚于生效时间")
     item.updated_by = principal.staff_id
-    if item.status == ItemStatus.PUBLISHED and _CONTENT_FIELDS & set(changes):
+    # 内容真正改变时才升版本、重建检索单元（编辑页整表提交时未改的字段也会带上）。
+    if item.status == ItemStatus.PUBLISHED and _CONTENT_FIELDS & changed:
         item.version += 1
         await reindex(ctx, session, item)
     detail = payload.model_dump(mode="json", exclude_unset=True)

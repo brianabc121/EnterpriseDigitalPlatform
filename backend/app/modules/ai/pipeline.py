@@ -12,7 +12,7 @@ from typing import Any
 
 from app.context import AppContext
 from app.integrations.llm import LLMUnavailable
-from app.modules.ai import decision, gateway, pii, prompts
+from app.modules.ai import decision, gateway, pii, prompts, reasons
 from app.modules.ai.models import AiSettings
 from app.modules.ai.prompts import Passage, Turn
 from app.modules.kb.search import search
@@ -24,19 +24,6 @@ SAFE_FALLBACK = (
 )
 KNOWLEDGE_LIMIT = 4
 HISTORY_LIMIT = 10
-
-REASON_LABELS = {
-    "customer_request": "客户要求人工",
-    "sensitive": "敏感诉求",
-    "vip": "VIP 客户",
-    "model_request": "AI 判断需要人工",
-    "score": "AI 把握不足",
-    "guardrail": "回复未通过安全检查",
-    "ai_unavailable": "AI 暂时不可用",
-    "quota": "AI 额度已用完",
-    "disabled": "AI 接待已关闭",
-    "not_configured": "AI 接待未配置",
-}
 
 
 @dataclass
@@ -222,10 +209,10 @@ async def summarize(
     *,
     session_id: uuid.UUID | None = None,
 ) -> str:
-    """转人工时给坐席的交接摘要；大模型不可用时用最近的客户消息拼一段。"""
-    label = REASON_LABELS.get(reason, reason)
+    """转人工时给坐席的交接摘要（原因另存在会话上）；大模型不可用时用最近的客户消息拼一段。"""
+    label = reasons.label(reason)
     customer = [t.text for t in history if t.role == "customer"]
-    fallback = f"转人工原因：{label}。客户最近的问题：{'；'.join(customer[-3:])[:200]}"
+    fallback = f"客户最近的问题：{'；'.join(customer[-3:])[:200]}"
     if not ctx.llm.enabled or not history:
         return fallback
     mapping: dict[str, str] = {}
@@ -243,4 +230,4 @@ async def summarize(
     except LLMUnavailable:
         return fallback
     text = pii.unmask(result.content.strip(), mapping)
-    return f"{text}（转人工原因：{label}）" if text else fallback
+    return text[:500] or fallback

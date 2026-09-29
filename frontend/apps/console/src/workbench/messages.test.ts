@@ -74,6 +74,12 @@ describe('ids', () => {
     expect(pmidOf('oops')).toBeNull()
     expect(pmidOf('{"pmid":1}')).toBeNull()
   })
+
+  it('names agents and the bot, but not customers', () => {
+    const bot = fromIm(im({ sendID: 'acme_bot', senderNickname: '小智', ex: '{"ai":true}' }))
+    expect([bot.senderType, bot.senderName]).toEqual(['bot', '小智'])
+    expect(fromIm(im({ senderNickname: '访客' })).senderName).toBeNull()
+  })
 })
 
 describe('mergeMessages', () => {

@@ -27,7 +27,9 @@ class MessageOut(BaseModel):
     direction: str
     sender_type: str
     sender_id: UUID | None
-    sender_name: str | None = Field(default=None, description="坐席消息为坐席姓名")
+    sender_name: str | None = Field(
+        default=None, description="坐席消息为坐席姓名，智能客服消息为设置的名称"
+    )
     content_type: str
     content: dict[str, Any]
     text_plain: str | None

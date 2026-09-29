@@ -76,6 +76,21 @@ body,
   color: var(--muted);
 }
 
+.ai-badge {
+  display: inline-block;
+  margin-left: 2px;
+  padding: 0 4px;
+  border: 1px solid #b3e19d;
+  border-radius: 3px;
+  font-size: 10px;
+  line-height: 14px;
+  color: #67c23a;
+}
+
+.message.bot .bubble {
+  background: #f0f9eb;
+}
+
 .bubble {
   max-width: 80%;
   padding: 8px 12px;

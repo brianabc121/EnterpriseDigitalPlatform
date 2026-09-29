@@ -32,6 +32,14 @@ export interface Attachment {
   height: number | null
 }
 
+/** 人工客服显示坐席姓名，智能客服显示租户设置的名称，其他发送者显示固定称呼。 */
+export function senderLabel(message: Pick<WidgetMessage, 'role' | 'senderName'>): string {
+  if ((message.role === 'agent' || message.role === 'bot') && message.senderName) {
+    return message.senderName
+  }
+  return SENDER_LABEL[message.role]
+}
+
 /** 按平台的 IM ID 约定判断发送者（见实施计划 §7.2）。 */
 export function senderRole(sendID: string, myUserID: string): SenderRole {
   if (sendID === myUserID) return 'me'

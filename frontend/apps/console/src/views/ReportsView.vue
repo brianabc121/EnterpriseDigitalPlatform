@@ -126,6 +126,20 @@ const csat = (avg: number | null | undefined, count: number) =>
         />
         <StatTile label="留言" :value="String(totals.tickets)" />
         <StatTile label="转接" :value="String(totals.transfers)" />
+        <template v-if="totals.ai_sessions">
+          <StatTile
+            label="AI 接待"
+            :value="totals.ai_sessions.toLocaleString('zh-CN')"
+            :hint="`转人工 ${totals.ai_handoffs}`"
+            testid="tile-ai-sessions"
+          />
+          <StatTile
+            label="AI 独立解决率"
+            :value="percent(totals.ai_resolution_rate)"
+            :hint="`AI 解决 ${totals.ai_resolved} 个会话`"
+            testid="tile-ai-resolved"
+          />
+        </template>
       </div>
 
       <div v-if="overview" class="charts">

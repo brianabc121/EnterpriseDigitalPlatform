@@ -68,6 +68,8 @@ export const useWorkbenchStore = defineStore('workbench', () => {
   /** 我发起、等待对方确认的转接（按会话）。 */
   const outgoing = ref<Record<string, Schemas['TransferOut']>>({})
   const error = ref<string | null>(null)
+  /** 要放进回复框的内容（来自知识检索、AI 建议），ChatPanel 监听后插入。 */
+  const composerInsert = ref<{ text: string; seq: number } | null>(null)
 
   let im: ImClient | null = null
   let systemUserId = ''
@@ -274,6 +276,19 @@ export const useWorkbenchStore = defineStore('workbench', () => {
     if (message.clientMsgID && out) await send(out, message.clientMsgID)
   }
 
+  function insertIntoComposer(text: string): void {
+    composerInsert.value = { text, seq: (composerInsert.value?.seq ?? 0) + 1 }
+  }
+
+  /** 坐席助手：根据对话和知识库给出建议回复。 */
+  async function suggest(session: Session): Promise<Schemas['SuggestionList']> {
+    const { data, error: err } = await api.POST('/api/v1/sessions/{session_id}/suggestions', {
+      params: { path: { session_id: session.id } },
+    })
+    if (!data) throw new Error(errorMessage(err))
+    return data
+  }
+
   async function close(session: Session): Promise<void> {
     const { data, error: err } = await api.POST('/api/v1/sessions/{session_id}/close', {
       params: { path: { session_id: session.id } },
@@ -380,6 +395,7 @@ export const useWorkbenchStore = defineStore('workbench', () => {
     incoming,
     outgoing,
     error,
+    composerInsert,
     canSeeQueue,
     canManageOthers,
     isMine,
@@ -392,6 +408,8 @@ export const useWorkbenchStore = defineStore('workbench', () => {
     send,
     sendFile,
     retry,
+    insertIntoComposer,
+    suggest,
     close,
     requestTransfer,
     decideTransfer,

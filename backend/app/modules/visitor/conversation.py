@@ -10,6 +10,7 @@ from sqlalchemy import and_, func, or_, select, tuple_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import NotFound
+from app.modules.ai.models import AiSettings
 from app.modules.conversation.models import (
     ChatSession,
     Message,
@@ -68,6 +69,14 @@ async def list_messages(
             select(Staff.id, Staff.display_name).where(Staff.id.in_(staff_ids))
         )
         names = {staff_id: name for staff_id, name in result}
+    bot_name = BOT_NICKNAME
+    if any(m.sender_type == SenderType.BOT for m in messages):
+        bot_name = (
+            await session.scalar(
+                select(AiSettings.bot_name).where(AiSettings.tenant_id == room.tenant_id)
+            )
+            or BOT_NICKNAME
+        )
     return VisitorMessagePage(
         items=[
             VisitorMessageOut(
@@ -77,7 +86,7 @@ async def list_messages(
                 sender_name=(
                     names.get(m.sender_id)
                     if m.sender_type == SenderType.AGENT and m.sender_id
-                    else BOT_NICKNAME
+                    else bot_name
                     if m.sender_type == SenderType.BOT
                     else None
                 ),

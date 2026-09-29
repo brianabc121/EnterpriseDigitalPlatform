@@ -60,10 +60,11 @@ async def suggest(
         for m in reversed(rows)
         if m.sender_type in _ROLES
     ]
-    customer = [t.text for t in history if t.role == "customer"]
-    question = customer[-1] if customer else ""
-    if not question:
+    asked = [i for i, t in enumerate(history) if t.role == "customer"]
+    if not asked:
         return SuggestionList(suggestions=[], knowledge=[])
+    # 针对客户最近的一个问题给建议；之前的对话作为上下文。
+    question = history[asked[-1]].text
     hits = await search(
         ctx,
         session,
@@ -79,7 +80,7 @@ async def suggest(
     if not ctx.llm.enabled:
         return SuggestionList(suggestions=fallback, knowledge=knowledge)
     mapping: dict[str, str] = {}
-    masked = [Turn(t.role, pii.mask(t.text, mapping)[0]) for t in history[:-1]]
+    masked = [Turn(t.role, pii.mask(t.text, mapping)[0]) for t in history[: asked[-1]]]
     passages = [
         Passage(item_id=str(h.item_id), kind=h.kind, title=h.title, text=h.text, score=h.score)
         for h in hits

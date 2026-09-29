@@ -2,6 +2,7 @@
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { computed, nextTick, ref, watch } from 'vue'
 
+import { HANDOFF_REASON } from '../../labels'
 import { useWorkbenchStore } from '../../stores/workbench'
 import type { WorkbenchMessage } from '../../workbench/messages'
 import MessageContent from '../chat/MessageContent.vue'
@@ -22,6 +23,8 @@ const STATUS_TEXT: Record<string, string> = {
 const draft = ref('')
 const sending = ref(false)
 const uploading = ref(false)
+const suggesting = ref(false)
+const suggestions = ref<string[] | null>(null)
 const scroller = ref<HTMLElement | null>(null)
 const fileInput = ref<HTMLInputElement | null>(null)
 
@@ -42,6 +45,12 @@ async function cancelTransfer(): Promise<void> {
     ElMessage.error(e instanceof Error ? e.message : String(e))
   }
 }
+// AI 接待转人工（或 AI 优先却不能接待）时，给坐席看原因和交接摘要。
+const handoffReason = computed(() => {
+  const reason = session.value?.handoff_reason
+  return reason ? (HANDOFF_REASON[reason] ?? reason) : null
+})
+
 // 只有接待这个会话的坐席可以回复；主管查看他人的会话时只读。
 const replyable = computed(() => {
   const s = session.value
@@ -52,6 +61,7 @@ const LABEL: Record<string, string> = { customer: '客户', bot: '智能客服',
 
 function senderLabel(m: WorkbenchMessage): string {
   if (m.senderType === 'agent') return m.senderName ?? '客服'
+  if (m.senderType === 'bot') return m.senderName ?? LABEL.bot!
   if (m.senderType === 'customer') return session.value?.customer_display_name ?? LABEL.customer!
   return LABEL[m.senderType] ?? ''
 }
@@ -70,7 +80,39 @@ async function scrollToBottom(): Promise<void> {
 }
 
 watch(() => wb.activeMessages.length, scrollToBottom)
-watch(() => session.value?.id, scrollToBottom)
+watch(
+  () => session.value?.id,
+  () => {
+    suggestions.value = null
+    void scrollToBottom()
+  },
+)
+// 知识检索面板点"插入回复框"。
+watch(
+  () => wb.composerInsert?.seq,
+  () => {
+    if (wb.composerInsert && replyable.value) insert(wb.composerInsert.text)
+  },
+)
+
+async function suggest(): Promise<void> {
+  if (!session.value || suggesting.value) return
+  suggesting.value = true
+  try {
+    const result = await wb.suggest(session.value)
+    suggestions.value = result.suggestions
+    if (!result.suggestions.length) ElMessage.info('没有找到可以参考的知识')
+  } catch (e) {
+    ElMessage.error(e instanceof Error ? e.message : String(e))
+  } finally {
+    suggesting.value = false
+  }
+}
+
+function useSuggestion(text: string): void {
+  draft.value = text
+  suggestions.value = null
+}
 
 async function send(): Promise<void> {
   const text = draft.value.trim()
@@ -181,6 +223,12 @@ function insert(text: string): void {
         </div>
       </header>
       <TransferDialog v-model="transferOpen" :session="session" />
+      <div v-if="handoffReason || session.ai_summary" class="handoff" data-testid="ai-summary">
+        <span class="handoff-title"
+          >转人工<template v-if="handoffReason">：{{ handoffReason }}</template></span
+        >
+        <p v-if="session.ai_summary">{{ session.ai_summary }}</p>
+      </div>
 
       <div ref="scroller" class="messages" data-testid="chat-messages">
         <div v-if="wb.hasMore[session.room_id]" class="more">
@@ -197,7 +245,11 @@ function insert(text: string): void {
             <div class="notice">{{ m.text }}</div>
           </template>
           <template v-else>
-            <div class="meta">{{ senderLabel(m) }} · {{ time(m) }}</div>
+            <div class="meta">
+              {{ senderLabel(m) }}
+              <span v-if="m.senderType === 'bot'" class="ai-badge">AI</span>
+              · {{ time(m) }}
+            </div>
             <div class="bubble"><MessageContent :message="m" /></div>
             <div v-if="m.status === 'pending'" class="status">发送中…</div>
             <div v-else-if="m.status === 'failed'" class="status failed">
@@ -227,6 +279,30 @@ function insert(text: string): void {
             data-testid="attach-input"
             @change="onFile"
           />
+          <el-button
+            size="small"
+            :loading="suggesting"
+            data-testid="suggest-button"
+            @click="suggest"
+          >
+            AI 建议
+          </el-button>
+        </div>
+        <div v-if="suggestions?.length" class="suggestions" data-testid="suggestions">
+          <div class="suggestions-head">
+            <span>点击使用，发送前可以修改</span>
+            <el-button link size="small" @click="suggestions = null">收起</el-button>
+          </div>
+          <button
+            v-for="(text, i) in suggestions"
+            :key="i"
+            type="button"
+            class="suggestion"
+            data-testid="suggestion"
+            @click="useSuggestion(text)"
+          >
+            <span class="suggestion-text">{{ text }}</span>
+          </button>
         </div>
         <el-input
           v-model="draft"
@@ -334,6 +410,73 @@ function insert(text: string): void {
 
 .bot .bubble {
   background: var(--el-color-success-light-9);
+}
+
+.ai-badge {
+  display: inline-block;
+  padding: 0 4px;
+  margin-left: 2px;
+  border-radius: 3px;
+  font-size: 10px;
+  line-height: 14px;
+  color: var(--el-color-success);
+  border: 1px solid var(--el-color-success-light-5);
+}
+
+.handoff {
+  padding: 8px 16px;
+  font-size: 13px;
+  background: var(--el-color-warning-light-9);
+  border-bottom: 1px solid var(--el-border-color-lighter);
+}
+
+.handoff-title {
+  font-weight: 600;
+  color: var(--el-color-warning-dark-2);
+}
+
+.handoff p {
+  margin: 4px 0 0;
+  white-space: pre-wrap;
+  color: var(--el-text-color-regular);
+}
+
+.suggestions {
+  margin-bottom: 6px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: var(--el-fill-color-lighter);
+}
+
+.suggestions-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+}
+
+.suggestion {
+  display: block;
+  width: 100%;
+  margin-top: 4px;
+  padding: 6px 10px;
+  text-align: left;
+  font: inherit;
+  font-size: 13px;
+  color: var(--el-text-color-primary);
+  background: var(--el-bg-color);
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.suggestion-text {
+  white-space: pre-wrap;
+}
+
+.suggestion:hover {
+  border-color: var(--el-color-primary-light-5);
 }
 
 .message.system {

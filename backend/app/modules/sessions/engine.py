@@ -20,6 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.context import AppContext
 from app.core.ids import new_id
 from app.events.bus import Event
+from app.modules.ai import reasons
 from app.modules.ai import service as ai_service
 from app.modules.ai.schedule import schedule_reply
 from app.modules.conversation import outbox
@@ -386,6 +387,8 @@ async def _handoff_off_hours(
         )
     ).all()
     content = chat.ai_summary or "\n".join(t for t in reversed(texts) if t)
+    if chat.handoff_reason:
+        content = f"【{reasons.label(chat.handoff_reason)}】{content}"
     session.add(
         Ticket(
             tenant_id=chat.tenant_id,

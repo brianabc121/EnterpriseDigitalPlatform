@@ -2,7 +2,7 @@
 import { createImClient, type ConnectionState } from '@edp/im-client'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 
-import { fromApi, fromIm, mergeMessages, SENDER_LABEL, type WidgetMessage } from './chat'
+import { fromApi, fromIm, mergeMessages, senderLabel, type WidgetMessage } from './chat'
 import {
   embedOrigin,
   fetchMessages,
@@ -87,13 +87,6 @@ const showPrivacy = computed(
     !messages.value.some((m) => m.role === 'me'),
 )
 
-/** 人工客服显示坐席姓名，其他发送者显示固定称呼。 */
-function senderLabel(message: WidgetMessage): string {
-  return message.role === 'agent' && message.senderName
-    ? message.senderName
-    : SENDER_LABEL[message.role]
-}
-
 function isImage(m: WidgetMessage): boolean {
   return !!m.attachment && (m.attachment.width !== null || m.attachment.name === null)
 }
@@ -150,7 +143,8 @@ im.onState((next) => {
 im.onMessage((message) => {
   if (message.groupID === session.value?.im.group_id) {
     receive([fromIm(message, session.value.im.user_id)])
-    if (message.sendID.endsWith('_sys')) void refreshState()
+    // 系统提示和智能客服的消息往往伴随服务状态变化（开始接待、转人工），刷新一次横幅。
+    if (message.sendID.endsWith('_sys') || message.sendID.endsWith('_bot')) void refreshState()
   }
 })
 
@@ -339,7 +333,10 @@ onBeforeUnmount(() => {
           :class="m.role"
           data-testid="message"
         >
-          <span v-if="m.role !== 'me'" class="sender">{{ senderLabel(m) }}</span>
+          <span v-if="m.role !== 'me'" class="sender">
+            {{ senderLabel(m) }}
+            <span v-if="m.role === 'bot'" class="ai-badge" data-testid="ai-badge">AI</span>
+          </span>
           <a
             v-if="m.attachment && isImage(m)"
             :href="m.attachment.url"

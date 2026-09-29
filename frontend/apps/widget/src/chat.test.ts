@@ -2,7 +2,7 @@ import type { Schemas } from '@edp/api-client'
 import type { ChatMessage } from '@edp/im-client'
 import { describe, expect, it } from 'vitest'
 
-import { fromApi, fromIm, mergeMessages, senderRole } from './chat'
+import { fromApi, fromIm, mergeMessages, senderLabel, senderRole } from './chat'
 
 const ME = 'acme_c_0123456789abcdef0123456789abcdef'
 const AGENT = 'acme_s_' + 'a'.repeat(32)
@@ -92,5 +92,14 @@ describe('senderRole', () => {
     expect(senderRole('acme_sys', ME)).toBe('system')
     expect(senderRole(AGENT, ME)).toBe('agent')
     expect(senderRole('acme_c_' + 'b'.repeat(32), ME)).toBe('other')
+  })
+})
+
+describe('senderLabel', () => {
+  it('names agents and the bot, and falls back to fixed labels', () => {
+    expect(senderLabel({ role: 'bot', senderName: '小智' })).toBe('小智')
+    expect(senderLabel({ role: 'bot', senderName: null })).toBe('智能客服')
+    expect(senderLabel({ role: 'agent', senderName: 'Alice' })).toBe('Alice')
+    expect(senderLabel({ role: 'system', senderName: 'x' })).toBe('系统消息')
   })
 })

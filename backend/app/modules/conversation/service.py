@@ -6,7 +6,9 @@ from sqlalchemy import ColumnElement, Select, and_, func, or_, select, tuple_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import NotFound
+from app.modules.ai.models import AiSettings
 from app.modules.conversation.models import Message, Room, SenderType
+from app.modules.conversation.provisioning import BOT_NICKNAME
 from app.modules.conversation.schemas import MessageOut, MessagePage, RoomOut, RoomPage
 from app.modules.customer.models import Customer
 from app.modules.customer.service import visible_to
@@ -100,7 +102,7 @@ async def message_page(
 
 
 async def messages_out(session: AsyncSession, messages: list[Message]) -> list[MessageOut]:
-    """转换为接口格式，并补上坐席姓名。"""
+    """转换为接口格式，并补上坐席姓名和智能客服的名称。"""
     staff_ids = {m.sender_id for m in messages if m.sender_type == SenderType.AGENT and m.sender_id}
     names: dict[UUID, str] = {}
     if staff_ids:
@@ -108,9 +110,24 @@ async def messages_out(session: AsyncSession, messages: list[Message]) -> list[M
             select(Staff.id, Staff.display_name).where(Staff.id.in_(staff_ids))
         )
         names = {staff_id: name for staff_id, name in rows}
+    bot = next((m for m in messages if m.sender_type == SenderType.BOT), None)
+    bot_name = None
+    if bot is not None:
+        bot_name = (
+            await session.scalar(
+                select(AiSettings.bot_name).where(AiSettings.tenant_id == bot.tenant_id)
+            )
+            or BOT_NICKNAME
+        )
+
+    def sender_name(m: Message) -> str | None:
+        if m.sender_type == SenderType.BOT:
+            return bot_name
+        return names.get(m.sender_id) if m.sender_id else None
+
     return [
         MessageOut.model_validate(m, from_attributes=True).model_copy(
-            update={"sender_name": names.get(m.sender_id) if m.sender_id else None}
+            update={"sender_name": sender_name(m)}
         )
         for m in messages
     ]

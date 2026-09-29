@@ -23,6 +23,8 @@ const totals = computed(
 )
 const dialogVisible = ref(false)
 const saving = ref(false)
+/** 正在设置 AI 额度的租户；unlimited 为不限。 */
+const quota = reactive({ tenant: null as Tenant | null, value: 10000, unlimited: true })
 const form = reactive({
   code: '',
   name: '',
@@ -101,6 +103,34 @@ async function toggleStatus(tenant: Tenant): Promise<void> {
   await load()
 }
 
+function editQuota(tenant: Tenant): void {
+  quota.tenant = tenant
+  quota.unlimited = tenant.ai_monthly_quota === null || tenant.ai_monthly_quota === undefined
+  quota.value = tenant.ai_monthly_quota ?? 10000
+}
+
+async function saveQuota(): Promise<void> {
+  if (!quota.tenant) return
+  saving.value = true
+  const { data, error } = await api.PATCH('/platform/v1/tenants/{tenant_id}', {
+    params: { path: { tenant_id: quota.tenant.id } },
+    body: { ai_monthly_quota: quota.unlimited ? null : quota.value },
+  })
+  saving.value = false
+  if (!data) {
+    ElMessage.error(errorMessage(error))
+    return
+  }
+  ElMessage.success('已保存')
+  quota.tenant = null
+  await load()
+}
+
+function quotaText(tenant: Tenant): string {
+  const q = tenant.ai_monthly_quota
+  return q === null || q === undefined ? '不限' : `${q.toLocaleString('zh-CN')} 条/月`
+}
+
 onMounted(load)
 </script>
 
@@ -111,7 +141,7 @@ onMounted(load)
       <el-button type="primary" @click="openCreate">开通租户</el-button>
     </div>
     <el-table v-loading="loading" :data="tenants" data-testid="tenant-table" empty-text="暂无租户">
-      <el-table-column prop="code" label="企业代码" width="160" />
+      <el-table-column prop="code" label="企业代码" width="130" />
       <el-table-column prop="name" label="企业名称" min-width="200" />
       <el-table-column label="状态" width="100">
         <template #default="{ row }">
@@ -120,23 +150,33 @@ onMounted(load)
           </el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="开通时间" width="180">
+      <el-table-column label="开通时间" width="170">
         <template #default="{ row }">{{ formatDateTime(row.created_at) }}</template>
       </el-table-column>
       <el-table-column
         v-for="m in usageColumns"
         :key="m.key"
         :label="m.kind === 'snapshot' ? m.label : `近 30 天${m.label}`"
-        min-width="120"
+        min-width="110"
       >
         <template #default="{ row }">{{ formatUsage(m, totals.get(row.id)?.[m.key]) }}</template>
       </el-table-column>
-      <el-table-column label="操作" width="140">
+      <el-table-column label="AI 回复额度" width="120">
+        <template #default="{ row }">{{ quotaText(row) }}</template>
+      </el-table-column>
+      <el-table-column label="操作" width="170" fixed="right">
         <template #default="{ row }">
           <el-button link type="primary" data-testid="tenant-usage-button" @click="usageOf = row">
             用量
           </el-button>
-          <el-button link :type="row.status === 'active' ? 'danger' : 'primary'" @click="toggleStatus(row)">
+          <el-button link type="primary" data-testid="tenant-quota-button" @click="editQuota(row)">
+            AI 额度
+          </el-button>
+          <el-button
+            link
+            :type="row.status === 'active' ? 'danger' : 'primary'"
+            @click="toggleStatus(row)"
+          >
             {{ row.status === 'active' ? '停用' : '启用' }}
           </el-button>
         </template>
@@ -144,6 +184,35 @@ onMounted(load)
     </el-table>
 
     <TenantUsageDrawer :tenant="usageOf" @close="usageOf = null" />
+
+    <el-dialog
+      :model-value="quota.tenant !== null"
+      :title="`AI 回复额度 · ${quota.tenant?.name ?? ''}`"
+      width="420px"
+      @update:model-value="(v: boolean) => !v && (quota.tenant = null)"
+    >
+      <el-form label-width="96px" @submit.prevent="saveQuota">
+        <el-form-item label="每月上限">
+          <el-checkbox v-model="quota.unlimited" data-testid="quota-unlimited">不限</el-checkbox>
+        </el-form-item>
+        <el-form-item v-if="!quota.unlimited" label="回复条数">
+          <el-input-number
+            v-model="quota.value"
+            :min="0"
+            :max="10000000"
+            :step="1000"
+            data-testid="quota-value"
+          />
+        </el-form-item>
+        <p class="hint">按自然月计算 AI 回复条数；用完后新会话直接转人工，下月恢复。</p>
+      </el-form>
+      <template #footer>
+        <el-button @click="quota.tenant = null">取消</el-button>
+        <el-button type="primary" :loading="saving" data-testid="quota-save" @click="saveQuota">
+          保存
+        </el-button>
+      </template>
+    </el-dialog>
 
     <el-dialog v-model="dialogVisible" title="开通租户" width="480px">
       <el-form label-width="96px" @submit.prevent="create">
@@ -161,7 +230,12 @@ onMounted(load)
           <el-input v-model="form.adminDisplayName" />
         </el-form-item>
         <el-form-item label="初始密码" required>
-          <el-input v-model="form.adminPassword" type="password" show-password placeholder="至少 8 位" />
+          <el-input
+            v-model="form.adminPassword"
+            type="password"
+            show-password
+            placeholder="至少 8 位"
+          />
         </el-form-item>
       </el-form>
       <template #footer>
@@ -183,5 +257,11 @@ onMounted(load)
 .page-header h2 {
   margin: 0;
   font-size: 18px;
+}
+
+.hint {
+  margin: 0;
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
 }
 </style>

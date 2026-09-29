@@ -29,7 +29,10 @@ class SessionOut(BaseModel):
     first_response_at: datetime | None
     closed_at: datetime | None
     close_reason: str | None
-    handoff_reason: str | None
+    handoff_reason: str | None = Field(
+        description="转人工原因（AI 接待转人工，或 AI 优先却不能接待时的原因）"
+    )
+    ai_summary: str | None = Field(default=None, description="AI 转人工时写给坐席的交接摘要")
     last_customer_message_at: datetime | None
     last_agent_message_at: datetime | None
     csat: int | None = Field(default=None, description="客户满意度评分（1-5），未评价为空")

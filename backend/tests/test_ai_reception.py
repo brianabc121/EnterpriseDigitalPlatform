@@ -119,7 +119,13 @@ async def test_customer_asking_for_a_human_is_handed_over_with_a_summary(
     chat = await desk.session_of(visitor)
     assert (chat["status"], chat["assignee_id"]) == ("human_serving", alice.staff_id)
     assert chat["handoff_reason"] == "customer_request"
-    assert "客户咨询" in chat["ai_summary"] and "客户要求人工" in chat["ai_summary"]
+    assert chat["ai_summary"] == "客户咨询：快递几天能到；我要转人工。"
+    # 接手的坐席在工作台看到交接摘要。
+    detail = await desk.client.get(f"/api/v1/sessions/{chat['id']}", headers=alice.headers)
+    assert (detail.json()["ai_summary"], detail.json()["handoff_reason"]) == (
+        chat["ai_summary"],
+        "customer_request",
+    )
     events = await desk.events_of(chat["id"])
     assert events[-3:] == ["handoff", "queued", "assigned"]
     last = await decisions(desk, visitor)
@@ -154,7 +160,7 @@ async def test_llm_outage_degrades_to_human(desk: Desk, fake_llm: FakeLLM) -> No
     chat = await desk.session_of(visitor)
     assert (chat["status"], chat["assignee_id"]) == ("human_serving", alice.staff_id)
     assert chat["handoff_reason"] == "ai_unavailable"
-    assert "AI 暂时不可用" in chat["ai_summary"] and "快递几天能到" in chat["ai_summary"]
+    assert chat["ai_summary"] == "客户最近的问题：快递几天能到"
     assert bot_texts(desk, visitor) == []
     failed = await desk.sql("SELECT scene FROM llm_calls WHERE status = 'error'")
     assert "reply" in {f["scene"] for f in failed}
@@ -257,7 +263,8 @@ async def test_handoff_outside_business_hours_leaves_a_message(desk: Desk) -> No
     chat = await desk.session_of(visitor)
     assert (chat["status"], chat["close_reason"]) == ("closed", "leave_message")
     [ticket] = await desk.sql("SELECT source, content FROM tickets")
-    assert ticket["source"] == "off_hours" and "客户要求人工" in ticket["content"]
+    assert ticket["source"] == "off_hours"
+    assert ticket["content"].startswith("【客户要求人工】客户咨询：")
 
 
 async def test_idle_ai_sessions_are_closed_as_resolved(desk: Desk) -> None:
@@ -364,3 +371,66 @@ async def test_ai_usage_is_metered(desk: Desk) -> None:
     assert (usage["ai_sessions"], usage["ai_handoffs"], usage["bot_messages"]) == (2, 1, 1)
     [tokens] = await desk.sql("SELECT sum(prompt_tokens + completion_tokens) AS n FROM llm_calls")
     assert usage["llm_tokens"] == tokens["n"] > 0
+
+
+async def test_bot_messages_carry_the_configured_name(desk: Desk) -> None:
+    await desk.client.put("/api/v1/ai/settings", headers=desk.admin, json={"bot_name": "小智"})
+    visitor = await desk.visitor()
+
+    await desk.say(visitor, "快递几天能到")
+
+    [message] = [
+        m for m in desk.im.groups[visitor.group_id].messages if m.send_id == f"{desk.code}_bot"
+    ]
+    assert message.sender_nickname == "小智"
+    history = await desk.client.get(f"/api/v1/rooms/{visitor.room_id}/messages", headers=desk.admin)
+    assert [m["sender_name"] for m in history.json()["items"] if m["sender_type"] == "bot"] == [
+        "小智"
+    ]
+    widget = await desk.client.get(
+        "/api/v1/visitor/messages", headers={"X-Visitor-Token": visitor.visitor_token}
+    )
+    assert [m["sender_name"] for m in widget.json()["items"] if m["sender_type"] == "bot"] == [
+        "小智"
+    ]
+
+
+async def test_reports_count_ai_sessions(desk: Desk) -> None:
+    await desk.agent("alice")
+    resolved, handed, serving = await desk.visitor(), await desk.visitor(), await desk.visitor()
+    await desk.say(resolved, "快递几天能到")
+    await desk.say(handed, "转人工")
+    await run_session_timers(desk.ctx, now=utcnow() + timedelta(hours=2))
+    await desk.say(serving, "快递几天能到")
+
+    realtime = await desk.client.get("/api/v1/reports/realtime", headers=desk.admin)
+    overview = await desk.client.get("/api/v1/reports/overview", headers=desk.admin)
+
+    assert realtime.json()["ai_serving"] == 1
+    totals = overview.json()["totals"]
+    assert (
+        totals["ai_sessions"],
+        totals["ai_resolved"],
+        totals["ai_handoffs"],
+        totals["ai_resolution_rate"],
+    ) == (3, 1, 1, 0.3333)
+    assert sum(d["ai_sessions"] for d in overview.json()["days"]) == 3
+
+
+async def test_a_score_equal_to_the_threshold_hands_over(desk: Desk) -> None:
+    saved = await desk.client.put(
+        "/api/v1/ai/settings",
+        headers=desk.admin,
+        json={"handoff_threshold": 0.2, "relevance_threshold": 0.55},
+    )
+    # 阈值原样保存（没有单精度浮点的误差）。
+    assert (saved.json()["handoff_threshold"], saved.json()["relevance_threshold"]) == (0.2, 0.55)
+
+    # 知识相关、模型有把握，只有"否定回答"一个信号（0.2），正好等于阈值。
+    outcome = await desk.client.post(
+        "/api/v1/ai/test", headers=desk.admin, json={"question": "快递几天能到，你说的不对"}
+    )
+
+    body = outcome.json()
+    assert (body["action"], body["reason"], body["score"]) == ("handoff", "score", 0.2)
+    assert body["signals"]["negation"] is True and body["signals"]["low_relevance"] is False

@@ -3,13 +3,17 @@ import type { Schemas } from '@edp/api-client'
 import { ElMessage } from 'element-plus'
 import { computed, onMounted, ref } from 'vue'
 
+import KbSearchPanel from '../components/knowledge/KbSearchPanel.vue'
 import ChatPanel from '../components/workbench/ChatPanel.vue'
 import CustomerPanel from '../components/workbench/CustomerPanel.vue'
 import IncomingTransfer from '../components/workbench/IncomingTransfer.vue'
+import { useAuthStore } from '../stores/auth'
 import { STATUS_LABEL, useWorkbenchStore, type AgentStatus } from '../stores/workbench'
 
 const wb = useWorkbenchStore()
+const auth = useAuthStore()
 const tab = ref<'mine' | 'queued'>('mine')
+const sideTab = ref<'customer' | 'knowledge'>('customer')
 
 const IM_LABEL: Record<string, string> = {
   idle: '未连接',
@@ -122,12 +126,25 @@ onMounted(() => void wb.start())
     <ChatPanel class="chat" />
     <IncomingTransfer />
 
-    <CustomerPanel
-      v-if="wb.active"
-      :key="wb.active.customer_id"
-      class="customer"
-      :customer-id="wb.active.customer_id"
-    />
+    <aside v-if="wb.active" class="customer side">
+      <el-tabs v-model="sideTab" class="side-tabs" stretch>
+        <el-tab-pane label="客户" name="customer" />
+        <el-tab-pane v-if="auth.can('kb:read')" label="知识库" name="knowledge" />
+      </el-tabs>
+      <CustomerPanel
+        v-show="sideTab === 'customer'"
+        :key="wb.active.customer_id"
+        class="side-body"
+        :customer-id="wb.active.customer_id"
+      />
+      <KbSearchPanel
+        v-if="auth.can('kb:read')"
+        v-show="sideTab === 'knowledge'"
+        class="side-body kb"
+        insertable
+        @insert="wb.insertIntoComposer"
+      />
+    </aside>
     <aside v-else class="customer placeholder">选择会话后显示客户资料</aside>
   </div>
 </template>
@@ -218,6 +235,29 @@ onMounted(() => void wb.start())
 .meta {
   font-size: 12px;
   color: var(--el-text-color-secondary);
+}
+
+.side {
+  display: flex;
+  flex-direction: column;
+}
+
+.side-tabs {
+  padding: 0 12px;
+}
+
+.side-tabs :deep(.el-tabs__header) {
+  margin-bottom: 0;
+}
+
+.side-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.kb {
+  padding: 10px 12px;
 }
 
 .placeholder {

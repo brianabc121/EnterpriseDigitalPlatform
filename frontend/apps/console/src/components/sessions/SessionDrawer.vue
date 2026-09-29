@@ -7,6 +7,7 @@ import { api, formatDateTime } from '../../api'
 import {
   ASSIGN_VIA,
   CLOSE_REASON,
+  HANDOFF_REASON,
   SESSION_EVENT,
   SESSION_STATUS,
   SESSION_STATUS_TAG,
@@ -14,6 +15,7 @@ import {
   secondsBetween,
 } from '../../labels'
 import { fromApi, type WorkbenchMessage } from '../../workbench/messages'
+import AiOutcomeCard from '../ai/AiOutcomeCard.vue'
 import MessageContent from '../chat/MessageContent.vue'
 
 const props = defineProps<{ sessionId: string | null; staffNames: Map<string, string> }>()
@@ -24,6 +26,7 @@ const detail = ref<Schemas['SessionDetail'] | null>(null)
 const messages = ref<WorkbenchMessage[]>([])
 const hasMore = ref(false)
 const loading = ref(false)
+const decisions = ref<Schemas['AiDecisionOut'][]>([])
 
 const open = computed({
   get: () => props.sessionId !== null,
@@ -41,6 +44,7 @@ const firstAssigned = computed(
 function sender(m: WorkbenchMessage): string {
   if (m.senderType === 'customer') return detail.value?.customer_display_name ?? '客户'
   if (m.senderType === 'agent') return m.senderName ?? '客服'
+  if (m.senderType === 'bot') return m.senderName ?? LABEL.bot!
   return LABEL[m.senderType] ?? ''
 }
 
@@ -56,11 +60,20 @@ function eventText(event: Schemas['SessionEventOut']): string {
     return [title, staffName(p.staff_id), via && `（${via}）`].filter(Boolean).join(' ')
   }
   if (event.type === 'closed') return `${title}（${CLOSE_REASON[String(p.reason)] ?? p.reason}）`
+  if (event.type === 'handoff') return `${title}（${HANDOFF_REASON[String(p.reason)] ?? p.reason}）`
   if (event.type === 'csat' && typeof p.score === 'number') return `${title}：${p.score} 分`
   if (event.type === 'transferred' && p.to_staff_id) {
     return `${title}：${staffName(p.from_staff_id) || '—'} → ${staffName(p.to_staff_id) || '—'}`
   }
   return title
+}
+
+/** AI 接待过的会话：每一轮的判定（回复内容、依据、信号、转人工原因）。 */
+async function loadDecisions(id: string): Promise<void> {
+  const { data } = await api.GET('/api/v1/sessions/{session_id}/ai-decisions', {
+    params: { path: { session_id: id } },
+  })
+  decisions.value = data?.items ?? []
 }
 
 async function loadMessages(before?: string): Promise<void> {
@@ -82,6 +95,7 @@ watch(
   async (id) => {
     detail.value = null
     messages.value = []
+    decisions.value = []
     if (!id) return
     loading.value = true
     const { data, error } = await api.GET('/api/v1/sessions/{session_id}', {
@@ -93,7 +107,8 @@ watch(
       return
     }
     detail.value = data
-    await loadMessages()
+    const servedByAi = data.events.some((e) => e.type === 'ai_serving')
+    await Promise.all([loadMessages(), servedByAi ? loadDecisions(id) : undefined])
     loading.value = false
   },
 )
@@ -128,6 +143,12 @@ watch(
             </template>
             <template v-else>—</template>
           </el-descriptions-item>
+          <el-descriptions-item v-if="detail.handoff_reason" label="转人工原因" :span="2">
+            {{ HANDOFF_REASON[detail.handoff_reason] ?? detail.handoff_reason }}
+          </el-descriptions-item>
+          <el-descriptions-item v-if="detail.ai_summary" label="交接摘要" :span="2">
+            <span class="summary" data-testid="drawer-ai-summary">{{ detail.ai_summary }}</span>
+          </el-descriptions-item>
           <el-descriptions-item label="满意度" :span="2">
             <template v-if="detail.csat">
               <el-rate :model-value="detail.csat" disabled size="small" />
@@ -154,13 +175,25 @@ watch(
             <div v-if="m.senderType === 'system'" class="notice">{{ m.text }}</div>
             <template v-else>
               <div class="meta">
-                {{ sender(m) }} · {{ formatDateTime(new Date(m.sentAt).toISOString()) }}
+                {{ sender(m) }}
+                <span v-if="m.senderType === 'bot'" class="ai-badge">AI</span>
+                · {{ formatDateTime(new Date(m.sentAt).toISOString()) }}
               </div>
               <div class="bubble"><MessageContent :message="m" /></div>
             </template>
           </div>
           <el-empty v-if="messages.length === 0" description="没有消息" :image-size="60" />
         </div>
+
+        <template v-if="decisions.length">
+          <h4>AI 接待</h4>
+          <div class="decisions" data-testid="ai-decisions">
+            <div v-for="d in decisions" :key="d.id" class="decision">
+              <div class="decision-time">{{ formatDateTime(d.created_at) }}</div>
+              <AiOutcomeCard :outcome="d" :question="d.question" />
+            </div>
+          </div>
+        </template>
 
         <h4>过程</h4>
         <el-timeline>
@@ -236,6 +269,39 @@ h4 {
 
 .agent .bubble {
   background: var(--el-color-primary-light-8);
+}
+
+.bot .bubble {
+  background: var(--el-color-success-light-9);
+}
+
+.ai-badge {
+  display: inline-block;
+  padding: 0 4px;
+  border-radius: 3px;
+  font-size: 10px;
+  line-height: 14px;
+  color: var(--el-color-success);
+  border: 1px solid var(--el-color-success-light-5);
+}
+
+.summary {
+  white-space: pre-wrap;
+}
+
+.decision {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--el-border-color-lighter);
+}
+
+.decision:last-child {
+  border-bottom: none;
+}
+
+.decision-time {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+  margin-bottom: 4px;
 }
 
 .notice {

@@ -111,6 +111,7 @@ def _session_out(
         "closed_at": chat.closed_at,
         "close_reason": chat.close_reason,
         "handoff_reason": chat.handoff_reason,
+        "ai_summary": chat.ai_summary,
         "last_customer_message_at": chat.last_customer_message_at,
         "last_agent_message_at": chat.last_agent_message_at,
         "csat": chat.csat,

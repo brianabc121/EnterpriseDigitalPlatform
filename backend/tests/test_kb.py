@@ -136,6 +136,17 @@ async def test_edits_bump_the_version_and_archive_removes_from_search(desk: Desk
         f"/api/v1/kb/items/{item['id']}", headers=desk.admin, json={"category": "物流"}
     )
     assert category_only.json()["version"] == 2
+    # 编辑页整表保存、内容没变时不升版本。
+    resaved = await desk.client.patch(
+        f"/api/v1/kb/items/{item['id']}",
+        headers=desk.admin,
+        json={
+            "title": item["title"],
+            "content": "一般 1 到 2 天送达。",
+            "questions": ["几天能收到"],
+        },
+    )
+    assert resaved.json()["version"] == 2
 
     conflict = await desk.client.delete(f"/api/v1/kb/items/{item['id']}", headers=desk.admin)
     assert conflict.status_code == 409
