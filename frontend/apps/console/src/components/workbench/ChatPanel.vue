@@ -4,7 +4,7 @@ import { computed, nextTick, ref, watch } from 'vue'
 
 import { HANDOFF_REASON } from '../../labels'
 import { useWorkbenchStore } from '../../stores/workbench'
-import type { WorkbenchMessage } from '../../workbench/messages'
+import type { ReplyOrigin, WorkbenchMessage } from '../../workbench/messages'
 import MessageContent from '../chat/MessageContent.vue'
 import { IMAGE_TYPES, MAX_FILE_BYTES, MAX_IMAGE_BYTES } from '../../workbench/upload'
 import QuickReplies from './QuickReplies.vue'
@@ -21,6 +21,8 @@ const STATUS_TEXT: Record<string, string> = {
   closed: '已结束',
 }
 const draft = ref('')
+/** 回复框内容的来源：用了 AI 建议、知识或快捷话术时记下，用于统计采纳率。 */
+const draftOrigin = ref<ReplyOrigin>('manual')
 const sending = ref(false)
 const uploading = ref(false)
 const suggesting = ref(false)
@@ -91,7 +93,7 @@ watch(
 watch(
   () => wb.composerInsert?.seq,
   () => {
-    if (wb.composerInsert && replyable.value) insert(wb.composerInsert.text)
+    if (wb.composerInsert && replyable.value) insert(wb.composerInsert.text, 'knowledge')
   },
 )
 
@@ -111,16 +113,22 @@ async function suggest(): Promise<void> {
 
 function useSuggestion(text: string): void {
   draft.value = text
+  draftOrigin.value = 'suggestion'
   suggestions.value = null
 }
+
+watch(draft, (value) => {
+  if (!value.trim()) draftOrigin.value = 'manual'
+})
 
 async function send(): Promise<void> {
   const text = draft.value.trim()
   if (!text || sending.value) return
   sending.value = true
+  const origin = draftOrigin.value
   draft.value = ''
   try {
-    await wb.send(text)
+    await wb.send({ type: 'text', text, origin })
   } catch (e) {
     ElMessage.error(e instanceof Error ? e.message : String(e))
   } finally {
@@ -184,8 +192,9 @@ async function onFile(event: Event): Promise<void> {
   }
 }
 
-function insert(text: string): void {
+function insert(text: string, origin: ReplyOrigin = 'quick_reply'): void {
   draft.value = draft.value ? `${draft.value}\n${text}` : text
+  draftOrigin.value = origin
 }
 </script>
 
@@ -262,7 +271,7 @@ function insert(text: string): void {
 
       <footer v-if="replyable" class="composer">
         <div class="tools">
-          <QuickReplies @pick="insert" />
+          <QuickReplies @pick="(text: string) => insert(text, 'quick_reply')" />
           <el-button
             size="small"
             :loading="uploading"

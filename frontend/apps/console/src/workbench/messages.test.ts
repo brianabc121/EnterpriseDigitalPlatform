@@ -239,9 +239,18 @@ describe('attachments', () => {
         width: 800,
         height: 600,
       },
+      origin: 'manual',
     })
     expect(outgoingOf(pending)).toEqual(image)
-    expect(sendBody('cm2', text('hi'))).toEqual({ client_msg_id: 'cm2', type: 'text', text: 'hi' })
+    expect(sendBody('cm2', text('hi'))).toEqual({
+      client_msg_id: 'cm2',
+      type: 'text',
+      text: 'hi',
+      origin: 'manual',
+    })
+    expect(sendBody('cm3', { type: 'text', text: '建议', origin: 'suggestion' }).origin).toBe(
+      'suggestion',
+    )
     // IM 推送的文件消息没有 MIME 类型，不能据此重发。
     const echo = fromIm(
       im({

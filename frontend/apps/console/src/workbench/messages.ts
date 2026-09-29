@@ -134,9 +134,12 @@ export function fromIm(m: ChatMessage): WorkbenchMessage {
   }
 }
 
-/** 坐席要发送的内容：文本，或已上传的图片、文件。 */
+/** 回复的来源（用于统计 AI 建议的采纳率）。 */
+export type ReplyOrigin = Schemas['SendMessageRequest']['origin']
+
+/** 坐席要发送的内容：文本（及其来源），或已上传的图片、文件。 */
 export type Outgoing =
-  | { type: 'text'; text: string }
+  | { type: 'text'; text: string; origin?: ReplyOrigin }
   | {
       type: 'image' | 'file'
       attachment: Attachment & { name: string; size: number; mime: string }
@@ -144,12 +147,20 @@ export type Outgoing =
 
 /** 发送接口的请求体。 */
 export function sendBody(clientMsgID: string, out: Outgoing): Schemas['SendMessageRequest'] {
-  if (out.type === 'text') return { client_msg_id: clientMsgID, type: 'text', text: out.text }
+  if (out.type === 'text') {
+    return {
+      client_msg_id: clientMsgID,
+      type: 'text',
+      text: out.text,
+      origin: out.origin ?? 'manual',
+    }
+  }
   const { url, name, size, mime, width, height } = out.attachment
   return {
     client_msg_id: clientMsgID,
     type: out.type,
     attachment: { url, name, size, content_type: mime, width, height },
+    origin: 'manual',
   }
 }
 
