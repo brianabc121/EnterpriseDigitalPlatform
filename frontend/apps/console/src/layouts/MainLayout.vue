@@ -3,10 +3,12 @@ import {
   ArrowDown,
   Avatar,
   ChatDotRound,
+  Clock,
   DataLine,
   HomeFilled,
   Reading,
   Setting,
+  Tickets,
   User,
 } from '@element-plus/icons-vue'
 import { computed, type Component } from 'vue'
@@ -23,6 +25,8 @@ const router = useRouter()
 const icons: Record<MenuIcon, Component> = {
   home: HomeFilled,
   chat: ChatDotRound,
+  history: Clock,
+  ticket: Tickets,
   user: User,
   reading: Reading,
   avatar: Avatar,

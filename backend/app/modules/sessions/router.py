@@ -7,8 +7,9 @@ from app.context import AppContext
 from app.core.deps import get_context
 from app.core.errors import ERROR_RESPONSES
 from app.core.permissions import Permission
-from app.modules.conversation.models import SessionStatus, TicketStatus
-from app.modules.conversation.schemas import MessageOut
+from app.modules.conversation.models import Message, SessionStatus, TicketStatus
+from app.modules.conversation.schemas import MessageOut, MessagePage
+from app.modules.conversation.service import message_page
 from app.modules.iam.deps import TenantDb, require_permission
 from app.modules.iam.principal import Principal
 from app.modules.sessions import messages, service, transfer
@@ -59,6 +60,19 @@ async def list_sessions(
 @router.get("/sessions/{session_id}", response_model=SessionDetail)
 async def get_session(session_id: UUID, session: TenantDb, principal: CanServe) -> SessionDetail:
     return await service.get_session(session, principal, session_id)
+
+
+@router.get("/sessions/{session_id}/messages", response_model=MessagePage)
+async def session_messages(
+    session_id: UUID,
+    session: TenantDb,
+    principal: CanServe,
+    before: Annotated[UUID | None, Query(description="上一页最后一条消息的 id")] = None,
+    limit: Annotated[int, Query(ge=1, le=100)] = 50,
+) -> MessagePage:
+    """这个会话里的消息（按发送时间倒序），用于查看会话记录。"""
+    chat, *_ = await service.visible_session(session, principal, session_id)
+    return await message_page(session, Message.session_id == chat.id, before=before, limit=limit)
 
 
 @router.post("/sessions/{session_id}/close", response_model=SessionOut)

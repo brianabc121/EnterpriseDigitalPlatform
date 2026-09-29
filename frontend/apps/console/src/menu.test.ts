@@ -23,7 +23,14 @@ describe('visibleMenus', () => {
   })
 
   it('shows agents only their working menus', () => {
-    expect(names(AGENT)).toEqual(['dashboard', 'workbench', 'customers', 'knowledge'])
+    expect(names(AGENT)).toEqual([
+      'dashboard',
+      'workbench',
+      'sessions',
+      'tickets',
+      'customers',
+      'knowledge',
+    ])
   })
 
   it('shows knowledge managers only knowledge menus', () => {

@@ -4,6 +4,7 @@ import { computed, nextTick, ref, watch } from 'vue'
 
 import { useWorkbenchStore } from '../../stores/workbench'
 import type { WorkbenchMessage } from '../../workbench/messages'
+import MessageContent from '../chat/MessageContent.vue'
 import { IMAGE_TYPES, MAX_FILE_BYTES, MAX_IMAGE_BYTES } from '../../workbench/upload'
 import QuickReplies from './QuickReplies.vue'
 import TransferDialog from './TransferDialog.vue'
@@ -53,13 +54,6 @@ function senderLabel(m: WorkbenchMessage): string {
   if (m.senderType === 'agent') return m.senderName ?? '客服'
   if (m.senderType === 'customer') return session.value?.customer_display_name ?? LABEL.customer!
   return LABEL[m.senderType] ?? ''
-}
-
-function formatSize(size: number | null): string {
-  if (!size) return ''
-  return size >= 1024 * 1024
-    ? `${(size / 1024 / 1024).toFixed(1)} MB`
-    : `${Math.ceil(size / 1024)} KB`
 }
 
 function time(m: WorkbenchMessage): string {
@@ -204,30 +198,7 @@ function insert(text: string): void {
           </template>
           <template v-else>
             <div class="meta">{{ senderLabel(m) }} · {{ time(m) }}</div>
-            <div class="bubble">
-              <el-image
-                v-if="m.contentType === 'image' && m.attachment"
-                :src="m.attachment.url"
-                :preview-src-list="[m.attachment.url]"
-                preview-teleported
-                fit="contain"
-                class="image"
-                data-testid="message-image"
-              />
-              <a
-                v-else-if="m.contentType === 'file' && m.attachment"
-                :href="m.attachment.url"
-                target="_blank"
-                rel="noopener"
-                class="file"
-                data-testid="message-file"
-              >
-                <span class="file-name">{{ m.attachment.name ?? '文件' }}</span>
-                <small>{{ formatSize(m.attachment.size) }}</small>
-              </a>
-              <template v-else-if="m.text !== null">{{ m.text }}</template>
-              <span v-else class="unsupported">[{{ m.contentType }}]</span>
-            </div>
+            <div class="bubble"><MessageContent :message="m" /></div>
             <div v-if="m.status === 'pending'" class="status">发送中…</div>
             <div v-else-if="m.status === 'failed'" class="status failed">
               发送失败
@@ -377,10 +348,6 @@ function insert(text: string): void {
   border-radius: 10px;
 }
 
-.unsupported {
-  color: var(--el-text-color-secondary);
-}
-
 .composer {
   border-top: 1px solid var(--el-border-color-lighter);
   padding: 8px 12px 12px;
@@ -390,30 +357,6 @@ function insert(text: string): void {
   display: flex;
   gap: 8px;
   margin-bottom: 6px;
-}
-
-.image {
-  display: block;
-  max-width: 240px;
-  max-height: 240px;
-  cursor: zoom-in;
-}
-
-.file {
-  display: flex;
-  flex-direction: column;
-  min-width: 160px;
-  color: var(--el-color-primary);
-  text-decoration: none;
-}
-
-.file-name {
-  font-weight: 500;
-  word-break: break-all;
-}
-
-.file small {
-  color: var(--el-text-color-secondary);
 }
 
 .actions {

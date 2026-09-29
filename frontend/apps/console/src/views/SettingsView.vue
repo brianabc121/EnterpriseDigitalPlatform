@@ -1,8 +1,15 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 
+import AgentsTab from '../components/settings/AgentsTab.vue'
 import ChannelsTab from '../components/settings/ChannelsTab.vue'
+import RoutingPoliciesTab from '../components/settings/RoutingPoliciesTab.vue'
+import SkillGroupsTab from '../components/settings/SkillGroupsTab.vue'
+import UsageTab from '../components/settings/UsageTab.vue'
+import { useAuthStore } from '../stores/auth'
 
+const auth = useAuthStore()
+const canRoute = computed(() => auth.can('routing:manage'))
 const tab = ref('channels')
 </script>
 
@@ -15,20 +22,18 @@ const tab = ref('channels')
       <el-tab-pane label="接入渠道" name="channels" lazy>
         <ChannelsTab />
       </el-tab-pane>
+      <el-tab-pane v-if="canRoute" label="技能组" name="groups" lazy>
+        <SkillGroupsTab />
+      </el-tab-pane>
+      <el-tab-pane v-if="canRoute" label="路由策略" name="policies" lazy>
+        <RoutingPoliciesTab />
+      </el-tab-pane>
+      <el-tab-pane v-if="canRoute" label="坐席" name="agents" lazy>
+        <AgentsTab />
+      </el-tab-pane>
+      <el-tab-pane label="用量" name="usage" lazy>
+        <UsageTab />
+      </el-tab-pane>
     </el-tabs>
   </div>
 </template>
-
-<style scoped>
-.page-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 8px;
-}
-
-.page-header h2 {
-  margin: 0;
-  font-size: 18px;
-}
-</style>

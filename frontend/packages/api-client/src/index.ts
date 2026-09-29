@@ -5,6 +5,7 @@ import type { components, paths } from './schema'
 
 export { createAuthFetch, memoryTokenStore, type AuthFetchOptions, type TokenStore } from './auth-fetch'
 export type { components, paths }
+export { formatUsage, totalHint } from './usage'
 
 export type Schemas = components['schemas']
 export type Permission = Schemas['Permission']

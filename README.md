@@ -55,8 +55,10 @@ make widget-dev      # 访客 Widget：http://localhost:5175/?key=<渠道 key>
 `cd backend && uv run python -m app.cli storage-init` 创建存储桶。
 
 访客的第一条消息会开启一个会话，按路由策略排队并分配给在线坐席：坐席登录控制台后进入"工作台"即自动上线，
-在工作台里接待、使用快捷话术、编辑客户资料、转接或结束会话。技能组、路由策略（工作时间、排队超时、
-空闲结束）和坐席并发在 `/api/v1/skill-groups`、`/api/v1/routing-policies`、`/api/v1/agents` 配置。
+在工作台里接待、使用快捷话术、编辑客户资料、转接或结束会话。管理员在"设置"里配置技能组、路由策略
+（工作时间、排队超时、空闲结束、会话续接）和坐席并发，在"会话记录""留言""报表"里查看服务情况，
+在"设置 → 用量"里查看每日用量；运营后台的租户列表显示各租户用量。用量由调度进程每 10 分钟汇总，
+也可以执行 `cd backend && uv run python -m app.cli usage-rollup` 立即汇总（`--day`、`--to` 补算历史日期）。
 
 默认配置适用于本地环境；需要修改时，把 `backend/.env.example` 复制为 `backend/.env`。
 OpenIM 的镜像名都可以用环境变量替换（见 `deploy/compose/openim/docker-compose.yml`），便于使用镜像加速地址。
@@ -72,6 +74,9 @@ make frontend-build
 - 后端接口变更后执行 `make openapi`，重新导出 `openapi.json` 并生成前端类型（CI 会检查两者是否一致）。
 - `backend/tests/test_openim_contract.py` 同时验证内存版 OpenIM 和真实 OpenIM 的行为是否一致：
   `make im-up` 之后执行 `cd backend && EDP_TEST_OPENIM_URL=http://localhost:10002 uv run pytest tests/test_openim_contract.py`。
+- `backend/tests/test_storage_contract.py` 用真实的 S3 兼容服务验证对象存储签名与接口：
+  `make dev-up` 之后执行 `cd backend && EDP_TEST_STORAGE_URL=http://localhost:9000 uv run pytest tests/test_storage_contract.py`。
+- `backend/tests/test_authz_matrix.py` 是越权矩阵：新增带 ID 的接口需要加入其中的 `MATRIX`，否则测试失败。
 
 ### 浏览器验收
 
@@ -90,6 +95,9 @@ make frontend-build
   Widget 和 OpenIM。
 - **P1 M5**（`scripts/e2e/m5-transfer-acceptance.cjs`）：坐席 A 把会话转接给坐席 B，B 接受后看到完整历史，
   A 不再看到这个客户、已被移出服务群。前置同上。
+- **P1 M6**（`scripts/e2e/m6-admin-acceptance.cjs`）：管理员在界面上配置技能组、路由策略（含工作时间）、
+  渠道策略和坐席并发；访客按技能组和并发上限分配；处理留言；检查会话记录、用量、报表、首页实时数据和
+  运营后台的租户用量。前置同上，另外还需要运营后台（汇总用量时会执行 `app.cli usage-rollup`）。
 - **P1 M3**（`scripts/e2e/m3-widget-acceptance.cjs`）：管理员在控制台完成 Widget 设置；脚本起一个"客户网站"
   （端口 5176）用 `embed.js` 嵌入 Widget 并为会员签名。检查实名访客与换设备续接、欢迎语与隐私提示、
   双方收发图片和文件、收起时的未读角标、满意度评价、留言、未授权网站被拒绝。前置同上，另需 MinIO。
@@ -98,6 +106,7 @@ make frontend-build
   NODE_PATH=$(npm root -g) PLATFORM_PASSWORD=<平台账号密码> node scripts/e2e/m4-workbench-acceptance.cjs
   NODE_PATH=$(npm root -g) PLATFORM_PASSWORD=<平台账号密码> node scripts/e2e/m5-transfer-acceptance.cjs
   NODE_PATH=$(npm root -g) PLATFORM_PASSWORD=<平台账号密码> node scripts/e2e/m3-widget-acceptance.cjs
+  NODE_PATH=$(npm root -g) PLATFORM_PASSWORD=<平台账号密码> node scripts/e2e/m6-admin-acceptance.cjs
   ```
 
 - **P1 M1**（`scripts/e2e/m1-im-acceptance.cjs`）：访客在 Widget 里发消息、实时收到机器人回复，消息经回调入库；

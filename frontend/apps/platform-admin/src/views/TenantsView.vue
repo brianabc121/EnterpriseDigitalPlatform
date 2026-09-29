@@ -1,14 +1,26 @@
 <script setup lang="ts">
-import { errorMessage, type Schemas } from '@edp/api-client'
+import { errorMessage, formatUsage, type Schemas } from '@edp/api-client'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 
 import { api, formatDateTime } from '../api'
+import TenantUsageDrawer from '../components/TenantUsageDrawer.vue'
 
 type Tenant = Schemas['TenantOut']
 
 const tenants = ref<Tenant[]>([])
+const usage = ref<Schemas['TenantUsageList'] | null>(null)
+const usageOf = ref<Tenant | null>(null)
 const loading = ref(false)
+
+/** 列表里展示的用量（最近 30 天）。 */
+const USAGE_COLUMNS = ['seats', 'messages_in', 'human_sessions', 'file_bytes']
+const usageColumns = computed(() =>
+  (usage.value?.metrics ?? []).filter((m) => USAGE_COLUMNS.includes(m.key)),
+)
+const totals = computed(
+  () => new Map((usage.value?.items ?? []).map((item) => [item.tenant_id, item.totals])),
+)
 const dialogVisible = ref(false)
 const saving = ref(false)
 const form = reactive({
@@ -21,13 +33,17 @@ const form = reactive({
 
 async function load(): Promise<void> {
   loading.value = true
-  const { data, error } = await api.GET('/platform/v1/tenants')
+  const [list, summary] = await Promise.all([
+    api.GET('/platform/v1/tenants'),
+    api.GET('/platform/v1/usage'),
+  ])
   loading.value = false
-  if (!data) {
-    ElMessage.error(errorMessage(error))
+  if (!list.data) {
+    ElMessage.error(errorMessage(list.error))
     return
   }
-  tenants.value = data.items
+  tenants.value = list.data.items
+  usage.value = summary.data ?? null
 }
 
 function openCreate(): void {
@@ -104,17 +120,30 @@ onMounted(load)
           </el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="开通时间" width="200">
+      <el-table-column label="开通时间" width="180">
         <template #default="{ row }">{{ formatDateTime(row.created_at) }}</template>
       </el-table-column>
-      <el-table-column label="操作" width="120">
+      <el-table-column
+        v-for="m in usageColumns"
+        :key="m.key"
+        :label="m.kind === 'snapshot' ? m.label : `近 30 天${m.label}`"
+        min-width="120"
+      >
+        <template #default="{ row }">{{ formatUsage(m, totals.get(row.id)?.[m.key]) }}</template>
+      </el-table-column>
+      <el-table-column label="操作" width="140">
         <template #default="{ row }">
+          <el-button link type="primary" data-testid="tenant-usage-button" @click="usageOf = row">
+            用量
+          </el-button>
           <el-button link :type="row.status === 'active' ? 'danger' : 'primary'" @click="toggleStatus(row)">
             {{ row.status === 'active' ? '停用' : '启用' }}
           </el-button>
         </template>
       </el-table-column>
     </el-table>
+
+    <TenantUsageDrawer :tenant="usageOf" @close="usageOf = null" />
 
     <el-dialog v-model="dialogVisible" title="开通租户" width="480px">
       <el-form label-width="96px" @submit.prevent="create">

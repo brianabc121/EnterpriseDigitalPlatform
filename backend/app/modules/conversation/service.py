@@ -2,7 +2,7 @@
 
 from uuid import UUID
 
-from sqlalchemy import Select, and_, func, or_, select, tuple_
+from sqlalchemy import ColumnElement, Select, and_, func, or_, select, tuple_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import NotFound
@@ -72,11 +72,16 @@ async def list_messages(
     if room is None:
         raise NotFound(ROOM_NOT_FOUND)
 
-    query = select(Message).where(Message.room_id == room_id)
+    return await message_page(session, Message.room_id == room_id, before=before, limit=limit)
+
+
+async def message_page(
+    session: AsyncSession, scope: ColumnElement[bool], *, before: UUID | None, limit: int
+) -> MessagePage:
+    """按发送时间倒序分页：scope 限定范围（某个 Room 或某个会话），before 为上一页最后一条的 id。"""
+    query = select(Message).where(scope)
     if before is not None:
-        anchor = await session.scalar(
-            select(Message.sent_at).where(Message.room_id == room_id, Message.id == before)
-        )
+        anchor = await session.scalar(select(Message.sent_at).where(scope, Message.id == before))
         if anchor is None:
             raise NotFound("消息不存在")
         query = query.where(

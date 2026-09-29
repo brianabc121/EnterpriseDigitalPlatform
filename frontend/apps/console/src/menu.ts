@@ -1,6 +1,15 @@
 import type { Permission } from '@edp/api-client'
 
-export type MenuIcon = 'home' | 'chat' | 'user' | 'reading' | 'avatar' | 'chart' | 'setting'
+export type MenuIcon =
+  | 'home'
+  | 'chat'
+  | 'history'
+  | 'ticket'
+  | 'user'
+  | 'reading'
+  | 'avatar'
+  | 'chart'
+  | 'setting'
 
 export interface MenuItem {
   name: string
@@ -15,6 +24,8 @@ export interface MenuItem {
 export const MENU: readonly MenuItem[] = [
   { name: 'dashboard', path: '/', title: '首页', icon: 'home', permission: 'dashboard:view' },
   { name: 'workbench', path: '/workbench', title: '工作台', icon: 'chat', permission: 'workbench:use' },
+  { name: 'sessions', path: '/sessions', title: '会话记录', icon: 'history', permission: 'workbench:use' },
+  { name: 'tickets', path: '/tickets', title: '留言', icon: 'ticket', permission: 'workbench:use' },
   { name: 'customers', path: '/customers', title: '客户', icon: 'user', permission: 'customer:read' },
   { name: 'knowledge', path: '/knowledge', title: '知识库', icon: 'reading', permission: 'kb:read' },
   { name: 'staff', path: '/staff', title: '员工', icon: 'avatar', permission: 'staff:read' },

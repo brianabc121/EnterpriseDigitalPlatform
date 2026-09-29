@@ -15,19 +15,26 @@ const policies = ref<Schemas['RoutingPolicyOut'][]>([])
 const loading = ref(false)
 const editing = ref<Channel | null>(null)
 
+async function loadPolicies(): Promise<void> {
+  const { data } = await api.GET('/api/v1/routing-policies')
+  policies.value = data?.items ?? []
+}
+
 async function load(): Promise<void> {
   loading.value = true
-  const [channelRes, policyRes] = await Promise.all([
-    api.GET('/api/v1/channels'),
-    api.GET('/api/v1/routing-policies'),
-  ])
+  const [channelRes] = await Promise.all([api.GET('/api/v1/channels'), loadPolicies()])
   loading.value = false
   if (!channelRes.data) {
     ElMessage.error(errorMessage(channelRes.error))
     return
   }
   channels.value = channelRes.data.items
-  policies.value = policyRes.data?.items ?? []
+}
+
+/** 打开设置时刷新路由策略：可能刚在"路由策略"页签里新建过。 */
+async function edit(channel: Channel): Promise<void> {
+  await loadPolicies()
+  editing.value = channel
 }
 
 function policyName(channel: Channel): string {
@@ -105,7 +112,7 @@ onMounted(load)
             link
             type="primary"
             :data-testid="`edit-channel-${row.name}`"
-            @click="editing = row"
+            @click="edit(row)"
           >
             设置
           </el-button>

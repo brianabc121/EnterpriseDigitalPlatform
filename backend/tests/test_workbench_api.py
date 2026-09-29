@@ -126,3 +126,20 @@ async def test_quick_replies(desk: Desk) -> None:
     ).status_code == 204
     listed = (await desk.client.get("/api/v1/quick-replies", headers=alice.headers)).json()["items"]
     assert [r["title"] for r in listed] == ["问候"]
+
+
+async def test_session_messages_are_limited_to_that_session(desk: Desk) -> None:
+    alice = await desk.agent("alice")
+    visitor = await desk.visitor()
+    await desk.say(visitor, "第一次")
+    first = await desk.session_of(visitor)
+    await desk.client.post(f"/api/v1/sessions/{first['id']}/close", headers=alice.headers)
+    await desk.flush()
+    await desk.say(visitor, "第二次")
+    second = await desk.session_of(visitor)
+
+    page = await desk.client.get(f"/api/v1/sessions/{second['id']}/messages", headers=alice.headers)
+
+    assert page.status_code == 200, page.text
+    texts = [m["text_plain"] for m in page.json()["items"] if m["sender_type"] == "customer"]
+    assert texts == ["第二次"]

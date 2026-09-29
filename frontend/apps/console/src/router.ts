@@ -1,5 +1,10 @@
 import type { Permission } from '@edp/api-client'
-import { createRouter, createWebHistory, type RouteComponent, type RouteRecordRaw } from 'vue-router'
+import {
+  createRouter,
+  createWebHistory,
+  type RouteComponent,
+  type RouteRecordRaw,
+} from 'vue-router'
 
 import { onUnauthorized } from './api'
 import MainLayout from './layouts/MainLayout.vue'
@@ -20,8 +25,11 @@ const Placeholder: LazyView = () => import('./views/PlaceholderView.vue')
 const VIEWS: Record<string, LazyView> = {
   dashboard: () => import('./views/DashboardView.vue'),
   workbench: () => import('./views/WorkbenchView.vue'),
+  sessions: () => import('./views/SessionsView.vue'),
+  tickets: () => import('./views/TicketsView.vue'),
   customers: () => import('./views/CustomersView.vue'),
   staff: () => import('./views/StaffView.vue'),
+  reports: () => import('./views/ReportsView.vue'),
   settings: () => import('./views/SettingsView.vue'),
 }
 
@@ -66,7 +74,9 @@ router.beforeEach(async (to) => {
   const auth = useAuthStore()
   await auth.restore()
   if (to.meta.public) {
-    return to.name === 'login' && auth.isAuthenticated ? firstAccessiblePath(auth.permissions) : true
+    return to.name === 'login' && auth.isAuthenticated
+      ? firstAccessiblePath(auth.permissions)
+      : true
   }
   if (!auth.isAuthenticated) return { name: 'login', query: { redirect: to.fullPath } }
   if (to.meta.permission && !auth.can(to.meta.permission)) return { name: 'forbidden' }
