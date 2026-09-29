@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.context import AppContext
 from app.integrations.llm import LLMUnavailable
 from app.modules.ai import gateway, pii, prompts
+from app.modules.ai.models import AiSuggestion
 from app.modules.ai.prompts import Passage, Turn
 from app.modules.ai.schemas import KnowledgeRef, SuggestionList
 from app.modules.conversation.models import Message, SenderType
@@ -78,7 +79,7 @@ async def suggest(
     ]
     fallback = [h.text for h in hits][:MAX_SUGGESTIONS]
     if not ctx.llm.enabled:
-        return SuggestionList(suggestions=fallback, knowledge=knowledge)
+        return await _logged(session, principal, chat.id, fallback, knowledge)
     mapping: dict[str, str] = {}
     masked = [Turn(t.role, pii.mask(t.text, mapping)[0]) for t in history[: asked[-1]]]
     passages = [
@@ -98,6 +99,27 @@ async def suggest(
             session_id=chat.id,
         )
     except LLMUnavailable:
-        return SuggestionList(suggestions=fallback, knowledge=knowledge)
+        return await _logged(session, principal, chat.id, fallback, knowledge)
     suggestions = [pii.unmask(s, mapping) for s in _parse(result.content)] or fallback
+    return await _logged(session, principal, chat.id, suggestions, knowledge)
+
+
+async def _logged(
+    session: AsyncSession,
+    principal: Principal,
+    session_id: uuid.UUID,
+    suggestions: list[str],
+    knowledge: list[KnowledgeRef],
+) -> SuggestionList:
+    """记下这次建议（统计采纳率：坐席发送时标明来源为 AI 建议）。"""
+    if suggestions:
+        session.add(
+            AiSuggestion(
+                tenant_id=principal.tenant_id,
+                session_id=session_id,
+                staff_id=principal.staff_id,
+                suggestions=suggestions,
+            )
+        )
+        await session.commit()
     return SuggestionList(suggestions=suggestions, knowledge=knowledge)

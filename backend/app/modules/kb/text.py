@@ -28,6 +28,14 @@ def terms(text: str) -> list[str]:
     return sorted(found)
 
 
+_PUNCT = re.compile(r"[\s，,。.？?！!、：:；;“”\"'（）()]")
+
+
+def normalize(text: str) -> str:
+    """比较问法是否相同：去掉空白和标点，统一小写。"""
+    return _PUNCT.sub("", text).lower()
+
+
 def similarity(a: str, b: str) -> float:
     """两段文本词项的 Jaccard 相似度（0 到 1）。"""
     left, right = set(terms(a)), set(terms(b))

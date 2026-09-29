@@ -374,6 +374,144 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/kb/candidates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Candidates
+         * @description 从会话提炼的候选。待审的按出现次数和最近出现时间排序。
+         */
+        get: operations["list_candidates_api_v1_kb_candidates_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/kb/candidates/{candidate_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Candidate Detail */
+        get: operations["candidate_detail_api_v1_kb_candidates__candidate_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/kb/candidates/{candidate_id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Approve Candidate
+         * @description 通过：新问题和缺口新建为问答并发布；相似问法并入原问答；冲突用新答案更新原问答。
+         */
+        post: operations["approve_candidate_api_v1_kb_candidates__candidate_id__approve_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/kb/candidates/{candidate_id}/merge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Merge Candidate
+         * @description 合并到选定的已有知识：并入问法，可以同时替换答案。
+         */
+        post: operations["merge_candidate_api_v1_kb_candidates__candidate_id__merge_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/kb/candidates/{candidate_id}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reject Candidate */
+        post: operations["reject_candidate_api_v1_kb_candidates__candidate_id__reject_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/kb/digests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Digests
+         * @description 知识周报，最近的在前。
+         */
+        get: operations["list_digests_api_v1_kb_digests_get"];
+        put?: never;
+        /**
+         * Generate Digest
+         * @description 立即生成（或重新生成）某一周的周报，默认本周（平时每周一自动生成上一周的）。
+         */
+        post: operations["generate_digest_api_v1_kb_digests_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/kb/feed": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Knowledge Feed
+         * @description 知识动态：待我确认的必读知识，以及最近发布、更新的知识。
+         */
+        get: operations["knowledge_feed_api_v1_kb_feed_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/kb/import": {
         parameters: {
             query?: never;
@@ -454,6 +592,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/kb/items/{item_id}/feedback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Feedback
+         * @description 评价知识是否有用。
+         */
+        post: operations["feedback_api_v1_kb_items__item_id__feedback_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/kb/items/{item_id}/publish": {
         parameters: {
             query?: never;
@@ -465,6 +623,106 @@ export interface paths {
         put?: never;
         /** Publish Item */
         post: operations["publish_item_api_v1_kb_items__item_id__publish_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/kb/items/{item_id}/read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirm Read
+         * @description 确认已读必读知识的当前版本。
+         */
+        post: operations["confirm_read_api_v1_kb_items__item_id__read_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/kb/items/{item_id}/reads": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Stats
+         * @description 必读确认情况：当前版本有哪些员工已确认。
+         */
+        get: operations["read_stats_api_v1_kb_items__item_id__reads_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/kb/items/{item_id}/versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Item Versions
+         * @description 历次发布的内容，最新的在前。
+         */
+        get: operations["item_versions_api_v1_kb_items__item_id__versions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/kb/items/{item_id}/versions/{version}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Restore Version
+         * @description 回滚：把历史版本的内容作为新版本发布。
+         */
+        post: operations["restore_version_api_v1_kb_items__item_id__versions__version__restore_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/kb/metrics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Knowledge Metrics
+         * @description 知识命中率、转人工原因、缺口与关闭时长、候选通过率、AI 建议采纳率、长期未命中与差评知识。
+         */
+        get: operations["knowledge_metrics_api_v1_kb_metrics_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1601,6 +1859,11 @@ export interface components {
         };
         /** AiSettingsOut */
         AiSettingsOut: {
+            /**
+             * Auto Merge Similar
+             * @description 相似问法证据足够多（3 条以上）时自动并入原问答，不经审核
+             */
+            auto_merge_similar: boolean;
             /** Bot Name */
             bot_name: string;
             /**
@@ -1613,6 +1876,11 @@ export interface components {
              * @description 启用 AI 接待（路由策略为 AI 优先的渠道生效）
              */
             enabled: boolean;
+            /**
+             * Extraction Enabled
+             * @description 自动从已结束的会话提炼知识候选（需要大模型）
+             */
+            extraction_enabled: boolean;
             /**
              * Handoff Keywords
              * @description 除内置词外，客户说这些词时立即转人工
@@ -1658,10 +1926,14 @@ export interface components {
         };
         /** AiSettingsUpdate */
         AiSettingsUpdate: {
+            /** Auto Merge Similar */
+            auto_merge_similar?: boolean | null;
             /** Bot Name */
             bot_name?: string | null;
             /** Enabled */
             enabled?: boolean | null;
+            /** Extraction Enabled */
+            extraction_enabled?: boolean | null;
             /** Handoff Keywords */
             handoff_keywords?: string[] | null;
             /** Handoff Threshold */
@@ -2098,6 +2370,351 @@ export interface components {
             /** Ws Url */
             ws_url: string;
         };
+        /**
+         * KbCandidateApprove
+         * @description 通过（可以先编辑）。新问题、缺口新建为问答；相似问法并入原问答；冲突用答案更新原问答。
+         */
+        KbCandidateApprove: {
+            /** Answer */
+            answer?: string | null;
+            /** Category */
+            category?: string | null;
+            /** Question */
+            question?: string | null;
+            /**
+             * Visibility
+             * @description 新建时的可见范围；agent 为仅坐席可见
+             */
+            visibility?: ("public" | "agent") | null;
+        };
+        /** KbCandidateDetail */
+        KbCandidateDetail: {
+            /** Answer */
+            answer: string | null;
+            /** Category */
+            category: string;
+            /**
+             * Confidence
+             * @description 提炼时模型给出的把握
+             */
+            confidence: number | null;
+            /** Evidence */
+            evidence: components["schemas"]["KbEvidence"][];
+            /**
+             * First Seen At
+             * Format: date-time
+             */
+            first_seen_at: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Kind
+             * @description new 新问题、similar 相似问法、conflict 答案冲突、gap 知识缺口
+             */
+            kind: string;
+            /**
+             * Last Seen At
+             * Format: date-time
+             */
+            last_seen_at: string;
+            /** Model */
+            model: string | null;
+            /**
+             * Occurrences
+             * @description 出现次数（相似的候选聚为一类）
+             */
+            occurrences: number;
+            /** Prompt Version */
+            prompt_version: string | null;
+            /** Question */
+            question: string;
+            /**
+             * Recent
+             * @description 最近 7 天出现的次数
+             */
+            recent: number;
+            /** Result Item Id */
+            result_item_id: string | null;
+            /** Review Note */
+            review_note: string | null;
+            /** Reviewed At */
+            reviewed_at: string | null;
+            /** Reviewed By Name */
+            reviewed_by_name: string | null;
+            /**
+             * Similar
+             * @description 相似的已有知识
+             */
+            similar: components["schemas"]["KbSearchHit"][];
+            /**
+             * Similarity
+             * @description 与已有知识的相关度
+             */
+            similarity: number | null;
+            /**
+             * Status
+             * @description pending、approved、merged、rejected
+             */
+            status: string;
+            target: components["schemas"]["KbItemOut"] | null;
+            /**
+             * Target Item Id
+             * @description 相似或冲突时对应的已有知识
+             */
+            target_item_id: string | null;
+            /** Target Title */
+            target_title: string | null;
+            /**
+             * Time Sensitive
+             * @description 活动、价格等会过期的信息
+             */
+            time_sensitive: boolean;
+            /**
+             * Variants
+             * @description 出现过的问法
+             */
+            variants: string[];
+        };
+        /** KbCandidateMerge */
+        KbCandidateMerge: {
+            /**
+             * Answer
+             * @description 同时替换原知识的答案
+             */
+            answer?: string | null;
+            /**
+             * Item Id
+             * Format: uuid
+             * @description 合并到的已有知识
+             */
+            item_id: string;
+        };
+        /** KbCandidateOut */
+        KbCandidateOut: {
+            /** Answer */
+            answer: string | null;
+            /** Category */
+            category: string;
+            /**
+             * Confidence
+             * @description 提炼时模型给出的把握
+             */
+            confidence: number | null;
+            /**
+             * First Seen At
+             * Format: date-time
+             */
+            first_seen_at: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Kind
+             * @description new 新问题、similar 相似问法、conflict 答案冲突、gap 知识缺口
+             */
+            kind: string;
+            /**
+             * Last Seen At
+             * Format: date-time
+             */
+            last_seen_at: string;
+            /** Model */
+            model: string | null;
+            /**
+             * Occurrences
+             * @description 出现次数（相似的候选聚为一类）
+             */
+            occurrences: number;
+            /** Prompt Version */
+            prompt_version: string | null;
+            /** Question */
+            question: string;
+            /**
+             * Recent
+             * @description 最近 7 天出现的次数
+             */
+            recent: number;
+            /** Result Item Id */
+            result_item_id: string | null;
+            /** Review Note */
+            review_note: string | null;
+            /** Reviewed At */
+            reviewed_at: string | null;
+            /** Reviewed By Name */
+            reviewed_by_name: string | null;
+            /**
+             * Similarity
+             * @description 与已有知识的相关度
+             */
+            similarity: number | null;
+            /**
+             * Status
+             * @description pending、approved、merged、rejected
+             */
+            status: string;
+            /**
+             * Target Item Id
+             * @description 相似或冲突时对应的已有知识
+             */
+            target_item_id: string | null;
+            /** Target Title */
+            target_title: string | null;
+            /**
+             * Time Sensitive
+             * @description 活动、价格等会过期的信息
+             */
+            time_sensitive: boolean;
+            /**
+             * Variants
+             * @description 出现过的问法
+             */
+            variants: string[];
+        };
+        /** KbCandidatePage */
+        KbCandidatePage: {
+            /** Items */
+            items: components["schemas"]["KbCandidateOut"][];
+            /**
+             * Pending
+             * @description 各类待审候选的数量
+             */
+            pending: {
+                [key: string]: number;
+            };
+            /** Total */
+            total: number;
+        };
+        /** KbCandidateReject */
+        KbCandidateReject: {
+            /**
+             * Reason
+             * @description 驳回理由（用于改进提炼）
+             */
+            reason: string;
+        };
+        /** KbDigestList */
+        KbDigestList: {
+            /** Items */
+            items: components["schemas"]["KbDigestOut"][];
+        };
+        /** KbDigestOut */
+        KbDigestOut: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Data */
+            data: {
+                [key: string]: unknown;
+            };
+            /**
+             * Week Start
+             * Format: date
+             */
+            week_start: string;
+        };
+        /** KbDigestRequest */
+        KbDigestRequest: {
+            /**
+             * Week Start
+             * @description 这一周中的任意一天，默认本周
+             */
+            week_start?: string | null;
+        };
+        /**
+         * KbEvidence
+         * @description 一段证据对话（提炼时已脱敏）。
+         */
+        KbEvidence: {
+            /** Lines */
+            lines: components["schemas"]["KbEvidenceLine"][];
+            /** Question */
+            question?: string | null;
+            /**
+             * Seen At
+             * Format: date-time
+             */
+            seen_at: string;
+            /**
+             * Session Id
+             * Format: uuid
+             */
+            session_id: string;
+        };
+        /** KbEvidenceLine */
+        KbEvidenceLine: {
+            /** Role */
+            role: string;
+            /** Text */
+            text: string;
+        };
+        /**
+         * KbFeed
+         * @description 知识动态（设计 §12.6）：待我确认的必读知识，以及最近发布和更新的知识。
+         */
+        KbFeed: {
+            /** Events */
+            events: components["schemas"]["KbFeedEvent"][];
+            /** Must Read */
+            must_read: components["schemas"]["KbFeedEvent"][];
+        };
+        /** KbFeedEvent */
+        KbFeedEvent: {
+            /** Change */
+            change: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Item Id
+             * Format: uuid
+             */
+            item_id: string;
+            /** Kind */
+            kind: string;
+            /**
+             * Must Read
+             * @description 这条知识目前是必读
+             */
+            must_read: boolean;
+            /** Note */
+            note: string | null;
+            /**
+             * Read
+             * @description 我已确认当前版本（非必读时总为 true）
+             */
+            read: boolean;
+            /** Title */
+            title: string;
+            /** Version */
+            version: number;
+        };
+        /** KbFeedbackOut */
+        KbFeedbackOut: {
+            /** Dislikes */
+            dislikes: number;
+            /** Likes */
+            likes: number;
+            /** Mine */
+            mine: number;
+        };
+        /** KbFeedbackRequest */
+        KbFeedbackRequest: {
+            /**
+             * Value
+             * @description 1 有用，-1 没用，0 取消评价
+             * @enum {integer}
+             */
+            value: -1 | 0 | 1;
+        };
         /** KbImportRequest */
         KbImportRequest: {
             /**
@@ -2141,6 +2758,12 @@ export interface components {
              */
             kind: "faq" | "doc";
             /**
+             * Must Read
+             * @description 必读：发布或更新后坐席需要确认已读
+             * @default false
+             */
+            must_read: boolean;
+            /**
              * Publish
              * @description 创建后立即发布（需要 kb:publish）
              * @default false
@@ -2172,6 +2795,8 @@ export interface components {
         };
         /** KbItemOut */
         KbItemOut: {
+            /** Archived At */
+            archived_at: string | null;
             /** Category */
             category: string;
             /** Content */
@@ -2181,6 +2806,11 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+            /**
+             * Dislikes
+             * @description 员工评价为没用的人数
+             */
+            dislikes: number;
             /**
              * Hits
              * @description 被 AI 或坐席引用的次数
@@ -2195,6 +2825,13 @@ export interface components {
             kind: string;
             /** Last Hit At */
             last_hit_at: string | null;
+            /**
+             * Likes
+             * @description 员工评价为有用的人数
+             */
+            likes: number;
+            /** Must Read */
+            must_read: boolean;
             /** Published At */
             published_at: string | null;
             /** Questions */
@@ -2231,12 +2868,29 @@ export interface components {
             /** Total */
             total: number;
         };
+        /** KbItemStat */
+        KbItemStat: {
+            /**
+             * Count
+             * @description 被引用次数，或评价为没用的人数
+             */
+            count: number;
+            /**
+             * Item Id
+             * Format: uuid
+             */
+            item_id: string;
+            /** Title */
+            title: string;
+        };
         /** KbItemUpdate */
         KbItemUpdate: {
             /** Category */
             category?: string | null;
             /** Content */
             content?: string | null;
+            /** Must Read */
+            must_read?: boolean | null;
             /** Questions */
             questions?: string[] | null;
             /** Tags */
@@ -2249,6 +2903,132 @@ export interface components {
             valid_to?: string | null;
             /** Visibility */
             visibility?: ("public" | "agent" | "admin") | null;
+        };
+        /**
+         * KbMetrics
+         * @description 知识运营指标（设计 §12.7）。时间范围内的统计；缺口、长期未命中为当前数量。
+         */
+        KbMetrics: {
+            /** Adoption Rate */
+            adoption_rate: number | null;
+            /**
+             * Ai Replies
+             * @description AI 回复的轮数
+             */
+            ai_replies: number;
+            /**
+             * Candidates Accepted
+             * @description 通过或合并的候选
+             */
+            candidates_accepted: number;
+            /** Candidates New */
+            candidates_new: number;
+            /** Candidates Reviewed */
+            candidates_reviewed: number;
+            /**
+             * Disliked Items
+             * @description 评价为没用最多的知识
+             */
+            disliked_items: components["schemas"]["KbItemStat"][];
+            /**
+             * End
+             * Format: date
+             */
+            end: string;
+            /**
+             * Gap Close Hours
+             * @description 缺口从首次出现到处理的平均小时数
+             */
+            gap_close_hours: number | null;
+            /** Gaps Closed */
+            gaps_closed: number;
+            /** Gaps New */
+            gaps_new: number;
+            /**
+             * Gaps Open
+             * @description 待处理的知识缺口
+             */
+            gaps_open: number;
+            /**
+             * Handoff Reasons
+             * @description AI 转人工的原因分布
+             */
+            handoff_reasons: components["schemas"]["KbReasonCount"][];
+            /**
+             * Knowledge Hit Rate
+             * @description 知识命中率：AI 回复时引用了知识的比例
+             */
+            knowledge_hit_rate: number | null;
+            /**
+             * Pass Rate
+             * @description 候选通过率
+             */
+            pass_rate: number | null;
+            /**
+             * Stale Items
+             * @description 长期未命中的知识
+             */
+            stale_items: number;
+            /**
+             * Start
+             * Format: date
+             */
+            start: string;
+            /**
+             * Suggestions
+             * @description 坐席请求 AI 建议的次数
+             */
+            suggestions: number;
+            /**
+             * Suggestions Adopted
+             * @description 坐席采用 AI 建议发出的消息
+             */
+            suggestions_adopted: number;
+            /** Timezone */
+            timezone: string;
+            /**
+             * Top Items
+             * @description AI 引用最多的知识
+             */
+            top_items: components["schemas"]["KbItemStat"][];
+        };
+        /** KbReadStats */
+        KbReadStats: {
+            /** Confirmed */
+            confirmed: number;
+            /** Rate */
+            rate: number | null;
+            /**
+             * Readers
+             * @description 已确认的在前，未确认的在后
+             */
+            readers: components["schemas"]["KbReader"][];
+            /**
+             * Total
+             * @description 需要确认的员工数（有接待权限的在职员工）
+             */
+            total: number;
+            /** Version */
+            version: number;
+        };
+        /** KbReader */
+        KbReader: {
+            /** Display Name */
+            display_name: string;
+            /** Read At */
+            read_at: string | null;
+            /**
+             * Staff Id
+             * Format: uuid
+             */
+            staff_id: string;
+        };
+        /** KbReasonCount */
+        KbReasonCount: {
+            /** Count */
+            count: number;
+            /** Reason */
+            reason: string;
         };
         /** KbSearchHit */
         KbSearchHit: {
@@ -2286,6 +3066,48 @@ export interface components {
         KbSearchResult: {
             /** Items */
             items: components["schemas"]["KbSearchHit"][];
+        };
+        /** KbVersionList */
+        KbVersionList: {
+            /** Items */
+            items: components["schemas"]["KbVersionOut"][];
+        };
+        /** KbVersionOut */
+        KbVersionOut: {
+            /** Category */
+            category: string;
+            /**
+             * Change
+             * @description created 首次发布、updated 修改、restored 回滚、merged 合并
+             */
+            change: string;
+            /** Content */
+            content: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Must Read */
+            must_read: boolean;
+            /** Note */
+            note: string | null;
+            /** Published By */
+            published_by: string | null;
+            /** Published By Name */
+            published_by_name: string | null;
+            /** Questions */
+            questions: string[];
+            /** Title */
+            title: string;
+            /** Valid From */
+            valid_from: string | null;
+            /** Valid To */
+            valid_to: string | null;
+            /** Version */
+            version: number;
+            /** Visibility */
+            visibility: string;
         };
         /** KnowledgeRef */
         KnowledgeRef: {
@@ -2932,6 +3754,13 @@ export interface components {
              * @description 客户端生成的唯一 ID，重试时保持不变（幂等键）
              */
             client_msg_id: string;
+            /**
+             * Origin
+             * @description 回复的来源：手写、快捷话术、AI 建议、知识检索（用于统计 AI 建议采纳率）
+             * @default manual
+             * @enum {string}
+             */
+            origin: "manual" | "quick_reply" | "suggestion" | "knowledge";
             /** Text */
             text?: string | null;
             /**
@@ -5632,6 +6461,631 @@ export interface operations {
             };
         };
     };
+    list_candidates_api_v1_kb_candidates_get: {
+        parameters: {
+            query?: {
+                status?: "pending" | "approved" | "merged" | "rejected";
+                kind?: ("new" | "similar" | "conflict" | "gap") | null;
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KbCandidatePage"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    candidate_detail_api_v1_kb_candidates__candidate_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                candidate_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KbCandidateDetail"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    approve_candidate_api_v1_kb_candidates__candidate_id__approve_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                candidate_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["KbCandidateApprove"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KbCandidateOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    merge_candidate_api_v1_kb_candidates__candidate_id__merge_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                candidate_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["KbCandidateMerge"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KbCandidateOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    reject_candidate_api_v1_kb_candidates__candidate_id__reject_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                candidate_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["KbCandidateReject"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KbCandidateOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    list_digests_api_v1_kb_digests_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KbDigestList"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    generate_digest_api_v1_kb_digests_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["KbDigestRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KbDigestOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    knowledge_feed_api_v1_kb_feed_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KbFeed"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     import_faqs_api_v1_kb_import_post: {
         parameters: {
             query?: never;
@@ -5717,6 +7171,10 @@ export interface operations {
                 kind?: ("faq" | "doc") | null;
                 category?: string | null;
                 q?: string | null;
+                /** @description 只看发布 90 天以上且近 90 天未被引用的 */
+                stale?: boolean;
+                /** @description 只看必读知识 */
+                must_read?: boolean;
                 limit?: number;
                 offset?: number;
             };
@@ -6175,6 +7633,86 @@ export interface operations {
             };
         };
     };
+    feedback_api_v1_kb_items__item_id__feedback_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                item_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["KbFeedbackRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KbFeedbackOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     publish_item_api_v1_kb_items__item_id__publish_post: {
         parameters: {
             query?: never;
@@ -6193,6 +7731,390 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["KbItemOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    confirm_read_api_v1_kb_items__item_id__read_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                item_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    read_stats_api_v1_kb_items__item_id__reads_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                item_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KbReadStats"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    item_versions_api_v1_kb_items__item_id__versions_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                item_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KbVersionList"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    restore_version_api_v1_kb_items__item_id__versions__version__restore_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                item_id: string;
+                version: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KbItemOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    knowledge_metrics_api_v1_kb_metrics_get: {
+        parameters: {
+            query?: {
+                /** @description 开始日期（含），默认最近 30 天 */
+                start?: string | null;
+                /** @description 结束日期（含），默认今天 */
+                end?: string | null;
+                /** @description 划分日期的时区 */
+                tz?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KbMetrics"];
                 };
             };
             /** @description Bad Request */

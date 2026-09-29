@@ -5,7 +5,10 @@
 - 超时未接受的会话转接退回原坐席（每 5 秒）；
 - 执行到期的 IM 发件箱操作（每 5 秒）；
 - 重新发布没有归入会话的消息事件（每 30 秒）；
-- 汇总当天和前一天的用量（每 10 分钟）。
+- 汇总当天和前一天的用量（每 10 分钟）；
+- 有效期已过的知识自动下线（每 10 分钟）；
+- 从最近结束的会话提炼知识候选（每小时）；
+- 每周一生成上一周的知识周报（每小时检查）。
 
 用法：uv run python -m app.scheduler。可以运行多个实例：持有租约的实例执行任务，其他实例待命。
 """
@@ -25,6 +28,9 @@ from app.events.bus import wait_or_stop
 from app.events.lease import Lease
 from app.modules.conversation.outbox import dispatch_due
 from app.modules.conversation.reconcile import reconcile_all
+from app.modules.kb.extraction import run_extraction
+from app.modules.kb.metrics import run_digests
+from app.modules.kb.service import expire_items
 from app.modules.sessions.engine import republish_orphans, run_session_timers
 from app.modules.sessions.transfer import run_transfer_timers
 from app.modules.usage.service import run_usage_rollup
@@ -52,6 +58,9 @@ JOBS = (
     Job("im-ops", 5, dispatch_due),
     Job("orphan-messages", 30, republish_orphans),
     Job("usage-rollup", 600, run_usage_rollup),
+    Job("kb-expire", 600, expire_items),
+    Job("kb-extract", 3600, run_extraction),
+    Job("kb-digest", 3600, run_digests),
 )
 
 

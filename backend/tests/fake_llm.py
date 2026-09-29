@@ -6,6 +6,7 @@
     没有资料时回复无法回答并请求转人工。
   - 转人工摘要：概括最后几句客户消息。
   - 坐席建议回复：把参考资料的答案作为建议。
+  - 知识提炼：客户的问题与紧跟的客服回答组成问答；客服没能解答的问题记为缺口。
 - 可以切换模式模拟故障：down（503）、bad_json（不是 JSON）、promise（回复里带承诺类话术）、
   handoff（模型要求转人工）。独立运行时用 POST /_control {"mode": "down"} 切换。
 
@@ -22,7 +23,13 @@ from typing import Any
 
 import httpx
 
-from app.modules.ai.prompts import NO_REFERENCE, TASK_REPLY, TASK_SUGGEST, TASK_SUMMARY
+from app.modules.ai.prompts import (
+    NO_REFERENCE,
+    TASK_EXTRACT,
+    TASK_REPLY,
+    TASK_SUGGEST,
+    TASK_SUMMARY,
+)
 from app.modules.kb.text import terms
 
 DIM = 1024
@@ -61,6 +68,47 @@ def _answers(system: str) -> list[str]:
     return answers
 
 
+# 坐席没能当场解答时常说的话：客户的问题记为"没有得到解答"。
+_UNSURE = ("不确定", "不清楚", "稍后回复", "帮您问一下", "无法回答", "暂时无法", "确认一下")
+_HANDOFF = ("转人工", "人工客服", "找客服")
+
+
+def _extract(transcript: str) -> str:
+    """知识提炼：客户的一句话后面紧跟客服的回答，就是一个问答；客服没能解答的记为缺口。"""
+    lines = [
+        (int(number), role, text.strip())
+        for number, role, text in re.findall(
+            r"(?ms)^\[(\d+)\] ([^：\n]+)：(.*?)(?=^\[\d+\] |\Z)", transcript
+        )
+    ]
+    pairs: list[dict[str, Any]] = []
+    unresolved: list[str] = []
+    for index, (number, role, text) in enumerate(lines):
+        if role != "客户" or any(word in text for word in _HANDOFF):
+            continue
+        question = text.splitlines()[0]
+        following = lines[index + 1] if index + 1 < len(lines) else None
+        if following is None or following[1] == "客户":
+            unresolved.append(question)
+            continue
+        answer = following[2]
+        if any(word in answer for word in _UNSURE):
+            unresolved.append(question)
+            continue
+        pairs.append(
+            {
+                "question": question,
+                "answer": answer,
+                "category": "",
+                "generalizable": True,
+                "time_sensitive": False,
+                "confidence": 0.8,
+                "evidence": [number, following[0]],
+            }
+        )
+    return json.dumps({"qa_pairs": pairs, "unresolved_questions": unresolved}, ensure_ascii=False)
+
+
 @dataclass
 class FakeLLM:
     mode: str = "normal"
@@ -83,6 +131,8 @@ class FakeLLM:
                 if line.startswith("客户：")
             ]
             content = f"客户咨询：{'；'.join(customer[-3:])[:100]}。"
+        elif task == TASK_EXTRACT:
+            content = "这不是 JSON" if self.mode == "bad_json" else _extract(last_user)
         elif task == TASK_SUGGEST:
             answers = _answers(system) or ["您好，我帮您确认一下，请稍等。"]
             content = json.dumps({"suggestions": answers[:3]}, ensure_ascii=False)

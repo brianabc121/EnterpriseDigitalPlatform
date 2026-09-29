@@ -520,6 +520,11 @@
       },
       "AiSettingsOut": {
         "properties": {
+          "auto_merge_similar": {
+            "description": "相似问法证据足够多（3 条以上）时自动并入原问答，不经审核",
+            "title": "Auto Merge Similar",
+            "type": "boolean"
+          },
           "bot_name": {
             "title": "Bot Name",
             "type": "string"
@@ -532,6 +537,11 @@
           "enabled": {
             "description": "启用 AI 接待（路由策略为 AI 优先的渠道生效）",
             "title": "Enabled",
+            "type": "boolean"
+          },
+          "extraction_enabled": {
+            "description": "自动从已结束的会话提炼知识候选（需要大模型）",
+            "title": "Extraction Enabled",
             "type": "boolean"
           },
           "handoff_keywords": {
@@ -608,6 +618,8 @@
           "relevance_threshold",
           "handoff_keywords",
           "sensitive_keywords",
+          "extraction_enabled",
+          "auto_merge_similar",
           "llm_configured",
           "embeddings_configured",
           "monthly_quota",
@@ -618,6 +630,17 @@
       },
       "AiSettingsUpdate": {
         "properties": {
+          "auto_merge_similar": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Auto Merge Similar"
+          },
           "bot_name": {
             "anyOf": [
               {
@@ -641,6 +664,17 @@
               }
             ],
             "title": "Enabled"
+          },
+          "extraction_enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Extraction Enabled"
           },
           "handoff_keywords": {
             "anyOf": [
@@ -1864,6 +1898,846 @@
         "title": "IMCredentials",
         "type": "object"
       },
+      "KbCandidateApprove": {
+        "description": "通过（可以先编辑）。新问题、缺口新建为问答；相似问法并入原问答；冲突用答案更新原问答。",
+        "properties": {
+          "answer": {
+            "anyOf": [
+              {
+                "maxLength": 50000,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Answer"
+          },
+          "category": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category"
+          },
+          "question": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Question"
+          },
+          "visibility": {
+            "anyOf": [
+              {
+                "enum": [
+                  "public",
+                  "agent"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "新建时的可见范围；agent 为仅坐席可见",
+            "title": "Visibility"
+          }
+        },
+        "title": "KbCandidateApprove",
+        "type": "object"
+      },
+      "KbCandidateDetail": {
+        "properties": {
+          "answer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Answer"
+          },
+          "category": {
+            "title": "Category",
+            "type": "string"
+          },
+          "confidence": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "提炼时模型给出的把握",
+            "title": "Confidence"
+          },
+          "evidence": {
+            "items": {
+              "$ref": "#/components/schemas/KbEvidence"
+            },
+            "title": "Evidence",
+            "type": "array"
+          },
+          "first_seen_at": {
+            "format": "date-time",
+            "title": "First Seen At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "description": "new 新问题、similar 相似问法、conflict 答案冲突、gap 知识缺口",
+            "title": "Kind",
+            "type": "string"
+          },
+          "last_seen_at": {
+            "format": "date-time",
+            "title": "Last Seen At",
+            "type": "string"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "occurrences": {
+            "description": "出现次数（相似的候选聚为一类）",
+            "title": "Occurrences",
+            "type": "integer"
+          },
+          "prompt_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Prompt Version"
+          },
+          "question": {
+            "title": "Question",
+            "type": "string"
+          },
+          "recent": {
+            "description": "最近 7 天出现的次数",
+            "title": "Recent",
+            "type": "integer"
+          },
+          "result_item_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Result Item Id"
+          },
+          "review_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Review Note"
+          },
+          "reviewed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reviewed At"
+          },
+          "reviewed_by_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reviewed By Name"
+          },
+          "similar": {
+            "description": "相似的已有知识",
+            "items": {
+              "$ref": "#/components/schemas/KbSearchHit"
+            },
+            "title": "Similar",
+            "type": "array"
+          },
+          "similarity": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "与已有知识的相关度",
+            "title": "Similarity"
+          },
+          "status": {
+            "description": "pending、approved、merged、rejected",
+            "title": "Status",
+            "type": "string"
+          },
+          "target": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/KbItemOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "target_item_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "相似或冲突时对应的已有知识",
+            "title": "Target Item Id"
+          },
+          "target_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Title"
+          },
+          "time_sensitive": {
+            "description": "活动、价格等会过期的信息",
+            "title": "Time Sensitive",
+            "type": "boolean"
+          },
+          "variants": {
+            "description": "出现过的问法",
+            "items": {
+              "type": "string"
+            },
+            "title": "Variants",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "status",
+          "question",
+          "answer",
+          "category",
+          "target_item_id",
+          "target_title",
+          "similarity",
+          "confidence",
+          "time_sensitive",
+          "occurrences",
+          "recent",
+          "variants",
+          "first_seen_at",
+          "last_seen_at",
+          "review_note",
+          "reviewed_at",
+          "reviewed_by_name",
+          "result_item_id",
+          "model",
+          "prompt_version",
+          "evidence",
+          "target",
+          "similar"
+        ],
+        "title": "KbCandidateDetail",
+        "type": "object"
+      },
+      "KbCandidateMerge": {
+        "properties": {
+          "answer": {
+            "anyOf": [
+              {
+                "maxLength": 50000,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "同时替换原知识的答案",
+            "title": "Answer"
+          },
+          "item_id": {
+            "description": "合并到的已有知识",
+            "format": "uuid",
+            "title": "Item Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "item_id"
+        ],
+        "title": "KbCandidateMerge",
+        "type": "object"
+      },
+      "KbCandidateOut": {
+        "properties": {
+          "answer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Answer"
+          },
+          "category": {
+            "title": "Category",
+            "type": "string"
+          },
+          "confidence": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "提炼时模型给出的把握",
+            "title": "Confidence"
+          },
+          "first_seen_at": {
+            "format": "date-time",
+            "title": "First Seen At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "description": "new 新问题、similar 相似问法、conflict 答案冲突、gap 知识缺口",
+            "title": "Kind",
+            "type": "string"
+          },
+          "last_seen_at": {
+            "format": "date-time",
+            "title": "Last Seen At",
+            "type": "string"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "occurrences": {
+            "description": "出现次数（相似的候选聚为一类）",
+            "title": "Occurrences",
+            "type": "integer"
+          },
+          "prompt_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Prompt Version"
+          },
+          "question": {
+            "title": "Question",
+            "type": "string"
+          },
+          "recent": {
+            "description": "最近 7 天出现的次数",
+            "title": "Recent",
+            "type": "integer"
+          },
+          "result_item_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Result Item Id"
+          },
+          "review_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Review Note"
+          },
+          "reviewed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reviewed At"
+          },
+          "reviewed_by_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reviewed By Name"
+          },
+          "similarity": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "与已有知识的相关度",
+            "title": "Similarity"
+          },
+          "status": {
+            "description": "pending、approved、merged、rejected",
+            "title": "Status",
+            "type": "string"
+          },
+          "target_item_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "相似或冲突时对应的已有知识",
+            "title": "Target Item Id"
+          },
+          "target_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Title"
+          },
+          "time_sensitive": {
+            "description": "活动、价格等会过期的信息",
+            "title": "Time Sensitive",
+            "type": "boolean"
+          },
+          "variants": {
+            "description": "出现过的问法",
+            "items": {
+              "type": "string"
+            },
+            "title": "Variants",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "status",
+          "question",
+          "answer",
+          "category",
+          "target_item_id",
+          "target_title",
+          "similarity",
+          "confidence",
+          "time_sensitive",
+          "occurrences",
+          "recent",
+          "variants",
+          "first_seen_at",
+          "last_seen_at",
+          "review_note",
+          "reviewed_at",
+          "reviewed_by_name",
+          "result_item_id",
+          "model",
+          "prompt_version"
+        ],
+        "title": "KbCandidateOut",
+        "type": "object"
+      },
+      "KbCandidatePage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/KbCandidateOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "pending": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "description": "各类待审候选的数量",
+            "title": "Pending",
+            "type": "object"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "pending"
+        ],
+        "title": "KbCandidatePage",
+        "type": "object"
+      },
+      "KbCandidateReject": {
+        "properties": {
+          "reason": {
+            "description": "驳回理由（用于改进提炼）",
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "title": "KbCandidateReject",
+        "type": "object"
+      },
+      "KbDigestList": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/KbDigestOut"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "KbDigestList",
+        "type": "object"
+      },
+      "KbDigestOut": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "data": {
+            "additionalProperties": true,
+            "title": "Data",
+            "type": "object"
+          },
+          "week_start": {
+            "format": "date",
+            "title": "Week Start",
+            "type": "string"
+          }
+        },
+        "required": [
+          "week_start",
+          "data",
+          "created_at"
+        ],
+        "title": "KbDigestOut",
+        "type": "object"
+      },
+      "KbDigestRequest": {
+        "properties": {
+          "week_start": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "这一周中的任意一天，默认本周",
+            "title": "Week Start"
+          }
+        },
+        "title": "KbDigestRequest",
+        "type": "object"
+      },
+      "KbEvidence": {
+        "description": "一段证据对话（提炼时已脱敏）。",
+        "properties": {
+          "lines": {
+            "items": {
+              "$ref": "#/components/schemas/KbEvidenceLine"
+            },
+            "title": "Lines",
+            "type": "array"
+          },
+          "question": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Question"
+          },
+          "seen_at": {
+            "format": "date-time",
+            "title": "Seen At",
+            "type": "string"
+          },
+          "session_id": {
+            "format": "uuid",
+            "title": "Session Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "session_id",
+          "seen_at",
+          "lines"
+        ],
+        "title": "KbEvidence",
+        "type": "object"
+      },
+      "KbEvidenceLine": {
+        "properties": {
+          "role": {
+            "title": "Role",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "role",
+          "text"
+        ],
+        "title": "KbEvidenceLine",
+        "type": "object"
+      },
+      "KbFeed": {
+        "description": "知识动态（设计 §12.6）：待我确认的必读知识，以及最近发布和更新的知识。",
+        "properties": {
+          "events": {
+            "items": {
+              "$ref": "#/components/schemas/KbFeedEvent"
+            },
+            "title": "Events",
+            "type": "array"
+          },
+          "must_read": {
+            "items": {
+              "$ref": "#/components/schemas/KbFeedEvent"
+            },
+            "title": "Must Read",
+            "type": "array"
+          }
+        },
+        "required": [
+          "must_read",
+          "events"
+        ],
+        "title": "KbFeed",
+        "type": "object"
+      },
+      "KbFeedEvent": {
+        "properties": {
+          "change": {
+            "title": "Change",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "item_id": {
+            "format": "uuid",
+            "title": "Item Id",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "must_read": {
+            "description": "这条知识目前是必读",
+            "title": "Must Read",
+            "type": "boolean"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "read": {
+            "description": "我已确认当前版本（非必读时总为 true）",
+            "title": "Read",
+            "type": "boolean"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "item_id",
+          "kind",
+          "title",
+          "version",
+          "change",
+          "note",
+          "must_read",
+          "read",
+          "created_at"
+        ],
+        "title": "KbFeedEvent",
+        "type": "object"
+      },
+      "KbFeedbackOut": {
+        "properties": {
+          "dislikes": {
+            "title": "Dislikes",
+            "type": "integer"
+          },
+          "likes": {
+            "title": "Likes",
+            "type": "integer"
+          },
+          "mine": {
+            "title": "Mine",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "likes",
+          "dislikes",
+          "mine"
+        ],
+        "title": "KbFeedbackOut",
+        "type": "object"
+      },
+      "KbFeedbackRequest": {
+        "properties": {
+          "value": {
+            "description": "1 有用，-1 没用，0 取消评价",
+            "enum": [
+              -1,
+              0,
+              1
+            ],
+            "title": "Value",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "value"
+        ],
+        "title": "KbFeedbackRequest",
+        "type": "object"
+      },
       "KbImportRequest": {
         "properties": {
           "csv": {
@@ -1931,6 +2805,12 @@
             ],
             "title": "Kind",
             "type": "string"
+          },
+          "must_read": {
+            "default": false,
+            "description": "必读：发布或更新后坐席需要确认已读",
+            "title": "Must Read",
+            "type": "boolean"
           },
           "publish": {
             "default": false,
@@ -2011,6 +2891,18 @@
       },
       "KbItemOut": {
         "properties": {
+          "archived_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Archived At"
+          },
           "category": {
             "title": "Category",
             "type": "string"
@@ -2023,6 +2915,11 @@
             "format": "date-time",
             "title": "Created At",
             "type": "string"
+          },
+          "dislikes": {
+            "description": "员工评价为没用的人数",
+            "title": "Dislikes",
+            "type": "integer"
           },
           "hits": {
             "description": "被 AI 或坐席引用的次数",
@@ -2049,6 +2946,15 @@
               }
             ],
             "title": "Last Hit At"
+          },
+          "likes": {
+            "description": "员工评价为有用的人数",
+            "title": "Likes",
+            "type": "integer"
+          },
+          "must_read": {
+            "title": "Must Read",
+            "type": "boolean"
           },
           "published_at": {
             "anyOf": [
@@ -2144,6 +3050,10 @@
           "hits",
           "last_hit_at",
           "published_at",
+          "must_read",
+          "likes",
+          "dislikes",
+          "archived_at",
           "created_at",
           "updated_at"
         ],
@@ -2169,6 +3079,31 @@
           "total"
         ],
         "title": "KbItemPage",
+        "type": "object"
+      },
+      "KbItemStat": {
+        "properties": {
+          "count": {
+            "description": "被引用次数，或评价为没用的人数",
+            "title": "Count",
+            "type": "integer"
+          },
+          "item_id": {
+            "format": "uuid",
+            "title": "Item Id",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "item_id",
+          "title",
+          "count"
+        ],
+        "title": "KbItemStat",
         "type": "object"
       },
       "KbItemUpdate": {
@@ -2197,6 +3132,17 @@
               }
             ],
             "title": "Content"
+          },
+          "must_read": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Must Read"
           },
           "questions": {
             "anyOf": [
@@ -2289,6 +3235,261 @@
         "title": "KbItemUpdate",
         "type": "object"
       },
+      "KbMetrics": {
+        "description": "知识运营指标（设计 §12.7）。时间范围内的统计；缺口、长期未命中为当前数量。",
+        "properties": {
+          "adoption_rate": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Adoption Rate"
+          },
+          "ai_replies": {
+            "description": "AI 回复的轮数",
+            "title": "Ai Replies",
+            "type": "integer"
+          },
+          "candidates_accepted": {
+            "description": "通过或合并的候选",
+            "title": "Candidates Accepted",
+            "type": "integer"
+          },
+          "candidates_new": {
+            "title": "Candidates New",
+            "type": "integer"
+          },
+          "candidates_reviewed": {
+            "title": "Candidates Reviewed",
+            "type": "integer"
+          },
+          "disliked_items": {
+            "description": "评价为没用最多的知识",
+            "items": {
+              "$ref": "#/components/schemas/KbItemStat"
+            },
+            "title": "Disliked Items",
+            "type": "array"
+          },
+          "end": {
+            "format": "date",
+            "title": "End",
+            "type": "string"
+          },
+          "gap_close_hours": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "缺口从首次出现到处理的平均小时数",
+            "title": "Gap Close Hours"
+          },
+          "gaps_closed": {
+            "title": "Gaps Closed",
+            "type": "integer"
+          },
+          "gaps_new": {
+            "title": "Gaps New",
+            "type": "integer"
+          },
+          "gaps_open": {
+            "description": "待处理的知识缺口",
+            "title": "Gaps Open",
+            "type": "integer"
+          },
+          "handoff_reasons": {
+            "description": "AI 转人工的原因分布",
+            "items": {
+              "$ref": "#/components/schemas/KbReasonCount"
+            },
+            "title": "Handoff Reasons",
+            "type": "array"
+          },
+          "knowledge_hit_rate": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "知识命中率：AI 回复时引用了知识的比例",
+            "title": "Knowledge Hit Rate"
+          },
+          "pass_rate": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "候选通过率",
+            "title": "Pass Rate"
+          },
+          "stale_items": {
+            "description": "长期未命中的知识",
+            "title": "Stale Items",
+            "type": "integer"
+          },
+          "start": {
+            "format": "date",
+            "title": "Start",
+            "type": "string"
+          },
+          "suggestions": {
+            "description": "坐席请求 AI 建议的次数",
+            "title": "Suggestions",
+            "type": "integer"
+          },
+          "suggestions_adopted": {
+            "description": "坐席采用 AI 建议发出的消息",
+            "title": "Suggestions Adopted",
+            "type": "integer"
+          },
+          "timezone": {
+            "title": "Timezone",
+            "type": "string"
+          },
+          "top_items": {
+            "description": "AI 引用最多的知识",
+            "items": {
+              "$ref": "#/components/schemas/KbItemStat"
+            },
+            "title": "Top Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "start",
+          "end",
+          "timezone",
+          "ai_replies",
+          "knowledge_hit_rate",
+          "handoff_reasons",
+          "gaps_open",
+          "gaps_new",
+          "gaps_closed",
+          "gap_close_hours",
+          "candidates_new",
+          "candidates_reviewed",
+          "candidates_accepted",
+          "pass_rate",
+          "suggestions",
+          "suggestions_adopted",
+          "adoption_rate",
+          "stale_items",
+          "top_items",
+          "disliked_items"
+        ],
+        "title": "KbMetrics",
+        "type": "object"
+      },
+      "KbReadStats": {
+        "properties": {
+          "confirmed": {
+            "title": "Confirmed",
+            "type": "integer"
+          },
+          "rate": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rate"
+          },
+          "readers": {
+            "description": "已确认的在前，未确认的在后",
+            "items": {
+              "$ref": "#/components/schemas/KbReader"
+            },
+            "title": "Readers",
+            "type": "array"
+          },
+          "total": {
+            "description": "需要确认的员工数（有接待权限的在职员工）",
+            "title": "Total",
+            "type": "integer"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "version",
+          "total",
+          "confirmed",
+          "rate",
+          "readers"
+        ],
+        "title": "KbReadStats",
+        "type": "object"
+      },
+      "KbReader": {
+        "properties": {
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "read_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Read At"
+          },
+          "staff_id": {
+            "format": "uuid",
+            "title": "Staff Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "staff_id",
+          "display_name",
+          "read_at"
+        ],
+        "title": "KbReader",
+        "type": "object"
+      },
+      "KbReasonCount": {
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason",
+          "count"
+        ],
+        "title": "KbReasonCount",
+        "type": "object"
+      },
       "KbSearchHit": {
         "properties": {
           "dense": {
@@ -2358,6 +3559,143 @@
           "items"
         ],
         "title": "KbSearchResult",
+        "type": "object"
+      },
+      "KbVersionList": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/KbVersionOut"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "KbVersionList",
+        "type": "object"
+      },
+      "KbVersionOut": {
+        "properties": {
+          "category": {
+            "title": "Category",
+            "type": "string"
+          },
+          "change": {
+            "description": "created 首次发布、updated 修改、restored 回滚、merged 合并",
+            "title": "Change",
+            "type": "string"
+          },
+          "content": {
+            "title": "Content",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "must_read": {
+            "title": "Must Read",
+            "type": "boolean"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "published_by": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published By"
+          },
+          "published_by_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published By Name"
+          },
+          "questions": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Questions",
+            "type": "array"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "valid_from": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Valid From"
+          },
+          "valid_to": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Valid To"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          },
+          "visibility": {
+            "title": "Visibility",
+            "type": "string"
+          }
+        },
+        "required": [
+          "version",
+          "change",
+          "note",
+          "title",
+          "content",
+          "questions",
+          "category",
+          "visibility",
+          "valid_from",
+          "valid_to",
+          "must_read",
+          "published_by",
+          "published_by_name",
+          "created_at"
+        ],
+        "title": "KbVersionOut",
         "type": "object"
       },
       "KnowledgeRef": {
@@ -3854,6 +5192,18 @@
             "maxLength": 64,
             "minLength": 8,
             "title": "Client Msg Id",
+            "type": "string"
+          },
+          "origin": {
+            "default": "manual",
+            "description": "回复的来源：手写、快捷话术、AI 建议、知识检索（用于统计 AI 建议采纳率）",
+            "enum": [
+              "manual",
+              "quick_reply",
+              "suggestion",
+              "knowledge"
+            ],
+            "title": "Origin",
             "type": "string"
           },
           "text": {
@@ -8350,6 +9700,877 @@
         ]
       }
     },
+    "/api/v1/kb/candidates": {
+      "get": {
+        "description": "从会话提炼的候选。待审的按出现次数和最近出现时间排序。",
+        "operationId": "list_candidates_api_v1_kb_candidates_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "default": "pending",
+              "enum": [
+                "pending",
+                "approved",
+                "merged",
+                "rejected"
+              ],
+              "title": "Status",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "kind",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "new",
+                    "similar",
+                    "conflict",
+                    "gap"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Kind"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KbCandidatePage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Candidates",
+        "tags": [
+          "knowledge"
+        ]
+      }
+    },
+    "/api/v1/kb/candidates/{candidate_id}": {
+      "get": {
+        "operationId": "candidate_detail_api_v1_kb_candidates__candidate_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "candidate_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Candidate Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KbCandidateDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Candidate Detail",
+        "tags": [
+          "knowledge"
+        ]
+      }
+    },
+    "/api/v1/kb/candidates/{candidate_id}/approve": {
+      "post": {
+        "description": "通过：新问题和缺口新建为问答并发布；相似问法并入原问答；冲突用新答案更新原问答。",
+        "operationId": "approve_candidate_api_v1_kb_candidates__candidate_id__approve_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "candidate_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Candidate Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KbCandidateApprove"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KbCandidateOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Approve Candidate",
+        "tags": [
+          "knowledge"
+        ]
+      }
+    },
+    "/api/v1/kb/candidates/{candidate_id}/merge": {
+      "post": {
+        "description": "合并到选定的已有知识：并入问法，可以同时替换答案。",
+        "operationId": "merge_candidate_api_v1_kb_candidates__candidate_id__merge_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "candidate_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Candidate Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KbCandidateMerge"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KbCandidateOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Merge Candidate",
+        "tags": [
+          "knowledge"
+        ]
+      }
+    },
+    "/api/v1/kb/candidates/{candidate_id}/reject": {
+      "post": {
+        "operationId": "reject_candidate_api_v1_kb_candidates__candidate_id__reject_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "candidate_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Candidate Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KbCandidateReject"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KbCandidateOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Reject Candidate",
+        "tags": [
+          "knowledge"
+        ]
+      }
+    },
+    "/api/v1/kb/digests": {
+      "get": {
+        "description": "知识周报，最近的在前。",
+        "operationId": "list_digests_api_v1_kb_digests_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 8,
+              "maximum": 52,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KbDigestList"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Digests",
+        "tags": [
+          "knowledge"
+        ]
+      },
+      "post": {
+        "description": "立即生成（或重新生成）某一周的周报，默认本周（平时每周一自动生成上一周的）。",
+        "operationId": "generate_digest_api_v1_kb_digests_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KbDigestRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KbDigestOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Generate Digest",
+        "tags": [
+          "knowledge"
+        ]
+      }
+    },
+    "/api/v1/kb/feed": {
+      "get": {
+        "description": "知识动态：待我确认的必读知识，以及最近发布、更新的知识。",
+        "operationId": "knowledge_feed_api_v1_kb_feed_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 50,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KbFeed"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Knowledge Feed",
+        "tags": [
+          "knowledge"
+        ]
+      }
+    },
     "/api/v1/kb/import": {
       "post": {
         "description": "从 CSV 批量导入 FAQ（冷启动，设计文档 §12.1）。",
@@ -8524,6 +10745,30 @@
                 }
               ],
               "title": "Q"
+            }
+          },
+          {
+            "description": "只看发布 90 天以上且近 90 天未被引用的",
+            "in": "query",
+            "name": "stale",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "只看发布 90 天以上且近 90 天未被引用的",
+              "title": "Stale",
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "只看必读知识",
+            "in": "query",
+            "name": "must_read",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "只看必读知识",
+              "title": "Must Read",
+              "type": "boolean"
             }
           },
           {
@@ -9119,6 +11364,115 @@
         ]
       }
     },
+    "/api/v1/kb/items/{item_id}/feedback": {
+      "post": {
+        "description": "评价知识是否有用。",
+        "operationId": "feedback_api_v1_kb_items__item_id__feedback_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "item_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Item Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KbFeedbackRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KbFeedbackOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Feedback",
+        "tags": [
+          "knowledge"
+        ]
+      }
+    },
     "/api/v1/kb/items/{item_id}/publish": {
       "post": {
         "operationId": "publish_item_api_v1_kb_items__item_id__publish_post",
@@ -9212,6 +11566,549 @@
           }
         ],
         "summary": "Publish Item",
+        "tags": [
+          "knowledge"
+        ]
+      }
+    },
+    "/api/v1/kb/items/{item_id}/read": {
+      "post": {
+        "description": "确认已读必读知识的当前版本。",
+        "operationId": "confirm_read_api_v1_kb_items__item_id__read_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "item_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Item Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Confirm Read",
+        "tags": [
+          "knowledge"
+        ]
+      }
+    },
+    "/api/v1/kb/items/{item_id}/reads": {
+      "get": {
+        "description": "必读确认情况：当前版本有哪些员工已确认。",
+        "operationId": "read_stats_api_v1_kb_items__item_id__reads_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "item_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Item Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KbReadStats"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Read Stats",
+        "tags": [
+          "knowledge"
+        ]
+      }
+    },
+    "/api/v1/kb/items/{item_id}/versions": {
+      "get": {
+        "description": "历次发布的内容，最新的在前。",
+        "operationId": "item_versions_api_v1_kb_items__item_id__versions_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "item_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Item Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KbVersionList"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Item Versions",
+        "tags": [
+          "knowledge"
+        ]
+      }
+    },
+    "/api/v1/kb/items/{item_id}/versions/{version}/restore": {
+      "post": {
+        "description": "回滚：把历史版本的内容作为新版本发布。",
+        "operationId": "restore_version_api_v1_kb_items__item_id__versions__version__restore_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "item_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Item Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "version",
+            "required": true,
+            "schema": {
+              "title": "Version",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KbItemOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Restore Version",
+        "tags": [
+          "knowledge"
+        ]
+      }
+    },
+    "/api/v1/kb/metrics": {
+      "get": {
+        "description": "知识命中率、转人工原因、缺口与关闭时长、候选通过率、AI 建议采纳率、长期未命中与差评知识。",
+        "operationId": "knowledge_metrics_api_v1_kb_metrics_get",
+        "parameters": [
+          {
+            "description": "开始日期（含），默认最近 30 天",
+            "in": "query",
+            "name": "start",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "开始日期（含），默认最近 30 天",
+              "title": "Start"
+            }
+          },
+          {
+            "description": "结束日期（含），默认今天",
+            "in": "query",
+            "name": "end",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "结束日期（含），默认今天",
+              "title": "End"
+            }
+          },
+          {
+            "description": "划分日期的时区",
+            "in": "query",
+            "name": "tz",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "划分日期的时区",
+              "title": "Tz"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KbMetrics"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Knowledge Metrics",
         "tags": [
           "knowledge"
         ]

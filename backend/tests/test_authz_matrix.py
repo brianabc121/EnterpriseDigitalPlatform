@@ -20,6 +20,8 @@ from tests.support import DatabaseUrls
 
 DENIED = {403, 404}
 REJECTED = {403, 404, 422}
+# 路径参数里不是对象 ID 的值（检查列表是否泄露 ID 时跳过）。
+NOT_IDS = {"version"}
 
 # 每个带路径参数的租户接口：(方法, 路径模板, 请求体)。请求体必须合法，才能验证到权限而不是参数校验。
 MATRIX: list[tuple[str, str, dict[str, Any] | None]] = [
@@ -53,6 +55,15 @@ MATRIX: list[tuple[str, str, dict[str, Any] | None]] = [
     ("DELETE", "/api/v1/kb/items/{item_id}", None),
     ("POST", "/api/v1/kb/items/{item_id}/publish", None),
     ("POST", "/api/v1/kb/items/{item_id}/archive", None),
+    ("GET", "/api/v1/kb/items/{item_id}/versions", None),
+    ("POST", "/api/v1/kb/items/{item_id}/versions/{version}/restore", None),
+    ("POST", "/api/v1/kb/items/{item_id}/read", None),
+    ("GET", "/api/v1/kb/items/{item_id}/reads", None),
+    ("POST", "/api/v1/kb/items/{item_id}/feedback", {"value": 1}),
+    ("GET", "/api/v1/kb/candidates/{candidate_id}", None),
+    ("POST", "/api/v1/kb/candidates/{candidate_id}/approve", {"answer": "越权"}),
+    ("POST", "/api/v1/kb/candidates/{candidate_id}/merge", {"item_id": "{own_item_id}"}),
+    ("POST", "/api/v1/kb/candidates/{candidate_id}/reject", {"reason": "越权"}),
 ]
 
 
@@ -111,6 +122,13 @@ async def build(desk: Desk) -> Tenant:
     )
     [channel] = (await client.get("/api/v1/channels", headers=desk.admin)).json()["items"]
     [ticket] = await desk.sql("SELECT id FROM tickets WHERE tenant_id = $1", desk.tenant_id)
+    # 从会话提炼的待审候选（直接写库，提炼流程见 test_kb_extraction.py）。
+    [candidate] = await desk.sql(
+        "INSERT INTO kb_candidates (id, tenant_id, kind, question, answer)"
+        " VALUES ($1, $2, 'new', '周末发货吗', '周末正常发货') RETURNING id",
+        uuid.uuid4(),
+        desk.tenant_id,
+    )
     await desk.flush()
     ids = {
         "customer_id": str(chat["customer_id"]),
@@ -124,6 +142,8 @@ async def build(desk: Desk) -> Tenant:
         "policy_id": policy.json()["id"],
         "reply_id": reply.json()["id"],
         "item_id": knowledge.json()["id"],
+        "candidate_id": str(candidate["id"]),
+        "version": "1",
         "tenant_id": str(desk.tenant_id),
     }
     return Tenant(desk, agent, other, visitor, ids)
@@ -182,6 +202,7 @@ async def snapshot(desk: Desk) -> list[Any]:
         "agent_states": "staff_id, max_concurrency",
         "quick_replies": "id, title",
         "kb_items": "id, title, status, version",
+        "kb_candidates": "id, status",
         "messages": "id",
     }
     rows = []
@@ -333,7 +354,11 @@ async def test_lists_never_show_other_tenants_ids(
     for path in lists:
         for headers in (acme.desk.admin, acme.agent.headers):
             response = await call(client, "GET", path, headers)
-            found = [key for key, id_ in globex.ids.items() if id_ in response.text]
+            found = [
+                key
+                for key, id_ in globex.ids.items()
+                if key not in NOT_IDS and id_ in response.text
+            ]
             if found:
                 leaks[path] = found
     filtered = await call(

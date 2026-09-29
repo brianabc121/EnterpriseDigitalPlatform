@@ -9,7 +9,7 @@ import csv
 import io
 import logging
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from sqlalchemy import Select, delete, func, or_, select
@@ -29,6 +29,8 @@ from app.modules.kb.models import (
     ItemStatus,
     KbChunk,
     KbItem,
+    KbItemVersion,
+    VersionChange,
     Visibility,
 )
 from app.modules.kb.schemas import (
@@ -46,6 +48,20 @@ ITEM_NOT_FOUND = "知识不存在"
 MAX_IMPORT_ROWS = 2000
 # 修改这些字段会影响检索或回答，已发布的条目需要重建检索单元并升级版本。
 _CONTENT_FIELDS = {"title", "content", "questions", "visibility", "valid_from", "valid_to"}
+# 版本快照保存的字段。
+_SNAPSHOT_FIELDS = (
+    "title",
+    "content",
+    "questions",
+    "category",
+    "tags",
+    "visibility",
+    "valid_from",
+    "valid_to",
+    "must_read",
+)
+# 发布超过这么久、这段时间里一次也没被引用的知识视为"长期未命中"（设计 §12.7）。
+STALE_AFTER = timedelta(days=90)
 
 
 def visibilities_for(principal: Principal) -> tuple[str, ...]:
@@ -79,10 +95,22 @@ async def list_items(
     q: str | None,
     limit: int,
     offset: int,
+    stale: bool = False,
+    must_read: bool = False,
+    now: datetime | None = None,
 ) -> KbItemPage:
     query = _scope(principal)
     if status:
         query = query.where(KbItem.status == status)
+    if stale:
+        cutoff = (now or datetime.now(UTC)) - STALE_AFTER
+        query = query.where(
+            KbItem.status == ItemStatus.PUBLISHED,
+            KbItem.published_at < cutoff,
+            or_(KbItem.last_hit_at.is_(None), KbItem.last_hit_at < cutoff),
+        )
+    if must_read:
+        query = query.where(KbItem.must_read.is_(True))
     if kind:
         query = query.where(KbItem.kind == kind)
     if category:
@@ -170,6 +198,7 @@ async def create_item(
     *,
     source: str = ItemSource.MANUAL,
     ip: str | None = None,
+    commit: bool = True,
 ) -> KbItem:
     if payload.publish and not principal.has(Permission.KB_PUBLISH):
         raise Forbidden("没有发布知识的权限")
@@ -184,6 +213,7 @@ async def create_item(
         visibility=payload.visibility,
         valid_from=payload.valid_from,
         valid_to=payload.valid_to,
+        must_read=payload.must_read,
         source=source,
         status=ItemStatus.DRAFT,
         created_by=principal.staff_id,
@@ -194,8 +224,9 @@ async def create_item(
     _audit(session, principal, "kb_item.create", item, {"title": item.title}, ip)
     if payload.publish:
         await _publish(ctx, session, principal, item, ip=ip)
-    await session.commit()
-    await session.refresh(item)
+    if commit:
+        await session.commit()
+        await session.refresh(item)
     return item
 
 
@@ -223,10 +254,11 @@ async def update_item(
     if item.valid_from and item.valid_to and item.valid_from >= item.valid_to:
         raise Unprocessable("失效时间必须晚于生效时间")
     item.updated_by = principal.staff_id
-    # 内容真正改变时才升版本、重建检索单元（编辑页整表提交时未改的字段也会带上）。
+    # 内容真正改变时才升版本、重建检索单元并留下快照（编辑页整表提交时未改的字段也会带上）。
     if item.status == ItemStatus.PUBLISHED and _CONTENT_FIELDS & changed:
         item.version += 1
         await reindex(ctx, session, item)
+        await snapshot(session, item, VersionChange.UPDATED, principal.staff_id)
     detail = payload.model_dump(mode="json", exclude_unset=True)
     _audit(session, principal, "kb_item.update", item, detail, ip)
     await session.commit()
@@ -234,12 +266,58 @@ async def update_item(
     return item
 
 
+async def snapshot(
+    session: AsyncSession,
+    item: KbItem,
+    change: str,
+    staff_id: uuid.UUID | None,
+    *,
+    note: str | None = None,
+) -> KbItemVersion | None:
+    """发布时留下内容快照。内容与上一个快照相同时不重复记录（例如下线后原样重新发布）；
+    下线期间改过内容再发布时版本号加一。"""
+    await session.flush()
+    latest = await session.scalar(
+        select(KbItemVersion)
+        .where(KbItemVersion.item_id == item.id)
+        .order_by(KbItemVersion.version.desc())
+        .limit(1)
+    )
+    if latest is not None:
+        if all(getattr(latest, f) == getattr(item, f) for f in _SNAPSHOT_FIELDS):
+            return None
+        if latest.version >= item.version:
+            item.version = latest.version + 1
+    else:
+        change = VersionChange.CREATED
+    version = KbItemVersion(
+        tenant_id=item.tenant_id,
+        item_id=item.id,
+        version=item.version,
+        change=change,
+        note=note,
+        published_by=staff_id,
+        **{f: getattr(item, f) for f in _SNAPSHOT_FIELDS},
+    )
+    session.add(version)
+    return version
+
+
 async def _publish(
-    ctx: AppContext, session: AsyncSession, principal: Principal, item: KbItem, *, ip: str | None
+    ctx: AppContext,
+    session: AsyncSession,
+    principal: Principal,
+    item: KbItem,
+    *,
+    ip: str | None,
+    change: str = VersionChange.UPDATED,
+    note: str | None = None,
 ) -> None:
     if item.status != ItemStatus.PUBLISHED:
         item.status = ItemStatus.PUBLISHED
         item.published_at = datetime.now(UTC)
+        item.archived_at = None
+    await snapshot(session, item, change, principal.staff_id, note=note)
     await reindex(ctx, session, item)
     _audit(session, principal, "kb_item.publish", item, {"version": item.version}, ip)
 
@@ -265,11 +343,91 @@ async def archive_item(
     """下线：AI 与坐席不再使用，保留条目以便重新发布。"""
     item = await get_item(session, principal, item_id)
     item.status = ItemStatus.ARCHIVED
+    item.archived_at = datetime.now(UTC)
     await session.execute(delete(KbChunk).where(KbChunk.item_id == item.id))
     _audit(session, principal, "kb_item.archive", item, None, ip)
     await session.commit()
     await session.refresh(item)
     return item
+
+
+async def list_versions(
+    session: AsyncSession, principal: Principal, item_id: uuid.UUID
+) -> list[KbItemVersion]:
+    item = await get_item(session, principal, item_id)
+    rows = await session.scalars(
+        select(KbItemVersion)
+        .where(KbItemVersion.item_id == item.id)
+        .order_by(KbItemVersion.version.desc())
+    )
+    return list(rows.all())
+
+
+async def restore_version(
+    ctx: AppContext,
+    session: AsyncSession,
+    principal: Principal,
+    item_id: uuid.UUID,
+    version: int,
+    *,
+    ip: str | None = None,
+) -> KbItem:
+    """回滚：把历史版本的内容作为新版本发布（历史记录保留）。"""
+    item = await get_item(session, principal, item_id)
+    old = await session.scalar(
+        select(KbItemVersion).where(
+            KbItemVersion.item_id == item.id, KbItemVersion.version == version
+        )
+    )
+    if old is None:
+        raise NotFound("版本不存在")
+    for field in _SNAPSHOT_FIELDS:
+        setattr(item, field, getattr(old, field))
+    item.version += 1
+    item.updated_by = principal.staff_id
+    await _publish(
+        ctx,
+        session,
+        principal,
+        item,
+        ip=ip,
+        change=VersionChange.RESTORED,
+        note=f"恢复到 v{version}",
+    )
+    _audit(session, principal, "kb_item.restore", item, {"from_version": version}, ip)
+    await session.commit()
+    await session.refresh(item)
+    return item
+
+
+async def expire_items(ctx: AppContext, *, now: datetime | None = None) -> int:
+    """调度任务：有效期已过的知识自动下线（设计 §12.5），返回下线的条数。"""
+    now = now or datetime.now(UTC)
+    async with ctx.db.platform_sessionmaker() as session:
+        items = (
+            await session.scalars(
+                select(KbItem)
+                .where(KbItem.status == ItemStatus.PUBLISHED, KbItem.valid_to <= now)
+                .with_for_update(skip_locked=True)
+            )
+        ).all()
+        for item in items:
+            item.status = ItemStatus.ARCHIVED
+            item.archived_at = now
+            await session.execute(delete(KbChunk).where(KbChunk.item_id == item.id))
+            record_audit(
+                session,
+                action="kb_item.expire",
+                actor_type="system",
+                actor_id=None,
+                tenant_id=item.tenant_id,
+                resource_type="kb_item",
+                resource_id=str(item.id),
+                detail={"valid_to": item.valid_to.isoformat() if item.valid_to else None},
+                ip=None,
+            )
+        await session.commit()
+    return len(items)
 
 
 async def delete_item(

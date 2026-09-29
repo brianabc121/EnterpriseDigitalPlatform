@@ -26,6 +26,8 @@ class AiSettings(Base):
     relevance_threshold: Mapped[float] = mapped_column(Double, server_default="0.55")
     handoff_keywords: Mapped[list[str]] = mapped_column(server_default="{}")
     sensitive_keywords: Mapped[list[str]] = mapped_column(server_default="{}")
+    extraction_enabled: Mapped[bool] = mapped_column(server_default="true")
+    auto_merge_similar: Mapped[bool] = mapped_column(server_default="false")
     updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
 
 
@@ -102,4 +104,20 @@ class AiEvalRun(IdMixin, TenantMixin, Base):
     answer_accuracy: Mapped[float | None] = mapped_column(Double)
     handoff_accuracy: Mapped[float | None] = mapped_column(Double)
     results: Mapped[list[Any]] = mapped_column(JSONB, server_default="[]")
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+
+class AiSuggestion(IdMixin, TenantMixin, Base):
+    """坐席助手的一次建议，用于统计采纳率。"""
+
+    __tablename__ = "ai_suggestions"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["tenant_id", "session_id"], ["sessions.tenant_id", "sessions.id"], ondelete="CASCADE"
+        ),
+    )
+
+    session_id: Mapped[uuid.UUID]
+    staff_id: Mapped[uuid.UUID | None]
+    suggestions: Mapped[list[Any]] = mapped_column(JSONB, server_default="[]")
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())

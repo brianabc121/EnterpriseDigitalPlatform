@@ -1,8 +1,18 @@
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 from enum import StrEnum
+from typing import Any
 
-from sqlalchemy import ForeignKeyConstraint, String, Text, UniqueConstraint, func
+from sqlalchemy import (
+    Double,
+    ForeignKeyConstraint,
+    SmallInteger,
+    String,
+    Text,
+    UniqueConstraint,
+    func,
+)
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base, IdMixin, TenantMixin, TimestampMixin
@@ -58,6 +68,10 @@ class KbItem(IdMixin, TimestampMixin, TenantMixin, Base):
     created_by: Mapped[uuid.UUID | None]
     updated_by: Mapped[uuid.UUID | None]
     published_at: Mapped[datetime | None]
+    must_read: Mapped[bool] = mapped_column(server_default="false")
+    likes: Mapped[int] = mapped_column(server_default="0")
+    dislikes: Mapped[int] = mapped_column(server_default="0")
+    archived_at: Mapped[datetime | None]
 
 
 class ChunkKind(StrEnum):
@@ -80,4 +94,143 @@ class KbChunk(IdMixin, TenantMixin, Base):
     text: Mapped[str] = mapped_column(Text)
     terms: Mapped[list[str]] = mapped_column(server_default="{}")
     embedding: Mapped[list[float] | None] = mapped_column(Vector(EMBED_DIM))
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+
+class VersionChange(StrEnum):
+    CREATED = "created"  # 首次发布
+    UPDATED = "updated"  # 修改后发布
+    RESTORED = "restored"  # 回滚到历史版本
+    MERGED = "merged"  # 审核台合并候选
+
+
+class KbItemVersion(IdMixin, TenantMixin, Base):
+    """一次发布的内容快照（设计文档 §12.5）。知识动态也取自这里。"""
+
+    __tablename__ = "kb_item_versions"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["tenant_id", "item_id"], ["kb_items.tenant_id", "kb_items.id"], ondelete="CASCADE"
+        ),
+    )
+
+    item_id: Mapped[uuid.UUID]
+    version: Mapped[int]
+    change: Mapped[str] = mapped_column(String(16))
+    note: Mapped[str | None] = mapped_column(Text)
+    title: Mapped[str] = mapped_column(Text)
+    content: Mapped[str] = mapped_column(Text)
+    questions: Mapped[list[str]] = mapped_column(server_default="{}")
+    category: Mapped[str] = mapped_column(String(64), server_default="")
+    tags: Mapped[list[str]] = mapped_column(server_default="{}")
+    visibility: Mapped[str] = mapped_column(String(16))
+    valid_from: Mapped[datetime | None]
+    valid_to: Mapped[datetime | None]
+    must_read: Mapped[bool] = mapped_column(server_default="false")
+    published_by: Mapped[uuid.UUID | None]
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+
+class CandidateKind(StrEnum):
+    NEW = "new"  # 新问题
+    SIMILAR = "similar"  # 已有问答的新问法（答案一致）
+    CONFLICT = "conflict"  # 同一问题但答案与已有知识不一致（可能是政策变化）
+    GAP = "gap"  # 坐席也没能解答的问题（知识缺口）
+
+
+class CandidateStatus(StrEnum):
+    PENDING = "pending"
+    APPROVED = "approved"  # 新建为知识
+    MERGED = "merged"  # 并入已有知识
+    REJECTED = "rejected"
+
+
+class KbCandidate(IdMixin, TimestampMixin, TenantMixin, Base):
+    """从会话提炼的候选（设计文档 §12.4），在审核台处理。"""
+
+    __tablename__ = "kb_candidates"
+    __table_args__ = (UniqueConstraint("tenant_id", "id"),)
+
+    kind: Mapped[str] = mapped_column(String(12))
+    status: Mapped[str] = mapped_column(String(12), server_default=CandidateStatus.PENDING.value)
+    question: Mapped[str] = mapped_column(Text)
+    answer: Mapped[str | None] = mapped_column(Text)
+    category: Mapped[str] = mapped_column(String(64), server_default="")
+    target_item_id: Mapped[uuid.UUID | None]
+    similarity: Mapped[float | None] = mapped_column(Double)
+    confidence: Mapped[float | None] = mapped_column(Double)
+    time_sensitive: Mapped[bool] = mapped_column(server_default="false")
+    occurrences: Mapped[int] = mapped_column(server_default="1")
+    terms: Mapped[list[str]] = mapped_column(server_default="{}")
+    embedding: Mapped[list[float] | None] = mapped_column(Vector(EMBED_DIM))
+    evidence: Mapped[list[Any]] = mapped_column(JSONB, server_default="[]")
+    first_seen_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    last_seen_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    model: Mapped[str | None] = mapped_column(String(128))
+    prompt_version: Mapped[str | None] = mapped_column(String(16))
+    review_note: Mapped[str | None] = mapped_column(Text)
+    reviewed_by: Mapped[uuid.UUID | None]
+    reviewed_at: Mapped[datetime | None]
+    result_item_id: Mapped[uuid.UUID | None]
+
+
+class KbExtraction(TenantMixin, Base):
+    """会话的提炼记录：每个会话只提炼一次，失败的重试。"""
+
+    __tablename__ = "kb_extractions"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["tenant_id", "session_id"], ["sessions.tenant_id", "sessions.id"], ondelete="CASCADE"
+        ),
+    )
+
+    session_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    status: Mapped[str] = mapped_column(String(12))
+    pairs: Mapped[int] = mapped_column(server_default="0")
+    gaps: Mapped[int] = mapped_column(server_default="0")
+    attempts: Mapped[int] = mapped_column(server_default="1")
+    error: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
+
+
+class KbRead(TenantMixin, Base):
+    """必读确认（按版本）。"""
+
+    __tablename__ = "kb_reads"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["tenant_id", "item_id"], ["kb_items.tenant_id", "kb_items.id"], ondelete="CASCADE"
+        ),
+    )
+
+    item_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    version: Mapped[int] = mapped_column(primary_key=True)
+    staff_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    read_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+
+class KbFeedback(TenantMixin, Base):
+    """员工对知识的评价：1 有用，-1 没用。"""
+
+    __tablename__ = "kb_feedback"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["tenant_id", "item_id"], ["kb_items.tenant_id", "kb_items.id"], ondelete="CASCADE"
+        ),
+    )
+
+    item_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    staff_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    value: Mapped[int] = mapped_column(SmallInteger)
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+
+class KbDigest(IdMixin, TenantMixin, Base):
+    """知识周报。"""
+
+    __tablename__ = "kb_digests"
+
+    week_start: Mapped[date]
+    data: Mapped[dict[str, Any]]
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())

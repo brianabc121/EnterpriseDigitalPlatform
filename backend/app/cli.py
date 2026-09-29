@@ -21,6 +21,8 @@ from app.integrations.storage import ensure_bucket
 from app.main import create_app
 from app.modules.conversation.reconcile import ReconcileReport, reconcile_all
 from app.modules.files.service import storage_config
+from app.modules.kb.extraction import ExtractionReport, run_extraction
+from app.modules.kb.metrics import generate_digest, week_of
 from app.modules.kb.service import reindex_all
 from app.modules.tenancy import service as tenancy
 from app.modules.tenancy.models import Tenant
@@ -104,6 +106,34 @@ async def kb_reindex(settings: Settings, code: str | None) -> dict[str, int]:
         await ctx.aclose()
 
 
+async def kb_extract(settings: Settings, code: str | None) -> ExtractionReport:
+    """立即从最近结束的会话提炼知识候选（平时由调度进程每小时执行）。"""
+    ctx = AppContext.create(settings)
+    try:
+        return await run_extraction(ctx, tenant_code=code)
+    finally:
+        await ctx.aclose()
+
+
+async def kb_digest(settings: Settings, code: str | None, day: date | None) -> dict[str, int]:
+    """生成（或重新生成）知识周报，默认本周；返回每个租户周报里新增知识的条数。"""
+    ctx = AppContext.create(settings)
+    week = week_of(day or today(ZoneInfo(settings.usage_timezone)))
+    try:
+        async with ctx.db.platform_sessionmaker() as session:
+            query = select(Tenant.id, Tenant.code).order_by(Tenant.code)
+            if code:
+                query = query.where(Tenant.code == code)
+            tenants = (await session.execute(query)).all()
+        result = {}
+        for tenant_id, tenant in tenants:
+            data = await generate_digest(ctx, tenant_id, week)
+            result[tenant] = len(data["new_items"])
+        return result
+    finally:
+        await ctx.aclose()
+
+
 def export_openapi(output: Path | None) -> None:
     schema = create_app(get_settings()).openapi()
     text = json.dumps(schema, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
@@ -138,6 +168,13 @@ def main(argv: list[str] | None = None) -> int:
 
     kb = commands.add_parser("kb-reindex", help="重建知识库检索单元（更换向量模型后执行）")
     kb.add_argument("--tenant", help="租户编码，不填时处理全部租户")
+
+    extract = commands.add_parser("kb-extract", help="立即从最近结束的会话提炼知识候选")
+    extract.add_argument("--tenant", help="租户编码，不填时处理全部租户")
+
+    digest = commands.add_parser("kb-digest", help="生成知识周报（默认本周）")
+    digest.add_argument("--tenant", help="租户编码，不填时处理全部租户")
+    digest.add_argument("--week", type=date.fromisoformat, help="这一周中的任意一天 YYYY-MM-DD")
 
     openapi = commands.add_parser("export-openapi", help="导出 OpenAPI 描述（供前端生成类型）")
     openapi.add_argument("output", nargs="?", type=Path)
@@ -179,6 +216,12 @@ def main(argv: list[str] | None = None) -> int:
     elif args.command == "kb-reindex":
         counts = asyncio.run(kb_reindex(get_settings(), args.tenant))
         print(json.dumps(counts, ensure_ascii=False))
+    elif args.command == "kb-extract":
+        extracted = asyncio.run(kb_extract(get_settings(), args.tenant))
+        print(json.dumps(dataclasses.asdict(extracted), ensure_ascii=False))
+    elif args.command == "kb-digest":
+        digests = asyncio.run(kb_digest(get_settings(), args.tenant, args.week))
+        print(json.dumps(digests, ensure_ascii=False))
     elif args.command == "export-openapi":
         export_openapi(args.output)
     return 0

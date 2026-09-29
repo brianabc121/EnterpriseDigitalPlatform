@@ -96,6 +96,10 @@ class SendMessageRequest(BaseModel):
     attachment: Attachment | None = Field(
         default=None, description="图片或文件（type 为 image、file 时）"
     )
+    origin: Literal["manual", "quick_reply", "suggestion", "knowledge"] = Field(
+        default="manual",
+        description="回复的来源：手写、快捷话术、AI 建议、知识检索（用于统计 AI 建议采纳率）",
+    )
 
     @model_validator(mode="after")
     def _check(self) -> "SendMessageRequest":

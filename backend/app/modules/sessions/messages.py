@@ -136,7 +136,10 @@ def _content(
     """消息在平台里保存的类型、内容和纯文本（与回调入库的格式一致，见 conversation/ingest.py）。"""
     if payload.type == "text":
         assert payload.text is not None
-        return "text", {"text": payload.text}, payload.text
+        content: dict[str, Any] = {"text": payload.text}
+        if payload.origin != "manual":
+            content["origin"] = payload.origin
+        return "text", content, payload.text
     attachment = payload.attachment
     assert attachment is not None
     prefix = f"{ctx.settings.public_api_url.rstrip('/')}/api/v1/files/"

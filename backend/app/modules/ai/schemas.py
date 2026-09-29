@@ -18,6 +18,10 @@ class AiSettingsOut(BaseModel):
     sensitive_keywords: list[str] = Field(
         description="除内置词外的敏感词：客户提到时转人工，回复里出现时不发送"
     )
+    extraction_enabled: bool = Field(description="自动从已结束的会话提炼知识候选（需要大模型）")
+    auto_merge_similar: bool = Field(
+        description="相似问法证据足够多（3 条以上）时自动并入原问答，不经审核"
+    )
     llm_configured: bool = Field(description="平台是否配置了大模型")
     embeddings_configured: bool = Field(description="平台是否配置了向量模型（语义检索）")
     monthly_quota: int | None = Field(description="每月 AI 回复条数上限（套餐额度），空为不限")
@@ -33,6 +37,8 @@ class AiSettingsUpdate(BaseModel):
     relevance_threshold: float | None = Field(default=None, ge=0, le=1)
     handoff_keywords: list[Keyword] | None = Field(default=None, max_length=50)
     sensitive_keywords: list[Keyword] | None = Field(default=None, max_length=200)
+    extraction_enabled: bool | None = None
+    auto_merge_similar: bool | None = None
 
 
 class KnowledgeRef(BaseModel):

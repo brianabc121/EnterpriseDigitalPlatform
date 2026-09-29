@@ -22,6 +22,8 @@ DEFAULTS = {
     "relevance_threshold": 0.55,
     "handoff_keywords": [],
     "sensitive_keywords": [],
+    "extraction_enabled": True,
+    "auto_merge_similar": False,
 }
 
 UNAVAILABLE = {
@@ -105,6 +107,8 @@ async def settings_out(
         relevance_threshold=settings.relevance_threshold,
         handoff_keywords=list(settings.handoff_keywords),
         sensitive_keywords=list(settings.sensitive_keywords),
+        extraction_enabled=settings.extraction_enabled,
+        auto_merge_similar=settings.auto_merge_similar,
         llm_configured=ctx.llm.enabled,
         embeddings_configured=ctx.llm.can_embed,
         monthly_quota=quota,
