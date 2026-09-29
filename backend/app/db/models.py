@@ -16,6 +16,7 @@ from app.modules.iam.models import RefreshToken, Role, Staff, StaffRole
 from app.modules.quickreply.models import QuickReply
 from app.modules.routing.models import AgentState, RoutingPolicy, SkillGroup, SkillGroupMember
 from app.modules.tenancy.models import PlatformUser, Tenant
+from app.modules.usage.models import UsageDaily
 
 __all__ = [
     "AgentState",
@@ -41,4 +42,5 @@ __all__ = [
     "StaffRole",
     "Tenant",
     "Ticket",
+    "UsageDaily",
 ]

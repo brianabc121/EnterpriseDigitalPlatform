@@ -67,6 +67,8 @@ class Settings(BaseSettings):
     public_api_url: str = "http://localhost:8000"
     # 访客 Widget 的地址：它自己的来源总是允许接入（渠道设置了允许嵌入的网站时）。
     widget_public_url: str = "http://localhost:5175"
+    # 用量按日汇总时划分日期的时区（计费时区）。
+    usage_timezone: str = "Asia/Shanghai"
 
     @model_validator(mode="after")
     def _check_prod(self) -> "Settings":

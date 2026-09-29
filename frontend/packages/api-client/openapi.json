@@ -145,6 +145,170 @@
         "title": "AgentOut",
         "type": "object"
       },
+      "AgentReport": {
+        "properties": {
+          "end": {
+            "format": "date",
+            "title": "End",
+            "type": "string"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AgentStats"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "start": {
+            "format": "date",
+            "title": "Start",
+            "type": "string"
+          },
+          "timezone": {
+            "title": "Timezone",
+            "type": "string"
+          }
+        },
+        "required": [
+          "start",
+          "end",
+          "timezone",
+          "items"
+        ],
+        "title": "AgentReport",
+        "type": "object"
+      },
+      "AgentStats": {
+        "properties": {
+          "avg_first_response_seconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "平均首次响应时长：首次分配到坐席第一条回复",
+            "title": "Avg First Response Seconds"
+          },
+          "avg_handle_seconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "平均处理时长：首次分配到会话结束",
+            "title": "Avg Handle Seconds"
+          },
+          "avg_wait_seconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "平均排队时长：首次排队到首次分配",
+            "title": "Avg Wait Seconds"
+          },
+          "closed_sessions": {
+            "title": "Closed Sessions",
+            "type": "integer"
+          },
+          "csat_avg": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "平均满意度（1-5）",
+            "title": "Csat Avg"
+          },
+          "csat_count": {
+            "description": "已评价的会话数",
+            "title": "Csat Count",
+            "type": "integer"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "human_sessions": {
+            "description": "分配给坐席的会话",
+            "title": "Human Sessions",
+            "type": "integer"
+          },
+          "messages": {
+            "description": "发出的消息数",
+            "title": "Messages",
+            "type": "integer"
+          },
+          "missed_sessions": {
+            "description": "排队超时或非工作时间转为留言的会话",
+            "title": "Missed Sessions",
+            "type": "integer"
+          },
+          "satisfied_rate": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "满意率：4 分及以上占已评价的比例",
+            "title": "Satisfied Rate"
+          },
+          "sessions": {
+            "description": "新会话数（按会话创建时间统计）",
+            "title": "Sessions",
+            "type": "integer"
+          },
+          "staff_id": {
+            "format": "uuid",
+            "title": "Staff Id",
+            "type": "string"
+          },
+          "status": {
+            "description": "当前接待状态",
+            "title": "Status",
+            "type": "string"
+          },
+          "transfers_out": {
+            "description": "转出的会话",
+            "title": "Transfers Out",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "sessions",
+          "human_sessions",
+          "closed_sessions",
+          "missed_sessions",
+          "avg_wait_seconds",
+          "avg_first_response_seconds",
+          "avg_handle_seconds",
+          "csat_avg",
+          "csat_count",
+          "satisfied_rate",
+          "staff_id",
+          "display_name",
+          "status",
+          "messages",
+          "transfers_out"
+        ],
+        "title": "AgentStats",
+        "type": "object"
+      },
       "AgentStatus": {
         "enum": [
           "online",
@@ -815,6 +979,114 @@
         "title": "CustomerUpdate",
         "type": "object"
       },
+      "DailyStats": {
+        "properties": {
+          "avg_first_response_seconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "平均首次响应时长：首次分配到坐席第一条回复",
+            "title": "Avg First Response Seconds"
+          },
+          "avg_handle_seconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "平均处理时长：首次分配到会话结束",
+            "title": "Avg Handle Seconds"
+          },
+          "avg_wait_seconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "平均排队时长：首次排队到首次分配",
+            "title": "Avg Wait Seconds"
+          },
+          "closed_sessions": {
+            "title": "Closed Sessions",
+            "type": "integer"
+          },
+          "csat_avg": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "平均满意度（1-5）",
+            "title": "Csat Avg"
+          },
+          "csat_count": {
+            "description": "已评价的会话数",
+            "title": "Csat Count",
+            "type": "integer"
+          },
+          "day": {
+            "format": "date",
+            "title": "Day",
+            "type": "string"
+          },
+          "human_sessions": {
+            "description": "分配给坐席的会话",
+            "title": "Human Sessions",
+            "type": "integer"
+          },
+          "missed_sessions": {
+            "description": "排队超时或非工作时间转为留言的会话",
+            "title": "Missed Sessions",
+            "type": "integer"
+          },
+          "satisfied_rate": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "满意率：4 分及以上占已评价的比例",
+            "title": "Satisfied Rate"
+          },
+          "sessions": {
+            "description": "新会话数（按会话创建时间统计）",
+            "title": "Sessions",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "sessions",
+          "human_sessions",
+          "closed_sessions",
+          "missed_sessions",
+          "avg_wait_seconds",
+          "avg_first_response_seconds",
+          "avg_handle_seconds",
+          "csat_avg",
+          "csat_count",
+          "satisfied_rate",
+          "day"
+        ],
+        "title": "DailyStats",
+        "type": "object"
+      },
       "ErrorDetail": {
         "properties": {
           "code": {
@@ -1280,6 +1552,169 @@
         "title": "MyAgentStatusUpdate",
         "type": "object"
       },
+      "Overview": {
+        "properties": {
+          "days": {
+            "items": {
+              "$ref": "#/components/schemas/DailyStats"
+            },
+            "title": "Days",
+            "type": "array"
+          },
+          "end": {
+            "format": "date",
+            "title": "End",
+            "type": "string"
+          },
+          "start": {
+            "format": "date",
+            "title": "Start",
+            "type": "string"
+          },
+          "timezone": {
+            "title": "Timezone",
+            "type": "string"
+          },
+          "totals": {
+            "$ref": "#/components/schemas/OverviewTotals"
+          }
+        },
+        "required": [
+          "start",
+          "end",
+          "timezone",
+          "totals",
+          "days"
+        ],
+        "title": "Overview",
+        "type": "object"
+      },
+      "OverviewTotals": {
+        "properties": {
+          "agent_messages": {
+            "description": "坐席消息数",
+            "title": "Agent Messages",
+            "type": "integer"
+          },
+          "avg_first_response_seconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "平均首次响应时长：首次分配到坐席第一条回复",
+            "title": "Avg First Response Seconds"
+          },
+          "avg_handle_seconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "平均处理时长：首次分配到会话结束",
+            "title": "Avg Handle Seconds"
+          },
+          "avg_wait_seconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "平均排队时长：首次排队到首次分配",
+            "title": "Avg Wait Seconds"
+          },
+          "closed_sessions": {
+            "title": "Closed Sessions",
+            "type": "integer"
+          },
+          "csat_avg": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "平均满意度（1-5）",
+            "title": "Csat Avg"
+          },
+          "csat_count": {
+            "description": "已评价的会话数",
+            "title": "Csat Count",
+            "type": "integer"
+          },
+          "human_sessions": {
+            "description": "分配给坐席的会话",
+            "title": "Human Sessions",
+            "type": "integer"
+          },
+          "messages_in": {
+            "description": "客户消息数（按发送时间统计）",
+            "title": "Messages In",
+            "type": "integer"
+          },
+          "missed_sessions": {
+            "description": "排队超时或非工作时间转为留言的会话",
+            "title": "Missed Sessions",
+            "type": "integer"
+          },
+          "satisfied_rate": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "满意率：4 分及以上占已评价的比例",
+            "title": "Satisfied Rate"
+          },
+          "sessions": {
+            "description": "新会话数（按会话创建时间统计）",
+            "title": "Sessions",
+            "type": "integer"
+          },
+          "tickets": {
+            "description": "新增留言",
+            "title": "Tickets",
+            "type": "integer"
+          },
+          "transfers": {
+            "description": "完成的会话转接",
+            "title": "Transfers",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "sessions",
+          "human_sessions",
+          "closed_sessions",
+          "missed_sessions",
+          "avg_wait_seconds",
+          "avg_first_response_seconds",
+          "avg_handle_seconds",
+          "csat_avg",
+          "csat_count",
+          "satisfied_rate",
+          "messages_in",
+          "agent_messages",
+          "tickets",
+          "transfers"
+        ],
+        "title": "OverviewTotals",
+        "type": "object"
+      },
       "OwnerHistoryList": {
         "properties": {
           "items": {
@@ -1649,6 +2084,96 @@
           }
         },
         "title": "QuickReplyUpdate",
+        "type": "object"
+      },
+      "Realtime": {
+        "description": "首页实时数据。坐席只看到自己的接待数据；主管看到所带团队；管理员看到全部。",
+        "properties": {
+          "agents_away": {
+            "title": "Agents Away",
+            "type": "integer"
+          },
+          "agents_busy": {
+            "title": "Agents Busy",
+            "type": "integer"
+          },
+          "agents_online": {
+            "description": "可见范围内在线的坐席",
+            "title": "Agents Online",
+            "type": "integer"
+          },
+          "longest_wait_seconds": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "排队最久的会话已等待的秒数",
+            "title": "Longest Wait Seconds"
+          },
+          "my_serving": {
+            "description": "我正在接待的会话",
+            "title": "My Serving",
+            "type": "integer"
+          },
+          "my_today_sessions": {
+            "description": "今天分配给我的会话",
+            "title": "My Today Sessions",
+            "type": "integer"
+          },
+          "queued": {
+            "description": "正在排队的会话（全租户）",
+            "title": "Queued",
+            "type": "integer"
+          },
+          "serving": {
+            "description": "可见范围内正在接待的会话",
+            "title": "Serving",
+            "type": "integer"
+          },
+          "today_closed": {
+            "title": "Today Closed",
+            "type": "integer"
+          },
+          "today_csat_avg": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Today Csat Avg"
+          },
+          "today_csat_count": {
+            "title": "Today Csat Count",
+            "type": "integer"
+          },
+          "today_sessions": {
+            "description": "可见范围内今天的新会话",
+            "title": "Today Sessions",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "queued",
+          "longest_wait_seconds",
+          "serving",
+          "agents_online",
+          "agents_busy",
+          "agents_away",
+          "today_sessions",
+          "today_closed",
+          "today_csat_avg",
+          "today_csat_count",
+          "my_serving",
+          "my_today_sessions"
+        ],
+        "title": "Realtime",
         "type": "object"
       },
       "RoleList": {
@@ -3112,6 +3637,84 @@
         "title": "TenantUpdate",
         "type": "object"
       },
+      "TenantUsageList": {
+        "properties": {
+          "end": {
+            "format": "date",
+            "title": "End",
+            "type": "string"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/TenantUsageOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "metrics": {
+            "items": {
+              "$ref": "#/components/schemas/UsageMetricOut"
+            },
+            "title": "Metrics",
+            "type": "array"
+          },
+          "start": {
+            "format": "date",
+            "title": "Start",
+            "type": "string"
+          },
+          "timezone": {
+            "title": "Timezone",
+            "type": "string"
+          }
+        },
+        "required": [
+          "start",
+          "end",
+          "timezone",
+          "metrics",
+          "items"
+        ],
+        "title": "TenantUsageList",
+        "type": "object"
+      },
+      "TenantUsageOut": {
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "tenant_id": {
+            "format": "uuid",
+            "title": "Tenant Id",
+            "type": "string"
+          },
+          "totals": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Totals",
+            "type": "object"
+          }
+        },
+        "required": [
+          "tenant_id",
+          "code",
+          "name",
+          "status",
+          "totals"
+        ],
+        "title": "TenantUsageOut",
+        "type": "object"
+      },
       "TicketOut": {
         "properties": {
           "assignee_id": {
@@ -3650,6 +4253,127 @@
           "size"
         ],
         "title": "UploadRequest",
+        "type": "object"
+      },
+      "UsageDayOut": {
+        "properties": {
+          "day": {
+            "format": "date",
+            "title": "Day",
+            "type": "string"
+          },
+          "values": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "description": "指标 → 数值；没有列出的指标为 0",
+            "title": "Values",
+            "type": "object"
+          }
+        },
+        "required": [
+          "day",
+          "values"
+        ],
+        "title": "UsageDayOut",
+        "type": "object"
+      },
+      "UsageMetricOut": {
+        "properties": {
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "kind": {
+            "description": "合计方式：sum 按日求和；max 取最大值（活跃坐席）；snapshot 取最后一天的值",
+            "enum": [
+              "sum",
+              "max",
+              "snapshot"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "unit": {
+            "title": "Unit",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "label",
+          "unit",
+          "kind"
+        ],
+        "title": "UsageMetricOut",
+        "type": "object"
+      },
+      "UsageReport": {
+        "properties": {
+          "days": {
+            "items": {
+              "$ref": "#/components/schemas/UsageDayOut"
+            },
+            "title": "Days",
+            "type": "array"
+          },
+          "end": {
+            "format": "date",
+            "title": "End",
+            "type": "string"
+          },
+          "metrics": {
+            "items": {
+              "$ref": "#/components/schemas/UsageMetricOut"
+            },
+            "title": "Metrics",
+            "type": "array"
+          },
+          "start": {
+            "format": "date",
+            "title": "Start",
+            "type": "string"
+          },
+          "timezone": {
+            "description": "日期按这个时区划分",
+            "title": "Timezone",
+            "type": "string"
+          },
+          "totals": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Totals",
+            "type": "object"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "最近一次汇总的时间；每 10 分钟汇总一次",
+            "title": "Updated At"
+          }
+        },
+        "required": [
+          "start",
+          "end",
+          "timezone",
+          "metrics",
+          "days",
+          "totals",
+          "updated_at"
+        ],
+        "title": "UsageReport",
         "type": "object"
       },
       "VisitorIdentity": {
@@ -6353,6 +7077,383 @@
         ]
       }
     },
+    "/api/v1/reports/agents": {
+      "get": {
+        "description": "坐席工作量与服务质量。主管只看到所带团队。",
+        "operationId": "agents_api_v1_reports_agents_get",
+        "parameters": [
+          {
+            "description": "开始日期（含），默认最近 7 天",
+            "in": "query",
+            "name": "start",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "开始日期（含），默认最近 7 天",
+              "title": "Start"
+            }
+          },
+          {
+            "description": "结束日期（含），默认今天",
+            "in": "query",
+            "name": "end",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "结束日期（含），默认今天",
+              "title": "End"
+            }
+          },
+          {
+            "description": "划分日期的时区，默认 Asia/Shanghai",
+            "in": "query",
+            "name": "tz",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "划分日期的时区，默认 Asia/Shanghai",
+              "title": "Tz"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentReport"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Agents",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
+    "/api/v1/reports/overview": {
+      "get": {
+        "description": "服务概览：会话、排队与响应时长、满意度、消息、留言与转接，以及每日趋势。",
+        "operationId": "overview_api_v1_reports_overview_get",
+        "parameters": [
+          {
+            "description": "开始日期（含），默认最近 7 天",
+            "in": "query",
+            "name": "start",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "开始日期（含），默认最近 7 天",
+              "title": "Start"
+            }
+          },
+          {
+            "description": "结束日期（含），默认今天",
+            "in": "query",
+            "name": "end",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "结束日期（含），默认今天",
+              "title": "End"
+            }
+          },
+          {
+            "description": "划分日期的时区，默认 Asia/Shanghai",
+            "in": "query",
+            "name": "tz",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "划分日期的时区，默认 Asia/Shanghai",
+              "title": "Tz"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Overview"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Overview",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
+    "/api/v1/reports/realtime": {
+      "get": {
+        "description": "首页实时数据：排队、接待中、坐席状态、今日会话与满意度，以及我的接待情况。",
+        "operationId": "realtime_api_v1_reports_realtime_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Realtime"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Realtime",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
     "/api/v1/roles": {
       "get": {
         "operationId": "list_roles_api_v1_roles_get",
@@ -9001,6 +10102,133 @@
         ]
       }
     },
+    "/api/v1/usage": {
+      "get": {
+        "description": "本租户的每日用量。",
+        "operationId": "my_usage_api_v1_usage_get",
+        "parameters": [
+          {
+            "description": "开始日期（含），默认最近 30 天",
+            "in": "query",
+            "name": "start",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "开始日期（含），默认最近 30 天",
+              "title": "Start"
+            }
+          },
+          {
+            "description": "结束日期（含），默认今天",
+            "in": "query",
+            "name": "end",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "结束日期（含），默认今天",
+              "title": "End"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UsageReport"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "My Usage",
+        "tags": [
+          "usage"
+        ]
+      }
+    },
     "/api/v1/visitor/csat": {
       "post": {
         "description": "对已结束的会话评价（每个会话一次，结束后 7 天内）。",
@@ -10361,6 +11589,270 @@
           }
         ],
         "summary": "Update Tenant",
+        "tags": [
+          "platform"
+        ]
+      }
+    },
+    "/platform/v1/tenants/{tenant_id}/usage": {
+      "get": {
+        "description": "某个租户的每日用量。",
+        "operationId": "tenant_usage_platform_v1_tenants__tenant_id__usage_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tenant_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Tenant Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "开始日期（含），默认最近 30 天",
+            "in": "query",
+            "name": "start",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "开始日期（含），默认最近 30 天",
+              "title": "Start"
+            }
+          },
+          {
+            "description": "结束日期（含），默认今天",
+            "in": "query",
+            "name": "end",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "结束日期（含），默认今天",
+              "title": "End"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UsageReport"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "PlatformBearer": []
+          }
+        ],
+        "summary": "Tenant Usage",
+        "tags": [
+          "platform"
+        ]
+      }
+    },
+    "/platform/v1/usage": {
+      "get": {
+        "description": "各租户在范围内的用量合计。",
+        "operationId": "tenants_usage_platform_v1_usage_get",
+        "parameters": [
+          {
+            "description": "开始日期（含），默认最近 30 天",
+            "in": "query",
+            "name": "start",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "开始日期（含），默认最近 30 天",
+              "title": "Start"
+            }
+          },
+          {
+            "description": "结束日期（含），默认今天",
+            "in": "query",
+            "name": "end",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "结束日期（含），默认今天",
+              "title": "End"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TenantUsageList"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "PlatformBearer": []
+          }
+        ],
+        "summary": "Tenants Usage",
         "tags": [
           "platform"
         ]

@@ -4,7 +4,8 @@
 - 会话定时处理：断线坐席下线、排队超时转留言、空闲会话结束、分配排队会话（每 10 秒）；
 - 超时未接受的会话转接退回原坐席（每 5 秒）；
 - 执行到期的 IM 发件箱操作（每 5 秒）；
-- 重新发布没有归入会话的消息事件（每 30 秒）。
+- 重新发布没有归入会话的消息事件（每 30 秒）；
+- 汇总当天和前一天的用量（每 10 分钟）。
 
 用法：uv run python -m app.scheduler。可以运行多个实例：持有租约的实例执行任务，其他实例待命。
 """
@@ -26,6 +27,7 @@ from app.modules.conversation.outbox import dispatch_due
 from app.modules.conversation.reconcile import reconcile_all
 from app.modules.sessions.engine import republish_orphans, run_session_timers
 from app.modules.sessions.transfer import run_transfer_timers
+from app.modules.usage.service import run_usage_rollup
 
 logger = logging.getLogger("app.scheduler")
 
@@ -49,6 +51,7 @@ JOBS = (
     Job("transfer-timers", 5, run_transfer_timers),
     Job("im-ops", 5, dispatch_due),
     Job("orphan-messages", 30, republish_orphans),
+    Job("usage-rollup", 600, run_usage_rollup),
 )
 
 

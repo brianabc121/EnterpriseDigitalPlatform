@@ -7,10 +7,13 @@ import getpass
 import json
 import os
 import sys
+from datetime import date, timedelta
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 from app.context import AppContext
 from app.core.config import Settings, get_settings
+from app.core.dates import today
 from app.db.session import Database
 from app.integrations.storage import ensure_bucket
 from app.main import create_app
@@ -18,6 +21,7 @@ from app.modules.conversation.reconcile import ReconcileReport, reconcile_all
 from app.modules.files.service import storage_config
 from app.modules.tenancy import service as tenancy
 from app.modules.tenancy.schemas import TenantAdminCreate, TenantCreate
+from app.modules.usage.service import RollupReport, rollup_day
 
 
 def _password(value: str | None) -> str:
@@ -63,6 +67,23 @@ async def storage_init(settings: Settings) -> bool:
     return await ensure_bucket(storage_config(settings))
 
 
+async def usage_rollup(settings: Settings, first: date, last: date) -> RollupReport:
+    db = Database(settings)
+    tz = ZoneInfo(settings.usage_timezone)
+    total = RollupReport()
+    try:
+        day = first
+        while day <= last:
+            report = await rollup_day(db, day, tz)
+            total.days += 1
+            total.tenants += report.tenants
+            total.errors += report.errors
+            day += timedelta(days=1)
+    finally:
+        await db.dispose()
+    return total
+
+
 def export_openapi(output: Path | None) -> None:
     schema = create_app(get_settings()).openapi()
     text = json.dumps(schema, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
@@ -90,6 +111,10 @@ def main(argv: list[str] | None = None) -> int:
 
     commands.add_parser("im-reconcile", help="立即按 seq 对账一次（补录回调丢失的消息）")
     commands.add_parser("storage-init", help="创建对象存储桶（已存在时跳过）")
+
+    usage = commands.add_parser("usage-rollup", help="重新汇总用量（默认当天；可指定日期范围补算）")
+    usage.add_argument("--day", type=date.fromisoformat, help="开始日期 YYYY-MM-DD，默认当天")
+    usage.add_argument("--to", type=date.fromisoformat, help="结束日期（含），默认与开始日期相同")
 
     openapi = commands.add_parser("export-openapi", help="导出 OpenAPI 描述（供前端生成类型）")
     openapi.add_argument("output", nargs="?", type=Path)
@@ -123,6 +148,11 @@ def main(argv: list[str] | None = None) -> int:
     elif args.command == "storage-init":
         created = asyncio.run(storage_init(get_settings()))
         print("已创建存储桶" if created else "存储桶已存在")
+    elif args.command == "usage-rollup":
+        settings = get_settings()
+        first = args.day or today(ZoneInfo(settings.usage_timezone))
+        rollup = asyncio.run(usage_rollup(settings, first, args.to or first))
+        print(json.dumps(dataclasses.asdict(rollup), ensure_ascii=False))
     elif args.command == "export-openapi":
         export_openapi(args.output)
     return 0

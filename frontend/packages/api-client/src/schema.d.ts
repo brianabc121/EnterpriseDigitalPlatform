@@ -368,6 +368,66 @@ export interface paths {
         patch: operations["update_reply_api_v1_quick_replies__reply_id__patch"];
         trace?: never;
     };
+    "/api/v1/reports/agents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Agents
+         * @description 坐席工作量与服务质量。主管只看到所带团队。
+         */
+        get: operations["agents_api_v1_reports_agents_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reports/overview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Overview
+         * @description 服务概览：会话、排队与响应时长、满意度、消息、留言与转接，以及每日趋势。
+         */
+        get: operations["overview_api_v1_reports_overview_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reports/realtime": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Realtime
+         * @description 首页实时数据：排队、接待中、坐席状态、今日会话与满意度，以及我的接待情况。
+         */
+        get: operations["realtime_api_v1_reports_realtime_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/roles": {
         parameters: {
             query?: never;
@@ -760,6 +820,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/usage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * My Usage
+         * @description 本租户的每日用量。
+         */
+        get: operations["my_usage_api_v1_usage_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/visitor/csat": {
         parameters: {
             query?: never;
@@ -993,6 +1073,46 @@ export interface paths {
         patch: operations["update_tenant_platform_v1_tenants__tenant_id__patch"];
         trace?: never;
     };
+    "/platform/v1/tenants/{tenant_id}/usage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Tenant Usage
+         * @description 某个租户的每日用量。
+         */
+        get: operations["tenant_usage_platform_v1_tenants__tenant_id__usage_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platform/v1/usage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Tenants Usage
+         * @description 各租户在范围内的用量合计。
+         */
+        get: operations["tenants_usage_platform_v1_usage_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/readyz": {
         parameters: {
             query?: never;
@@ -1074,6 +1194,95 @@ export interface components {
             status: components["schemas"]["AgentStatus"];
             /** Username */
             username: string;
+        };
+        /** AgentReport */
+        AgentReport: {
+            /**
+             * End
+             * Format: date
+             */
+            end: string;
+            /** Items */
+            items: components["schemas"]["AgentStats"][];
+            /**
+             * Start
+             * Format: date
+             */
+            start: string;
+            /** Timezone */
+            timezone: string;
+        };
+        /** AgentStats */
+        AgentStats: {
+            /**
+             * Avg First Response Seconds
+             * @description 平均首次响应时长：首次分配到坐席第一条回复
+             */
+            avg_first_response_seconds: number | null;
+            /**
+             * Avg Handle Seconds
+             * @description 平均处理时长：首次分配到会话结束
+             */
+            avg_handle_seconds: number | null;
+            /**
+             * Avg Wait Seconds
+             * @description 平均排队时长：首次排队到首次分配
+             */
+            avg_wait_seconds: number | null;
+            /** Closed Sessions */
+            closed_sessions: number;
+            /**
+             * Csat Avg
+             * @description 平均满意度（1-5）
+             */
+            csat_avg: number | null;
+            /**
+             * Csat Count
+             * @description 已评价的会话数
+             */
+            csat_count: number;
+            /** Display Name */
+            display_name: string;
+            /**
+             * Human Sessions
+             * @description 分配给坐席的会话
+             */
+            human_sessions: number;
+            /**
+             * Messages
+             * @description 发出的消息数
+             */
+            messages: number;
+            /**
+             * Missed Sessions
+             * @description 排队超时或非工作时间转为留言的会话
+             */
+            missed_sessions: number;
+            /**
+             * Satisfied Rate
+             * @description 满意率：4 分及以上占已评价的比例
+             */
+            satisfied_rate: number | null;
+            /**
+             * Sessions
+             * @description 新会话数（按会话创建时间统计）
+             */
+            sessions: number;
+            /**
+             * Staff Id
+             * Format: uuid
+             */
+            staff_id: string;
+            /**
+             * Status
+             * @description 当前接待状态
+             */
+            status: string;
+            /**
+             * Transfers Out
+             * @description 转出的会话
+             */
+            transfers_out: number;
         };
         /**
          * AgentStatus
@@ -1306,6 +1515,61 @@ export interface components {
             /** Tags */
             tags?: string[] | null;
         };
+        /** DailyStats */
+        DailyStats: {
+            /**
+             * Avg First Response Seconds
+             * @description 平均首次响应时长：首次分配到坐席第一条回复
+             */
+            avg_first_response_seconds: number | null;
+            /**
+             * Avg Handle Seconds
+             * @description 平均处理时长：首次分配到会话结束
+             */
+            avg_handle_seconds: number | null;
+            /**
+             * Avg Wait Seconds
+             * @description 平均排队时长：首次排队到首次分配
+             */
+            avg_wait_seconds: number | null;
+            /** Closed Sessions */
+            closed_sessions: number;
+            /**
+             * Csat Avg
+             * @description 平均满意度（1-5）
+             */
+            csat_avg: number | null;
+            /**
+             * Csat Count
+             * @description 已评价的会话数
+             */
+            csat_count: number;
+            /**
+             * Day
+             * Format: date
+             */
+            day: string;
+            /**
+             * Human Sessions
+             * @description 分配给坐席的会话
+             */
+            human_sessions: number;
+            /**
+             * Missed Sessions
+             * @description 排队超时或非工作时间转为留言的会话
+             */
+            missed_sessions: number;
+            /**
+             * Satisfied Rate
+             * @description 满意率：4 分及以上占已评价的比例
+             */
+            satisfied_rate: number | null;
+            /**
+             * Sessions
+             * @description 新会话数（按会话创建时间统计）
+             */
+            sessions: number;
+        };
         /** ErrorDetail */
         ErrorDetail: {
             /** Code */
@@ -1477,6 +1741,94 @@ export interface components {
         MyAgentStatusUpdate: {
             status: components["schemas"]["AgentStatus"];
         };
+        /** Overview */
+        Overview: {
+            /** Days */
+            days: components["schemas"]["DailyStats"][];
+            /**
+             * End
+             * Format: date
+             */
+            end: string;
+            /**
+             * Start
+             * Format: date
+             */
+            start: string;
+            /** Timezone */
+            timezone: string;
+            totals: components["schemas"]["OverviewTotals"];
+        };
+        /** OverviewTotals */
+        OverviewTotals: {
+            /**
+             * Agent Messages
+             * @description 坐席消息数
+             */
+            agent_messages: number;
+            /**
+             * Avg First Response Seconds
+             * @description 平均首次响应时长：首次分配到坐席第一条回复
+             */
+            avg_first_response_seconds: number | null;
+            /**
+             * Avg Handle Seconds
+             * @description 平均处理时长：首次分配到会话结束
+             */
+            avg_handle_seconds: number | null;
+            /**
+             * Avg Wait Seconds
+             * @description 平均排队时长：首次排队到首次分配
+             */
+            avg_wait_seconds: number | null;
+            /** Closed Sessions */
+            closed_sessions: number;
+            /**
+             * Csat Avg
+             * @description 平均满意度（1-5）
+             */
+            csat_avg: number | null;
+            /**
+             * Csat Count
+             * @description 已评价的会话数
+             */
+            csat_count: number;
+            /**
+             * Human Sessions
+             * @description 分配给坐席的会话
+             */
+            human_sessions: number;
+            /**
+             * Messages In
+             * @description 客户消息数（按发送时间统计）
+             */
+            messages_in: number;
+            /**
+             * Missed Sessions
+             * @description 排队超时或非工作时间转为留言的会话
+             */
+            missed_sessions: number;
+            /**
+             * Satisfied Rate
+             * @description 满意率：4 分及以上占已评价的比例
+             */
+            satisfied_rate: number | null;
+            /**
+             * Sessions
+             * @description 新会话数（按会话创建时间统计）
+             */
+            sessions: number;
+            /**
+             * Tickets
+             * @description 新增留言
+             */
+            tickets: number;
+            /**
+             * Transfers
+             * @description 完成的会话转接
+             */
+            transfers: number;
+        };
         /** OwnerHistoryList */
         OwnerHistoryList: {
             /** Items */
@@ -1613,6 +1965,57 @@ export interface components {
             sort?: number | null;
             /** Title */
             title?: string | null;
+        };
+        /**
+         * Realtime
+         * @description 首页实时数据。坐席只看到自己的接待数据；主管看到所带团队；管理员看到全部。
+         */
+        Realtime: {
+            /** Agents Away */
+            agents_away: number;
+            /** Agents Busy */
+            agents_busy: number;
+            /**
+             * Agents Online
+             * @description 可见范围内在线的坐席
+             */
+            agents_online: number;
+            /**
+             * Longest Wait Seconds
+             * @description 排队最久的会话已等待的秒数
+             */
+            longest_wait_seconds: number | null;
+            /**
+             * My Serving
+             * @description 我正在接待的会话
+             */
+            my_serving: number;
+            /**
+             * My Today Sessions
+             * @description 今天分配给我的会话
+             */
+            my_today_sessions: number;
+            /**
+             * Queued
+             * @description 正在排队的会话（全租户）
+             */
+            queued: number;
+            /**
+             * Serving
+             * @description 可见范围内正在接待的会话
+             */
+            serving: number;
+            /** Today Closed */
+            today_closed: number;
+            /** Today Csat Avg */
+            today_csat_avg: number | null;
+            /** Today Csat Count */
+            today_csat_count: number;
+            /**
+             * Today Sessions
+             * @description 可见范围内今天的新会话
+             */
+            today_sessions: number;
         };
         /** RoleList */
         RoleList: {
@@ -2172,6 +2575,43 @@ export interface components {
             name?: string | null;
             status?: components["schemas"]["TenantStatus"] | null;
         };
+        /** TenantUsageList */
+        TenantUsageList: {
+            /**
+             * End
+             * Format: date
+             */
+            end: string;
+            /** Items */
+            items: components["schemas"]["TenantUsageOut"][];
+            /** Metrics */
+            metrics: components["schemas"]["UsageMetricOut"][];
+            /**
+             * Start
+             * Format: date
+             */
+            start: string;
+            /** Timezone */
+            timezone: string;
+        };
+        /** TenantUsageOut */
+        TenantUsageOut: {
+            /** Code */
+            code: string;
+            /** Name */
+            name: string;
+            /** Status */
+            status: string;
+            /**
+             * Tenant Id
+             * Format: uuid
+             */
+            tenant_id: string;
+            /** Totals */
+            totals: {
+                [key: string]: number;
+            };
+        };
         /** TicketOut */
         TicketOut: {
             /** Assignee Id */
@@ -2385,6 +2825,67 @@ export interface components {
              * @description 字节数
              */
             size: number;
+        };
+        /** UsageDayOut */
+        UsageDayOut: {
+            /**
+             * Day
+             * Format: date
+             */
+            day: string;
+            /**
+             * Values
+             * @description 指标 → 数值；没有列出的指标为 0
+             */
+            values: {
+                [key: string]: number;
+            };
+        };
+        /** UsageMetricOut */
+        UsageMetricOut: {
+            /** Key */
+            key: string;
+            /**
+             * Kind
+             * @description 合计方式：sum 按日求和；max 取最大值（活跃坐席）；snapshot 取最后一天的值
+             * @enum {string}
+             */
+            kind: "sum" | "max" | "snapshot";
+            /** Label */
+            label: string;
+            /** Unit */
+            unit: string;
+        };
+        /** UsageReport */
+        UsageReport: {
+            /** Days */
+            days: components["schemas"]["UsageDayOut"][];
+            /**
+             * End
+             * Format: date
+             */
+            end: string;
+            /** Metrics */
+            metrics: components["schemas"]["UsageMetricOut"][];
+            /**
+             * Start
+             * Format: date
+             */
+            start: string;
+            /**
+             * Timezone
+             * @description 日期按这个时区划分
+             */
+            timezone: string;
+            /** Totals */
+            totals: {
+                [key: string]: number;
+            };
+            /**
+             * Updated At
+             * @description 最近一次汇总的时间；每 10 分钟汇总一次
+             */
+            updated_at: string | null;
         };
         /**
          * VisitorIdentity
@@ -4337,6 +4838,242 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["QuickReplyOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    agents_api_v1_reports_agents_get: {
+        parameters: {
+            query?: {
+                /** @description 开始日期（含），默认最近 7 天 */
+                start?: string | null;
+                /** @description 结束日期（含），默认今天 */
+                end?: string | null;
+                /** @description 划分日期的时区，默认 Asia/Shanghai */
+                tz?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentReport"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    overview_api_v1_reports_overview_get: {
+        parameters: {
+            query?: {
+                /** @description 开始日期（含），默认最近 7 天 */
+                start?: string | null;
+                /** @description 结束日期（含），默认今天 */
+                end?: string | null;
+                /** @description 划分日期的时区，默认 Asia/Shanghai */
+                tz?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Overview"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    realtime_api_v1_reports_realtime_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Realtime"];
                 };
             };
             /** @description Bad Request */
@@ -6393,6 +7130,85 @@ export interface operations {
             };
         };
     };
+    my_usage_api_v1_usage_get: {
+        parameters: {
+            query?: {
+                /** @description 开始日期（含），默认最近 30 天 */
+                start?: string | null;
+                /** @description 结束日期（含），默认今天 */
+                end?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UsageReport"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     rate_api_v1_visitor_csat_post: {
         parameters: {
             query?: never;
@@ -7394,6 +8210,166 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TenantOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    tenant_usage_platform_v1_tenants__tenant_id__usage_get: {
+        parameters: {
+            query?: {
+                /** @description 开始日期（含），默认最近 30 天 */
+                start?: string | null;
+                /** @description 结束日期（含），默认今天 */
+                end?: string | null;
+            };
+            header?: never;
+            path: {
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UsageReport"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    tenants_usage_platform_v1_usage_get: {
+        parameters: {
+            query?: {
+                /** @description 开始日期（含），默认最近 30 天 */
+                start?: string | null;
+                /** @description 结束日期（含），默认今天 */
+                end?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TenantUsageList"];
                 };
             };
             /** @description Bad Request */
