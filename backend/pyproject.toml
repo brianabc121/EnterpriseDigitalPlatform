@@ -16,6 +16,7 @@ dependencies = [
     "uuid-utils>=0.9",
     "redis>=6",
     "httpx>=0.28",
+    "cryptography>=43",
 ]
 
 [dependency-groups]

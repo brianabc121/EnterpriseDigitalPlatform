@@ -4,6 +4,7 @@ import { ElMessage } from 'element-plus'
 import { onMounted, reactive, ref } from 'vue'
 
 import { api, formatDateTime } from '../../api'
+import CustomerWecomInfo from '../wecom/CustomerWecomInfo.vue'
 
 const props = defineProps<{ customerId: string }>()
 
@@ -12,6 +13,12 @@ const history = ref<Schemas['SessionOut'][]>([])
 const saving = ref(false)
 const newTag = ref('')
 const form = reactive({ displayName: '', notes: '' })
+
+const CHANNEL_TYPE: Record<string, string> = {
+  web: '网页',
+  wecom_kf: '微信客服',
+  wecom_contact: '企业微信客户联系',
+}
 
 const CLOSE_REASON: Record<string, string> = {
   agent: '坐席结束',
@@ -72,6 +79,14 @@ async function addTag(): Promise<void> {
 async function removeTag(tag: string): Promise<void> {
   if (!customer.value) return
   await save({ tags: customer.value.tags.filter((t) => t !== tag) })
+}
+
+/** 身份所在渠道的标题：渠道名称，渠道类型与名称不同时附上类型。 */
+function identityTitle(identity: Schemas['CustomerIdentityOut']): string {
+  const kind = CHANNEL_TYPE[identity.channel_type] ?? identity.channel_type
+  return identity.channel_name === kind || identity.channel_name.includes(kind)
+    ? identity.channel_name
+    : `${identity.channel_name}（${kind}）`
 }
 
 function profileText(value: unknown): string {
@@ -137,8 +152,18 @@ onMounted(load)
       </section>
 
       <section v-for="identity in customer.identities" :key="identity.id" class="block">
-        <h3>{{ identity.channel_name }}（{{ identity.channel_type }}）</h3>
-        <dl>
+        <h3>{{ identityTitle(identity) }}</h3>
+        <dl v-if="identity.channel_type.startsWith('wecom')">
+          <dt>微信昵称</dt>
+          <dd>{{ profileText(identity.profile.nickname) }}</dd>
+          <dt v-if="identity.profile.corp_name">企业</dt>
+          <dd v-if="identity.profile.corp_name">{{ profileText(identity.profile.corp_name) }}</dd>
+          <dt>unionid</dt>
+          <dd>{{ identity.profile.unionid ? '已关联' : '—' }}</dd>
+          <dt>最近联系</dt>
+          <dd>{{ identity.last_seen_at ? formatDateTime(identity.last_seen_at) : '—' }}</dd>
+        </dl>
+        <dl v-else>
           <dt>来源页面</dt>
           <dd>{{ profileText(identity.profile.first_page) }}</dd>
           <dt>来源</dt>
@@ -149,6 +174,11 @@ onMounted(load)
           <dd>{{ identity.last_seen_at ? formatDateTime(identity.last_seen_at) : '—' }}</dd>
         </dl>
       </section>
+
+      <CustomerWecomInfo
+        v-if="customer.identities.some((i) => i.channel_type.startsWith('wecom'))"
+        :customer-id="customer.id"
+      />
 
       <section class="block">
         <h3>最近会话</h3>

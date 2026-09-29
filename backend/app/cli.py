@@ -17,6 +17,7 @@ from app.context import AppContext
 from app.core.config import Settings, get_settings
 from app.core.dates import today
 from app.db.session import Database
+from app.events.bus import Event, EventType
 from app.integrations.storage import ensure_bucket
 from app.main import create_app
 from app.modules.conversation.reconcile import ReconcileReport, reconcile_all
@@ -28,6 +29,10 @@ from app.modules.tenancy import service as tenancy
 from app.modules.tenancy.models import Tenant
 from app.modules.tenancy.schemas import TenantAdminCreate, TenantCreate
 from app.modules.usage.service import RollupReport, rollup_day
+from app.modules.wecom.contacts import poll_transfers
+from app.modules.wecom.handlers import on_sync
+from app.modules.wecom.kf import sync_all as kf_sync_all
+from app.modules.wecom.models import CorpStatus, WecomCorp
 
 
 def _password(value: str | None) -> str:
@@ -134,6 +139,47 @@ async def kb_digest(settings: Settings, code: str | None, day: date | None) -> d
         await ctx.aclose()
 
 
+async def wecom_sync(settings: Settings, code: str | None) -> dict[str, list[str]]:
+    """立即全量同步企业微信数据（成员、客服账号、标签、客户、客户群）并拉取微信客服消息。"""
+    ctx = AppContext.create(settings)
+    try:
+        async with ctx.db.platform_sessionmaker() as session:
+            query = (
+                select(Tenant.id, Tenant.code, WecomCorp.corp_id)
+                .join(WecomCorp, WecomCorp.tenant_id == Tenant.id)
+                .where(WecomCorp.status == CorpStatus.ACTIVE)
+                .order_by(Tenant.code)
+            )
+            if code:
+                query = query.where(Tenant.code == code)
+            corps = (await session.execute(query)).all()
+        result: dict[str, list[str]] = {}
+        for tenant_id, tenant, corp_id in corps:
+            await on_sync(
+                ctx,
+                Event(
+                    type=EventType.WECOM_SYNC,
+                    tenant_id=tenant_id,
+                    key=f"wecom:{corp_id}",
+                    data={"corp_id": corp_id},
+                ),
+            )
+            result[tenant] = [corp_id]
+        await kf_sync_all(ctx)
+        return result
+    finally:
+        await ctx.aclose()
+
+
+async def wecom_transfers(settings: Settings) -> int:
+    """立即回收在职继承的结果（平时由调度进程每小时执行）。"""
+    ctx = AppContext.create(settings)
+    try:
+        return await poll_transfers(ctx)
+    finally:
+        await ctx.aclose()
+
+
 def export_openapi(output: Path | None) -> None:
     schema = create_app(get_settings()).openapi()
     text = json.dumps(schema, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
@@ -175,6 +221,10 @@ def main(argv: list[str] | None = None) -> int:
     digest = commands.add_parser("kb-digest", help="生成知识周报（默认本周）")
     digest.add_argument("--tenant", help="租户编码，不填时处理全部租户")
     digest.add_argument("--week", type=date.fromisoformat, help="这一周中的任意一天 YYYY-MM-DD")
+
+    wecom = commands.add_parser("wecom-sync", help="立即全量同步企业微信数据并拉取微信客服消息")
+    wecom.add_argument("--tenant", help="租户编码，不填时处理全部已授权的租户")
+    commands.add_parser("wecom-transfers", help="立即回收企业微信在职继承的结果")
 
     openapi = commands.add_parser("export-openapi", help="导出 OpenAPI 描述（供前端生成类型）")
     openapi.add_argument("output", nargs="?", type=Path)
@@ -222,6 +272,12 @@ def main(argv: list[str] | None = None) -> int:
     elif args.command == "kb-digest":
         digests = asyncio.run(kb_digest(get_settings(), args.tenant, args.week))
         print(json.dumps(digests, ensure_ascii=False))
+    elif args.command == "wecom-sync":
+        synced = asyncio.run(wecom_sync(get_settings(), args.tenant))
+        print(json.dumps(synced, ensure_ascii=False))
+    elif args.command == "wecom-transfers":
+        finished = asyncio.run(wecom_transfers(get_settings()))
+        print(json.dumps({"finished": finished}, ensure_ascii=False))
     elif args.command == "export-openapi":
         export_openapi(args.output)
     return 0

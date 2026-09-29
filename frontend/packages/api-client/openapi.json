@@ -895,6 +895,26 @@
         "title": "AttachmentOut",
         "type": "object"
       },
+      "CallbackUrls": {
+        "properties": {
+          "command": {
+            "description": "指令回调 URL（代开发应用模板）",
+            "title": "Command",
+            "type": "string"
+          },
+          "data": {
+            "description": "数据回调 URL（代开发应用）",
+            "title": "Data",
+            "type": "string"
+          }
+        },
+        "required": [
+          "command",
+          "data"
+        ],
+        "title": "CallbackUrls",
+        "type": "object"
+      },
       "ChannelList": {
         "properties": {
           "items": {
@@ -934,6 +954,17 @@
             ],
             "description": "实名访客签名密钥（HMAC-SHA256）；为空表示未启用实名访客",
             "title": "Identity Secret"
+          },
+          "kf": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/KfView"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "微信客服渠道的设置"
           },
           "name": {
             "title": "Name",
@@ -992,6 +1023,17 @@
       },
       "ChannelUpdate": {
         "properties": {
+          "kf": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/KfSettings"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "只适用于微信客服渠道"
+          },
           "name": {
             "anyOf": [
               {
@@ -1040,6 +1082,73 @@
           }
         },
         "title": "ChannelUpdate",
+        "type": "object"
+      },
+      "CorpOut": {
+        "properties": {
+          "agent_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Agent Id"
+          },
+          "auth_user_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "授权的企业管理员（成员 userid）",
+            "title": "Auth User Id"
+          },
+          "authorized_at": {
+            "format": "date-time",
+            "title": "Authorized At",
+            "type": "string"
+          },
+          "cancelled_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cancelled At"
+          },
+          "corp_id": {
+            "title": "Corp Id",
+            "type": "string"
+          },
+          "corp_name": {
+            "title": "Corp Name",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "corp_id",
+          "corp_name",
+          "agent_id",
+          "status",
+          "auth_user_id",
+          "authorized_at",
+          "cancelled_at"
+        ],
+        "title": "CorpOut",
         "type": "object"
       },
       "CsatRequest": {
@@ -1356,6 +1465,12 @@
             ],
             "title": "Note"
           },
+          "sync_wecom": {
+            "default": false,
+            "description": "同时变更企业微信里的添加人（在职继承）：90 天内每位客户最多转接 2 次，客户 24 小时后自动接替",
+            "title": "Sync Wecom",
+            "type": "boolean"
+          },
           "to_owner_id": {
             "anyOf": [
               {
@@ -1423,6 +1538,63 @@
           }
         },
         "title": "CustomerUpdate",
+        "type": "object"
+      },
+      "CustomerWecom": {
+        "description": "客户在企业微信里的信息（客户 360 视图）。",
+        "properties": {
+          "external_userid": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "External Userid"
+          },
+          "follows": {
+            "items": {
+              "$ref": "#/components/schemas/FollowOut"
+            },
+            "title": "Follows",
+            "type": "array"
+          },
+          "group_chats": {
+            "items": {
+              "$ref": "#/components/schemas/GroupChatOut"
+            },
+            "title": "Group Chats",
+            "type": "array"
+          },
+          "transfers": {
+            "items": {
+              "$ref": "#/components/schemas/WecomTransferOut"
+            },
+            "title": "Transfers",
+            "type": "array"
+          },
+          "unionid": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unionid"
+          }
+        },
+        "required": [
+          "external_userid",
+          "unionid",
+          "follows",
+          "group_chats",
+          "transfers"
+        ],
+        "title": "CustomerWecom",
         "type": "object"
       },
       "DailyStats": {
@@ -1797,6 +1969,159 @@
         "title": "EvalRunOut",
         "type": "object"
       },
+      "FollowOut": {
+        "properties": {
+          "added_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Added At"
+          },
+          "deleted": {
+            "title": "Deleted",
+            "type": "boolean"
+          },
+          "member_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Member Name"
+          },
+          "remark": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remark"
+          },
+          "staff_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Staff Id"
+          },
+          "staff_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Staff Name"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Tags",
+            "type": "array"
+          },
+          "userid": {
+            "title": "Userid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "userid",
+          "member_name",
+          "staff_id",
+          "staff_name",
+          "remark",
+          "tags",
+          "added_at",
+          "deleted"
+        ],
+        "title": "FollowOut",
+        "type": "object"
+      },
+      "GroupChatOut": {
+        "properties": {
+          "chat_id": {
+            "title": "Chat Id",
+            "type": "string"
+          },
+          "created_time": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created Time"
+          },
+          "member_count": {
+            "title": "Member Count",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "owner_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owner Name"
+          },
+          "owner_userid": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owner Userid"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "chat_id",
+          "name",
+          "owner_userid",
+          "owner_name",
+          "member_count",
+          "status",
+          "created_time"
+        ],
+        "title": "GroupChatOut",
+        "type": "object"
+      },
       "HandoverRequest": {
         "properties": {
           "note": {
@@ -1810,6 +2135,12 @@
               }
             ],
             "title": "Note"
+          },
+          "sync_wecom": {
+            "default": false,
+            "description": "同时变更企业微信里的添加人（在职继承）：90 天内每位客户最多转接 2 次，客户 24 小时后自动接替",
+            "title": "Sync Wecom",
+            "type": "boolean"
           },
           "to_group_id": {
             "anyOf": [
@@ -1896,6 +2227,77 @@
           "platform_id"
         ],
         "title": "IMCredentials",
+        "type": "object"
+      },
+      "InstallOut": {
+        "properties": {
+          "url": {
+            "description": "企业微信授权页地址：管理员扫码授权后跳回控制台",
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "url"
+        ],
+        "title": "InstallOut",
+        "type": "object"
+      },
+      "JsSignature": {
+        "properties": {
+          "nonce_str": {
+            "title": "Nonce Str",
+            "type": "string"
+          },
+          "signature": {
+            "title": "Signature",
+            "type": "string"
+          },
+          "timestamp": {
+            "title": "Timestamp",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "timestamp",
+          "nonce_str",
+          "signature"
+        ],
+        "title": "JsSignature",
+        "type": "object"
+      },
+      "JssdkConfig": {
+        "description": "企业微信 JS-SDK 的注入配置：wx.config 用企业签名，wx.agentConfig 用应用签名。",
+        "properties": {
+          "agent_config": {
+            "$ref": "#/components/schemas/JsSignature"
+          },
+          "agent_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Agent Id"
+          },
+          "config": {
+            "$ref": "#/components/schemas/JsSignature"
+          },
+          "corp_id": {
+            "title": "Corp Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "corp_id",
+          "agent_id",
+          "config",
+          "agent_config"
+        ],
+        "title": "JssdkConfig",
         "type": "object"
       },
       "KbCandidateApprove": {
@@ -3698,6 +4100,119 @@
         "title": "KbVersionOut",
         "type": "object"
       },
+      "KfAccountOut": {
+        "properties": {
+          "avatar": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avatar"
+          },
+          "channel_id": {
+            "format": "uuid",
+            "title": "Channel Id",
+            "type": "string"
+          },
+          "contact_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "客服链接：放在网页、公众号菜单、欢迎语里",
+            "title": "Contact Url"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "open_kfid": {
+            "title": "Open Kfid",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "synced_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Synced At"
+          }
+        },
+        "required": [
+          "open_kfid",
+          "name",
+          "avatar",
+          "status",
+          "channel_id",
+          "contact_url",
+          "synced_at"
+        ],
+        "title": "KfAccountOut",
+        "type": "object"
+      },
+      "KfSettings": {
+        "description": "微信客服账号的设置（保存在渠道配置中）。",
+        "properties": {
+          "welcome_message": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "客户进入会话时自动发送的欢迎语（事件响应消息，不占 48 小时内 5 条的额度）",
+            "title": "Welcome Message"
+          }
+        },
+        "title": "KfSettings",
+        "type": "object"
+      },
+      "KfView": {
+        "properties": {
+          "open_kfid": {
+            "title": "Open Kfid",
+            "type": "string"
+          },
+          "welcome_message": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "客户进入会话时自动发送的欢迎语（事件响应消息，不占 48 小时内 5 条的额度）",
+            "title": "Welcome Message"
+          }
+        },
+        "required": [
+          "open_kfid"
+        ],
+        "title": "KfView",
+        "type": "object"
+      },
       "KnowledgeRef": {
         "properties": {
           "item_id": {
@@ -3826,6 +4341,98 @@
         "title": "MeResponse",
         "type": "object"
       },
+      "MemberBind": {
+        "properties": {
+          "staff_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "绑定的员工；null 表示解除绑定",
+            "title": "Staff Id"
+          }
+        },
+        "required": [
+          "staff_id"
+        ],
+        "title": "MemberBind",
+        "type": "object"
+      },
+      "MemberList": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/MemberOut"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "MemberList",
+        "type": "object"
+      },
+      "MemberOut": {
+        "properties": {
+          "follow": {
+            "description": "配置了客户联系功能",
+            "title": "Follow",
+            "type": "boolean"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "staff_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Staff Id"
+          },
+          "staff_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Staff Name"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "userid": {
+            "title": "Userid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "userid",
+          "name",
+          "follow",
+          "status",
+          "staff_id",
+          "staff_name"
+        ],
+        "title": "MemberOut",
+        "type": "object"
+      },
       "MessageOut": {
         "properties": {
           "channel_msg_id": {
@@ -3879,6 +4486,18 @@
               }
             ],
             "title": "Im Seq"
+          },
+          "send_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "发送失败的原因（如已超过微信客服 48 小时回复窗口）",
+            "title": "Send Error"
           },
           "send_status": {
             "anyOf": [
@@ -3938,7 +4557,7 @@
             "title": "Session Id"
           },
           "source": {
-            "description": "入库途径：webhook（发送后回调）、reconcile（对账补录）、api",
+            "description": "入库途径：webhook（发送后回调）、reconcile（对账补录）、api、channel（外部渠道拉取）",
             "title": "Source",
             "type": "string"
           },
@@ -4309,7 +4928,7 @@
             "title": "Note"
           },
           "reason": {
-            "description": "session_transfer、manual 或 handover",
+            "description": "session_transfer、manual、handover 或 wecom（企业微信添加人）",
             "title": "Reason",
             "type": "string"
           },
@@ -4335,6 +4954,18 @@
               }
             ],
             "title": "To Owner Name"
+          },
+          "wecom_sync_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "在职继承同步状态：waiting、success、failed；为空表示没有同步",
+            "title": "Wecom Sync Status"
           }
         },
         "required": [
@@ -4700,6 +5331,79 @@
           "my_today_sessions"
         ],
         "title": "Realtime",
+        "type": "object"
+      },
+      "ReplyWindowOut": {
+        "description": "微信客服的回复限制：客户最后一次发消息后 48 小时内最多发 5 条（设计 §3.1）。",
+        "properties": {
+          "deadline": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "回复截止时间",
+            "title": "Deadline"
+          },
+          "limit": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Limit"
+          },
+          "limited": {
+            "description": "false 表示这个渠道没有回复限制",
+            "title": "Limited",
+            "type": "boolean"
+          },
+          "open": {
+            "description": "现在能否回复",
+            "title": "Open",
+            "type": "boolean"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "不能回复的原因",
+            "title": "Reason"
+          },
+          "remaining": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "截止前还能发的条数",
+            "title": "Remaining"
+          }
+        },
+        "required": [
+          "limited",
+          "open",
+          "deadline",
+          "remaining",
+          "limit",
+          "reason"
+        ],
+        "title": "ReplyWindowOut",
         "type": "object"
       },
       "RoleList": {
@@ -5791,6 +6495,342 @@
         "title": "SessionStatus",
         "type": "string"
       },
+      "SidebarContext": {
+        "description": "侧边栏当前聊天的上下文：单聊是一位客户，客户群是群信息和群里的客户。",
+        "properties": {
+          "customer": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SidebarCustomer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "group": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GroupChatOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "group_customers": {
+            "items": {
+              "$ref": "#/components/schemas/SidebarCustomerBrief"
+            },
+            "title": "Group Customers",
+            "type": "array"
+          },
+          "kind": {
+            "enum": [
+              "contact",
+              "group"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "sessions": {
+            "items": {
+              "$ref": "#/components/schemas/SidebarSession"
+            },
+            "title": "Sessions",
+            "type": "array"
+          },
+          "wecom": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CustomerWecom"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "kind",
+          "customer",
+          "wecom",
+          "sessions",
+          "group",
+          "group_customers"
+        ],
+        "title": "SidebarContext",
+        "type": "object"
+      },
+      "SidebarCustomer": {
+        "properties": {
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "identities": {
+            "items": {
+              "$ref": "#/components/schemas/SidebarIdentity"
+            },
+            "title": "Identities",
+            "type": "array"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          },
+          "owner_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owner Id"
+          },
+          "owner_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owner Name"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Tags",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "display_name",
+          "owner_id",
+          "owner_name",
+          "tags",
+          "notes",
+          "identities"
+        ],
+        "title": "SidebarCustomer",
+        "type": "object"
+      },
+      "SidebarCustomerBrief": {
+        "properties": {
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Tags",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "display_name",
+          "tags"
+        ],
+        "title": "SidebarCustomerBrief",
+        "type": "object"
+      },
+      "SidebarIdentity": {
+        "properties": {
+          "channel_name": {
+            "title": "Channel Name",
+            "type": "string"
+          },
+          "channel_type": {
+            "title": "Channel Type",
+            "type": "string"
+          },
+          "profile": {
+            "additionalProperties": true,
+            "title": "Profile",
+            "type": "object"
+          }
+        },
+        "required": [
+          "channel_type",
+          "channel_name",
+          "profile"
+        ],
+        "title": "SidebarIdentity",
+        "type": "object"
+      },
+      "SidebarSentRequest": {
+        "properties": {
+          "chat_id": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chat Id"
+          },
+          "content": {
+            "maxLength": 4000,
+            "minLength": 1,
+            "title": "Content",
+            "type": "string"
+          },
+          "external_userid": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "External Userid"
+          },
+          "origin": {
+            "default": "manual",
+            "enum": [
+              "manual",
+              "quick_reply",
+              "suggestion",
+              "knowledge"
+            ],
+            "title": "Origin",
+            "type": "string"
+          }
+        },
+        "required": [
+          "content"
+        ],
+        "title": "SidebarSentRequest",
+        "type": "object"
+      },
+      "SidebarSession": {
+        "properties": {
+          "channel_name": {
+            "title": "Channel Name",
+            "type": "string"
+          },
+          "closed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Closed At"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "csat": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Csat"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "转人工时的交接摘要",
+            "title": "Summary"
+          }
+        },
+        "required": [
+          "id",
+          "channel_name",
+          "status",
+          "summary",
+          "csat",
+          "created_at",
+          "closed_at"
+        ],
+        "title": "SidebarSession",
+        "type": "object"
+      },
+      "SidebarSuggestRequest": {
+        "properties": {
+          "external_userid": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "External Userid"
+          },
+          "question": {
+            "description": "客户的问题（员工粘贴或输入；JS-SDK 读不到聊天内容）",
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Question",
+            "type": "string"
+          }
+        },
+        "required": [
+          "question"
+        ],
+        "title": "SidebarSuggestRequest",
+        "type": "object"
+      },
       "SkillGroupCreate": {
         "properties": {
           "members": {
@@ -5939,6 +6979,19 @@
         "title": "SkillGroupUpdate",
         "type": "object"
       },
+      "SsoUrlOut": {
+        "properties": {
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "url"
+        ],
+        "title": "SsoUrlOut",
+        "type": "object"
+      },
       "StaffCreate": {
         "properties": {
           "display_name": {
@@ -6057,6 +7110,43 @@
           "knowledge"
         ],
         "title": "SuggestionList",
+        "type": "object"
+      },
+      "SyncAccepted": {
+        "properties": {
+          "targets": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Targets",
+            "type": "array"
+          }
+        },
+        "required": [
+          "targets"
+        ],
+        "title": "SyncAccepted",
+        "type": "object"
+      },
+      "SyncRequest": {
+        "properties": {
+          "targets": {
+            "items": {
+              "enum": [
+                "members",
+                "kf",
+                "tags",
+                "contacts",
+                "groups"
+              ],
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Targets",
+            "type": "array"
+          }
+        },
+        "title": "SyncRequest",
         "type": "object"
       },
       "TenantAdminCreate": {
@@ -6765,6 +7855,17 @@
           "transferred": {
             "title": "Transferred",
             "type": "integer"
+          },
+          "wecom": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/WecomTransferSummary"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "勾选了同步企业微信时的在职继承结果"
           }
         },
         "required": [
@@ -7312,6 +8413,290 @@
         "title": "VisitorSessionState",
         "type": "object"
       },
+      "WecomCounts": {
+        "properties": {
+          "contacts": {
+            "title": "Contacts",
+            "type": "integer"
+          },
+          "group_chats": {
+            "title": "Group Chats",
+            "type": "integer"
+          },
+          "members": {
+            "title": "Members",
+            "type": "integer"
+          },
+          "members_bound": {
+            "title": "Members Bound",
+            "type": "integer"
+          },
+          "tags": {
+            "title": "Tags",
+            "type": "integer"
+          },
+          "transfers_waiting": {
+            "title": "Transfers Waiting",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "members",
+          "members_bound",
+          "contacts",
+          "group_chats",
+          "tags",
+          "transfers_waiting"
+        ],
+        "title": "WecomCounts",
+        "type": "object"
+      },
+      "WecomLoginRequest": {
+        "properties": {
+          "code": {
+            "maxLength": 512,
+            "minLength": 1,
+            "title": "Code",
+            "type": "string"
+          },
+          "corp_id": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Corp Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "corp_id",
+          "code"
+        ],
+        "title": "WecomLoginRequest",
+        "type": "object"
+      },
+      "WecomSettings": {
+        "description": "企业微信接入设置（保存在授权企业上）。",
+        "properties": {
+          "notify_agents": {
+            "default": true,
+            "description": "新会话分配、转接请求、必读知识通过应用消息提醒员工",
+            "title": "Notify Agents",
+            "type": "boolean"
+          },
+          "tag_writeback": {
+            "default": true,
+            "description": "平台上给客户打的标签写回企业微信",
+            "title": "Tag Writeback",
+            "type": "boolean"
+          },
+          "welcome_enabled": {
+            "default": false,
+            "description": "员工添加新客户时自动发送欢迎语（与企业微信后台配置的欢迎语互斥）",
+            "title": "Welcome Enabled",
+            "type": "boolean"
+          },
+          "welcome_kf_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "欢迎语附带哪个微信客服账号的链接（open_kfid）；为空则不附带",
+            "title": "Welcome Kf Id"
+          },
+          "welcome_text": {
+            "default": "您好，很高兴为您服务！有任何问题，可以点击下方链接随时咨询在线客服。",
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Welcome Text",
+            "type": "string"
+          }
+        },
+        "title": "WecomSettings",
+        "type": "object"
+      },
+      "WecomStatus": {
+        "properties": {
+          "callback_urls": {
+            "$ref": "#/components/schemas/CallbackUrls"
+          },
+          "corp": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CorpOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "counts": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/WecomCounts"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "enabled": {
+            "description": "平台是否配置了企业微信服务商",
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "kf_accounts": {
+            "items": {
+              "$ref": "#/components/schemas/KfAccountOut"
+            },
+            "title": "Kf Accounts",
+            "type": "array"
+          },
+          "settings": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/WecomSettings"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "suite_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Suite Id"
+          },
+          "sync_state": {
+            "additionalProperties": true,
+            "title": "Sync State",
+            "type": "object"
+          }
+        },
+        "required": [
+          "enabled",
+          "suite_id",
+          "callback_urls",
+          "corp",
+          "settings",
+          "sync_state",
+          "kf_accounts",
+          "counts"
+        ],
+        "title": "WecomStatus",
+        "type": "object"
+      },
+      "WecomTransferOut": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "errcode": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Errcode"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "external_userid": {
+            "title": "External Userid",
+            "type": "string"
+          },
+          "handover_userid": {
+            "title": "Handover Userid",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "takeover_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Takeover At"
+          },
+          "takeover_userid": {
+            "title": "Takeover Userid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "external_userid",
+          "handover_userid",
+          "takeover_userid",
+          "status",
+          "errcode",
+          "error",
+          "created_at",
+          "takeover_at"
+        ],
+        "title": "WecomTransferOut",
+        "type": "object"
+      },
+      "WecomTransferSummary": {
+        "properties": {
+          "failed": {
+            "description": "企业微信拒绝转接的客户数",
+            "title": "Failed",
+            "type": "integer"
+          },
+          "requested": {
+            "description": "已提交在职继承的客户数（结果稍后回收）",
+            "title": "Requested",
+            "type": "integer"
+          },
+          "skipped": {
+            "description": "不需要或无法同步的客户数（没有绑定企业微信成员等）",
+            "title": "Skipped",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "requested",
+          "skipped",
+          "failed"
+        ],
+        "title": "WecomTransferSummary",
+        "type": "object"
+      },
       "WidgetSettings": {
         "description": "访客 Widget 的展示与接入设置（保存在渠道配置中）。",
         "properties": {
@@ -7418,6 +8803,645 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/v1/admin/integrations/wecom": {
+      "delete": {
+        "description": "解除绑定：停用微信客服渠道，已同步的客户和消息保留。企业微信里的授权需要企业管理员另行取消。",
+        "operationId": "unbind_api_v1_admin_integrations_wecom_delete",
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Unbind",
+        "tags": [
+          "wecom"
+        ]
+      },
+      "get": {
+        "description": "企业微信授权状态、客服账号、同步情况和需要在服务商后台配置的回调地址。",
+        "operationId": "wecom_status_api_v1_admin_integrations_wecom_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WecomStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Wecom Status",
+        "tags": [
+          "wecom"
+        ]
+      }
+    },
+    "/api/v1/admin/integrations/wecom/install": {
+      "post": {
+        "description": "生成企业微信授权链接：管理员扫码授权代开发应用后跳回控制台。",
+        "operationId": "start_install_api_v1_admin_integrations_wecom_install_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InstallOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Start Install",
+        "tags": [
+          "wecom"
+        ]
+      }
+    },
+    "/api/v1/admin/integrations/wecom/members": {
+      "get": {
+        "operationId": "list_members_api_v1_admin_integrations_wecom_members_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MemberList"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Members",
+        "tags": [
+          "wecom"
+        ]
+      }
+    },
+    "/api/v1/admin/integrations/wecom/members/{userid}": {
+      "put": {
+        "description": "把企业成员绑定到平台员工（staff_id 为 null 时解除绑定）。",
+        "operationId": "bind_member_api_v1_admin_integrations_wecom_members__userid__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "userid",
+            "required": true,
+            "schema": {
+              "title": "Userid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MemberBind"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MemberOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Bind Member",
+        "tags": [
+          "wecom"
+        ]
+      }
+    },
+    "/api/v1/admin/integrations/wecom/settings": {
+      "put": {
+        "operationId": "update_settings_api_v1_admin_integrations_wecom_settings_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WecomSettings"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WecomSettings"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Update Settings",
+        "tags": [
+          "wecom"
+        ]
+      }
+    },
+    "/api/v1/admin/integrations/wecom/sync": {
+      "post": {
+        "description": "立即全量同步（在后台执行）：成员、客服账号、标签、客户、客户群。",
+        "operationId": "sync_api_v1_admin_integrations_wecom_sync_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SyncRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncAccepted"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Sync",
+        "tags": [
+          "wecom"
+        ]
+      }
+    },
     "/api/v1/agent/heartbeat": {
       "post": {
         "description": "工作台每 30 秒调用一次；超过 90 秒没有心跳视为断线，自动离线。",
@@ -8691,6 +10715,309 @@
         ]
       }
     },
+    "/api/v1/auth/wecom": {
+      "post": {
+        "description": "扫码登录或企业微信内免登：用 code 换取成员身份，登录绑定了这个成员的员工。",
+        "operationId": "wecom_login_api_v1_auth_wecom_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WecomLoginRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "summary": "Wecom Login",
+        "tags": [
+          "wecom"
+        ]
+      }
+    },
+    "/api/v1/auth/wecom/oauth": {
+      "get": {
+        "description": "企业微信内打开控制台页面（如侧边栏）时的网页授权地址（免登后回到 next）。",
+        "operationId": "oauth_entry_api_v1_auth_wecom_oauth_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "corp_id",
+            "required": true,
+            "schema": {
+              "maxLength": 64,
+              "minLength": 1,
+              "title": "Corp Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "next",
+            "required": false,
+            "schema": {
+              "default": "/",
+              "maxLength": 512,
+              "title": "Next",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SsoUrlOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "summary": "Oauth Entry",
+        "tags": [
+          "wecom"
+        ]
+      }
+    },
+    "/api/v1/auth/wecom/sso": {
+      "get": {
+        "description": "企业微信扫码登录页地址（state 由控制台生成，回来时核对）。",
+        "operationId": "sso_url_api_v1_auth_wecom_sso_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "tenant_code",
+            "required": true,
+            "schema": {
+              "maxLength": 32,
+              "minLength": 3,
+              "title": "Tenant Code",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "state",
+            "required": true,
+            "schema": {
+              "pattern": "^[A-Za-z0-9]{8,64}$",
+              "title": "State",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SsoUrlOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "summary": "Sso Url",
+        "tags": [
+          "wecom"
+        ]
+      }
+    },
     "/api/v1/channels": {
       "get": {
         "operationId": "list_channels_api_v1_channels_get",
@@ -9300,7 +11627,7 @@
     },
     "/api/v1/customers/transfer": {
       "post": {
-        "description": "批量转移客户归属，每个客户记录一条归属历史。",
+        "description": "批量转移客户归属，每个客户记录一条归属历史；可以同时在企业微信里在职继承。",
         "operationId": "transfer_customers_api_v1_customers_transfer_post",
         "requestBody": {
           "content": {
@@ -9494,7 +11821,7 @@
         ]
       },
       "patch": {
-        "description": "修改客户名称、备注和标签（能看到这个客户的员工都可以修改）。",
+        "description": "修改客户名称、备注和标签（能看到这个客户的员工都可以修改）。\n\n企业标签里有的标签会写回企业微信（企业微信接入设置里可以关闭）。",
         "operationId": "update_customer_api_v1_customers__customer_id__patch",
         "parameters": [
           {
@@ -9697,6 +12024,105 @@
         "summary": "Owner History",
         "tags": [
           "customers"
+        ]
+      }
+    },
+    "/api/v1/customers/{customer_id}/wecom": {
+      "get": {
+        "description": "客户在企业微信里的添加人、标签、所在客户群和在职继承记录（客户 360 视图）。",
+        "operationId": "customer_wecom_api_v1_customers__customer_id__wecom_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "customer_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Customer Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomerWecom"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Customer Wecom",
+        "tags": [
+          "wecom"
         ]
       }
     },
@@ -12312,6 +14738,96 @@
         ]
       }
     },
+    "/api/v1/me/wecom": {
+      "post": {
+        "description": "已登录的员工扫码绑定自己的企业微信账号（之后可以扫码登录、接收应用消息）。",
+        "operationId": "bind_self_api_v1_me_wecom_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WecomLoginRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Bind Self",
+        "tags": [
+          "wecom"
+        ]
+      }
+    },
     "/api/v1/quick-replies": {
       "get": {
         "description": "全员共享的话术和自己的话术。",
@@ -14484,6 +17000,105 @@
         ]
       }
     },
+    "/api/v1/sessions/{session_id}/reply-window": {
+      "get": {
+        "description": "渠道的回复限制（微信客服：客户最后一次发消息后 48 小时内最多 5 条）。",
+        "operationId": "reply_window_api_v1_sessions__session_id__reply_window_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReplyWindowOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Reply Window",
+        "tags": [
+          "sessions"
+        ]
+      }
+    },
     "/api/v1/sessions/{session_id}/suggestions": {
       "post": {
         "description": "坐席助手：根据对话和知识库给出 1–3 条建议回复（只对坐席可见）。",
@@ -14689,6 +17304,315 @@
         "summary": "Transfer Session",
         "tags": [
           "sessions"
+        ]
+      }
+    },
+    "/api/v1/sidebar/context": {
+      "get": {
+        "description": "当前聊天的客户档案（单聊）或客户群信息（群聊），按数据范围校验。",
+        "operationId": "sidebar_context_api_v1_sidebar_context_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "external_userid",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "External Userid"
+            }
+          },
+          {
+            "in": "query",
+            "name": "chat_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Chat Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SidebarContext"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Sidebar Context",
+        "tags": [
+          "wecom"
+        ]
+      }
+    },
+    "/api/v1/sidebar/sent": {
+      "post": {
+        "description": "记录员工经侧边栏发出的内容（渠道记为 wecom_sidebar）。",
+        "operationId": "sidebar_sent_api_v1_sidebar_sent_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SidebarSentRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Sidebar Sent",
+        "tags": [
+          "wecom"
+        ]
+      }
+    },
+    "/api/v1/sidebar/suggestions": {
+      "post": {
+        "operationId": "sidebar_suggestions_api_v1_sidebar_suggestions_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SidebarSuggestRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuggestionList"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Sidebar Suggestions",
+        "tags": [
+          "wecom"
         ]
       }
     },
@@ -16936,6 +19860,106 @@
         "summary": "Create Upload",
         "tags": [
           "visitor"
+        ]
+      }
+    },
+    "/api/v1/wecom/jssdk-config": {
+      "get": {
+        "description": "JS-SDK 注入配置：url 是当前页面地址（不含 # 之后的部分）。",
+        "operationId": "jssdk_config_api_v1_wecom_jssdk_config_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "url",
+            "required": true,
+            "schema": {
+              "maxLength": 2048,
+              "minLength": 8,
+              "title": "Url",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JssdkConfig"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Jssdk Config",
+        "tags": [
+          "wecom"
         ]
       }
     },

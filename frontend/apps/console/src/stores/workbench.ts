@@ -18,6 +18,7 @@ import {
   outgoingOf,
   pendingMessage,
   sendBody,
+  senderTypeOf,
   type Outgoing,
   type WorkbenchMessage,
 } from '../workbench/messages'
@@ -59,6 +60,7 @@ export const useWorkbenchStore = defineStore('workbench', () => {
   const sessions = ref<Session[]>([])
   const queued = ref<Session[]>([])
   const active = ref<Session | null>(null)
+  const replyWindow = ref<Schemas['ReplyWindowOut'] | null>(null)
   const messages = ref<Record<string, WorkbenchMessage[]>>({})
   const hasMore = ref<Record<string, boolean>>({})
   const unread = ref<Record<string, number>>({})
@@ -212,8 +214,19 @@ export const useWorkbenchStore = defineStore('workbench', () => {
 
   async function open(session: Session): Promise<void> {
     active.value = session
+    replyWindow.value = null
     unread.value = { ...unread.value, [session.id]: 0 }
-    await loadHistory(session.room_id)
+    await Promise.all([loadHistory(session.room_id), refreshReplyWindow()])
+  }
+
+  /** 当前会话的回复限制（微信客服：客户最后一次发消息后 48 小时内最多 5 条）。 */
+  async function refreshReplyWindow(): Promise<void> {
+    const session = active.value
+    if (!session) return
+    const { data } = await api.GET('/api/v1/sessions/{session_id}/reply-window', {
+      params: { path: { session_id: session.id } },
+    })
+    if (data && active.value?.id === session.id) replyWindow.value = data
   }
 
   async function loadHistory(roomId: string, before?: string, updateMore = true): Promise<void> {
@@ -258,11 +271,14 @@ export const useWorkbenchStore = defineStore('workbench', () => {
     })
     if (data) {
       addMessages(session.room_id, [fromApi(data)])
+      void refreshReplyWindow()
       return
     }
+    const reason = errorMessage(err, '发送失败，请重试')
     const failed = messages.value[session.room_id]?.find((m) => m.clientMsgID === clientMsgID)
-    if (failed) addMessages(session.room_id, [{ ...failed, status: 'failed' }])
-    throw new Error(errorMessage(err, '发送失败，请重试'))
+    if (failed) addMessages(session.room_id, [{ ...failed, status: 'failed', error: reason }])
+    void refreshReplyWindow()
+    throw new Error(reason)
   }
 
   /** 上传图片或文件后发送。上传失败时不产生消息。 */
@@ -310,6 +326,10 @@ export const useWorkbenchStore = defineStore('workbench', () => {
       return
     }
     addMessages(session.room_id, [fromIm(message)])
+    // 客户发来新消息时，渠道的回复额度会重置。
+    if (active.value?.id === session.id && senderTypeOf(message.sendID) === 'customer') {
+      void refreshReplyWindow()
+    }
     if (active.value?.id !== session.id && message.sendID !== myImUser) {
       unread.value = { ...unread.value, [session.id]: (unread.value[session.id] ?? 0) + 1 }
     }
@@ -388,6 +408,8 @@ export const useWorkbenchStore = defineStore('workbench', () => {
     sessions,
     queued,
     active,
+    replyWindow,
+    refreshReplyWindow,
     activeMessages,
     hasMore,
     unread,

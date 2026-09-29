@@ -4,6 +4,7 @@ import {
   Avatar,
   ChatDotRound,
   Clock,
+  Connection,
   DataLine,
   HomeFilled,
   MagicStick,
@@ -33,6 +34,7 @@ const icons: Record<MenuIcon, Component> = {
   ai: MagicStick,
   avatar: Avatar,
   chart: DataLine,
+  integration: Connection,
   setting: Setting,
 }
 const menus = computed(() => visibleMenus(auth.permissions))

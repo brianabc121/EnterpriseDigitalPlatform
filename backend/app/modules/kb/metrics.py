@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.context import AppContext
 from app.core.dates import day_bounds, today
+from app.core.permissions import Permission
 from app.modules.ai.models import AiDecision, AiSuggestion, DecisionAction
 from app.modules.conversation.models import (
     ChatSession,
@@ -24,6 +25,7 @@ from app.modules.conversation.models import (
     SenderType,
     SessionEvent,
 )
+from app.modules.kb.distribution import audience
 from app.modules.kb.models import (
     CandidateKind,
     CandidateStatus,
@@ -37,6 +39,7 @@ from app.modules.kb.models import (
 from app.modules.kb.schemas import KbItemStat, KbMetrics, KbReasonCount
 from app.modules.kb.service import STALE_AFTER
 from app.modules.tenancy.models import Tenant, TenantStatus
+from app.modules.wecom.notify import notify_staff
 
 logger = logging.getLogger(__name__)
 
@@ -350,8 +353,29 @@ async def run_digests(ctx: AppContext, *, now: datetime | None = None) -> int:
     generated = 0
     for tenant_id in tenant_ids:
         try:
-            await generate_digest(ctx, tenant_id, last_week, now=now)
+            data = await generate_digest(ctx, tenant_id, last_week, now=now)
             generated += 1
         except Exception:
             logger.exception("knowledge digest failed for tenant %s", tenant_id)
+            continue
+        await _announce_digest(ctx, tenant_id, data)
     return generated
+
+
+async def _announce_digest(ctx: AppContext, tenant_id: uuid.UUID, data: dict[str, Any]) -> None:
+    """周报生成后，通过企业微信应用消息提醒知识管理员。"""
+    if ctx.wecom is None:
+        return
+    async with ctx.db.tenant_session(tenant_id) as session:
+        managers = await audience(session, Permission.KB_MANAGE)
+    added = len(data.get("new_items") or [])
+    updated = len(data.get("updated_items") or [])
+    gaps = len(data.get("top_gaps") or [])
+    await notify_staff(
+        ctx,
+        tenant_id,
+        [s.id for s in managers],
+        title=f"知识周报（{data.get('week_start')} 起的一周）",
+        description=f"新增 {added} 条、更新 {updated} 条，待处理的知识缺口 {gaps} 个。",
+        path="/knowledge",
+    )

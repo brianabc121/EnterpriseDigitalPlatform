@@ -3,6 +3,7 @@
 先写库（pending，消息 ID 即 pmid），再以坐席身份经 OpenIM REST 发到服务群，消息的 ex 带 pmid；
 回调或对账拿到这条消息时按 pmid 关联到同一行（见 conversation/ingest.py），不会重复入库。
 同一个 client_msg_id 重复提交时返回已有的消息；之前发送失败的会重新发送。
+微信客服等外部渠道以平台消息库为准：先投递给客户，成功后再镜像到服务群（_send_via_channel）。
 """
 
 import json
@@ -16,9 +17,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.context import AppContext
 from app.core.errors import Conflict, Forbidden, ServiceUnavailable, Unprocessable
 from app.core.ids import new_id
-from app.integrations.openim import ContentType, OpenIMError
+from app.integrations.openim import OpenIMError
+from app.modules.channels.models import ChannelAccount, ChannelType
 from app.modules.conversation import imids, outbox
+from app.modules.conversation.content import im_payload
 from app.modules.conversation.models import (
+    ChatSession,
     Direction,
     Message,
     MessageSource,
@@ -34,6 +38,7 @@ from app.modules.iam.principal import Principal
 from app.modules.sessions.engine import touch_session
 from app.modules.sessions.schemas import SendMessageRequest
 from app.modules.sessions.service import visible_session
+from app.modules.wecom.kf import reply_window
 
 SENDABLE = (SessionStatus.HUMAN_SERVING, SessionStatus.TRANSFERRING)
 SEND_FAILED = "消息发送失败，请稍后重试"
@@ -62,6 +67,9 @@ async def send_message(
             Message.client_msg_id == payload.client_msg_id,
         )
     )
+    channel = await session.get(ChannelAccount, chat.channel_account_id)
+    if channel is not None and channel.type == ChannelType.WECOM_KF:
+        return await _send_via_channel(ctx, session, principal, chat, message, payload)
     if message is None:
         now = datetime.now(UTC)
         content_type, content, text = _content(ctx, payload)
@@ -130,6 +138,58 @@ async def send_message(
     return (await messages_out(session, [message]))[0]
 
 
+async def _send_via_channel(
+    ctx: AppContext,
+    session: AsyncSession,
+    principal: Principal,
+    chat: ChatSession,
+    message: Message | None,
+    payload: SendMessageRequest,
+) -> MessageOut:
+    """外部渠道（微信客服）：先检查回复窗口，写库后经发件箱投递给客户，成功后再镜像到服务群。
+
+    投递立即尝试；企业微信暂时不可用时消息保持"发送中"，由发件箱稍后重试。
+    """
+    if message is not None and message.send_status == SendStatus.SENT:
+        return (await messages_out(session, [message]))[0]
+    if message is None or message.send_status == SendStatus.FAILED:
+        window = await reply_window(session, chat.room_id, datetime.now(UTC))
+        if not window.open:
+            raise Conflict(window.reason or SEND_FAILED)
+        if message is None:
+            content_type, content, text = _content(ctx, payload)
+            message = Message(
+                id=new_id(),
+                tenant_id=chat.tenant_id,
+                room_id=chat.room_id,
+                channel_account_id=chat.channel_account_id,
+                session_id=chat.id,
+                direction=Direction.OUT,
+                sender_type=SenderType.AGENT,
+                sender_id=principal.staff_id,
+                content_type=content_type,
+                content=content,
+                text_plain=text,
+                client_msg_id=payload.client_msg_id,
+                source=MessageSource.API,
+                send_status=SendStatus.PENDING,
+                sent_at=datetime.now(UTC),
+            )
+            session.add(message)
+            touch_session(chat, message)
+        else:
+            message.send_status = SendStatus.PENDING
+            message.send_error = None
+        await session.flush()
+        outbox.enqueue_channel_send(session, chat.room_id, message.id)
+        await session.commit()
+    await outbox.flush_rooms(ctx, chat.tenant_id, [chat.room_id])
+    await session.refresh(message)
+    if message.send_status == SendStatus.FAILED:
+        raise Conflict(message.send_error or SEND_FAILED)
+    return (await messages_out(session, [message]))[0]
+
+
 def _content(
     ctx: AppContext, payload: SendMessageRequest
 ) -> tuple[str, dict[str, Any], str | None]:
@@ -159,31 +219,3 @@ def _content(
         },
         None,
     )
-
-
-def im_payload(message: Message) -> tuple[int, dict[str, Any]]:
-    """按平台保存的消息生成 OpenIM 的消息类型和内容。"""
-    content = message.content
-    if message.content_type == "image":
-        picture = {
-            "uuid": str(message.id),
-            "type": content.get("mime") or "",
-            "size": content.get("size") or 0,
-            "width": content.get("width") or 0,
-            "height": content.get("height") or 0,
-            "url": content["url"],
-        }
-        return ContentType.PICTURE, {
-            "sourcePicture": picture,
-            "bigPicture": picture,
-            "snapshotPicture": picture,
-        }
-    if message.content_type == "file":
-        return ContentType.FILE, {
-            "uuid": str(message.id),
-            "sourceUrl": content["url"],
-            "fileName": content.get("name") or "file",
-            "fileSize": content.get("size") or 0,
-            "fileType": content.get("mime") or "",
-        }
-    return ContentType.TEXT, {"content": message.text_plain or ""}

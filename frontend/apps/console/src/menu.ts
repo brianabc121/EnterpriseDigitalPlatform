@@ -10,6 +10,7 @@ export type MenuIcon =
   | 'ai'
   | 'avatar'
   | 'chart'
+  | 'integration'
   | 'setting'
 
 export interface MenuItem {
@@ -24,15 +25,52 @@ export interface MenuItem {
 /** 菜单与路由的唯一来源：router.ts 按这里生成页面路由。 */
 export const MENU: readonly MenuItem[] = [
   { name: 'dashboard', path: '/', title: '首页', icon: 'home', permission: 'dashboard:view' },
-  { name: 'workbench', path: '/workbench', title: '工作台', icon: 'chat', permission: 'workbench:use' },
-  { name: 'sessions', path: '/sessions', title: '会话记录', icon: 'history', permission: 'workbench:use' },
+  {
+    name: 'workbench',
+    path: '/workbench',
+    title: '工作台',
+    icon: 'chat',
+    permission: 'workbench:use',
+  },
+  {
+    name: 'sessions',
+    path: '/sessions',
+    title: '会话记录',
+    icon: 'history',
+    permission: 'workbench:use',
+  },
   { name: 'tickets', path: '/tickets', title: '留言', icon: 'ticket', permission: 'workbench:use' },
-  { name: 'customers', path: '/customers', title: '客户', icon: 'user', permission: 'customer:read' },
-  { name: 'knowledge', path: '/knowledge', title: '知识库', icon: 'reading', permission: 'kb:read' },
+  {
+    name: 'customers',
+    path: '/customers',
+    title: '客户',
+    icon: 'user',
+    permission: 'customer:read',
+  },
+  {
+    name: 'knowledge',
+    path: '/knowledge',
+    title: '知识库',
+    icon: 'reading',
+    permission: 'kb:read',
+  },
   { name: 'ai', path: '/ai', title: 'AI 接待', icon: 'ai', permission: 'settings:manage' },
   { name: 'staff', path: '/staff', title: '员工', icon: 'avatar', permission: 'staff:read' },
   { name: 'reports', path: '/reports', title: '报表', icon: 'chart', permission: 'report:view' },
-  { name: 'settings', path: '/settings', title: '设置', icon: 'setting', permission: 'settings:manage' },
+  {
+    name: 'wecom',
+    path: '/integrations/wecom',
+    title: '企业微信',
+    icon: 'integration',
+    permission: 'settings:manage',
+  },
+  {
+    name: 'settings',
+    path: '/settings',
+    title: '设置',
+    icon: 'setting',
+    permission: 'settings:manage',
+  },
 ]
 
 export function visibleMenus(permissions: ReadonlySet<Permission>): MenuItem[] {

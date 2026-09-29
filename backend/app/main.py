@@ -1,6 +1,7 @@
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
+import httpx
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -29,6 +30,8 @@ from app.modules.tenancy.router import router as platform_router
 from app.modules.usage.router import platform_router as platform_usage_router
 from app.modules.usage.router import router as usage_router
 from app.modules.visitor.router import router as visitor_router
+from app.modules.wecom.callbacks import router as wecom_hooks_router
+from app.modules.wecom.router import router as wecom_router
 
 
 def create_app(
@@ -36,12 +39,21 @@ def create_app(
     *,
     im: OpenIMClient | None = None,
     llm: LLMClient | None = None,
+    wecom_transport: httpx.AsyncBaseTransport | None = None,
+    storage_transport: httpx.AsyncBaseTransport | None = None,
 ) -> FastAPI:
     """应用工厂。开发环境：uvicorn app.main:create_app --factory --reload。
 
-    im、llm 供测试注入（例如接到内存版 OpenIM、模拟大模型）；默认按配置连接。
+    im、llm 和两个 transport 供测试注入（内存版 OpenIM、模拟大模型、模拟企业微信、内存对象存储）；
+    默认按配置连接。
     """
-    ctx = AppContext.create(settings or get_settings(), im=im, llm=llm)
+    ctx = AppContext.create(
+        settings or get_settings(),
+        im=im,
+        llm=llm,
+        wecom_transport=wecom_transport,
+        storage_transport=storage_transport,
+    )
 
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
@@ -80,6 +92,8 @@ def create_app(
     app.include_router(files_router)
     app.include_router(visitor_router)
     app.include_router(openim_hooks_router)
+    app.include_router(wecom_router)
+    app.include_router(wecom_hooks_router)
     app.include_router(reports_router)
     app.include_router(usage_router)
     app.include_router(platform_router)

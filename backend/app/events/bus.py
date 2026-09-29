@@ -38,6 +38,10 @@ _LEASE_RETRY_SECONDS = 5.0
 
 class EventType(StrEnum):
     MESSAGE_RECEIVED = "message.received"  # key: room_id；data: message_id
+    # 企业微信回调（key：微信客服按客服账号，其余按企业）；data: corp_id, event
+    WECOM_CALLBACK = "wecom.callback"
+    WECOM_SYNC = "wecom.sync"  # key: 企业；data: corp_id, targets（全量同步）
+    WECOM_NOTIFY = "wecom.notify"  # key: 租户；data: staff_ids, title, description, url
 
 
 @dataclass(frozen=True)

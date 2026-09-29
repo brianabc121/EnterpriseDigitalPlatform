@@ -25,7 +25,10 @@ const form = reactive({
   welcome_message: '',
   privacy_notice: '',
   allowed_origins: [] as string[],
+  kf_welcome: '',
 })
+const isWeb = computed(() => props.channel?.type === 'web')
+const isKf = computed(() => props.channel?.type === 'wecom_kf')
 const secret = ref<string | null>(null)
 const showSecret = ref(false)
 const saving = ref(false)
@@ -44,6 +47,7 @@ watch(
       welcome_message: channel.widget.welcome_message ?? '',
       privacy_notice: channel.widget.privacy_notice ?? '',
       allowed_origins: [...(channel.widget.allowed_origins ?? [])],
+      kf_welcome: channel.kf?.welcome_message ?? '',
     })
     secret.value = channel.identity_secret
   },
@@ -89,12 +93,17 @@ async function save(): Promise<void> {
       name: form.name,
       status: form.status,
       routing_policy_id: form.routing_policy_id,
-      widget: {
-        title: form.title,
-        welcome_message: form.welcome_message || null,
-        privacy_notice: form.privacy_notice || null,
-        allowed_origins: form.allowed_origins,
-      },
+      ...(isWeb.value
+        ? {
+            widget: {
+              title: form.title,
+              welcome_message: form.welcome_message || null,
+              privacy_notice: form.privacy_notice || null,
+              allowed_origins: form.allowed_origins,
+            },
+          }
+        : {}),
+      ...(isKf.value ? { kf: { welcome_message: form.kf_welcome.trim() || null } } : {}),
     },
   })
   saving.value = false
@@ -152,66 +161,90 @@ async function rotate(): Promise<void> {
         </el-select>
       </el-form-item>
 
-      <h4>聊天窗口</h4>
-      <el-form-item label="窗口标题">
-        <el-input v-model="form.title" maxlength="32" data-testid="widget-title-input" />
-      </el-form-item>
-      <el-form-item label="欢迎语">
-        <el-input
-          v-model="form.welcome_message"
-          type="textarea"
-          :rows="2"
-          maxlength="500"
-          placeholder="访客打开窗口时看到"
-          data-testid="welcome-input"
-        />
-      </el-form-item>
-      <el-form-item label="隐私提示">
-        <el-input
-          v-model="form.privacy_notice"
-          type="textarea"
-          :rows="2"
-          maxlength="1000"
-          placeholder="访客发送第一条消息前展示，例如对话内容的用途"
-          data-testid="privacy-input"
-        />
-      </el-form-item>
-      <el-form-item label="允许嵌入的网站">
-        <el-input-tag
-          v-model="form.allowed_origins"
-          placeholder="输入 https://www.example.com 后回车；留空表示不限制"
-          data-testid="origins-input"
-        />
-      </el-form-item>
-      <el-button type="primary" :loading="saving" data-testid="save-channel" @click="save">
-        保存
-      </el-button>
-
-      <h4>嵌入代码</h4>
-      <p class="hint">
-        把下面的代码放到网站页面的 &lt;/body&gt; 之前，页面右下角会出现"在线客服"按钮。
-      </p>
-      <pre class="code" data-testid="embed-snippet">{{ snippet }}</pre>
-      <el-button size="small" @click="copy(snippet)">复制嵌入代码</el-button>
-
-      <h4>实名访客</h4>
-      <p class="hint">
-        网站用户登录后，由网站后端用签名密钥为用户签名，客服即可看到用户在网站上的身份，
-        同一用户换设备也会接续同一个对话。
-      </p>
-      <div v-if="secret" class="secret">
-        <code data-testid="identity-secret">{{ showSecret ? secret : '•'.repeat(24) }}</code>
-        <el-button link type="primary" @click="showSecret = !showSecret">
-          {{ showSecret ? '隐藏' : '显示' }}
+      <template v-if="isKf">
+        <h4>微信客服</h4>
+        <el-form-item label="欢迎语">
+          <el-input
+            v-model="form.kf_welcome"
+            type="textarea"
+            :rows="3"
+            maxlength="500"
+            placeholder="客户进入会话时自动发送（不占 48 小时内 5 条的额度）；留空表示不发送"
+            data-testid="kf-welcome-message"
+          />
+        </el-form-item>
+        <el-button type="primary" :loading="saving" data-testid="save-channel" @click="save">
+          保存
         </el-button>
-        <el-button link type="primary" @click="copy(secret)">复制</el-button>
-      </div>
-      <el-button size="small" data-testid="rotate-secret" @click="rotate">
-        {{ secret ? '更换签名密钥' : '启用实名访客（生成签名密钥）' }}
-      </el-button>
-      <template v-if="secret">
-        <pre class="code">{{ identitySnippet }}</pre>
-        <el-button size="small" @click="copy(identitySnippet)">复制示例代码</el-button>
+      </template>
+      <template v-else-if="!isWeb">
+        <el-button type="primary" :loading="saving" data-testid="save-channel" @click="save">
+          保存
+        </el-button>
+      </template>
+
+      <template v-if="isWeb">
+        <h4>聊天窗口</h4>
+        <el-form-item label="窗口标题">
+          <el-input v-model="form.title" maxlength="32" data-testid="widget-title-input" />
+        </el-form-item>
+        <el-form-item label="欢迎语">
+          <el-input
+            v-model="form.welcome_message"
+            type="textarea"
+            :rows="2"
+            maxlength="500"
+            placeholder="访客打开窗口时看到"
+            data-testid="welcome-input"
+          />
+        </el-form-item>
+        <el-form-item label="隐私提示">
+          <el-input
+            v-model="form.privacy_notice"
+            type="textarea"
+            :rows="2"
+            maxlength="1000"
+            placeholder="访客发送第一条消息前展示，例如对话内容的用途"
+            data-testid="privacy-input"
+          />
+        </el-form-item>
+        <el-form-item label="允许嵌入的网站">
+          <el-input-tag
+            v-model="form.allowed_origins"
+            placeholder="输入 https://www.example.com 后回车；留空表示不限制"
+            data-testid="origins-input"
+          />
+        </el-form-item>
+        <el-button type="primary" :loading="saving" data-testid="save-channel" @click="save">
+          保存
+        </el-button>
+
+        <h4>嵌入代码</h4>
+        <p class="hint">
+          把下面的代码放到网站页面的 &lt;/body&gt; 之前，页面右下角会出现"在线客服"按钮。
+        </p>
+        <pre class="code" data-testid="embed-snippet">{{ snippet }}</pre>
+        <el-button size="small" @click="copy(snippet)">复制嵌入代码</el-button>
+
+        <h4>实名访客</h4>
+        <p class="hint">
+          网站用户登录后，由网站后端用签名密钥为用户签名，客服即可看到用户在网站上的身份，
+          同一用户换设备也会接续同一个对话。
+        </p>
+        <div v-if="secret" class="secret">
+          <code data-testid="identity-secret">{{ showSecret ? secret : '•'.repeat(24) }}</code>
+          <el-button link type="primary" @click="showSecret = !showSecret">
+            {{ showSecret ? '隐藏' : '显示' }}
+          </el-button>
+          <el-button link type="primary" @click="copy(secret)">复制</el-button>
+        </div>
+        <el-button size="small" data-testid="rotate-secret" @click="rotate">
+          {{ secret ? '更换签名密钥' : '启用实名访客（生成签名密钥）' }}
+        </el-button>
+        <template v-if="secret">
+          <pre class="code">{{ identitySnippet }}</pre>
+          <el-button size="small" @click="copy(identitySnippet)">复制示例代码</el-button>
+        </template>
       </template>
     </el-form>
   </el-drawer>

@@ -12,6 +12,7 @@ import asyncio
 import uuid
 from collections.abc import AsyncIterator, Iterator
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import asyncpg
 import httpx
@@ -30,6 +31,7 @@ from tests.fake_llm import DIM as FAKE_EMBED_DIM
 from tests.fake_llm import FakeLLM
 from tests.fake_openim import SECRET as FAKE_OPENIM_SECRET
 from tests.fake_openim import FakeOpenIM
+from tests.fake_wecom import FakeWeCom
 from tests.support import (
     REDIS_URL,
     ROLE_PASSWORDS,
@@ -47,6 +49,9 @@ ALL_TABLES = (
     "ai_session_states, ai_decisions, llm_calls, ai_eval_runs"
 )
 BACKEND_DIR = Path(__file__).resolve().parents[1]
+
+if TYPE_CHECKING:
+    from tests.wecom_desk import FakeStorage, WecomDesk
 
 
 async def _create_database(dbname: str) -> None:
@@ -166,6 +171,7 @@ async def app(settings: Settings, fake_im: FakeOpenIM, fake_llm: FakeLLM) -> Asy
     application = create_app(settings, im=im, llm=fake_llm_client(fake_llm))
     yield application
     await application.state.ctx.llm.aclose()
+    await application.state.ctx.storage.aclose()
     await im.aclose()
     await application.state.redis.aclose()
     await application.state.db.dispose()
@@ -176,3 +182,79 @@ async def client(app: FastAPI) -> AsyncIterator[httpx.AsyncClient]:
     transport = httpx.ASGITransport(app=app)
     async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as c:
         yield c
+
+
+# ---- 企业微信（tests/wecom_desk.py） ----
+
+
+@pytest.fixture
+def fake_wecom() -> FakeWeCom:
+    return FakeWeCom()
+
+
+@pytest.fixture
+def fake_storage() -> "FakeStorage":
+    from tests.wecom_desk import FakeStorage
+
+    return FakeStorage()
+
+
+@pytest.fixture
+async def wecom_app(
+    settings: Settings,
+    fake_im: FakeOpenIM,
+    fake_llm: FakeLLM,
+    fake_wecom: FakeWeCom,
+    fake_storage: "FakeStorage",
+) -> AsyncIterator[FastAPI]:
+    """配置了企业微信服务商的应用：接到模拟企业微信和内存对象存储。"""
+    from tests.wecom_desk import wecom_settings
+
+    im = OpenIMClient(
+        settings.openim_api_url, secret=FAKE_OPENIM_SECRET, transport=fake_im.transport()
+    )
+    application = create_app(
+        wecom_settings(settings),
+        im=im,
+        llm=fake_llm_client(fake_llm),
+        wecom_transport=fake_wecom.transport(),
+        storage_transport=fake_storage.transport(),
+    )
+    yield application
+    await application.state.ctx.aclose()
+
+
+@pytest.fixture
+async def wecom_client(
+    wecom_app: FastAPI, fake_wecom: FakeWeCom
+) -> AsyncIterator[httpx.AsyncClient]:
+    transport = httpx.ASGITransport(app=wecom_app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as c:
+        # 模拟企业微信经这个客户端把回调推送给平台。
+        fake_wecom.platform = c
+        yield c
+
+
+@pytest.fixture
+async def wdesk(
+    wecom_app: FastAPI,
+    wecom_client: httpx.AsyncClient,
+    fake_im: FakeOpenIM,
+    settings: Settings,
+    database_urls: DatabaseUrls,
+    fake_wecom: FakeWeCom,
+    fake_storage: "FakeStorage",
+) -> "WecomDesk":
+    from tests.wecom_desk import WecomDesk, wecom_settings
+
+    desk = WecomDesk(
+        wecom_app,
+        wecom_client,
+        fake_im,
+        wecom_settings(settings),
+        database_urls,
+        fake_wecom,
+        fake_storage,
+    )
+    await desk.open()
+    return desk

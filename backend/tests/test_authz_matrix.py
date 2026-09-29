@@ -21,19 +21,21 @@ from tests.support import DatabaseUrls
 DENIED = {403, 404}
 REJECTED = {403, 404, 422}
 # 路径参数里不是对象 ID 的值（检查列表是否泄露 ID 时跳过）。
-NOT_IDS = {"version"}
+NOT_IDS = {"version", "userid"}
 
 # 每个带路径参数的租户接口：(方法, 路径模板, 请求体)。请求体必须合法，才能验证到权限而不是参数校验。
 MATRIX: list[tuple[str, str, dict[str, Any] | None]] = [
     ("GET", "/api/v1/customers/{customer_id}", None),
     ("PATCH", "/api/v1/customers/{customer_id}", {"notes": "越权修改"}),
     ("GET", "/api/v1/customers/{customer_id}/owner-history", None),
+    ("GET", "/api/v1/customers/{customer_id}/wecom", None),
     ("POST", "/api/v1/customers/handover/{staff_id}", {"to_owner_id": "{own_staff_id}"}),
     ("PATCH", "/api/v1/channels/{channel_id}", {"name": "越权修改"}),
     ("POST", "/api/v1/channels/{channel_id}/identity-secret", None),
     ("GET", "/api/v1/rooms/{room_id}/messages", None),
     ("GET", "/api/v1/sessions/{session_id}", None),
     ("GET", "/api/v1/sessions/{session_id}/messages", None),
+    ("GET", "/api/v1/sessions/{session_id}/reply-window", None),
     ("GET", "/api/v1/sessions/{session_id}/ai-decisions", None),
     ("POST", "/api/v1/sessions/{session_id}/suggestions", None),
     ("POST", "/api/v1/sessions/{session_id}/close", None),
@@ -64,6 +66,7 @@ MATRIX: list[tuple[str, str, dict[str, Any] | None]] = [
     ("POST", "/api/v1/kb/candidates/{candidate_id}/approve", {"answer": "越权"}),
     ("POST", "/api/v1/kb/candidates/{candidate_id}/merge", {"item_id": "{own_item_id}"}),
     ("POST", "/api/v1/kb/candidates/{candidate_id}/reject", {"reason": "越权"}),
+    ("PUT", "/api/v1/admin/integrations/wecom/members/{userid}", {"staff_id": "{own_staff_id}"}),
 ]
 
 
@@ -144,6 +147,7 @@ async def build(desk: Desk) -> Tenant:
         "item_id": knowledge.json()["id"],
         "candidate_id": str(candidate["id"]),
         "version": "1",
+        "userid": "zhangsan",
         "tenant_id": str(desk.tenant_id),
     }
     return Tenant(desk, agent, other, visitor, ids)

@@ -46,6 +46,7 @@ from app.modules.sessions.schemas import (
     TransferTargets,
 )
 from app.modules.sessions.service import visible_session
+from app.modules.wecom.notify import notify_staff
 
 TRANSFER_TIMEOUT = timedelta(seconds=60)
 TRANSFER_NOT_FOUND = "转接不存在或已处理"
@@ -186,6 +187,15 @@ async def request_transfer(
     await outbox.flush_rooms(ctx, chat.tenant_id, [chat.room_id])
     if assign:
         await assign_queued(ctx, chat.tenant_id)
+    if transfer.status == TransferStatus.PENDING and target.staff is not None:
+        await notify_staff(
+            ctx,
+            chat.tenant_id,
+            [target.staff.id],
+            title="会话转接请求",
+            description=f"{principal.display_name} 请您接手一个会话。{payload.note or ''}".strip(),
+            path="/workbench",
+        )
     return _out(transfer)
 
 

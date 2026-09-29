@@ -4,6 +4,7 @@ import { ElMessage } from 'element-plus'
 import { ref, watch } from 'vue'
 
 import { api, formatDateTime } from '../../api'
+import { TRANSFER_STATUS } from '../../wecom'
 
 const props = defineProps<{ customer: Schemas['CustomerOut'] | null }>()
 const visible = defineModel<boolean>({ required: true })
@@ -13,6 +14,7 @@ const REASON: Record<string, string> = {
   session_transfer: '会话转接',
   manual: '管理员转移',
   handover: '离职交接',
+  wecom: '企业微信添加人',
 }
 
 watch(visible, async (open) => {
@@ -42,6 +44,9 @@ watch(visible, async (open) => {
           {{ REASON[h.reason] ?? h.reason }}
           <template v-if="h.actor_name"> · 操作人 {{ h.actor_name }}</template>
           <template v-if="h.note"> · {{ h.note }}</template>
+          <template v-if="h.wecom_sync_status">
+            · 企业微信{{ TRANSFER_STATUS[h.wecom_sync_status] ?? h.wecom_sync_status }}
+          </template>
         </div>
       </el-timeline-item>
     </el-timeline>

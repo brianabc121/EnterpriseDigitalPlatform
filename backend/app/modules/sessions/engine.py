@@ -49,6 +49,7 @@ from app.modules.routing.assign import (
 )
 from app.modules.routing.hours import in_business_hours
 from app.modules.routing.models import AgentState, AgentStatus, RoutingMode
+from app.modules.wecom.notify import notify_staff
 
 logger = logging.getLogger(__name__)
 
@@ -442,6 +443,7 @@ async def assign_queued(
     notify = set(newly_queued)
     rooms: set[uuid.UUID] = set()
     assigned = 0
+    notices: list[tuple[uuid.UUID, uuid.UUID]] = []  # (坐席, 客户)：企业微信应用消息提醒
     async with ctx.db.tenant_session(tenant_id) as session:
         await lock_tenant_routing(session, tenant_id)
         queued = list(
@@ -495,12 +497,35 @@ async def assign_queued(
             await assign_to(session, chat, agent, now, via=via)
             rooms.add(chat.room_id)
             assigned += 1
+            notices.append((agent.staff_id, chat.customer_id))
         for ahead, chat in enumerate(waiting):
             if chat.id in notify:
                 outbox.enqueue_notice(session, chat.room_id, Notice.QUEUED.format(ahead=ahead))
                 rooms.add(chat.room_id)
+        names = (
+            dict(
+                (
+                    await session.execute(
+                        select(Customer.id, Customer.display_name).where(
+                            Customer.id.in_({c for _, c in notices})
+                        )
+                    )
+                ).all()
+            )
+            if notices and ctx.wecom is not None
+            else {}
+        )
         await session.commit()
     await outbox.flush_rooms(ctx, tenant_id, rooms)
+    for staff_id, customer_id in notices:
+        await notify_staff(
+            ctx,
+            tenant_id,
+            [staff_id],
+            title="新会话分配",
+            description=f"客户「{names.get(customer_id, '')}」的会话已分配给您，请及时回复。",
+            path="/workbench",
+        )
     return assigned
 
 

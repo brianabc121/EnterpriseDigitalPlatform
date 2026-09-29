@@ -8,7 +8,11 @@ import ChannelEditor from './ChannelEditor.vue'
 
 type Channel = Schemas['ChannelOut']
 
-const CHANNEL_TYPES: Record<string, string> = { web: '网页' }
+const CHANNEL_TYPES: Record<string, string> = {
+  web: '网页',
+  wecom_kf: '微信客服',
+  wecom_contact: '客户联系',
+}
 
 const channels = ref<Channel[]>([])
 const policies = ref<Schemas['RoutingPolicyOut'][]>([])
@@ -81,7 +85,7 @@ onMounted(load)
       empty-text="暂无渠道"
     >
       <el-table-column prop="name" label="名称" min-width="120" />
-      <el-table-column label="类型" width="80">
+      <el-table-column label="类型" width="90">
         <template #default="{ row }">{{ CHANNEL_TYPES[row.type] ?? row.type }}</template>
       </el-table-column>
       <el-table-column label="渠道 key" min-width="300">
@@ -94,7 +98,12 @@ onMounted(load)
         <template #default="{ row }">{{ policyName(row) }}</template>
       </el-table-column>
       <el-table-column label="实名访客" width="90">
-        <template #default="{ row }">{{ row.identity_secret ? '已启用' : '未启用' }}</template>
+        <template #default="{ row }">
+          <template v-if="row.type === 'web'">{{
+            row.identity_secret ? '已启用' : '未启用'
+          }}</template>
+          <span v-else>—</span>
+        </template>
       </el-table-column>
       <el-table-column label="状态" width="80">
         <template #default="{ row }">

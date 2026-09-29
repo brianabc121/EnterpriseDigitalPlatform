@@ -4,17 +4,24 @@ import { ElMessage } from 'element-plus'
 import { reactive, ref, watch } from 'vue'
 
 import { api } from '../../api'
+import { transferSummary } from '../../wecom'
 
 const props = defineProps<{ from: Schemas['StaffOut'] | null; staff: Schemas['StaffOut'][] }>()
 const visible = defineModel<boolean>({ required: true })
 
 const groups = ref<Schemas['SkillGroupOut'][]>([])
 const saving = ref(false)
-const form = reactive({ kind: 'staff' as 'staff' | 'group', ownerId: '', groupId: '', note: '' })
+const form = reactive({
+  kind: 'staff' as 'staff' | 'group',
+  ownerId: '',
+  groupId: '',
+  note: '',
+  syncWecom: false,
+})
 
 watch(visible, async (open) => {
   if (!open) return
-  Object.assign(form, { kind: 'staff', ownerId: '', groupId: '', note: '' })
+  Object.assign(form, { kind: 'staff', ownerId: '', groupId: '', note: '', syncWecom: false })
   const { data } = await api.GET('/api/v1/skill-groups')
   groups.value = data?.items ?? []
 })
@@ -33,6 +40,7 @@ async function submit(): Promise<void> {
       to_owner_id: toStaff ? form.ownerId : null,
       to_group_id: toStaff ? null : form.groupId,
       note: form.note || null,
+      sync_wecom: form.syncWecom,
     },
   })
   saving.value = false
@@ -40,7 +48,7 @@ async function submit(): Promise<void> {
     ElMessage.error(errorMessage(error))
     return
   }
-  ElMessage.success(`已交接 ${data.transferred} 位客户`)
+  ElMessage.success(transferSummary(data.transferred, data.wecom).replace('已转移', '已交接'))
   visible.value = false
 }
 </script>
@@ -72,6 +80,9 @@ async function submit(): Promise<void> {
       </el-form-item>
       <el-form-item label="说明">
         <el-input v-model="form.note" maxlength="500" placeholder="可选，例如离职交接" />
+      </el-form-item>
+      <el-form-item label="企业微信">
+        <el-checkbox v-model="form.syncWecom">同时变更企业微信里的添加人（在职继承）</el-checkbox>
       </el-form-item>
     </el-form>
     <template #footer>

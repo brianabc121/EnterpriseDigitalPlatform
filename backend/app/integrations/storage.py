@@ -107,3 +107,42 @@ async def ensure_bucket(
                 f"create bucket failed: HTTP {created.status_code} {created.text[:200]}"
             )
         return created.status_code == 200
+
+
+class StorageError(Exception):
+    """对象存储读写失败。"""
+
+
+class ObjectStore:
+    """后端直接读写对象（企业微信的临时素材转存、发给渠道前取回附件）。"""
+
+    def __init__(
+        self, config: StorageConfig, *, transport: httpx.AsyncBaseTransport | None = None
+    ) -> None:
+        self._config = config
+        self._http = httpx.AsyncClient(timeout=30, transport=transport)
+
+    async def aclose(self) -> None:
+        await self._http.aclose()
+
+    def _url(self, method: str, key: str) -> str:
+        return presign(self._config, method, key, expires=300, endpoint=self._config.endpoint)
+
+    async def put(self, key: str, data: bytes, content_type: str) -> None:
+        try:
+            response = await self._http.put(
+                self._url("PUT", key), content=data, headers={"content-type": content_type}
+            )
+        except httpx.HTTPError as exc:
+            raise StorageError(f"put {key}: {exc}") from exc
+        if response.status_code >= 300:
+            raise StorageError(f"put {key}: HTTP {response.status_code}")
+
+    async def get(self, key: str) -> bytes:
+        try:
+            response = await self._http.get(self._url("GET", key))
+        except httpx.HTTPError as exc:
+            raise StorageError(f"get {key}: {exc}") from exc
+        if response.status_code >= 300:
+            raise StorageError(f"get {key}: HTTP {response.status_code}")
+        return response.content

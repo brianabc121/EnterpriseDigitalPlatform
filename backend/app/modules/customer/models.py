@@ -59,6 +59,7 @@ class OwnerChangeReason(StrEnum):
     SESSION_TRANSFER = "session_transfer"  # 会话转接时勾选了同时转移归属
     MANUAL = "manual"  # 管理员转移
     HANDOVER = "handover"  # 离职或调岗交接
+    WECOM = "wecom"  # 企业微信里添加客户的员工成为默认归属坐席
 
 
 class CustomerOwnerHistory(IdMixin, TenantMixin, Base):
@@ -75,4 +76,6 @@ class CustomerOwnerHistory(IdMixin, TenantMixin, Base):
     actor_id: Mapped[uuid.UUID | None]
     reason: Mapped[str] = mapped_column(String(32))
     note: Mapped[str | None] = mapped_column(Text)
+    # 同步到企业微信（在职继承）的状态：waiting、success、failed；为空表示没有同步。
+    wecom_sync_status: Mapped[str | None] = mapped_column(String(16))
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())

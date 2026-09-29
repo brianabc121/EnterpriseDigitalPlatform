@@ -26,6 +26,8 @@ class Staff(IdMixin, TimestampMixin, TenantMixin, Base):
     display_name: Mapped[str] = mapped_column(String(64))
     password_hash: Mapped[str] = mapped_column(Text)
     status: Mapped[str] = mapped_column(String(16), server_default=StaffStatus.ACTIVE.value)
+    # 绑定的企业微信成员（扫码登录、企业微信内免登、应用消息）。
+    wecom_userid: Mapped[str | None] = mapped_column(String(64))
 
 
 class Role(IdMixin, TimestampMixin, TenantMixin, Base):

@@ -95,6 +95,7 @@ def test_prod_settings_require_real_secrets() -> None:
         "EDP_OPENIM_WEBHOOK_SECRET",
         "EDP_STORAGE_SECRET_KEY",
         "EDP_FILE_URL_SECRET",
+        "EDP_DATA_ENCRYPTION_KEY",
     ):
         assert name in message
 
@@ -108,4 +109,5 @@ def test_prod_settings_require_real_secrets() -> None:
         openim_webhook_secret="e" * 40,
         storage_secret_key="f" * 40,
         file_url_secret="g" * 40,
+        data_encryption_key="h" * 40,
     )

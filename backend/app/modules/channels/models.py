@@ -10,6 +10,8 @@ from app.db.base import Base, IdMixin, TenantMixin, TimestampMixin
 
 class ChannelType(StrEnum):
     WEB = "web"
+    WECOM_KF = "wecom_kf"  # 微信客服账号
+    WECOM_CONTACT = "wecom_contact"  # 企业微信客户联系（只同步客户，不能经 API 发消息）
 
 
 class ChannelStatus(StrEnum):

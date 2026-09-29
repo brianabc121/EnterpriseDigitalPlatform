@@ -4,6 +4,7 @@ import { ElMessage } from 'element-plus'
 import { reactive, ref, watch } from 'vue'
 
 import { api } from '../../api'
+import { transferSummary } from '../../wecom'
 
 const props = defineProps<{ customerIds: string[] }>()
 const visible = defineModel<boolean>({ required: true })
@@ -11,11 +12,11 @@ const emit = defineEmits<{ done: [] }>()
 
 const staff = ref<Schemas['StaffOut'][]>([])
 const saving = ref(false)
-const form = reactive({ ownerId: '', note: '' })
+const form = reactive({ ownerId: '', note: '', syncWecom: false })
 
 watch(visible, async (open) => {
   if (!open) return
-  Object.assign(form, { ownerId: '', note: '' })
+  Object.assign(form, { ownerId: '', note: '', syncWecom: false })
   const { data } = await api.GET('/api/v1/staff')
   staff.value = data?.items.filter((s) => s.status === 'active') ?? []
 })
@@ -27,14 +28,19 @@ async function submit(): Promise<void> {
   }
   saving.value = true
   const { data, error } = await api.POST('/api/v1/customers/transfer', {
-    body: { customer_ids: props.customerIds, to_owner_id: form.ownerId, note: form.note || null },
+    body: {
+      customer_ids: props.customerIds,
+      to_owner_id: form.ownerId,
+      note: form.note || null,
+      sync_wecom: form.syncWecom,
+    },
   })
   saving.value = false
   if (!data) {
     ElMessage.error(errorMessage(error))
     return
   }
-  ElMessage.success(`已转移 ${data.transferred} 位客户`)
+  ElMessage.success(transferSummary(data.transferred, data.wecom))
   visible.value = false
   emit('done')
 }
@@ -52,6 +58,12 @@ async function submit(): Promise<void> {
       <el-form-item label="说明">
         <el-input v-model="form.note" maxlength="500" placeholder="可选，例如调整负责区域" />
       </el-form-item>
+      <el-form-item label="企业微信">
+        <el-checkbox v-model="form.syncWecom" data-testid="sync-wecom">
+          同时变更企业微信里的添加人（在职继承）
+        </el-checkbox>
+        <div class="hint">90 天内每位客户最多转接 2 次，客户 24 小时后自动接替</div>
+      </el-form-item>
     </el-form>
     <template #footer>
       <el-button @click="visible = false">取消</el-button>
@@ -63,6 +75,12 @@ async function submit(): Promise<void> {
 <style scoped>
 .summary {
   margin-top: 0;
+  color: var(--el-text-color-secondary);
+}
+
+.hint {
+  font-size: 12px;
+  line-height: 1.4;
   color: var(--el-text-color-secondary);
 }
 </style>

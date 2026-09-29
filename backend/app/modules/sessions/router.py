@@ -25,6 +25,8 @@ from app.modules.sessions.schemas import (
     TransferRequest,
     TransferTargets,
 )
+from app.modules.wecom.kf import session_reply_window
+from app.modules.wecom.schemas import ReplyWindowOut
 
 router = APIRouter(prefix="/api/v1", tags=["sessions"], responses=ERROR_RESPONSES)
 
@@ -60,6 +62,13 @@ async def list_sessions(
 @router.get("/sessions/{session_id}", response_model=SessionDetail)
 async def get_session(session_id: UUID, session: TenantDb, principal: CanServe) -> SessionDetail:
     return await service.get_session(session, principal, session_id)
+
+
+@router.get("/sessions/{session_id}/reply-window", response_model=ReplyWindowOut)
+async def reply_window(session_id: UUID, session: TenantDb, principal: CanServe) -> ReplyWindowOut:
+    """渠道的回复限制（微信客服：客户最后一次发消息后 48 小时内最多 5 条）。"""
+    chat, *_ = await service.visible_session(session, principal, session_id)
+    return await session_reply_window(session, chat)
 
 
 @router.get("/sessions/{session_id}/messages", response_model=MessagePage)

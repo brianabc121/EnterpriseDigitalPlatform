@@ -30,6 +30,17 @@ export const useAuthStore = defineStore('auth', () => {
     await fetchMe()
   }
 
+  /** 企业微信扫码登录或企业微信内免登：用 code 换取令牌。 */
+  async function loginWithWecom(corpId: string, code: string): Promise<void> {
+    const { data, error } = await api.POST('/api/v1/auth/wecom', {
+      body: { corp_id: corpId, code },
+    })
+    if (!data) throw new Error(errorMessage(error, '企业微信登录失败'))
+    tokens.set(data.access_token)
+    restoring = Promise.resolve()
+    await fetchMe()
+  }
+
   /** 页面刷新后恢复登录：用 httpOnly Cookie 中的刷新令牌换取 Access Token（只执行一次）。 */
   function restore(): Promise<void> {
     restoring ??= (async () => {
@@ -55,5 +66,15 @@ export const useAuthStore = defineStore('auth', () => {
     me.value = null
   }
 
-  return { me, permissions, isAuthenticated, can, login, restore, logout, clear }
+  return {
+    me,
+    permissions,
+    isAuthenticated,
+    can,
+    login,
+    loginWithWecom,
+    restore,
+    logout,
+    clear,
+  }
 })

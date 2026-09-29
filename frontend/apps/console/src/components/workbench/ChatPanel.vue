@@ -59,6 +59,28 @@ const replyable = computed(() => {
   return !!s && ['human_serving', 'transferring'].includes(s.status) && wb.isMine(s)
 })
 
+// 微信客服等渠道的回复限制：客户最后一次发消息后 48 小时内最多 5 条。
+const replyWindow = computed(() => {
+  const w = wb.replyWindow
+  return w && w.limited && session.value ? w : null
+})
+const windowClosed = computed(() => !!replyWindow.value && !replyWindow.value.open)
+const windowText = computed(() => {
+  const w = replyWindow.value
+  if (!w) return ''
+  if (!w.open) return w.reason ?? '暂时不能回复'
+  const deadline = w.deadline ? formatDeadline(w.deadline) : ''
+  return `微信客服：剩余 ${w.remaining ?? 0} 条${deadline ? ` / 截止 ${deadline}` : ''}`
+})
+
+function formatDeadline(value: string): string {
+  const d = new Date(value)
+  const today = new Date()
+  const hm = d.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false })
+  if (d.toDateString() === today.toDateString()) return hm
+  return `${d.getMonth() + 1}月${d.getDate()}日 ${hm}`
+}
+
 const LABEL: Record<string, string> = { customer: '客户', bot: '智能客服', system: '系统' }
 
 function senderLabel(m: WorkbenchMessage): string {
@@ -207,6 +229,14 @@ function insert(text: string, origin: ReplyOrigin = 'quick_reply'): void {
           <el-tag size="small" :type="session.status === 'closed' ? 'info' : 'success'" class="tag">
             {{ STATUS_TEXT[session.status] ?? session.status }}
           </el-tag>
+          <span
+            v-if="replyWindow"
+            class="reply-window"
+            :class="{ closed: windowClosed }"
+            data-testid="reply-window"
+          >
+            {{ windowText }}
+          </span>
           <span v-if="pendingTransfer" class="transferring" data-testid="transfer-pending">
             等待对方接受转接
             <el-button link type="primary" size="small" @click="cancelTransfer">撤回</el-button>
@@ -261,9 +291,17 @@ function insert(text: string, origin: ReplyOrigin = 'quick_reply'): void {
             </div>
             <div class="bubble"><MessageContent :message="m" /></div>
             <div v-if="m.status === 'pending'" class="status">发送中…</div>
-            <div v-else-if="m.status === 'failed'" class="status failed">
-              发送失败
-              <el-button link type="primary" size="small" @click="retry(m)">重试</el-button>
+            <div v-else-if="m.status === 'failed'" class="status failed" data-testid="send-failed">
+              发送失败<template v-if="m.error">：{{ m.error }}</template>
+              <el-button
+                v-if="m.senderType === 'agent'"
+                link
+                type="primary"
+                size="small"
+                @click="retry(m)"
+              >
+                重试
+              </el-button>
             </div>
           </template>
         </div>
@@ -313,17 +351,27 @@ function insert(text: string, origin: ReplyOrigin = 'quick_reply'): void {
             <span class="suggestion-text">{{ text }}</span>
           </button>
         </div>
+        <div v-if="windowClosed" class="window-closed" data-testid="window-closed">
+          {{ replyWindow?.reason }}
+        </div>
         <el-input
           v-model="draft"
           type="textarea"
           :rows="3"
           resize="none"
+          :disabled="windowClosed"
           placeholder="输入回复，Enter 发送，Shift+Enter 换行"
           data-testid="composer-input"
           @keydown="onKeydown"
         />
         <div class="actions">
-          <el-button type="primary" :loading="sending" data-testid="send-button" @click="send">
+          <el-button
+            type="primary"
+            :loading="sending"
+            :disabled="windowClosed"
+            data-testid="send-button"
+            @click="send"
+          >
             发送
           </el-button>
         </div>
@@ -356,6 +404,22 @@ function insert(text: string, origin: ReplyOrigin = 'quick_reply'): void {
 
 .tag {
   margin-left: 8px;
+}
+
+.reply-window {
+  margin-left: 8px;
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+}
+
+.reply-window.closed {
+  color: var(--el-color-danger);
+}
+
+.window-closed {
+  margin-bottom: 6px;
+  font-size: 12px;
+  color: var(--el-color-danger);
 }
 
 .transferring {

@@ -65,6 +65,7 @@ class MessageSource(StrEnum):
     WEBHOOK = "webhook"
     RECONCILE = "reconcile"
     API = "api"
+    CHANNEL = "channel"  # 从外部渠道（微信客服）拉取的入站消息
 
 
 class Message(IdMixin, TimestampMixin, TenantMixin, Base):
@@ -93,6 +94,8 @@ class Message(IdMixin, TimestampMixin, TenantMixin, Base):
     content: Mapped[dict[str, Any]]
     text_plain: Mapped[str | None] = mapped_column(Text)
     channel_msg_id: Mapped[str | None] = mapped_column(String(128))
+    # 外部渠道（微信客服）的消息 ID；channel_msg_id 是服务群里 OpenIM 的消息 ID。
+    ext_msg_id: Mapped[str | None] = mapped_column(String(128))
     client_msg_id: Mapped[str | None] = mapped_column(String(128))
     im_seq: Mapped[int | None] = mapped_column(BigInteger)
     source: Mapped[str] = mapped_column(String(16))
@@ -227,6 +230,8 @@ class ImOpType(StrEnum):
     NOTICE = "notice"  # payload: text（系统用户发到服务群，客户可见）
     SIGNAL = "signal"  # payload: staff_id, signal（在线信令，失败不重试）
     BOT_MESSAGE = "bot_message"  # payload: text, nickname（AI 回复，机器人身份发到服务群）
+    CHANNEL_SEND = "channel_send"  # payload: message_id（投递到外部渠道，成功后镜像到服务群）
+    MIRROR = "mirror"  # payload: message_id（外部渠道的入站消息以客户身份镜像到服务群）
 
 
 class ImOpStatus(StrEnum):

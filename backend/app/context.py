@@ -1,8 +1,10 @@
 """进程级依赖：API、实时消费进程、调度进程和命令行共用同一套对象的创建与关闭。"""
 
 from dataclasses import dataclass
+from functools import partial
 from typing import Any
 
+import httpx
 from redis.asyncio import Redis
 
 from app.core.config import Settings
@@ -10,8 +12,12 @@ from app.db.session import Database
 from app.events.bus import EventBus
 from app.integrations.llm import EmbedEndpoint, LLMClient, LLMEndpoint
 from app.integrations.openim import OpenIMClient
+from app.integrations.storage import ObjectStore
+from app.integrations.wecom import WeComClient
 from app.modules.conversation.deps import openim_from_settings
 from app.modules.conversation.provisioning import IMProvisioner
+from app.modules.files.service import storage_config
+from app.modules.wecom.credentials import corp_secret
 
 
 @dataclass
@@ -23,6 +29,9 @@ class AppContext:
     provisioner: IMProvisioner
     bus: EventBus
     llm: LLMClient
+    storage: ObjectStore
+    # 没有配置企业微信服务商（EDP_WECOM_SUITE_ID）时为空。
+    wecom: WeComClient | None
 
     @classmethod
     def create(
@@ -31,20 +40,38 @@ class AppContext:
         *,
         im: OpenIMClient | None = None,
         llm: LLMClient | None = None,
+        wecom_transport: httpx.AsyncBaseTransport | None = None,
+        storage_transport: httpx.AsyncBaseTransport | None = None,
     ) -> "AppContext":
         redis = Redis.from_url(settings.redis_url)
+        db = Database(settings)
         im = im or openim_from_settings(settings)
+        wecom = None
+        if settings.wecom_enabled:
+            wecom = WeComClient(
+                base_url=settings.wecom_api_url,
+                suite_id=settings.wecom_suite_id,
+                suite_secret=settings.wecom_suite_secret.get_secret_value(),
+                redis=redis,
+                corp_secret=partial(corp_secret, db, settings),
+                transport=wecom_transport,
+            )
         return cls(
             settings=settings,
-            db=Database(settings),
+            db=db,
             redis=redis,
             im=im,
             provisioner=IMProvisioner(im),
             bus=EventBus(redis),
             llm=llm or llm_from_settings(settings),
+            storage=ObjectStore(storage_config(settings), transport=storage_transport),
+            wecom=wecom,
         )
 
     async def aclose(self) -> None:
+        if self.wecom is not None:
+            await self.wecom.aclose()
+        await self.storage.aclose()
         await self.llm.aclose()
         await self.im.aclose()
         await self.redis.aclose()

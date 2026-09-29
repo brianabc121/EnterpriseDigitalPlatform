@@ -12,7 +12,7 @@ import re
 import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from urllib.parse import quote
+from urllib.parse import parse_qs, quote, unquote
 
 from app.core.config import Settings
 from app.core.errors import Unprocessable
@@ -77,6 +77,17 @@ def file_url(settings: Settings, key: str) -> str:
 
 def verify(settings: Settings, key: str, signature: str) -> bool:
     return hmac.compare_digest(_signature(settings, key), signature)
+
+
+def key_of_url(settings: Settings, url: str) -> str | None:
+    """平台签发的文件链接对应的对象 key（签名不对时返回 None）。"""
+    prefix = f"{settings.public_api_url.rstrip('/')}/api/v1/files/"
+    if not url.startswith(prefix):
+        return None
+    path, _, query = url[len(prefix) :].partition("?")
+    key = unquote(path)
+    signature = parse_qs(query).get("sig", [""])[0]
+    return key if signature and verify(settings, key, signature) else None
 
 
 def new_upload(

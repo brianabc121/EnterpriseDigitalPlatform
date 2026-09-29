@@ -60,6 +60,13 @@ async def update_channel(
     widget = changes.pop("widget", None)
     if widget is not None:
         channel.config = {**(channel.config or {}), "widget": widget}
+    kf = changes.pop("kf", None)
+    if kf is not None:
+        config = channel.config or {}
+        if channel.type != ChannelType.WECOM_KF or not config.get("kf"):
+            raise Unprocessable("只有微信客服渠道可以设置欢迎语")
+        welcome = (kf.get("welcome_message") or "").strip() or None
+        channel.config = {**config, "kf": {**config["kf"], "welcome_message": welcome}}
     for field, value in changes.items():
         if value is None and field != "routing_policy_id":
             continue

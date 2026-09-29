@@ -35,6 +35,17 @@ from app.modules.quickreply.models import QuickReply
 from app.modules.routing.models import AgentState, RoutingPolicy, SkillGroup, SkillGroupMember
 from app.modules.tenancy.models import PlatformUser, Tenant
 from app.modules.usage.models import UsageDaily
+from app.modules.wecom.models import (
+    WecomContactFollow,
+    WecomCorp,
+    WecomGroupChat,
+    WecomGroupMember,
+    WecomKfAccount,
+    WecomMember,
+    WecomSidebarMessage,
+    WecomTag,
+    WecomTransfer,
+)
 
 __all__ = [
     "AgentState",
@@ -75,4 +86,13 @@ __all__ = [
     "Tenant",
     "Ticket",
     "UsageDaily",
+    "WecomContactFollow",
+    "WecomCorp",
+    "WecomGroupChat",
+    "WecomGroupMember",
+    "WecomKfAccount",
+    "WecomMember",
+    "WecomSidebarMessage",
+    "WecomTag",
+    "WecomTransfer",
 ]

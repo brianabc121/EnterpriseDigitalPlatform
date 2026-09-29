@@ -33,6 +33,7 @@ const VIEWS: Record<string, LazyView> = {
   staff: () => import('./views/StaffView.vue'),
   reports: () => import('./views/ReportsView.vue'),
   settings: () => import('./views/SettingsView.vue'),
+  wecom: () => import('./views/WecomView.vue'),
 }
 
 const pages: RouteRecordRaw[] = MENU.map((item) => ({
@@ -48,6 +49,20 @@ const routes: RouteRecordRaw[] = [
     name: 'login',
     component: () => import('./views/LoginView.vue'),
     meta: { public: true, title: '登录' },
+  },
+  {
+    // 企业微信扫码登录、企业微信内网页授权（免登）、员工自行绑定后跳回这里。
+    path: '/wecom/login',
+    name: 'wecom-login',
+    component: () => import('./views/WecomLoginView.vue'),
+    meta: { public: true, title: '企业微信登录' },
+  },
+  {
+    // 企业微信聊天工具栏里的侧边栏（独立的移动端布局）。
+    path: '/wecom/sidebar',
+    name: 'wecom-sidebar',
+    component: () => import('./views/WecomSidebarView.vue'),
+    meta: { public: true, title: '客户助手' },
   },
   {
     path: '/',
@@ -76,6 +91,7 @@ router.beforeEach(async (to) => {
   const auth = useAuthStore()
   await auth.restore()
   if (to.meta.public) {
+    if (to.name === 'wecom-login' || to.name === 'wecom-sidebar') return true
     return to.name === 'login' && auth.isAuthenticated
       ? firstAccessiblePath(auth.permissions)
       : true

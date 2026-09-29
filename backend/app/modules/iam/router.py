@@ -37,7 +37,7 @@ LimiterDep = Annotated[RateLimiter, Depends(get_rate_limiter)]
 RefreshCookie = Annotated[str | None, Cookie(alias=REFRESH_COOKIE, include_in_schema=False)]
 
 
-def _set_refresh_cookie(response: Response, settings: Settings, token: str) -> None:
+def set_refresh_cookie(response: Response, settings: Settings, token: str) -> None:
     response.set_cookie(
         REFRESH_COOKIE,
         token,
@@ -89,7 +89,7 @@ async def login(
             ip=client_ip(request),
         )
         await session.commit()
-    _set_refresh_cookie(response, settings, tokens.refresh_token)
+    set_refresh_cookie(response, settings, tokens.refresh_token)
     return TokenResponse(access_token=tokens.access_token, expires_in=tokens.expires_in)
 
 
@@ -106,7 +106,7 @@ async def refresh(
         raise Unauthorized(service.SESSION_EXPIRED)
     async with db.tenant_session(claims.tenant_id) as session:
         tokens = await service.rotate_refresh_token(session, settings, claims)
-    _set_refresh_cookie(response, settings, tokens.refresh_token)
+    set_refresh_cookie(response, settings, tokens.refresh_token)
     return TokenResponse(access_token=tokens.access_token, expires_in=tokens.expires_in)
 
 

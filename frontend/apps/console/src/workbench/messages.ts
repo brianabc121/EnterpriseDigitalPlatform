@@ -40,6 +40,8 @@ export interface WorkbenchMessage {
   attachment: Attachment | null
   sentAt: number
   status: SendStatus | null
+  /** 发送失败的原因（如已超过微信客服 48 小时回复窗口）。 */
+  error?: string | null
 }
 
 const CONTENT_TYPES: Record<number, string> = {
@@ -86,6 +88,7 @@ export function fromApi(m: Schemas['MessageOut']): WorkbenchMessage {
     attachment: attachmentOf(m.content_type, m.content),
     sentAt: Date.parse(m.sent_at),
     status: (m.send_status as SendStatus | null) ?? null,
+    error: m.send_error ?? null,
   }
 }
 
@@ -215,6 +218,7 @@ function combine(current: WorkbenchMessage, incoming: WorkbenchMessage): Workben
   return {
     ...current,
     ...incoming,
+    error: status === 'failed' ? (incoming.error ?? current.error ?? null) : null,
     key: serverMsgID ?? id ?? current.key,
     id,
     serverMsgID,

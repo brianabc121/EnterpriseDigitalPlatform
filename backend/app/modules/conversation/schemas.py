@@ -36,9 +36,14 @@ class MessageOut(BaseModel):
     channel_msg_id: str | None = Field(description="IM 消息 ID（OpenIM serverMsgID）")
     client_msg_id: str | None
     im_seq: int | None
-    source: str = Field(description="入库途径：webhook（发送后回调）、reconcile（对账补录）、api")
+    source: str = Field(
+        description="入库途径：webhook（发送后回调）、reconcile（对账补录）、api、channel（外部渠道拉取）"
+    )
     send_status: str | None = Field(
         default=None, description="经 API 发出的消息：pending、sent、failed；其他消息为空"
+    )
+    send_error: str | None = Field(
+        default=None, description="发送失败的原因（如已超过微信客服 48 小时回复窗口）"
     )
     sent_at: datetime
 

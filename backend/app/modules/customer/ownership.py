@@ -6,6 +6,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import NotFound, Unprocessable
+from app.core.ids import new_id
 from app.modules.customer.models import Customer, CustomerOwnerHistory, OwnerChangeReason
 from app.modules.customer.schemas import OwnerHistoryOut
 from app.modules.iam.models import Staff, StaffStatus
@@ -23,21 +24,39 @@ async def change_owner(
     note: str | None = None,
 ) -> bool:
     """变更客户归属并记录历史（由调用方提交）；归属没有变化时返回 False。"""
-    if customer.owner_id == owner_id:
-        return False
-    session.add(
-        CustomerOwnerHistory(
-            tenant_id=customer.tenant_id,
-            customer_id=customer.id,
-            from_owner_id=customer.owner_id,
-            to_owner_id=owner_id,
-            actor_id=actor_id,
-            reason=reason,
-            note=note,
+    return (
+        await record_owner_change(
+            session, customer, owner_id, actor_id=actor_id, reason=reason, note=note
         )
+        is not None
     )
+
+
+async def record_owner_change(
+    session: AsyncSession,
+    customer: Customer,
+    owner_id: uuid.UUID | None,
+    *,
+    actor_id: uuid.UUID | None,
+    reason: OwnerChangeReason,
+    note: str | None = None,
+) -> CustomerOwnerHistory | None:
+    """同 change_owner，返回这次变更的历史记录（归属没有变化时返回 None）。"""
+    if customer.owner_id == owner_id:
+        return None
+    history = CustomerOwnerHistory(
+        id=new_id(),
+        tenant_id=customer.tenant_id,
+        customer_id=customer.id,
+        from_owner_id=customer.owner_id,
+        to_owner_id=owner_id,
+        actor_id=actor_id,
+        reason=reason,
+        note=note,
+    )
+    session.add(history)
     customer.owner_id = owner_id
-    return True
+    return history
 
 
 async def active_staff(session: AsyncSession, staff_id: uuid.UUID) -> Staff:
@@ -54,16 +73,16 @@ async def transfer_customers(
     to_owner_id: uuid.UUID | None,
     *,
     note: str | None,
-) -> int:
-    """管理员批量转移客户归属（to_owner_id 为空表示取消归属）。返回实际变更的数量。"""
+) -> list[CustomerOwnerHistory]:
+    """管理员批量转移客户归属（to_owner_id 为空表示取消归属）。返回实际发生的变更。"""
     if to_owner_id is not None:
         await active_staff(session, to_owner_id)
     customers = (await session.scalars(select(Customer).where(Customer.id.in_(customer_ids)))).all()
     if len(customers) != len(set(customer_ids)):
         raise NotFound("部分客户不存在")
-    changed = 0
+    changes: list[CustomerOwnerHistory] = []
     for customer in customers:
-        changed += await change_owner(
+        history = await record_owner_change(
             session,
             customer,
             to_owner_id,
@@ -71,8 +90,10 @@ async def transfer_customers(
             reason=OwnerChangeReason.MANUAL,
             note=note,
         )
+        if history is not None:
+            changes.append(history)
     await session.commit()
-    return changed
+    return changes
 
 
 async def hand_over(
@@ -83,7 +104,7 @@ async def hand_over(
     to_owner_id: uuid.UUID | None,
     to_group_id: uuid.UUID | None,
     note: str | None,
-) -> int:
+) -> list[CustomerOwnerHistory]:
     """离职或调岗交接：把某位员工名下的全部客户转给指定员工，或平均分给技能组的成员
     （按成员当前名下的客户数，少的优先）。"""
     if (to_owner_id is None) == (to_group_id is None):
@@ -131,10 +152,11 @@ async def hand_over(
     for owner_id, count in counts:
         if owner_id is not None:
             owned[owner_id] = count
+    changes: list[CustomerOwnerHistory] = []
     for customer in customers:
         owner = min(targets, key=lambda t: owned[t])
         owned[owner] += 1
-        await change_owner(
+        history = await record_owner_change(
             session,
             customer,
             owner,
@@ -142,8 +164,10 @@ async def hand_over(
             reason=OwnerChangeReason.HANDOVER,
             note=note,
         )
+        if history is not None:
+            changes.append(history)
     await session.commit()
-    return len(customers)
+    return changes
 
 
 async def owner_history(session: AsyncSession, customer_id: uuid.UUID) -> list[OwnerHistoryOut]:
@@ -172,6 +196,7 @@ async def owner_history(session: AsyncSession, customer_id: uuid.UUID) -> list[O
             actor_name=names.get(h.actor_id) if h.actor_id else None,
             reason=h.reason,
             note=h.note,
+            wecom_sync_status=h.wecom_sync_status,
             created_at=h.created_at,
         )
         for h in history

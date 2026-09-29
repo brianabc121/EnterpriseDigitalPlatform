@@ -81,3 +81,11 @@ export function secondsBetween(from: string | null, to: string | null): number |
   if (!from || !to) return null
   return (Date.parse(to) - Date.parse(from)) / 1000
 }
+
+/** 客户的来源渠道。 */
+export const CUSTOMER_SOURCE: Record<string, string> = {
+  manual: '手动创建',
+  web: '网页',
+  wecom_kf: '微信客服',
+  wecom_contact: '企业微信',
+}

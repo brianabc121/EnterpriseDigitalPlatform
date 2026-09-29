@@ -65,7 +65,30 @@ async def suggest(
     if not asked:
         return SuggestionList(suggestions=[], knowledge=[])
     # 针对客户最近的一个问题给建议；之前的对话作为上下文。
-    question = history[asked[-1]].text
+    suggestions, knowledge = await draft(
+        ctx,
+        session,
+        principal,
+        history[: asked[-1]],
+        history[asked[-1]].text,
+        session_id=chat.id,
+    )
+    return await _logged(session, principal, chat.id, suggestions, knowledge)
+
+
+async def draft(
+    ctx: AppContext,
+    session: AsyncSession,
+    principal: Principal,
+    history: list[Turn],
+    question: str,
+    *,
+    session_id: uuid.UUID | None = None,
+) -> tuple[list[str], list[KnowledgeRef]]:
+    """按员工的可见范围检索知识，结合对话上下文生成 1–3 条建议回复。
+
+    没有大模型或模型不可用时，直接用检索到的知识答案。工作台和企业微信侧边栏共用。
+    """
     hits = await search(
         ctx,
         session,
@@ -79,9 +102,9 @@ async def suggest(
     ]
     fallback = [h.text for h in hits][:MAX_SUGGESTIONS]
     if not ctx.llm.enabled:
-        return await _logged(session, principal, chat.id, fallback, knowledge)
+        return fallback, knowledge
     mapping: dict[str, str] = {}
-    masked = [Turn(t.role, pii.mask(t.text, mapping)[0]) for t in history[: asked[-1]]]
+    masked = [Turn(t.role, pii.mask(t.text, mapping)[0]) for t in history]
     passages = [
         Passage(item_id=str(h.item_id), kind=h.kind, title=h.title, text=h.text, score=h.score)
         for h in hits
@@ -96,12 +119,11 @@ async def suggest(
             scene="suggest",
             fast=True,
             json_mode=True,
-            session_id=chat.id,
+            session_id=session_id,
         )
     except LLMUnavailable:
-        return await _logged(session, principal, chat.id, fallback, knowledge)
-    suggestions = [pii.unmask(s, mapping) for s in _parse(result.content)] or fallback
-    return await _logged(session, principal, chat.id, suggestions, knowledge)
+        return fallback, knowledge
+    return [pii.unmask(s, mapping) for s in _parse(result.content)] or fallback, knowledge
 
 
 async def _logged(

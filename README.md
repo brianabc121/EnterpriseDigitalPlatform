@@ -79,6 +79,26 @@ export EDP_LLM_BASE_URL=http://127.0.0.1:8900/v1 EDP_LLM_CHAT_MODEL=fake-chat ED
 "动态"里确认），"运营数据"和"周报"跟踪命中率、缺口、通过率和采纳率。需要立即处理时执行
 `cd backend && uv run python -m app.cli kb-extract`（提炼）或 `kb-digest`（生成本周周报）。
 
+企业微信（服务商代开发应用，只用官方接口）：平台运营在 `backend/.env` 中配置代开发应用模板
+（`EDP_WECOM_*`，见 `backend/.env.example`），租户管理员在控制台"企业微信"页扫码授权。授权后平台自动同步
+成员、客户（客户联系）、企业标签、客户群和微信客服账号：
+
+- **微信客服**：每个客服账号是一个接入渠道（在"设置 → 接入渠道"里绑定路由策略、设置欢迎语）。微信用户在客服
+  入口的咨询进入平台，与网页访客一样由 AI 或坐席接待；坐席的回复经企业微信送达。工作台显示"剩余 N 条 / 截止
+  hh:mm"（客户最后一次发消息后 48 小时内最多 5 条），AI 回复带"【AI】"标识。
+- **客户联系与客户群**：外部联系人写入客户档案（添加人绑定的员工成为归属坐席），企业标签双向同步，
+  客户群及成员关联到客户；员工添加新客户时可以自动发送附带客服链接的欢迎语。转移客户时可以勾选
+  "同时变更企业微信里的添加人"（在职继承），结果由调度进程回收。
+- **员工**：在"成员绑定"里把企业成员绑定到平台员工后，员工可以在登录页用企业微信扫码登录，在企业微信内
+  打开控制台免登，并通过应用消息收到新会话分配、转接请求、必读知识和知识周报提醒。
+- **聊天工具栏侧边栏**：把 `{控制台地址}/wecom/sidebar?corp=<CorpID>` 配置到企业微信聊天工具栏，员工在客户
+  单聊、客户群里查看客户档案，粘贴客户的问题获取 AI 建议并一键发送。不在企业微信里打开时可以用
+  `?external_userid=` 调试（只记录，不发送）。
+
+需要立即同步或回收在职继承结果时执行 `cd backend && uv run python -m app.cli wecom-sync`（或 `wecom-transfers`）。
+没有服务商资质时可以用模拟企业微信联调（`uv run python -m tests.fake_wecom --port 8901 --platform http://127.0.0.1:8000`，
+环境变量见 `backend/.env.example`）。
+
 默认配置适用于本地环境；需要修改时，把 `backend/.env.example` 复制为 `backend/.env`。
 OpenIM 的镜像名都可以用环境变量替换（见 `deploy/compose/openim/docker-compose.yml`），便于使用镜像加速地址。
 
@@ -128,6 +148,11 @@ make frontend-build
 - **P4**（`scripts/e2e/p4-knowledge-acceptance.cjs`）：访客与坐席对话后提炼知识，管理员在审核台通过、补充、
   驳回候选并对比冲突答案，AI 立即使用新知识；版本回滚、必读确认、坐席评价、运营数据与周报。前置同 P3
   （提炼命令的环境变量同样要接到大模型）。
+- **P2**（`scripts/e2e/p2-wecom-acceptance.cjs`）：管理员扫码授权企业微信（模拟授权页）并绑定成员；微信客户进入
+  客服会话收到欢迎语，咨询分配给坐席，工作台显示回复额度，坐席和 AI 的回复经企业微信送达；员工添加新客户后
+  自动发送欢迎语，标签写回企业微信；在职继承；企业微信扫码登录；侧边栏 AI 建议。前置同 P3，另外需要模拟企业微信
+  （`uv run python -m tests.fake_wecom --port 8901 --platform http://127.0.0.1:8000`），后端、实时消费进程、调度进程
+  以及运行脚本的终端都要设置 `EDP_WECOM_*`（见 `backend/.env.example`，脚本会执行 `app.cli wecom-transfers`）。
 
   ```bash
   NODE_PATH=$(npm root -g) PLATFORM_PASSWORD=<平台账号密码> node scripts/e2e/m4-workbench-acceptance.cjs
@@ -136,6 +161,7 @@ make frontend-build
   NODE_PATH=$(npm root -g) PLATFORM_PASSWORD=<平台账号密码> node scripts/e2e/m6-admin-acceptance.cjs
   NODE_PATH=$(npm root -g) PLATFORM_PASSWORD=<平台账号密码> node scripts/e2e/p3-ai-acceptance.cjs
   NODE_PATH=$(npm root -g) PLATFORM_PASSWORD=<平台账号密码> node scripts/e2e/p4-knowledge-acceptance.cjs
+  NODE_PATH=$(npm root -g) PLATFORM_PASSWORD=<平台账号密码> node scripts/e2e/p2-wecom-acceptance.cjs
   ```
 
 - **P1 M1**（`scripts/e2e/m1-im-acceptance.cjs`）：访客在 Widget 里发消息、实时收到机器人回复，消息经回调入库；

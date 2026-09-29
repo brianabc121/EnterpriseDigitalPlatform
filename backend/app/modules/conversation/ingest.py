@@ -23,6 +23,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.session import Database
 from app.events.bus import Event, EventBus, EventType
 from app.integrations.openim import ContentType
+from app.modules.channels.models import ChannelAccount, ChannelType
 from app.modules.conversation import imids
 from app.modules.conversation.models import (
     Direction,
@@ -151,10 +152,21 @@ async def _ingest_one(
         return
 
     sent_at = datetime.fromtimestamp(msg.send_time_ms / 1000, UTC)
-    pmid = platform_message_id(msg.ex) if sender.type != SenderType.CUSTOMER else None
-    if pmid is not None and await _link_platform_message(session, room, pmid, msg, sent_at):
-        result.duplicates += 1
-        return
+    channel_first = await _channel_first(session, room)
+    # 访客可以自己往服务群发消息，客户消息的 pmid 不可信；渠道 Room 里的客户身份只有平台在用。
+    pmid = (
+        platform_message_id(msg.ex) if channel_first or sender.type != SenderType.CUSTOMER else None
+    )
+    if pmid is not None:
+        if await _link_platform_message(
+            session, room, pmid, msg, sent_at, channel_first=channel_first
+        ):
+            result.duplicates += 1
+            return
+        if channel_first:
+            # 渠道 Room 的消息都先写入消息库再镜像：关联不上的是重试产生的重复镜像，不入库。
+            result.skipped += 1
+            return
 
     content_type, content, text = _normalize(msg)
     values = insert(Message).values(
@@ -206,10 +218,25 @@ def platform_message_id(ex: str) -> UUID | None:
 
 
 async def _link_platform_message(
-    session: AsyncSession, room: Room, pmid: UUID, msg: IMGroupMessage, sent_at: datetime
+    session: AsyncSession,
+    room: Room,
+    pmid: UUID,
+    msg: IMGroupMessage,
+    sent_at: datetime,
+    *,
+    channel_first: bool,
 ) -> bool:
     """平台先写库再发出的消息：补上 IM 的消息 ID、seq 和发送时间。已关联到别的 IM 消息时
-    （例如重试发送产生了第二条），返回 False，按新消息入库。"""
+    （例如重试发送产生了第二条），返回 False。
+
+    渠道 Room 的发送状态和时间以渠道投递为准，这里只补 IM 的消息 ID 和 seq。
+    """
+    values: dict[str, Any] = {
+        "channel_msg_id": msg.server_msg_id,
+        "im_seq": func.coalesce(Message.im_seq, msg.seq),
+    }
+    if not channel_first:
+        values |= {"send_status": SendStatus.SENT, "send_error": None, "sent_at": sent_at}
     linked = await session.scalar(
         update(Message)
         .where(
@@ -217,16 +244,16 @@ async def _link_platform_message(
             Message.room_id == room.id,
             or_(Message.channel_msg_id.is_(None), Message.channel_msg_id == msg.server_msg_id),
         )
-        .values(
-            channel_msg_id=msg.server_msg_id,
-            im_seq=func.coalesce(Message.im_seq, msg.seq),
-            send_status=SendStatus.SENT,
-            send_error=None,
-            sent_at=sent_at,
-        )
+        .values(**values)
         .returning(Message.id)
     )
     return linked is not None
+
+
+async def _channel_first(session: AsyncSession, room: Room) -> bool:
+    """以平台消息库为准、经外部渠道收发的 Room（微信客服）：服务群里只是镜像。"""
+    channel = await session.get(ChannelAccount, room.channel_account_id)
+    return channel is not None and channel.type == ChannelType.WECOM_KF
 
 
 def _classify_sender(tenant_code: str, room: Room, msg: IMGroupMessage) -> _Sender | None:

@@ -263,7 +263,7 @@ async def test_customer_transfer_handover_and_history(desk: Desk) -> None:
         headers=desk.admin,
         json={"customer_ids": ids[:1], "to_owner_id": str(bob.staff_id), "note": "调整"},
     )
-    assert moved.json() == {"transferred": 1}
+    assert moved.json() == {"transferred": 1, "wecom": None}
 
     group = await desk.client.post(
         "/api/v1/skill-groups",
@@ -278,7 +278,7 @@ async def test_customer_transfer_handover_and_history(desk: Desk) -> None:
         headers=desk.admin,
         json={"to_group_id": group.json()["id"]},
     )
-    assert handed.json() == {"transferred": 3}
+    assert handed.json() == {"transferred": 3, "wecom": None}
     owners = await desk.sql("SELECT owner_id, count(*) AS n FROM customers GROUP BY owner_id")
     assert {r["owner_id"]: r["n"] for r in owners} == {bob.staff_id: 2, carol.staff_id: 2}
     alice_customers = await desk.client.get("/api/v1/customers", headers=alice.headers)

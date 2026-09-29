@@ -43,6 +43,7 @@ from app.modules.kb.schemas import (
     KbVersionList,
     KbVersionOut,
 )
+from app.modules.wecom.notify import announce_must_read
 
 router = APIRouter(prefix="/api/v1/kb", tags=["knowledge"], responses=ERROR_RESPONSES)
 
@@ -98,6 +99,7 @@ async def create_item(
     payload: KbItemCreate, request: Request, ctx: Context, session: TenantDb, principal: CanManage
 ) -> KbItemOut:
     item = await service.create_item(ctx, session, principal, payload, ip=client_ip(request))
+    await announce_must_read(ctx, session, principal.tenant_id, item)
     return service.item_out(item)
 
 
@@ -116,9 +118,12 @@ async def update_item(
     principal: CanManage,
 ) -> KbItemOut:
     """修改已发布的条目时版本号加一，AI 与坐席立即使用新内容。"""
+    before = (await service.get_item(session, principal, item_id)).version
     item = await service.update_item(
         ctx, session, principal, item_id, payload, ip=client_ip(request)
     )
+    if item.version != before:
+        await announce_must_read(ctx, session, principal.tenant_id, item)
     return service.item_out(item)
 
 
@@ -135,6 +140,7 @@ async def publish_item(
     item_id: UUID, request: Request, ctx: Context, session: TenantDb, principal: CanPublish
 ) -> KbItemOut:
     item = await service.publish_item(ctx, session, principal, item_id, ip=client_ip(request))
+    await announce_must_read(ctx, session, principal.tenant_id, item)
     return service.item_out(item)
 
 
@@ -186,6 +192,7 @@ async def restore_version(
     item = await service.restore_version(
         ctx, session, principal, item_id, version, ip=client_ip(request)
     )
+    await announce_must_read(ctx, session, principal.tenant_id, item)
     return service.item_out(item)
 
 

@@ -13,6 +13,7 @@ _DEV_OPENIM_SECRET = "openim-dev-secret"
 _DEV_OPENIM_WEBHOOK_SECRET = "dev-openim-webhook-secret"
 _DEV_STORAGE_SECRET_KEY = "edp-dev-storage-secret"  # 与 deploy/compose/docker-compose.yml 一致
 _DEV_FILE_URL_SECRET = "dev-only-file-url-secret-change-me-0123456789abc"
+_DEV_DATA_ENCRYPTION_KEY = "dev-only-data-encryption-key-change-me-0123456789"
 
 
 class Settings(BaseSettings):
@@ -94,6 +95,47 @@ class Settings(BaseSettings):
     # 客户连续发消息时，等这么久没有新消息再合并回复。
     ai_debounce_seconds: float = 2.0
 
+    # 渠道凭证（企业微信永久授权码等）的加密密钥，任意长度的随机字符串。
+    data_encryption_key: SecretStr = SecretStr(_DEV_DATA_ENCRYPTION_KEY)
+
+    # 企业微信服务商（设计文档 §7.4，代开发应用）：模板 ID（suite_id）与 Secret，以及模板和
+    # 代开发应用共用的回调 Token、EncodingAESKey。wecom_suite_id 为空时不启用企业微信接入。
+    wecom_suite_id: str = ""
+    wecom_suite_secret: SecretStr = SecretStr("")
+    wecom_token: SecretStr = SecretStr("")
+    wecom_encoding_aes_key: SecretStr = SecretStr("")
+    # 企业微信接口地址；联调、测试时可以指向模拟服务（tests/fake_wecom.py）。
+    wecom_api_url: str = "https://qyapi.weixin.qq.com"
+    # 授权安装页、网页授权（企业微信内免登）和扫码登录页的地址。
+    wecom_install_url: str = "https://open.work.weixin.qq.com/3rdapp/install"
+    wecom_oauth_url: str = "https://open.weixin.qq.com/connect/oauth2/authorize"
+    wecom_sso_url: str = "https://login.work.weixin.qq.com/wwlogin/sso/login"
+    # 员工控制台的对外地址：授权完成、登录后跳回这里，应用消息里的链接也指向这里。
+    console_public_url: str = "http://localhost:5173"
+
+    @property
+    def wecom_enabled(self) -> bool:
+        return bool(self.wecom_suite_id)
+
+    @model_validator(mode="after")
+    def _check_wecom(self) -> "Settings":
+        if not self.wecom_enabled:
+            return self
+        missing = [
+            name
+            for name, value in (
+                ("EDP_WECOM_SUITE_SECRET", self.wecom_suite_secret),
+                ("EDP_WECOM_TOKEN", self.wecom_token),
+                ("EDP_WECOM_ENCODING_AES_KEY", self.wecom_encoding_aes_key),
+            )
+            if not value.get_secret_value()
+        ]
+        if missing:
+            raise ValueError(f"{', '.join(missing)} must be set when EDP_WECOM_SUITE_ID is set")
+        if len(self.wecom_encoding_aes_key.get_secret_value()) != 43:
+            raise ValueError("EDP_WECOM_ENCODING_AES_KEY must be 43 characters")
+        return self
+
     @model_validator(mode="after")
     def _check_prod(self) -> "Settings":
         if self.env != "prod":
@@ -106,6 +148,7 @@ class Settings(BaseSettings):
             "EDP_OPENIM_WEBHOOK_SECRET": (self.openim_webhook_secret, _DEV_OPENIM_WEBHOOK_SECRET),
             "EDP_STORAGE_SECRET_KEY": (self.storage_secret_key, _DEV_STORAGE_SECRET_KEY),
             "EDP_FILE_URL_SECRET": (self.file_url_secret, _DEV_FILE_URL_SECRET),
+            "EDP_DATA_ENCRYPTION_KEY": (self.data_encryption_key, _DEV_DATA_ENCRYPTION_KEY),
         }
         unset = [
             name for name, (value, dev) in dev_defaults.items() if value.get_secret_value() == dev

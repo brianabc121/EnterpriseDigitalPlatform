@@ -3,10 +3,12 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, Request, status
 
-from app.core.deps import client_ip
+from app.context import AppContext
+from app.core.deps import client_ip, get_context
 from app.core.errors import ERROR_RESPONSES
 from app.core.permissions import Permission
 from app.modules.customer import ownership, service
+from app.modules.customer.models import CustomerOwnerHistory
 from app.modules.customer.schemas import (
     CustomerCreate,
     CustomerDetail,
@@ -17,15 +19,18 @@ from app.modules.customer.schemas import (
     HandoverRequest,
     OwnerHistoryList,
     TransferResult,
+    WecomTransferSummary,
 )
 from app.modules.iam.deps import TenantDb, require_permission
 from app.modules.iam.principal import Principal
+from app.modules.wecom import contacts
 
 router = APIRouter(prefix="/api/v1/customers", tags=["customers"], responses=ERROR_RESPONSES)
 
 CanRead = Annotated[Principal, Depends(require_permission(Permission.CUSTOMER_READ))]
 CanCreate = Annotated[Principal, Depends(require_permission(Permission.CUSTOMER_CREATE))]
 CanAssign = Annotated[Principal, Depends(require_permission(Permission.CUSTOMER_ASSIGN))]
+Context = Annotated[AppContext, Depends(get_context)]
 
 
 @router.get("", response_model=CustomerPage)
@@ -45,23 +50,53 @@ async def create_customer(
     return await service.create_customer(session, principal, payload, ip=client_ip(request))
 
 
+async def _result(
+    ctx: AppContext,
+    principal: Principal,
+    changes: list[CustomerOwnerHistory],
+    *,
+    sync_wecom: bool,
+) -> TransferResult:
+    if not sync_wecom:
+        return TransferResult(transferred=len(changes))
+    summary = await contacts.transfer_owner_changes(
+        ctx,
+        principal.tenant_id,
+        principal.staff_id,
+        [
+            contacts.OwnerChange(h.customer_id, h.from_owner_id, h.to_owner_id, h.id)
+            for h in changes
+        ],
+    )
+    return TransferResult(
+        transferred=len(changes),
+        wecom=WecomTransferSummary(
+            requested=summary.requested, skipped=summary.skipped, failed=summary.failed
+        ),
+    )
+
+
 @router.post("/transfer", response_model=TransferResult)
 async def transfer_customers(
-    payload: CustomerTransferRequest, session: TenantDb, principal: CanAssign
+    payload: CustomerTransferRequest, ctx: Context, session: TenantDb, principal: CanAssign
 ) -> TransferResult:
-    """批量转移客户归属，每个客户记录一条归属历史。"""
-    count = await ownership.transfer_customers(
+    """批量转移客户归属，每个客户记录一条归属历史；可以同时在企业微信里在职继承。"""
+    changes = await ownership.transfer_customers(
         session, principal, payload.customer_ids, payload.to_owner_id, note=payload.note
     )
-    return TransferResult(transferred=count)
+    return await _result(ctx, principal, changes, sync_wecom=payload.sync_wecom)
 
 
 @router.post("/handover/{staff_id}", response_model=TransferResult)
 async def hand_over(
-    staff_id: UUID, payload: HandoverRequest, session: TenantDb, principal: CanAssign
+    staff_id: UUID,
+    payload: HandoverRequest,
+    ctx: Context,
+    session: TenantDb,
+    principal: CanAssign,
 ) -> TransferResult:
     """离职或调岗交接：员工名下的全部客户转给指定员工，或平均分给技能组的成员。"""
-    count = await ownership.hand_over(
+    changes = await ownership.hand_over(
         session,
         principal,
         staff_id,
@@ -69,7 +104,7 @@ async def hand_over(
         to_group_id=payload.to_group_id,
         note=payload.note,
     )
-    return TransferResult(transferred=count)
+    return await _result(ctx, principal, changes, sync_wecom=payload.sync_wecom)
 
 
 @router.get("/{customer_id}/owner-history", response_model=OwnerHistoryList)
@@ -92,10 +127,21 @@ async def update_customer(
     customer_id: UUID,
     payload: CustomerUpdate,
     request: Request,
+    ctx: Context,
     session: TenantDb,
     principal: CanRead,
 ) -> CustomerDetail:
-    """修改客户名称、备注和标签（能看到这个客户的员工都可以修改）。"""
-    return await service.update_customer(
+    """修改客户名称、备注和标签（能看到这个客户的员工都可以修改）。
+
+    企业标签里有的标签会写回企业微信（企业微信接入设置里可以关闭）。
+    """
+    before = set((await service.get_customer(session, principal, customer_id)).tags)
+    detail = await service.update_customer(
         session, principal, customer_id, payload, ip=client_ip(request)
     )
+    after = set(detail.tags)
+    if after != before:
+        await contacts.write_back_tags(
+            ctx, principal.tenant_id, customer_id, after - before, before - after
+        )
+    return detail

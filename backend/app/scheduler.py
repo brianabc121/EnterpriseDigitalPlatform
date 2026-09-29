@@ -8,7 +8,9 @@
 - 汇总当天和前一天的用量（每 10 分钟）；
 - 有效期已过的知识自动下线（每 10 分钟）；
 - 从最近结束的会话提炼知识候选（每小时）；
-- 每周一生成上一周的知识周报（每小时检查）。
+- 每周一生成上一周的知识周报（每小时检查）；
+- 微信客服兜底拉取消息，防止回调丢失（每 5 分钟）；
+- 回收企业微信在职继承的结果（每小时）。
 
 用法：uv run python -m app.scheduler。可以运行多个实例：持有租约的实例执行任务，其他实例待命。
 """
@@ -34,6 +36,8 @@ from app.modules.kb.service import expire_items
 from app.modules.sessions.engine import republish_orphans, run_session_timers
 from app.modules.sessions.transfer import run_transfer_timers
 from app.modules.usage.service import run_usage_rollup
+from app.modules.wecom.contacts import poll_transfers
+from app.modules.wecom.kf import sync_all as kf_sync_all
 
 logger = logging.getLogger("app.scheduler")
 
@@ -61,6 +65,8 @@ JOBS = (
     Job("kb-expire", 600, expire_items),
     Job("kb-extract", 3600, run_extraction),
     Job("kb-digest", 3600, run_digests),
+    Job("wecom-kf-sync", 300, kf_sync_all),
+    Job("wecom-transfers", 3600, poll_transfers),
 )
 
 

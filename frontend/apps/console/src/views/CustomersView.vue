@@ -6,6 +6,7 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { api, formatDateTime } from '../api'
 import OwnerHistoryDrawer from '../components/customers/OwnerHistoryDrawer.vue'
 import OwnerTransferDialog from '../components/customers/OwnerTransferDialog.vue'
+import { CUSTOMER_SOURCE } from '../labels'
 import { useAuthStore } from '../stores/auth'
 
 const PAGE_SIZE = 20
@@ -122,7 +123,11 @@ onMounted(load)
       <el-table-column label="归属坐席" min-width="120">
         <template #default="{ row }">{{ row.owner_display_name ?? '—' }}</template>
       </el-table-column>
-      <el-table-column prop="source_channel" label="来源" width="120" />
+      <el-table-column label="来源" width="120">
+        <template #default="{ row }">
+          {{ CUSTOMER_SOURCE[row.source_channel] ?? row.source_channel }}
+        </template>
+      </el-table-column>
       <el-table-column label="标签" min-width="160">
         <template #default="{ row }">
           <el-tag v-for="tag in row.tags" :key="tag" size="small" class="tag">{{ tag }}</el-tag>
@@ -160,7 +165,12 @@ onMounted(load)
         </el-form-item>
         <el-form-item v-if="canAssign" label="归属坐席">
           <el-select v-model="form.ownerId" clearable placeholder="默认归属自己">
-            <el-option v-for="s in staffOptions" :key="s.id" :label="s.display_name" :value="s.id" />
+            <el-option
+              v-for="s in staffOptions"
+              :key="s.id"
+              :label="s.display_name"
+              :value="s.id"
+            />
           </el-select>
         </el-form-item>
       </el-form>

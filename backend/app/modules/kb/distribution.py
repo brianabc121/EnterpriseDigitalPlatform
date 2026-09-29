@@ -132,8 +132,10 @@ async def confirm_read(session: AsyncSession, principal: Principal, item_id: uui
     await session.commit()
 
 
-async def _audience(session: AsyncSession) -> list[Staff]:
-    """需要确认必读知识的员工：有接待权限（workbench:use）的在职员工。"""
+async def audience(
+    session: AsyncSession, permission: str = Permission.WORKBENCH_USE
+) -> list[Staff]:
+    """有某项权限的在职员工。默认是需要确认必读知识的员工：有接待权限（workbench:use）的。"""
     roles = {role.id: role_permissions(role) for role in (await session.scalars(select(Role)))}
     granted: dict[uuid.UUID, set[str]] = defaultdict(set)
     for staff_id, role_id in await session.execute(select(StaffRole.staff_id, StaffRole.role_id)):
@@ -141,14 +143,14 @@ async def _audience(session: AsyncSession) -> list[Staff]:
     staff = await session.scalars(
         select(Staff).where(Staff.status == StaffStatus.ACTIVE).order_by(Staff.created_at)
     )
-    return [s for s in staff.all() if Permission.WORKBENCH_USE in granted[s.id]]
+    return [s for s in staff.all() if permission in granted[s.id]]
 
 
 async def read_stats(
     session: AsyncSession, principal: Principal, item_id: uuid.UUID
 ) -> KbReadStats:
     item = await get_item(session, principal, item_id)
-    audience = await _audience(session)
+    readers_all = await audience(session)
     read_at = dict(
         (
             await session.execute(
@@ -161,7 +163,7 @@ async def read_stats(
     readers = sorted(
         (
             KbReader(staff_id=s.id, display_name=s.display_name, read_at=read_at.get(s.id))
-            for s in audience
+            for s in readers_all
         ),
         key=lambda r: (r.read_at is None, r.read_at or item.updated_at),
     )

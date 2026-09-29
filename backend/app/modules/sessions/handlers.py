@@ -5,7 +5,8 @@ from functools import partial
 from app.context import AppContext
 from app.events.bus import EventType, Handler
 from app.modules.sessions.engine import on_message_received
+from app.modules.wecom.handlers import wecom_handlers
 
 
 def event_handlers(ctx: AppContext) -> dict[str, Handler]:
-    return {EventType.MESSAGE_RECEIVED: partial(on_message_received, ctx)}
+    return {EventType.MESSAGE_RECEIVED: partial(on_message_received, ctx), **wecom_handlers(ctx)}

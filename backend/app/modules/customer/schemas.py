@@ -52,20 +52,36 @@ class CustomerCreate(BaseModel):
     )
 
 
+_SYNC_WECOM = (
+    "同时变更企业微信里的添加人（在职继承）：90 天内每位客户最多转接 2 次，客户 24 小时后自动接替"
+)
+
+
 class CustomerTransferRequest(BaseModel):
     customer_ids: list[UUID] = Field(min_length=1, max_length=500)
     to_owner_id: UUID | None = Field(description="新的归属坐席；为空表示取消归属")
     note: str | None = Field(default=None, max_length=500)
+    sync_wecom: bool = Field(default=False, description=_SYNC_WECOM)
 
 
 class HandoverRequest(BaseModel):
     to_owner_id: UUID | None = Field(default=None, description="接手的员工")
     to_group_id: UUID | None = Field(default=None, description="或平均分给这个技能组的成员")
     note: str | None = Field(default=None, max_length=500)
+    sync_wecom: bool = Field(default=False, description=_SYNC_WECOM)
+
+
+class WecomTransferSummary(BaseModel):
+    requested: int = Field(description="已提交在职继承的客户数（结果稍后回收）")
+    skipped: int = Field(description="不需要或无法同步的客户数（没有绑定企业微信成员等）")
+    failed: int = Field(description="企业微信拒绝转接的客户数")
 
 
 class TransferResult(BaseModel):
     transferred: int
+    wecom: WecomTransferSummary | None = Field(
+        default=None, description="勾选了同步企业微信时的在职继承结果"
+    )
 
 
 class OwnerHistoryOut(BaseModel):
@@ -75,7 +91,10 @@ class OwnerHistoryOut(BaseModel):
     to_owner_id: UUID | None
     to_owner_name: str | None
     actor_name: str | None
-    reason: str = Field(description="session_transfer、manual 或 handover")
+    reason: str = Field(description="session_transfer、manual、handover 或 wecom（企业微信添加人）")
+    wecom_sync_status: str | None = Field(
+        default=None, description="在职继承同步状态：waiting、success、failed；为空表示没有同步"
+    )
     note: str | None
     created_at: datetime
 

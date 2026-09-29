@@ -39,3 +39,9 @@ async def test_bootstrap_commands(settings: Settings, client: httpx.AsyncClient)
     )
     assert platform.status_code == 200
     assert await login(client, "demo")
+
+
+async def test_wecom_commands_without_provider(settings: Settings) -> None:
+    # 没有配置企业微信服务商时，同步和回收在职继承都不做任何事。
+    assert await cli.wecom_sync(settings, None) == {}
+    assert await cli.wecom_transfers(settings) == 0
