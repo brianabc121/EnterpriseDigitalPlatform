@@ -139,7 +139,7 @@ async def _upsert(
             kind=payload.kind or ProductKind.GOODS,
             ready_made=False,
             # 材料总是管理库存（从 0 开始）。
-            stock=Decimal(0) if payload.kind == ProductKind.MATERIAL else None,
+            stock=Decimal(0) if payload.kind == ProductKind.MATERIAL.value else None,
         )
         session.add(product)
     elif payload.kind is not None and payload.kind != product.kind:

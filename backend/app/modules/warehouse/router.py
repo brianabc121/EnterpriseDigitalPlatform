@@ -335,7 +335,7 @@ async def draft(
         mine or principal.has(Permission.PRODUCTION_ASSIGN) or documents.manages(principal)
     ):
         raise NotFound(documents.ORDER_NOT_FOUND)
-    if kind == DocumentKind.REQUISITION:
+    if DocumentKind(kind) == DocumentKind.REQUISITION:
         lines, missing = await documents.requisition_draft(session, order)
     else:
         lines, missing = await documents.receipt_draft(session, order)
