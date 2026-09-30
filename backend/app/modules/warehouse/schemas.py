@@ -184,9 +184,15 @@ class WarehouseSettingsOut(BaseModel):
     keeper_name: str | None
     effective_keeper_id: UUID | None = Field(
         description="实际的仓管：指定的员工；没有指定（或已停用）时是最早创建的工人"
+        "（有“仓管”角色的员工时为空，见 by_role）"
     )
-    effective_keeper_name: str | None
+    effective_keeper_name: str | None = Field(
+        description="实际的仓管的姓名；有“仓管”角色的员工时是他们的姓名（用顿号隔开）"
+    )
     fallback: bool = Field(description="没有指定仓管，由最早创建的工人担任")
+    by_role: bool = Field(
+        default=False, description="没有指定仓管，有“仓管”角色的员工都是仓管（§25.15）"
+    )
     can_edit: bool = Field(description="可以修改（有订单设置权限）")
 
 

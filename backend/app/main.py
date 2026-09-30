@@ -105,9 +105,7 @@ def create_app(
 
     install_error_handlers(app)
     # 接口传输加密（§25.15）：在 CORS 里面，出错的响应也带 CORS 头。
-    app.add_middleware(
-        TransportMiddleware, settings=ctx.settings, store=app.state.transport_store
-    )
+    app.add_middleware(TransportMiddleware, settings=ctx.settings, store=app.state.transport_store)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=ctx.settings.cors_origins,

@@ -3969,6 +3969,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/tenant/console": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Console
+         * @description 每个岗位显示的菜单（§25.15）：管理员固定看全部，其他岗位可以调整。
+         */
+        get: operations["get_console_api_v1_tenant_console_get"];
+        /**
+         * Put Console
+         * @description 调整岗位显示的菜单（没有列出的岗位恢复默认）。菜单还要有相应的权限才会显示。
+         */
+        put: operations["put_console_api_v1_tenant_console_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/tenant/exports": {
         parameters: {
             query?: never;
@@ -7614,6 +7638,74 @@ export interface components {
             type_id?: string | null;
         };
         /**
+         * ConsoleMenu
+         * @description 控制台的菜单，与前端 menu.ts 的菜单名一致（前端按 OpenAPI 的枚举检查）。
+         * @enum {string}
+         */
+        ConsoleMenu: "dashboard" | "workbench" | "sessions" | "todos" | "orders" | "products" | "production" | "warehouse" | "customers" | "knowledge" | "ai" | "staff" | "reports" | "broadcasts" | "wecom" | "audit" | "settings";
+        /**
+         * ConsoleOut
+         * @description 按岗位的控制台（设计文档 §25.15）。
+         */
+        ConsoleOut: {
+            /**
+             * Menus
+             * @description 显示的菜单（还要有相应的权限和套餐功能；菜单名与控制台 menu.ts 一致）
+             */
+            menus: components["schemas"]["ConsoleMenu"][];
+            /**
+             * Profiles
+             * @description 岗位（按首页上显示的先后）
+             */
+            profiles: components["schemas"]["ConsoleProfile"][];
+        };
+        /**
+         * ConsoleProfile
+         * @enum {string}
+         */
+        ConsoleProfile: "admin" | "supervisor" | "agent" | "keeper" | "worker" | "knowledge";
+        /** ConsoleProfileMenus */
+        ConsoleProfileMenus: {
+            /**
+             * Customized
+             * @description 企业调整过（不是默认值）
+             */
+            customized: boolean;
+            /**
+             * Defaults
+             * @description 默认显示的菜单
+             */
+            defaults: components["schemas"]["ConsoleMenu"][];
+            /**
+             * Editable
+             * @description 可以调整（管理员固定看全部菜单）
+             */
+            editable: boolean;
+            /** Label */
+            label: string;
+            /**
+             * Menus
+             * @description 显示的菜单
+             */
+            menus: components["schemas"]["ConsoleMenu"][];
+            profile: components["schemas"]["ConsoleProfile"];
+        };
+        /** ConsoleSettingsIn */
+        ConsoleSettingsIn: {
+            /**
+             * Menus
+             * @description 除管理员以外要调整的岗位和它们显示的菜单；没有列出的岗位恢复默认
+             */
+            menus: {
+                [key: string]: components["schemas"]["ConsoleMenu"][];
+            };
+        };
+        /** ConsoleSettingsOut */
+        ConsoleSettingsOut: {
+            /** Items */
+            items: components["schemas"]["ConsoleProfileMenus"][];
+        };
+        /**
          * ContentPolicy
          * @description 全局敏感词与内容安全策略（平台设置 content_policy），在各租户自己的敏感词之外生效。
          */
@@ -10901,6 +10993,7 @@ export interface components {
              * @description 试用或到期提醒（只返回给有设置权限的员工）
              */
             billing_notice?: string | null;
+            console: components["schemas"]["ConsoleOut"];
             /** Display Name */
             display_name: string;
             /**
@@ -14461,6 +14554,8 @@ export interface components {
              * @description 小写字母开头，字母、数字、下划线
              */
             code: string;
+            /** @description 岗位；不填时按权限判断 */
+            console?: components["schemas"]["ConsoleProfile"] | null;
             /** Name */
             name: string;
             /**
@@ -14478,6 +14573,14 @@ export interface components {
         RoleOut: {
             /** Code */
             code: string;
+            /** @description 岗位（§25.15）：系统角色固定，自定义角色可以选择 */
+            console: components["schemas"]["ConsoleProfile"];
+            /**
+             * Console Auto
+             * @description 自定义角色没有选择岗位，按权限判断
+             * @default false
+             */
+            console_auto: boolean;
             /**
              * Id
              * Format: uuid
@@ -14498,6 +14601,8 @@ export interface components {
         };
         /** RoleUpdate */
         RoleUpdate: {
+            /** @description 岗位；传 null 表示改为按权限判断，不传表示不修改 */
+            console?: components["schemas"]["ConsoleProfile"] | null;
             /** Name */
             name?: string | null;
             /** Permissions */
@@ -17669,6 +17774,12 @@ export interface components {
         /** WarehouseSettingsOut */
         WarehouseSettingsOut: {
             /**
+             * By Role
+             * @description 没有指定仓管，有“仓管”角色的员工都是仓管（§25.15）
+             * @default false
+             */
+            by_role: boolean;
+            /**
              * Can Edit
              * @description 可以修改（有订单设置权限）
              */
@@ -17677,10 +17788,13 @@ export interface components {
             confirm_required: boolean;
             /**
              * Effective Keeper Id
-             * @description 实际的仓管：指定的员工；没有指定（或已停用）时是最早创建的工人
+             * @description 实际的仓管：指定的员工；没有指定（或已停用）时是最早创建的工人（有“仓管”角色的员工时为空，见 by_role）
              */
             effective_keeper_id: string | null;
-            /** Effective Keeper Name */
+            /**
+             * Effective Keeper Name
+             * @description 实际的仓管的姓名；有“仓管”角色的员工时是他们的姓名（用顿号隔开）
+             */
             effective_keeper_name: string | null;
             /**
              * Fallback
@@ -36921,6 +37035,158 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ClosureStatus"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_console_api_v1_tenant_console_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleSettingsOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    put_console_api_v1_tenant_console_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConsoleSettingsIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleSettingsOut"];
                 };
             };
             /** @description Bad Request */

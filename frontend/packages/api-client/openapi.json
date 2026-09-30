@@ -3104,6 +3104,155 @@
         "title": "ConfirmRequest",
         "type": "object"
       },
+      "ConsoleMenu": {
+        "description": "控制台的菜单，与前端 menu.ts 的菜单名一致（前端按 OpenAPI 的枚举检查）。",
+        "enum": [
+          "dashboard",
+          "workbench",
+          "sessions",
+          "todos",
+          "orders",
+          "products",
+          "production",
+          "warehouse",
+          "customers",
+          "knowledge",
+          "ai",
+          "staff",
+          "reports",
+          "broadcasts",
+          "wecom",
+          "audit",
+          "settings"
+        ],
+        "title": "ConsoleMenu",
+        "type": "string"
+      },
+      "ConsoleOut": {
+        "description": "按岗位的控制台（设计文档 §25.15）。",
+        "properties": {
+          "menus": {
+            "description": "显示的菜单（还要有相应的权限和套餐功能；菜单名与控制台 menu.ts 一致）",
+            "items": {
+              "$ref": "#/components/schemas/ConsoleMenu"
+            },
+            "title": "Menus",
+            "type": "array"
+          },
+          "profiles": {
+            "description": "岗位（按首页上显示的先后）",
+            "items": {
+              "$ref": "#/components/schemas/ConsoleProfile"
+            },
+            "title": "Profiles",
+            "type": "array"
+          }
+        },
+        "required": [
+          "profiles",
+          "menus"
+        ],
+        "title": "ConsoleOut",
+        "type": "object"
+      },
+      "ConsoleProfile": {
+        "enum": [
+          "admin",
+          "supervisor",
+          "agent",
+          "keeper",
+          "worker",
+          "knowledge"
+        ],
+        "title": "ConsoleProfile",
+        "type": "string"
+      },
+      "ConsoleProfileMenus": {
+        "properties": {
+          "customized": {
+            "description": "企业调整过（不是默认值）",
+            "title": "Customized",
+            "type": "boolean"
+          },
+          "defaults": {
+            "description": "默认显示的菜单",
+            "items": {
+              "$ref": "#/components/schemas/ConsoleMenu"
+            },
+            "title": "Defaults",
+            "type": "array"
+          },
+          "editable": {
+            "description": "可以调整（管理员固定看全部菜单）",
+            "title": "Editable",
+            "type": "boolean"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "menus": {
+            "description": "显示的菜单",
+            "items": {
+              "$ref": "#/components/schemas/ConsoleMenu"
+            },
+            "title": "Menus",
+            "type": "array"
+          },
+          "profile": {
+            "$ref": "#/components/schemas/ConsoleProfile"
+          }
+        },
+        "required": [
+          "profile",
+          "label",
+          "menus",
+          "defaults",
+          "customized",
+          "editable"
+        ],
+        "title": "ConsoleProfileMenus",
+        "type": "object"
+      },
+      "ConsoleSettingsIn": {
+        "properties": {
+          "menus": {
+            "additionalProperties": {
+              "items": {
+                "$ref": "#/components/schemas/ConsoleMenu"
+              },
+              "type": "array"
+            },
+            "description": "除管理员以外要调整的岗位和它们显示的菜单；没有列出的岗位恢复默认",
+            "propertyNames": {
+              "$ref": "#/components/schemas/ConsoleProfile"
+            },
+            "title": "Menus",
+            "type": "object"
+          }
+        },
+        "required": [
+          "menus"
+        ],
+        "title": "ConsoleSettingsIn",
+        "type": "object"
+      },
+      "ConsoleSettingsOut": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ConsoleProfileMenus"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "ConsoleSettingsOut",
+        "type": "object"
+      },
       "ContentPolicy": {
         "description": "全局敏感词与内容安全策略（平台设置 content_policy），在各租户自己的敏感词之外生效。",
         "properties": {
@@ -11135,6 +11284,9 @@
             "description": "试用或到期提醒（只返回给有设置权限的员工）",
             "title": "Billing Notice"
           },
+          "console": {
+            "$ref": "#/components/schemas/ConsoleOut"
+          },
           "display_name": {
             "title": "Display Name",
             "type": "string"
@@ -11191,7 +11343,8 @@
           "display_name",
           "tenant",
           "roles",
-          "permissions"
+          "permissions",
+          "console"
         ],
         "title": "MeResponse",
         "type": "object"
@@ -20339,6 +20492,17 @@
             "title": "Code",
             "type": "string"
           },
+          "console": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ConsoleProfile"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "岗位；不填时按权限判断"
+          },
           "name": {
             "maxLength": 64,
             "minLength": 1,
@@ -20385,6 +20549,16 @@
             "title": "Code",
             "type": "string"
           },
+          "console": {
+            "$ref": "#/components/schemas/ConsoleProfile",
+            "description": "岗位（§25.15）：系统角色固定，自定义角色可以选择"
+          },
+          "console_auto": {
+            "default": false,
+            "description": "自定义角色没有选择岗位，按权限判断",
+            "title": "Console Auto",
+            "type": "boolean"
+          },
           "id": {
             "format": "uuid",
             "title": "Id",
@@ -20417,13 +20591,25 @@
           "code",
           "name",
           "permissions",
-          "is_system"
+          "is_system",
+          "console"
         ],
         "title": "RoleOut",
         "type": "object"
       },
       "RoleUpdate": {
         "properties": {
+          "console": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ConsoleProfile"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "岗位；传 null 表示改为按权限判断，不传表示不修改"
+          },
           "name": {
             "anyOf": [
               {
@@ -28749,6 +28935,12 @@
       },
       "WarehouseSettingsOut": {
         "properties": {
+          "by_role": {
+            "default": false,
+            "description": "没有指定仓管，有“仓管”角色的员工都是仓管（§25.15）",
+            "title": "By Role",
+            "type": "boolean"
+          },
           "can_edit": {
             "description": "可以修改（有订单设置权限）",
             "title": "Can Edit",
@@ -28768,7 +28960,7 @@
                 "type": "null"
               }
             ],
-            "description": "实际的仓管：指定的员工；没有指定（或已停用）时是最早创建的工人",
+            "description": "实际的仓管：指定的员工；没有指定（或已停用）时是最早创建的工人（有“仓管”角色的员工时为空，见 by_role）",
             "title": "Effective Keeper Id"
           },
           "effective_keeper_name": {
@@ -28780,6 +28972,7 @@
                 "type": "null"
               }
             ],
+            "description": "实际的仓管的姓名；有“仓管”角色的员工时是他们的姓名（用顿号隔开）",
             "title": "Effective Keeper Name"
           },
           "fallback": {
@@ -55114,6 +55307,188 @@
         "summary": "Request Closure",
         "tags": [
           "tenant"
+        ]
+      }
+    },
+    "/api/v1/tenant/console": {
+      "get": {
+        "description": "每个岗位显示的菜单（§25.15）：管理员固定看全部，其他岗位可以调整。",
+        "operationId": "get_console_api_v1_tenant_console_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsoleSettingsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Console",
+        "tags": [
+          "iam"
+        ]
+      },
+      "put": {
+        "description": "调整岗位显示的菜单（没有列出的岗位恢复默认）。菜单还要有相应的权限才会显示。",
+        "operationId": "put_console_api_v1_tenant_console_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConsoleSettingsIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsoleSettingsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Put Console",
+        "tags": [
+          "iam"
         ]
       }
     },

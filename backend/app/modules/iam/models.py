@@ -43,6 +43,8 @@ class Role(IdMixin, TimestampMixin, TenantMixin, Base):
     name: Mapped[str] = mapped_column(String(64))
     permissions: Mapped[list[str]] = mapped_column(server_default=text("'{}'"))
     is_system: Mapped[bool] = mapped_column(server_default=text("false"))
+    # 自定义角色选择的岗位（设计文档 §25.15）；为空时按权限判断。系统角色的岗位以代码为准。
+    console: Mapped[str | None] = mapped_column(String(16))
 
 
 class StaffRole(TenantMixin, Base):

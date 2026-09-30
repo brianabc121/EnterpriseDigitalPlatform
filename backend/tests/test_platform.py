@@ -66,6 +66,7 @@ async def test_provisioned_tenant_admin_can_log_in_and_sees_system_roles(
         "supervisor",
         "knowledge_manager",
         "worker",
+        "keeper",
     }
 
 
