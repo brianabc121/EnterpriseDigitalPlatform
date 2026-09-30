@@ -20,6 +20,7 @@ from sqlalchemy import select
 from app.context import AppContext
 from app.integrations.llm import LLMUnavailable
 from app.modules.ai.models import AiSettings
+from app.modules.tenancy import ratelimits
 
 logger = logging.getLogger(__name__)
 
@@ -74,7 +75,9 @@ async def in_use(ctx: AppContext, tenant_id: uuid.UUID) -> int:
 
 @asynccontextmanager
 async def slot(ctx: AppContext, tenant_id: uuid.UUID) -> AsyncIterator[None]:
-    """占用一个名额执行一次调用。"""
+    """占用一个名额执行一次调用。每分钟的调用次数也有上限（按租户限流）。"""
+    if not await ratelimits.allow(ctx, tenant_id, ratelimits.Kind.LLM):
+        raise LlmBusy("大模型调用过于频繁，稍后再试")
     limit = await tenant_limit(ctx, tenant_id)
     key = _key(tenant_id)
     token = uuid.uuid4().hex

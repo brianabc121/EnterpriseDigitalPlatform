@@ -4010,6 +4010,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/platform/v1/tenants/{tenant_id}/rate-limits": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Tenant Rate Limits
+         * @description 租户每分钟的请求、回调和大模型调用上限，以及当前一分钟的计数。
+         */
+        get: operations["tenant_rate_limits_platform_v1_tenants__tenant_id__rate_limits_get"];
+        /**
+         * Set Tenant Rate Limits
+         * @description 单独设置租户的上限（为空的项用平台默认，0 表示不限）；各进程 30 秒内生效。
+         */
+        put: operations["set_tenant_rate_limits_platform_v1_tenants__tenant_id__rate_limits_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/platform/v1/tenants/{tenant_id}/subscriptions": {
         parameters: {
             query?: never;
@@ -8656,6 +8680,43 @@ export interface components {
             /** Title */
             title?: string | null;
         };
+        /** RateLimitCounts */
+        RateLimitCounts: {
+            /**
+             * Api
+             * @description 员工接口请求
+             */
+            api: number;
+            /**
+             * Llm
+             * @description 大模型调用（超过时本轮转人工）
+             */
+            llm: number;
+            /**
+             * Visitor
+             * @description 访客接口请求
+             */
+            visitor: number;
+            /**
+             * Webhook
+             * @description OpenIM 回调（超过时暂不入库，由对账补上）
+             */
+            webhook: number;
+        };
+        /**
+         * RateLimitOverrides
+         * @description 按租户单独设置的每分钟上限；为空表示用平台默认，0 表示不限。
+         */
+        RateLimitOverrides: {
+            /** Api */
+            api?: number | null;
+            /** Llm */
+            llm?: number | null;
+            /** Visitor */
+            visitor?: number | null;
+            /** Webhook */
+            webhook?: number | null;
+        };
         /**
          * Realtime
          * @description 首页实时数据。坐席只看到自己的接待数据；主管看到所带团队；管理员看到全部。
@@ -10264,6 +10325,21 @@ export interface components {
              * @default trial
              */
             signup_plan_code: string;
+        };
+        /** TenantRateLimits */
+        TenantRateLimits: {
+            /** @description 平台默认的每分钟上限 */
+            defaults: components["schemas"]["RateLimitCounts"];
+            /** @description 生效的每分钟上限（0 表示不限） */
+            effective: components["schemas"]["RateLimitCounts"];
+            overrides: components["schemas"]["RateLimitOverrides"];
+            /** @description 当前一分钟内的计数 */
+            usage: components["schemas"]["RateLimitCounts"];
+            /**
+             * Visitor Per Minute
+             * @description 每位访客每分钟的上限（平台配置）
+             */
+            visitor_per_minute: number;
         };
         /** TenantUpdate */
         TenantUpdate: {
@@ -30081,6 +30157,162 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PurgeResult"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    tenant_rate_limits_platform_v1_tenants__tenant_id__rate_limits_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TenantRateLimits"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    set_tenant_rate_limits_platform_v1_tenants__tenant_id__rate_limits_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RateLimitOverrides"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TenantRateLimits"];
                 };
             };
             /** @description Bad Request */

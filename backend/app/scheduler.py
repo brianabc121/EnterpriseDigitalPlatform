@@ -17,7 +17,8 @@
 - 生成上个月的账单（每 6 小时检查，已收款的不变）；
 - 生成排队中的数据导出、删除过期的导出文件（每 30 秒）；
 - 删除注销保留期已到的租户数据（每小时）；
-- 读取排队、坐席、发件箱、事件积压等状态类指标（每 15 秒，见 app/observability/state.py）。
+- 读取排队、坐席、发件箱、事件积压等状态类指标（每 15 秒，见 app/observability/state.py）；
+- 建好本月和之后 3 个月的消息分区（每小时，见 app/db/partitions.py）。
 
 每个任务的执行次数、耗时和最近一次成功的时间计入 Prometheus 指标，每次执行是一个 span。
 
@@ -38,6 +39,7 @@ from opentelemetry.trace import StatusCode
 
 from app.context import AppContext
 from app.core.config import get_settings
+from app.db.partitions import ensure_partitions
 from app.events.bus import wait_or_stop
 from app.events.lease import Lease
 from app.modules.ai.answer_cache import purge_expired as purge_expired_answers
@@ -104,6 +106,7 @@ JOBS = (
     Job("ai-cache", 3600, purge_expired_answers),
     Job("session-summaries", 60, run_session_summaries),
     Job("metrics-state", state.INTERVAL_SECONDS, state.refresh),
+    Job("partitions", 3600, ensure_partitions),
 )
 
 

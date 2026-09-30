@@ -238,6 +238,25 @@ groups:
           summary: "租户 {{ $labels.tenant }} 触发限流 {{ $labels.rule }}"
           description: "10 分钟内 {{ $value }} 次，确认是否需要调整该租户的限额。"
 
+  - name: edp-database
+    rules:
+      - alert: EdpMessagePartitionsMissing
+        expr: max(edp_message_partitions_ahead) < 1
+        for: 1h
+        labels:
+          severity: warning
+        annotations:
+          summary: "下个月的消息分区还没有建好"
+          description: "调度任务 partitions 每小时建好本月和之后 3 个月的分区，检查它的日志。"
+      - alert: EdpMessagesInDefaultPartition
+        expr: max(edp_message_default_partition_rows) > 0
+        for: 2h
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $value }} 条消息落进了默认分区"
+          description: "没有对应月份的分区；建好分区时会自动搬走，持续存在说明发送时间异常或分区任务失败。"
+
   - name: edp-jobs
     rules:
       - alert: EdpJobFailing

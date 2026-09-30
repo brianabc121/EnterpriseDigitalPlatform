@@ -2,20 +2,22 @@ from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from typing import Annotated
 
-from fastapi import Depends, Header
+from fastapi import Depends, Header, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
-from app.core.deps import get_app_settings, get_database
+from app.core.deps import get_app_settings, get_context, get_database
 from app.core.errors import Unauthorized
 from app.core.security import TokenError, VisitorClaims, decode_visitor_token
 from app.db.session import Database
+from app.modules.tenancy import ratelimits
 from app.observability.context import note_tenant
 
 VISITOR_TOKEN_HEADER = "X-Visitor-Token"
 
 
 async def get_visitor_claims(
+    request: Request,
     settings: Annotated[Settings, Depends(get_app_settings)],
     token: Annotated[
         str | None,
@@ -29,6 +31,8 @@ async def get_visitor_claims(
     except TokenError as exc:
         raise Unauthorized("访客令牌无效或已过期") from exc
     note_tenant(claims.tenant_id)
+    # 防刷：按访客和租户限流。
+    await ratelimits.check_visitor(get_context(request), claims.tenant_id, str(claims.identity_id))
     return claims
 
 

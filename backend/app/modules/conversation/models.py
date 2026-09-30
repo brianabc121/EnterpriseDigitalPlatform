@@ -69,18 +69,30 @@ class MessageSource(StrEnum):
 
 
 class Message(IdMixin, TimestampMixin, TenantMixin, Base):
-    """统一的消息归档。"""
+    """统一的消息归档。
+
+    按 sent_at 按月分区（迁移 0017，主键是 (id, sent_at)）。唯一约束都带着 sent_at：同一条 IM 消息
+    经回调和对账入库时发送时间相同，企业微信消息入库前按 msgid 检查，坐席经 API 发送时用咨询锁。
+    """
 
     __tablename__ = "messages"
     __table_args__ = (
         UniqueConstraint(
-            "tenant_id", "channel_account_id", "channel_msg_id", name="uq_messages_channel_msg"
+            "tenant_id",
+            "channel_account_id",
+            "channel_msg_id",
+            "sent_at",
+            name="uq_messages_channel_msg",
+        ),
+        UniqueConstraint(
+            "tenant_id", "channel_account_id", "ext_msg_id", "sent_at", name="uq_messages_ext_msg"
         ),
         ForeignKeyConstraint(["tenant_id", "room_id"], ["rooms.tenant_id", "rooms.id"]),
         ForeignKeyConstraint(
             ["tenant_id", "channel_account_id"],
             ["channel_accounts.tenant_id", "channel_accounts.id"],
         ),
+        {"postgresql_partition_by": "RANGE (sent_at)"},
     )
 
     room_id: Mapped[uuid.UUID]

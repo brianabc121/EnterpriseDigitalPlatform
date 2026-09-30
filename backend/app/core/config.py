@@ -144,6 +144,14 @@ class Settings(BaseSettings):
     # 员工控制台的对外地址：授权完成、登录后跳回这里，应用消息里的链接也指向这里。
     console_public_url: str = "http://localhost:5173"
 
+    # 按租户限流（设计文档 §9.3 租户公平）：每个租户每分钟的员工接口请求、访客接口请求、OpenIM 回调
+    # 和大模型调用上限，平台可以在运营后台按租户调整；0 表示不限。访客另有每人每分钟的上限。
+    tenant_api_per_minute: int = 6000
+    tenant_visitor_per_minute: int = 6000
+    tenant_webhook_per_minute: int = 6000
+    tenant_llm_per_minute: int = 600
+    visitor_per_minute: int = 120
+
     # 可观测性（设计文档 §19.3）。metrics_port：Prometheus 指标端口，每个进程（API、实时消费、
     # 调度）单独监听，0 表示不开启；otel_endpoint：OpenTelemetry 链路追踪的 OTLP/HTTP 地址
     # （如 http://otel-collector:4318），为空时不上报；log_format 为 json 时日志每行一个 JSON，

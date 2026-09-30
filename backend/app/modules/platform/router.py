@@ -33,11 +33,16 @@ from app.modules.platform.schemas import (
     PromptList,
     PromptOut,
     PromptVersionCreate,
+    RateLimitCounts,
+    RateLimitOverrides,
     TenantLlmAssign,
     TenantLlmOut,
+    TenantRateLimits,
 )
+from app.modules.tenancy import ratelimits
 from app.modules.tenancy import service as tenancy
 from app.modules.tenancy.deps import CurrentPlatformUser, PlatformDb
+from app.modules.tenancy.models import Tenant
 
 router = APIRouter(prefix="/platform/v1", tags=["platform"], responses=ERROR_RESPONSES)
 
@@ -335,6 +340,60 @@ async def assign_tenant_llm(
     return await llm.assign_tenant_llm(
         ctx, session, tenant_id, payload, actor_id=user.id, ip=client_ip(request)
     )
+
+
+async def _rate_limits(ctx: AppContext, tenant: Tenant) -> TenantRateLimits:
+    custom = ratelimits.parse_overrides(tenant.settings)
+    defaults = ratelimits.defaults(ctx)
+    return TenantRateLimits(
+        overrides=RateLimitOverrides.model_validate(custom),
+        defaults=RateLimitCounts.model_validate(defaults),
+        effective=RateLimitCounts.model_validate(
+            {k: custom.get(k, v) for k, v in defaults.items()}
+        ),
+        usage=RateLimitCounts.model_validate(await ratelimits.usage(ctx, tenant.id)),
+        visitor_per_minute=ctx.settings.visitor_per_minute,
+    )
+
+
+@router.get("/tenants/{tenant_id}/rate-limits", response_model=TenantRateLimits)
+async def tenant_rate_limits(
+    tenant_id: UUID, session: PlatformDb, _: CurrentPlatformUser, ctx: ContextDep
+) -> TenantRateLimits:
+    """租户每分钟的请求、回调和大模型调用上限，以及当前一分钟的计数。"""
+    return await _rate_limits(ctx, await tenancy.get_tenant(session, tenant_id))
+
+
+@router.put("/tenants/{tenant_id}/rate-limits", response_model=TenantRateLimits)
+async def set_tenant_rate_limits(
+    tenant_id: UUID,
+    payload: RateLimitOverrides,
+    request: Request,
+    session: PlatformDb,
+    user: CurrentPlatformUser,
+    ctx: ContextDep,
+) -> TenantRateLimits:
+    """单独设置租户的上限（为空的项用平台默认，0 表示不限）；各进程 30 秒内生效。"""
+    tenant = await tenancy.get_tenant(session, tenant_id)
+    values = payload.model_dump(exclude_none=True)
+    settings = {k: v for k, v in (tenant.settings or {}).items() if k != ratelimits.SETTINGS_KEY}
+    if values:
+        settings[ratelimits.SETTINGS_KEY] = values
+    tenant.settings = settings
+    record_audit(
+        session,
+        action="tenant.rate_limits",
+        actor_type="platform",
+        actor_id=user.id,
+        tenant_id=tenant.id,
+        resource_type="tenant",
+        resource_id=str(tenant.id),
+        detail=values,
+        ip=client_ip(request),
+    )
+    await session.commit()
+    ratelimits.forget(tenant.id)
+    return await _rate_limits(ctx, tenant)
 
 
 @router.get("/llm-usage", response_model=LlmUsage)

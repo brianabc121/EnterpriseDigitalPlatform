@@ -16,7 +16,7 @@ from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import Boolean, func, literal_column, or_, select, update
+from sqlalchemy import func, or_, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -185,13 +185,22 @@ async def _ingest_one(
         source=source,
         sent_at=sent_at,
     )
-    # 已存在时只回填 seq；xmax = 0 表示这一行是刚插入的。
-    stmt = values.on_conflict_do_update(
-        constraint="uq_messages_channel_msg",
-        set_={"im_seq": func.coalesce(Message.im_seq, values.excluded.im_seq)},
-    ).returning(Message.id, literal_column("xmax = 0", Boolean))
-    message_id, inserted = (await session.execute(stmt)).one()
-    if not inserted:
+    # 回调与对账拿到的同一条消息发送时间相同，唯一约束（含 sent_at，消息表按月分区）能识别重复。
+    stmt = values.on_conflict_do_nothing(constraint="uq_messages_channel_msg").returning(Message.id)
+    message_id = (await session.execute(stmt)).scalar_one_or_none()
+    if message_id is None:
+        # 已存在：只回填 seq（回调里没有 seq，对账时补上）。
+        if msg.seq is not None:
+            await session.execute(
+                update(Message)
+                .where(
+                    Message.channel_account_id == room.channel_account_id,
+                    Message.channel_msg_id == msg.server_msg_id,
+                    Message.sent_at == sent_at,
+                    Message.im_seq.is_(None),
+                )
+                .values(im_seq=msg.seq)
+            )
         result.duplicates += 1
         return
     result.inserted += 1

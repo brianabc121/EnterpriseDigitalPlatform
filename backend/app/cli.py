@@ -17,6 +17,7 @@ from sqlalchemy import select
 from app.context import AppContext
 from app.core.config import Settings, get_settings
 from app.core.dates import today
+from app.db.partitions import MONTHS_AHEAD, ensure_partitions, partition_status
 from app.db.session import Database
 from app.events.bus import Event, EventType
 from app.integrations.storage import ensure_bucket
@@ -263,6 +264,17 @@ async def security_jobs(settings: Settings) -> dict[str, object]:
         await ctx.aclose()
 
 
+async def db_partitions(settings: Settings, months: int) -> dict[str, int]:
+    ctx = AppContext.create(settings)
+    try:
+        created = await ensure_partitions(ctx, months)
+        async with ctx.db.platform_sessionmaker() as session:
+            status = await partition_status(session)
+        return {"created": created, **dataclasses.asdict(status)}
+    finally:
+        await ctx.aclose()
+
+
 async def rewrap_keys(settings: Settings, old_key_env: str | None) -> dict[str, object]:
     """更换主密钥后重新包装数据密钥；没有旧主密钥时只把早期（v1）的租户密文换成租户密钥加密。"""
     old = None
@@ -338,6 +350,10 @@ def main(argv: list[str] | None = None) -> int:
     invoices.add_argument("--month", help="账单月份 YYYY-MM")
     commands.add_parser("tenant-jobs", help="立即生成排队中的数据导出，删除保留期已到的租户数据")
     commands.add_parser("security-jobs", help="立即按保留期删除到期的消息和文件，并扫描一批新附件")
+    partitions = commands.add_parser(
+        "db-partitions", help="立即建好本月和之后几个月的消息分区（调度进程每小时执行）"
+    )
+    partitions.add_argument("--months", type=int, default=MONTHS_AHEAD, help="本月之后的月数")
     rewrap = commands.add_parser(
         "rewrap-keys",
         help="更换主密钥：EDP_DATA_ENCRYPTION_KEY 设为新密钥，用旧密钥重新包装各租户的数据密钥",
@@ -420,6 +436,8 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps(asyncio.run(tenant_jobs(get_settings())), ensure_ascii=False))
     elif args.command == "security-jobs":
         print(json.dumps(asyncio.run(security_jobs(get_settings())), ensure_ascii=False))
+    elif args.command == "db-partitions":
+        print(json.dumps(asyncio.run(db_partitions(get_settings(), args.months))))
     elif args.command == "rewrap-keys":
         result = asyncio.run(rewrap_keys(get_settings(), args.old_key_env))
         print(json.dumps(result, ensure_ascii=False))

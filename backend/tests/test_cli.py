@@ -45,3 +45,12 @@ async def test_wecom_commands_without_provider(settings: Settings) -> None:
     # 没有配置企业微信服务商时，同步和回收在职继承都不做任何事。
     assert await cli.wecom_sync(settings, None) == {}
     assert await cli.wecom_transfers(settings) == 0
+
+
+async def test_db_partitions_command(settings: Settings) -> None:
+    # 迁移已经建好本月和之后 3 个月的分区。
+    assert await cli.db_partitions(settings, 3) == {
+        "created": 0,
+        "months_ahead": 3,
+        "default_rows": 0,
+    }

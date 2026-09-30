@@ -18,6 +18,14 @@ const METRICS: Record<string, string> = {
   outbox_failed_24h: '24 小时内失败的 IM 操作',
   event_pending: '待处理事件',
   dead_letters: '死信事件',
+  message_partitions_ahead: '提前建好的消息分区（月）',
+  message_default_rows: '默认分区里的消息',
+}
+
+type TagType = 'success' | 'warning' | 'danger' | 'info'
+
+function tagType(status: string): TagType {
+  return (HEALTH_STATUS[status]?.type ?? 'info') as TagType
 }
 
 // 可以在"运维"页处理的指标。
@@ -52,7 +60,7 @@ onBeforeUnmount(() => clearInterval(timer))
         系统健康
         <el-tag disable-transitions
           v-if="report"
-          :type="HEALTH_STATUS[report.status]?.type as 'success' | 'warning' | 'danger'"
+          :type="tagType(report.status)"
           data-testid="health-overall"
         >
           {{ HEALTH_STATUS[report.status]?.label }}
@@ -70,7 +78,7 @@ onBeforeUnmount(() => clearInterval(timer))
             {{ c.name }}
             <el-tag disable-transitions
               size="small"
-              :type="HEALTH_STATUS[c.status]?.type as 'success' | 'warning' | 'danger' | 'info'"
+              :type="tagType(c.status)"
             >
               {{ HEALTH_STATUS[c.status]?.label }}
             </el-tag>

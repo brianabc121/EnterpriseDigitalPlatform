@@ -357,6 +357,7 @@ async def test_health_reports_components(app: FastAPI, client: httpx.AsyncClient
         "storage": "ok",
         "llm": "ok",
         "outbox": "ok",
+        "partitions": "ok",
         "wecom": "disabled",
         "clamav": "disabled",
         # 测试里没有运行实时消费进程和调度进程。
@@ -365,6 +366,7 @@ async def test_health_reports_components(app: FastAPI, client: httpx.AsyncClient
     }
     assert report["status"] == "degraded"
     assert report["metrics"]["active_tenants"] == 1
+    assert report["metrics"]["message_partitions_ahead"] >= 3
 
 
 async def test_audit_log_viewer_filters_and_pages(app: FastAPI, client: httpx.AsyncClient) -> None:

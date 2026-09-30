@@ -68,6 +68,21 @@ class RateLimiter:
             return Usage(0, 0)
         return Usage(int(count), max(1, math.ceil(int(ttl_ms) / 1000)))
 
+    async def hit_key(self, key: str, window_seconds: int) -> Usage:
+        """按完整的 key 计数一次（租户限流的 key 是 t:{租户}:rl:{类型}）。"""
+        try:
+            count, ttl_ms = await self._hit(keys=[key], args=[window_seconds * 1000])
+        except RedisError:
+            logger.warning("rate limiter unavailable, allowing %s", key, exc_info=True)
+            return Usage(0, 0)
+        return Usage(int(count), max(1, math.ceil(int(ttl_ms) / 1000)))
+
+    async def count_key(self, key: str) -> int:
+        try:
+            return int(await self._redis.get(key) or 0)
+        except RedisError:
+            return 0
+
     async def check(self, rule: Limit, subject: str) -> None:
         """计数一次；超过上限时拒绝。"""
         usage = await self.hit(rule, subject)

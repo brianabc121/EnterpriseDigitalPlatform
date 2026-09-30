@@ -172,9 +172,14 @@ async function converse(browser, alice, channelKey, question, answer, index) {
   await visitor.ctx.close()
 }
 
-/** 审核操作完成后抽屉关闭、列表刷新。 */
-const reviewed = (page) =>
-  page.locator('[data-testid="candidate-drawer"]').waitFor({ state: 'hidden', timeout: 15000 })
+/** 审核操作完成后抽屉关闭、列表刷新（审核过的候选离开列表，其余行不再移动）。 */
+async function reviewed(page, question) {
+  await page.locator('[data-testid="candidate-drawer"]').waitFor({ state: 'hidden', timeout: 15000 })
+  await page
+    .locator('[data-testid="candidates-table"] .el-table__row', { hasText: question })
+    .first()
+    .waitFor({ state: 'detached', timeout: 15000 })
+}
 
 async function openCandidate(page, question) {
   await page
@@ -232,7 +237,7 @@ async function run(browser) {
     .fill('周末正常发货，周日 16 点前的订单当天发出。')
   const evidence = await drawer.locator('[data-testid="evidence"]').first().innerText()
   await page.click('[data-testid="approve-candidate"]')
-  await reviewed(page)
+  await reviewed(page, '你们周末发货吗')
   check(
     '证据对话显示客户与坐席的原话',
     evidence.includes('客户：你们周末发货吗') && evidence.includes('坐席：'),
@@ -247,7 +252,7 @@ async function run(browser) {
   await settle(page)
   await page.screenshot({ path: `${SHOTS}/2-conflict-diff.png` })
   await page.click('[data-testid="approve-candidate"]')
-  await reviewed(page)
+  await reviewed(page, '现在一般 1 到 2 天送达')
   const updated = await json(`${API}/api/v1/kb/items/${faq.id}`, { token: adminToken })
   check(
     '冲突：高亮新旧答案的差异，更新后原问答升为 v2',
@@ -264,14 +269,14 @@ async function run(browser) {
     .locator('textarea[data-testid="candidate-answer"]')
     .fill('可以开具增值税专用发票，请在下单时填写税号。')
   await page.click('[data-testid="approve-candidate"]')
-  await reviewed(page)
+  await reviewed(page, '可以开增值税专用发票吗')
 
   // 闲聊：驳回（填写理由）
   drawer = await openCandidate(page, '你们老板是谁')
   await page.click('[data-testid="reject-candidate"]')
   await page.locator('.el-message-box input').fill('与业务无关')
   await page.locator('.el-message-box button', { hasText: '驳回' }).click()
-  await reviewed(page)
+  await reviewed(page, '你们老板是谁')
   const left = await json(`${API}/api/v1/kb/candidates`, { token: adminToken })
   const rejected = await json(`${API}/api/v1/kb/candidates?status=rejected`, { token: adminToken })
   check(

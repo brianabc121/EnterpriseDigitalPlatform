@@ -11,6 +11,7 @@ from sqlalchemy import case, func, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.context import AppContext
+from app.db.partitions import partition_status
 from app.events.bus import DEAD_LETTER_STREAM
 from app.modules.ai.models import AiDecision, DecisionAction, LlmCall
 from app.modules.audit.models import AuditLog
@@ -98,6 +99,7 @@ async def health(ctx: AppContext) -> HealthReport:
     async with ctx.db.platform_sessionmaker() as session:
         components.append(await _llm(ctx, session, now, metrics))
         components.append(await _outbox(session, now, metrics))
+        components.append(await _partitions(session, metrics))
         metrics.update(await _business(session, now))
     components.append(await _wecom(ctx))
     components.append(await _clamav(ctx))
@@ -161,6 +163,21 @@ async def _outbox(
         name="IM 发件箱",
         status=status,
         detail=f"积压 {lagging} 个，24 小时内失败 {failed} 个",
+    )
+
+
+async def _partitions(session: AsyncSession, metrics: dict[str, int | float]) -> ComponentHealth:
+    status = await partition_status(session)
+    metrics["message_partitions_ahead"] = status.months_ahead
+    metrics["message_default_rows"] = status.default_rows
+    healthy = status.months_ahead >= 1 and status.default_rows == 0
+    return ComponentHealth(
+        key="partitions",
+        name="消息分区",
+        status="ok" if healthy else "degraded",
+        detail=(
+            f"已建好之后 {status.months_ahead} 个月的分区，默认分区里有 {status.default_rows} 条"
+        ),
     )
 
 

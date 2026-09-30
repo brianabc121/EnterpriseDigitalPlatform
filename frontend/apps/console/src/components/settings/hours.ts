@@ -28,7 +28,7 @@ export function asBusinessHours(value: unknown): BusinessHours | null {
 export function summarize(hours: BusinessHours | null): string {
   if (!hours) return '全天服务'
   const groups: { days: string[]; ranges: string }[] = []
-  for (const [day, name] of WEEKDAYS) {
+  for (const [day] of WEEKDAYS) {
     const ranges = (hours.days[day] ?? []).map(([a, b]) => `${a}-${b}`).join('、')
     if (!ranges) continue
     const last = groups[groups.length - 1]

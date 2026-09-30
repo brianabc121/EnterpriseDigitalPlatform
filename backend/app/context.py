@@ -8,6 +8,7 @@ import httpx
 from redis.asyncio import Redis
 
 from app.core.config import Settings
+from app.core.ratelimit import RateLimiter
 from app.db.session import Database
 from app.events.bus import EventBus
 from app.integrations.asr import AsrClient
@@ -52,6 +53,8 @@ class AppContext:
     asr: AsrClient | None = None
     # 没有配置病毒扫描（EDP_CLAMAV_HOST）时为空。
     clamav: ClamAV | None = None
+    # 限流计数（登录、访客接入、按租户限流）。
+    limiter: RateLimiter | None = None
 
     @classmethod
     def create(
@@ -118,6 +121,7 @@ class AppContext:
                 if settings.clamav_host
                 else None
             ),
+            limiter=RateLimiter(redis),
         )
 
     async def aclose(self) -> None:

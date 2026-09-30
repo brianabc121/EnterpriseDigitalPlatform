@@ -244,14 +244,13 @@ body,
   border-radius: 6px;
 }
 
-.bubble.file {
-  color: inherit;
-  text-decoration: none;
+.bubble.file small {
+  color: var(--muted);
 }
 
-.bubble.file small {
-  margin-left: 6px;
-  color: var(--muted);
+/* 自己发出的消息是深色底：链接和文件名用白色。 */
+.message.me .bubble a {
+  color: #fff;
 }
 
 .privacy {

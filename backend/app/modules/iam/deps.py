@@ -1,23 +1,25 @@
 from collections.abc import AsyncIterator, Awaitable, Callable
 from typing import Annotated
 
-from fastapi import Depends, Security
+from fastapi import Depends, Request, Security
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
-from app.core.deps import get_app_settings, get_database
+from app.core.deps import get_app_settings, get_context, get_database
 from app.core.errors import Forbidden, Unauthorized
 from app.core.security import AccessClaims, TokenError, decode_access_token
 from app.db.session import Database
 from app.modules.iam.principal import Principal
 from app.modules.iam.service import load_principal
+from app.modules.tenancy import ratelimits
 from app.observability.context import note_tenant
 
 bearer_scheme = HTTPBearer(auto_error=False, description="员工 Access Token")
 
 
 async def get_access_claims(
+    request: Request,
     settings: Annotated[Settings, Depends(get_app_settings)],
     credentials: Annotated[HTTPAuthorizationCredentials | None, Security(bearer_scheme)],
 ) -> AccessClaims:
@@ -30,6 +32,8 @@ async def get_access_claims(
     except TokenError as exc:
         raise Unauthorized("登录已失效，请重新登录") from exc
     note_tenant(claims.tenant_id)
+    # 按租户限流：单个租户的突发请求不影响其他租户。
+    await ratelimits.check(get_context(request), claims.tenant_id, ratelimits.Kind.API)
     return claims
 
 

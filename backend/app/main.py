@@ -85,7 +85,7 @@ def create_app(
     app.state.settings = ctx.settings
     app.state.db = ctx.db
     app.state.redis = ctx.redis
-    app.state.rate_limiter = RateLimiter(ctx.redis)
+    app.state.rate_limiter = ctx.limiter or RateLimiter(ctx.redis)
     app.state.im = ctx.im
     app.state.im_provisioner = ctx.provisioner
 

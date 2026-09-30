@@ -13,6 +13,7 @@
   "dependencies": {
     "@edp/api-client": "workspace:*",
     "@edp/im-client": "workspace:*",
+    "@edp/ui": "workspace:*",
     "vue": "^3.5.43"
   },
   "devDependencies": {

@@ -93,13 +93,17 @@ class ChunkKind(StrEnum):
 
 
 class KbChunk(IdMixin, TenantMixin, Base):
-    """检索单元。只为已发布的条目生成，条目下线或修改时重建。"""
+    """检索单元。只为已发布的条目生成，条目下线或修改时重建。
+
+    按租户哈希分成 8 个分区（迁移 0017，主键是 (tenant_id, id)）；检索总是限定租户，只扫一个分区。
+    """
 
     __tablename__ = "kb_chunks"
     __table_args__ = (
         ForeignKeyConstraint(
             ["tenant_id", "item_id"], ["kb_items.tenant_id", "kb_items.id"], ondelete="CASCADE"
         ),
+        {"postgresql_partition_by": "HASH (tenant_id)"},
     )
 
     item_id: Mapped[uuid.UUID]

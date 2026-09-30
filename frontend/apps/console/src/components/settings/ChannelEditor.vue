@@ -72,6 +72,7 @@ watch(
 
 const snippet = computed(() =>
   props.channel
+    // eslint-disable-next-line no-useless-escape -- SFC 的 <script> 里不能直接出现结束标签
     ? `<script src="${widgetBase}/embed.js" data-key="${props.channel.public_key}" async><\/script>`
     : '',
 )

@@ -145,8 +145,9 @@ async function run(browser) {
   check('访客实时收到机器人回复', true)
   await page.screenshot({ path: `${SHOTS}/1-widget-chat.png` })
 
+  // 没有坐席在线时平台还会发排队提示（system），这里只看访客和机器人的两条。
   const stored = await waitFor(
-    () => storedTexts(adminToken),
+    async () => (await storedTexts(adminToken)).filter((t) => !t.startsWith('system:')),
     (texts) => texts.length >= 2,
   )
   check(

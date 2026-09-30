@@ -27,6 +27,7 @@ from app.core.config import Settings
 from app.integrations.llm import EmbedEndpoint, LLMClient, LLMEndpoint
 from app.integrations.openim import OpenIMClient
 from app.main import create_app
+from app.modules.conversation import hooks
 from tests.fake_llm import DIM as FAKE_EMBED_DIM
 from tests.fake_llm import FakeLLM
 from tests.fake_openim import SECRET as FAKE_OPENIM_SECRET
@@ -108,6 +109,12 @@ async def _clean_tables(database_urls: DatabaseUrls) -> None:
         await conn.execute(f"DELETE FROM plans WHERE code NOT IN ({SEEDED_PLANS})")
     finally:
         await conn.close()
+
+
+@pytest.fixture(autouse=True)
+def _clear_tenant_codes() -> None:
+    # 每个测试都重新创建租户（短码相同、ID 不同），按短码缓存的租户 ID 要清掉。
+    hooks._tenant_ids.clear()
 
 
 @pytest.fixture(autouse=True)

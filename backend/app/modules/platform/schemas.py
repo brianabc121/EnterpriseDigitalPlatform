@@ -338,3 +338,32 @@ class ImOpList(BaseModel):
 
 class ImOpAction(BaseModel):
     ids: list[int] = Field(min_length=1, max_length=500)
+
+
+# ---- 按租户限流 ----
+
+PerMinute = Annotated[int, Field(ge=0, le=10_000_000)]
+
+
+class RateLimitCounts(BaseModel):
+    api: int = Field(description="员工接口请求")
+    visitor: int = Field(description="访客接口请求")
+    webhook: int = Field(description="OpenIM 回调（超过时暂不入库，由对账补上）")
+    llm: int = Field(description="大模型调用（超过时本轮转人工）")
+
+
+class RateLimitOverrides(BaseModel):
+    """按租户单独设置的每分钟上限；为空表示用平台默认，0 表示不限。"""
+
+    api: PerMinute | None = None
+    visitor: PerMinute | None = None
+    webhook: PerMinute | None = None
+    llm: PerMinute | None = None
+
+
+class TenantRateLimits(BaseModel):
+    overrides: RateLimitOverrides
+    defaults: RateLimitCounts = Field(description="平台默认的每分钟上限")
+    effective: RateLimitCounts = Field(description="生效的每分钟上限（0 表示不限）")
+    usage: RateLimitCounts = Field(description="当前一分钟内的计数")
+    visitor_per_minute: int = Field(description="每位访客每分钟的上限（平台配置）")

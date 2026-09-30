@@ -72,6 +72,74 @@ jobs:
         run: |
           pnpm --filter @edp/api-client generate
           git diff --exit-code -- packages/api-client/src/schema.d.ts
+      - run: pnpm lint
       - run: pnpm -r typecheck
       - run: pnpm -r test
       - run: pnpm -r build
+
+  deploy:
+    # 部署文件：告警规则（promtool 校验和单测）、K8s 清单（kustomize 构建、kubeconform 校验）、镜像构建。
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Alert rules
+        run: |
+          docker run --rm -v "$PWD/deploy/observability/prometheus:/rules" \
+            --entrypoint promtool prom/prometheus:v3.5.0 check rules /rules/alerts.yml
+          docker run --rm -v "$PWD/deploy/observability/prometheus:/rules" \
+            --entrypoint promtool prom/prometheus:v3.5.0 test rules /rules/alerts.test.yml
+      - name: Kubernetes manifests
+        run: |
+          mkdir -p "$RUNNER_TEMP/k8s"
+          kubectl kustomize deploy/k8s/overlays/production > "$RUNNER_TEMP/k8s/production.yaml"
+          kubectl kustomize deploy/k8s/overlays/production/migrate > "$RUNNER_TEMP/k8s/migrate.yaml"
+          docker run --rm -v "$RUNNER_TEMP/k8s:/work" ghcr.io/yannh/kubeconform:v0.7.0 \
+            -strict -summary -skip ServiceMonitor,PrometheusRule /work/production.yaml /work/migrate.yaml
+      - name: Images
+        run: |
+          docker build -t edp-backend:ci backend
+          docker build --build-arg APP=console -t edp-console:ci frontend
+
+  e2e:
+    # 每次推送跑 P0 浏览器验收（开通租户、登录、菜单与数据隔离）；全部验收见 e2e-full.yml。
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      PLATFORM_PASSWORD: ci-ops-password-2026
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: frontend/package.json
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+      - name: Dev services (PostgreSQL, Redis, MinIO)
+        run: docker compose -f deploy/compose/docker-compose.yml up -d --wait
+      - name: Database and platform account
+        working-directory: backend
+        run: |
+          uv sync --locked
+          uv run alembic upgrade head
+          uv run python -m app.cli create-platform-admin --username ops --password "$PLATFORM_PASSWORD"
+      - run: pnpm install --frozen-lockfile
+        working-directory: frontend
+      - name: Playwright
+        run: |
+          npm install -g playwright@1.56.1
+          playwright install --with-deps chromium
+      - run: bash scripts/ci/start-stack.sh
+      - run: bash scripts/ci/run-e2e.sh p0-acceptance
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-p0
+          path: |
+            e2e-shots
+            e2e-logs
+          retention-days: 7

@@ -11006,6 +11006,97 @@
         "title": "QuickReplyUpdate",
         "type": "object"
       },
+      "RateLimitCounts": {
+        "properties": {
+          "api": {
+            "description": "员工接口请求",
+            "title": "Api",
+            "type": "integer"
+          },
+          "llm": {
+            "description": "大模型调用（超过时本轮转人工）",
+            "title": "Llm",
+            "type": "integer"
+          },
+          "visitor": {
+            "description": "访客接口请求",
+            "title": "Visitor",
+            "type": "integer"
+          },
+          "webhook": {
+            "description": "OpenIM 回调（超过时暂不入库，由对账补上）",
+            "title": "Webhook",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "api",
+          "visitor",
+          "webhook",
+          "llm"
+        ],
+        "title": "RateLimitCounts",
+        "type": "object"
+      },
+      "RateLimitOverrides": {
+        "description": "按租户单独设置的每分钟上限；为空表示用平台默认，0 表示不限。",
+        "properties": {
+          "api": {
+            "anyOf": [
+              {
+                "maximum": 10000000.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Api"
+          },
+          "llm": {
+            "anyOf": [
+              {
+                "maximum": 10000000.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Llm"
+          },
+          "visitor": {
+            "anyOf": [
+              {
+                "maximum": 10000000.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Visitor"
+          },
+          "webhook": {
+            "anyOf": [
+              {
+                "maximum": 10000000.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Webhook"
+          }
+        },
+        "title": "RateLimitOverrides",
+        "type": "object"
+      },
       "Realtime": {
         "description": "首页实时数据。坐席只看到自己的接待数据；主管看到所带团队；管理员看到全部。",
         "properties": {
@@ -15106,6 +15197,39 @@
           }
         },
         "title": "TenantPolicy",
+        "type": "object"
+      },
+      "TenantRateLimits": {
+        "properties": {
+          "defaults": {
+            "$ref": "#/components/schemas/RateLimitCounts",
+            "description": "平台默认的每分钟上限"
+          },
+          "effective": {
+            "$ref": "#/components/schemas/RateLimitCounts",
+            "description": "生效的每分钟上限（0 表示不限）"
+          },
+          "overrides": {
+            "$ref": "#/components/schemas/RateLimitOverrides"
+          },
+          "usage": {
+            "$ref": "#/components/schemas/RateLimitCounts",
+            "description": "当前一分钟内的计数"
+          },
+          "visitor_per_minute": {
+            "description": "每位访客每分钟的上限（平台配置）",
+            "title": "Visitor Per Minute",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "overrides",
+          "defaults",
+          "effective",
+          "usage",
+          "visitor_per_minute"
+        ],
+        "title": "TenantRateLimits",
         "type": "object"
       },
       "TenantUpdate": {
@@ -42052,6 +42176,212 @@
           }
         ],
         "summary": "Purge Tenant",
+        "tags": [
+          "platform"
+        ]
+      }
+    },
+    "/platform/v1/tenants/{tenant_id}/rate-limits": {
+      "get": {
+        "description": "租户每分钟的请求、回调和大模型调用上限，以及当前一分钟的计数。",
+        "operationId": "tenant_rate_limits_platform_v1_tenants__tenant_id__rate_limits_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tenant_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Tenant Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TenantRateLimits"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "PlatformBearer": []
+          }
+        ],
+        "summary": "Tenant Rate Limits",
+        "tags": [
+          "platform"
+        ]
+      },
+      "put": {
+        "description": "单独设置租户的上限（为空的项用平台默认，0 表示不限）；各进程 30 秒内生效。",
+        "operationId": "set_tenant_rate_limits_platform_v1_tenants__tenant_id__rate_limits_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tenant_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Tenant Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RateLimitOverrides"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TenantRateLimits"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "PlatformBearer": []
+          }
+        ],
+        "summary": "Set Tenant Rate Limits",
         "tags": [
           "platform"
         ]

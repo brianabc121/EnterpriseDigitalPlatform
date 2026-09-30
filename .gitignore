@@ -27,3 +27,4 @@ dist/
 
 # 浏览器验收输出
 e2e-shots/
+e2e-logs/

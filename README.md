@@ -194,17 +194,72 @@ AI 与知识增强（G5）：
 - **客户转移申请**：没有分配权限的坐席在客户列表"更多 → 申请转移"里申请把客户转给自己或在线同事，
   管理员在"转移申请"里批准或驳回（可以同时变更企业微信添加人），批准后归属记录显示"申请审批"。
 
+工程与运维：
+
+- **运维**：运营后台"运维"页列出事件死信（处理失败三次的事件，可以重新处理或丢弃）和 IM 发件箱里最终失败、
+  长时间卡住的操作（可以重试或丢弃，不显示消息正文），可以按租户筛选，操作记入审计日志；"系统健康"显示积压、
+  死信和消息分区的情况。
+- **租户公平**：实时消费进程按租户轮流处理事件（每个租户在每个分区有自己的事件流，每轮各取最多 20 条），
+  一个租户突发大量消息时其他租户不用排在它后面。
+- **按租户限流**：每个租户每分钟的员工接口请求、访客接口请求、OpenIM 回调和大模型调用各有上限（默认
+  `EDP_TENANT_API_PER_MINUTE`、`EDP_TENANT_VISITOR_PER_MINUTE`、`EDP_TENANT_WEBHOOK_PER_MINUTE`、
+  `EDP_TENANT_LLM_PER_MINUTE`），运营后台租户详情的"限流"里可以单独调整（0 表示不限，30 秒内生效）并查看本分钟的
+  计数。员工、访客接口超过上限时返回 429；回调超过上限时暂不入库，由调度进程按 seq 对账补上；大模型调用超过上限时
+  本轮转人工。每位访客另有每分钟 `EDP_VISITOR_PER_MINUTE` 次（默认 120）的上限。
+- **大表分区**：消息表按月分区（24 个月以前的在历史分区），知识检索单元按租户哈希分成 8 个分区，每个分区与父表一样
+  强制行级安全。调度进程每小时建好本月和之后 3 个月的分区，之前落进默认分区的消息搬到新分区；分区不足或默认分区里
+  有消息时告警。需要立即处理时执行 `cd backend && uv run python -m app.cli db-partitions`。
+
 默认配置适用于本地环境；需要修改时，把 `backend/.env.example` 复制为 `backend/.env`。
 OpenIM 的镜像名都可以用环境变量替换（见 `deploy/compose/openim/docker-compose.yml`），便于使用镜像加速地址。
+
+### 可观测性
+
+- **指标**：API、实时消费进程和调度进程各自在 `EDP_METRICS_PORT` 上提供 Prometheus 指标（`/metrics`，不经过对外的
+  API 端口；本地可以分别用 9464、9465、9466）：接口请求与耗时、回调与回调延迟、对账补录、事件的发布、处理、重试、
+  死信与延迟、IM 发件箱、大模型调用、耗时、tokens 与费用、转人工、会话结果、排队等待、企业微信接口错误码、调度任务。
+  排队人数、在线坐席、积压、死信数、消息分区等状态指标只由持有调度租约的进程每 15 秒导出一次。租户标签是租户 ID，
+  `edp_tenant_info{tenant,code}` 对应企业代码。
+- **告警与仪表盘**：告警规则在 `deploy/observability/prometheus/alerts.yml`（`make alerts-check` 校验并运行规则单测），
+  Grafana 仪表盘在 `deploy/observability/grafana/edp-overview.json`。
+- **链路追踪与日志**：设置 `EDP_OTEL_ENDPOINT`（OTLP/HTTP，如 `http://otel-collector:4318`）后上报 OpenTelemetry
+  链路（`EDP_OTEL_SAMPLE_RATIO` 控制采样比例）。访客的一条消息从 OpenIM 回调、事件处理、AI 回复到 IM 发件箱是同一条
+  链路，每个 span 带租户 ID。`EDP_LOG_FORMAT=json` 时日志每行一个 JSON，带租户和链路 ID。
+- **本地查看**：`make obs-up` 启动 Prometheus（:9090，抓取本机 9464–9466）、Grafana（:3000，已导入仪表盘）和
+  Jaeger（:16686，接收 :4318 的链路）；后端各进程设置上面的 `EDP_METRICS_PORT` 和
+  `EDP_OTEL_ENDPOINT=http://localhost:4318`。
+
+### 部署（镜像与 Kubernetes）
+
+- **镜像**：`docker build -t edp-backend backend`（API、实时消费进程、调度进程和数据库迁移共用；实时消费进程执行
+  `python -m app.worker`，调度进程执行 `python -m app.scheduler`）；前端每个应用一个镜像
+  `docker build --build-arg APP=console -t edp-console frontend`（`APP` 可以是 console、platform-admin、widget，
+  nginx 在 8080 端口提供静态文件，`EDP_WIDGET_URL` 在启动时写入运行时配置）。镜像都以非 root 用户运行，根文件系统
+  可以只读。网络经过重新签发证书的代理时，用 `--secret id=ca,src=<根证书>` 提供证书（只在构建时使用）。
+- **Kubernetes**：`deploy/k8s` 是 kustomize 清单。`base` 是 API（2–10 个副本自动伸缩）、实时消费进程（按租约分担
+  事件分区）、调度进程（两个副本，持有租约的一个执行任务）、三个前端和 Ingress（`/hooks/openim` 不对外）；
+  `components/monitoring`（ServiceMonitor、与 `alerts.yml` 一致的 PrometheusRule）和 `components/network-policy`
+  可选；`overlays/production` 是生产环境示例（镜像地址、域名、链路上报地址）。先按
+  `deploy/k8s/secrets.example.env` 创建 Secret `edp-secrets`，每次发布前执行迁移 Job
+  （`kubectl apply -k deploy/k8s/overlays/production/migrate`，等待完成），再 `kubectl apply -k deploy/k8s/overlays/production`。
+- **数据库账号**：迁移用表的所有者账号（`EDP_DATABASE_URL_OWNER`，不需要是超级用户），`vector` 扩展由数据库管理员
+  预先安装；应用和平台分别用 `edp_app`、`edp_platform`（见 `deploy/compose/postgres/init/01-roles.sql`）。
 
 ### 检查与测试
 
 ```bash
 make backend-lint    # ruff + mypy
+make frontend-lint   # ESLint + vue-tsc
 make test            # 后端测试需要 make dev-up 启动的 PostgreSQL 和 Redis；OpenIM 用内存版
 make frontend-build
+make alerts-check    # 告警规则（promtool）
 ```
 
+- 前端是 pnpm 工作区：`apps/console`、`apps/platform-admin`、`apps/widget`，`packages/api-client`（接口类型）、
+  `packages/im-client`（OpenIM 连接）和 `packages/ui`（控制台与 Widget 共用的消息展示组件，如链接识别）。
+- CI（`.github/workflows/ci.yml`）每次推送运行后端检查与测试、前端检查与构建、部署文件检查（告警规则、
+  kustomize + kubeconform、镜像构建）和 P0 浏览器验收；`.github/workflows/e2e-full.yml` 每天夜里、手动触发或提交说明
+  带 `[e2e-full]` 时运行全部浏览器验收（含 OpenIM），截图和日志作为构建产物保存。
 - 后端接口变更后执行 `make openapi`，重新导出 `openapi.json` 并生成前端类型（CI 会检查两者是否一致）。
 - `backend/tests/test_openim_contract.py` 同时验证内存版 OpenIM 和真实 OpenIM 的行为是否一致：
   `make im-up` 之后执行 `cd backend && EDP_TEST_OPENIM_URL=http://localhost:10002 uv run pytest tests/test_openim_contract.py`。
@@ -216,6 +271,9 @@ make frontend-build
 
 先安装 Playwright：`npm i -g playwright && playwright install chromium`。脚本每次运行都会开通新的租户，可以重复执行；
 截图和 `summary.json` 写入 `e2e-shots/`，任一检查失败时以非 0 退出。
+
+也可以像 CI 一样一次启动全部进程再运行：`make e2e-stack`（模拟大模型、企业微信和 clamd，API、实时消费进程、调度进程和
+三个前端，日志在 `e2e-logs/`），然后 `PLATFORM_PASSWORD=<平台账号密码> make e2e E2E="p0-acceptance g6-ops-observability"`。
 
 - **P0**（`scripts/e2e/p0-acceptance.cjs`）：开通两个租户；管理员创建坐席和客户；坐席只看到自己的菜单和客户；
   另一个租户看不到这些数据。需要后端、控制台和运营后台。
@@ -262,6 +320,9 @@ make frontend-build
   NODE_PATH=$(npm root -g) PLATFORM_PASSWORD=<平台账号密码> node scripts/e2e/g3-compliance.cjs
   NODE_PATH=$(npm root -g) PLATFORM_PASSWORD=<平台账号密码> node scripts/e2e/g4-routing-collab.cjs
   NODE_PATH=$(npm root -g) PLATFORM_PASSWORD=<平台账号密码> node scripts/e2e/g5-ai-knowledge.cjs
+  NODE_PATH=$(npm root -g) PLATFORM_PASSWORD=<平台账号密码> \
+    METRICS_URLS=http://127.0.0.1:9464/metrics,http://127.0.0.1:9465/metrics,http://127.0.0.1:9466/metrics \
+    node scripts/e2e/g6-ops-observability.cjs
   ```
 
 - **企业微信补充**（`scripts/e2e/g1-wecom-extras.cjs`）：群发任务与结果回收、客户群活码、侧边栏（模拟 JS-SDK）
@@ -293,6 +354,11 @@ make frontend-build
   客户资料里确认；坐席助手的情绪和承诺用语提醒；结束会话后确认小结写入客户档案；按技能组推送、知识到期提醒；
   满意会话提炼出优秀话术并审核为共享话术；知识的使用与满意度；运营后台的大模型用量。前置同 P3；脚本在后端目录
   执行 `uv run python -m app.cli kb-jobs`、`kb-extract`（需要同样的环境变量），结束时把提示词改回内置模板。
+
+- **工程与运维**（`scripts/e2e/g6-ops-observability.cjs`）：访客发来的链接在工作台和 Widget 里都可以点击（共用的消息
+  组件）；运营后台"运维"重新处理注入的死信、重试最终失败的系统提示（访客随即收到）；租户详情"限流"把员工接口设为
+  每分钟 40 次后控制台请求返回 429，清空后恢复；系统健康显示消息分区；设置 `METRICS_URLS` 时检查三个进程的指标。
+  前置同 M4；脚本在后端目录执行 `uv run python -c ...` 注入死信和失败的发件箱操作（需要同样的环境变量）。
 
 - **P1 M1**（`scripts/e2e/m1-im-acceptance.cjs`）：访客在 Widget 里发消息、实时收到机器人回复，消息经回调入库；
   刷新后仍是同一个访客。需要 OpenIM、后端和 Widget。提供停止/启动后端和对账的命令时，还会验证

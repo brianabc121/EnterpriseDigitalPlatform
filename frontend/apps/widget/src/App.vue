@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { createImClient, type ConnectionState } from '@edp/im-client'
+import { MessageBody, type MessageView } from '@edp/ui'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 
 import { fromApi, fromIm, mergeMessages, senderLabel, type WidgetMessage } from './chat'
@@ -84,7 +85,7 @@ const askRating = computed(
   () =>
     service.value?.status === 'closed' &&
     service.value.session_id &&
-    service.value.csat == null &&
+    (service.value.csat === null || service.value.csat === undefined) &&
     !csat.value.done,
 )
 const showPrivacy = computed(
@@ -98,11 +99,17 @@ function isImage(m: WidgetMessage): boolean {
   return !!m.attachment && (m.attachment.width !== null || m.attachment.name === null)
 }
 
-function formatSize(size: number | null): string {
-  if (!size) return ''
-  return size >= 1024 * 1024
-    ? `${(size / 1024 / 1024).toFixed(1)} MB`
-    : `${Math.ceil(size / 1024)} KB`
+function bubbleKind(m: WidgetMessage): string {
+  return m.attachment ? (isImage(m) ? 'image' : 'file') : ''
+}
+
+/** 交给共享组件展示的内容（图片、文件卡片，文本里的链接可以点击）。 */
+function view(m: WidgetMessage): MessageView {
+  if (!m.attachment) {
+    return { contentType: 'text', text: m.text ?? '[暂不支持显示的消息]', attachment: null }
+  }
+  const { url, name, size } = m.attachment
+  return { contentType: bubbleKind(m), text: m.text, attachment: { url, name, size } }
 }
 
 function notifyParent(): void {
@@ -387,27 +394,7 @@ onBeforeUnmount(() => {
             {{ senderLabel(m) }}
             <span v-if="m.role === 'bot'" class="ai-badge" data-testid="ai-badge">AI</span>
           </span>
-          <a
-            v-if="m.attachment && isImage(m)"
-            :href="m.attachment.url"
-            target="_blank"
-            rel="noopener"
-            class="bubble image"
-          >
-            <img :src="m.attachment.url" alt="图片" data-testid="message-image" />
-          </a>
-          <a
-            v-else-if="m.attachment"
-            :href="m.attachment.url"
-            target="_blank"
-            rel="noopener"
-            class="bubble file"
-            data-testid="message-file"
-          >
-            📎 {{ m.attachment.name ?? '文件' }}
-            <small>{{ formatSize(m.attachment.size) }}</small>
-          </a>
-          <span v-else class="bubble">{{ m.text ?? '[暂不支持显示的消息]' }}</span>
+          <span class="bubble" :class="bubbleKind(m)"><MessageBody :message="view(m)" /></span>
           <span v-if="m.role === 'bot' && m.serverMsgID" class="votes" data-testid="answer-votes">
             <button
               type="button"

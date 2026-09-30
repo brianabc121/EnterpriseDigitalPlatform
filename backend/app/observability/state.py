@@ -1,7 +1,8 @@
 """状态类指标：持有调度租约的调度进程每 15 秒从数据库和 Redis 读取一次，整体替换快照。
 
 排队长度与最久等待、在线坐席与接待量、AI 接待中的会话、IM 发件箱积压、事件流积压、死信数量、
-授权已失效的企业微信企业，以及租户 ID 与短码的对应（edp_tenant_info）。
+授权已失效的企业微信企业、消息分区（提前建好的月数、默认分区里的行数），以及租户 ID 与短码的
+对应（edp_tenant_info）。
 """
 
 import uuid
@@ -13,6 +14,7 @@ from prometheus_client.metrics_core import Metric
 from sqlalchemy import func, select
 
 from app.context import AppContext
+from app.db.partitions import partition_status
 from app.events.bus import DEAD_LETTER_STREAM
 from app.modules.conversation.models import ChatSession, ImOp, ImOpStatus, SessionStatus
 from app.modules.routing.models import AgentState, AgentStatus
@@ -47,6 +49,10 @@ async def collect(ctx: AppContext, *, now: datetime | None = None) -> list[Metri
         "edp_event_backlog", "事件流里还没处理完的事件（未读取与未确认）", ["partition", "tenant"]
     )
     dead_letters = _family("edp_dead_letter_size", "死信流里的事件", [])
+    partitions_ahead = _family("edp_message_partitions_ahead", "本月之后已经建好的消息月份分区", [])
+    default_rows = _family(
+        "edp_message_default_partition_rows", "落进默认分区的消息（没有对应月份的分区）", []
+    )
 
     async with ctx.db.platform_sessionmaker() as session:
         tenants = (
@@ -136,6 +142,10 @@ async def collect(ctx: AppContext, *, now: datetime | None = None) -> list[Metri
         for tenant_id, count in cancelled:
             wecom_invalid.add_metric([tenant_label(tenant_id)], count)
 
+        partitions = await partition_status(session)
+        partitions_ahead.add_metric([], partitions.months_ahead)
+        default_rows.add_metric([], partitions.default_rows)
+
     for item in await ctx.bus.backlog():
         backlog.add_metric(
             [str(item.partition), tenant_label(item.tenant_id)], item.lag + item.pending
@@ -155,6 +165,8 @@ async def collect(ctx: AppContext, *, now: datetime | None = None) -> list[Metri
         wecom_invalid,
         backlog,
         dead_letters,
+        partitions_ahead,
+        default_rows,
     ]
 
 

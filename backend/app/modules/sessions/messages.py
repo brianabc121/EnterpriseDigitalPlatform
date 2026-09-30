@@ -11,7 +11,7 @@ from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import or_, select, update
+from sqlalchemy import func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.context import AppContext
@@ -46,6 +46,9 @@ from app.modules.wecom.kf import reply_window
 
 SENDABLE = (SessionStatus.HUMAN_SERVING, SessionStatus.TRANSFERRING)
 SEND_FAILED = "消息发送失败，请稍后重试"
+# 同一条消息（client_msg_id）的并发重试串行执行：消息表按发送时间分区，唯一约束带着发送时间，
+# 不能单靠它去重（咨询锁命名空间，见 outbox、engine）。
+_CLIENT_MSG_LOCK = 1003
 
 
 async def _assisting(session: AsyncSession, session_id: UUID, staff_id: UUID) -> bool:
@@ -78,6 +81,14 @@ async def send_message(
             "会话已结束" if chat.status == SessionStatus.CLOSED else "会话不在人工接待中"
         )
 
+    await session.execute(
+        select(
+            func.pg_advisory_xact_lock(
+                _CLIENT_MSG_LOCK,
+                func.hashtext(f"{chat.room_id}:{principal.staff_id}:{payload.client_msg_id}"),
+            )
+        )
+    )
     message = await session.scalar(
         select(Message).where(
             Message.room_id == chat.room_id,

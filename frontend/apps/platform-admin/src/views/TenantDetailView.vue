@@ -8,6 +8,7 @@ import TenantBilling from '../components/TenantBilling.vue'
 import TenantClosure from '../components/TenantClosure.vue'
 import TenantKeys from '../components/TenantKeys.vue'
 import TenantLlm from '../components/TenantLlm.vue'
+import TenantRateLimits from '../components/TenantRateLimits.vue'
 import TenantSupport from '../components/TenantSupport.vue'
 import { TENANT_STATUS } from '../labels'
 
@@ -48,6 +49,9 @@ onMounted(load)
       </el-tab-pane>
       <el-tab-pane label="大模型" name="llm" lazy>
         <TenantLlm :tenant-id="tenant.id" />
+      </el-tab-pane>
+      <el-tab-pane label="限流" name="rate-limits" lazy>
+        <TenantRateLimits :tenant-id="tenant.id" />
       </el-tab-pane>
       <el-tab-pane label="数据密钥" name="keys" lazy>
         <TenantKeys :tenant-id="tenant.id" />

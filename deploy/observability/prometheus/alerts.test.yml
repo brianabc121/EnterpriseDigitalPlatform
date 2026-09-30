@@ -95,3 +95,42 @@ tests:
             exp_annotations:
               summary: "没有调度进程在执行任务"
               description: "对账、会话超时、发件箱重试等周期任务都已停止。"
+
+  # 下个月的消息分区一小时内都没有建好时告警；建好后恢复。
+  - interval: 1m
+    input_series:
+      - series: 'edp_message_partitions_ahead{job="edp-scheduler", instance="s1"}'
+        values: "0x70 3x30"
+    alert_rule_test:
+      - eval_time: 50m
+        alertname: EdpMessagePartitionsMissing
+        exp_alerts: []
+      - eval_time: 65m
+        alertname: EdpMessagePartitionsMissing
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+            exp_annotations:
+              summary: "下个月的消息分区还没有建好"
+              description: "调度任务 partitions 每小时建好本月和之后 3 个月的分区，检查它的日志。"
+      - eval_time: 100m
+        alertname: EdpMessagePartitionsMissing
+        exp_alerts: []
+
+  # 默认分区里的消息持续两小时没有搬走时告警。
+  - interval: 1m
+    input_series:
+      - series: 'edp_message_default_partition_rows{job="edp-scheduler", instance="s1"}'
+        values: "0 5x150"
+    alert_rule_test:
+      - eval_time: 100m
+        alertname: EdpMessagesInDefaultPartition
+        exp_alerts: []
+      - eval_time: 140m
+        alertname: EdpMessagesInDefaultPartition
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+            exp_annotations:
+              summary: "5 条消息落进了默认分区"
+              description: "没有对应月份的分区；建好分区时会自动搬走，持续存在说明发送时间异常或分区任务失败。"

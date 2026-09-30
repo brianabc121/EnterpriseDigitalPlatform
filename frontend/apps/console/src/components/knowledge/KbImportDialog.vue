@@ -162,7 +162,7 @@ async function pick(event: Event): Promise<void> {
 
 function downloadTemplate(): void {
   // 带 BOM，Excel 打开时按 UTF-8 识别中文。
-  const blob = new Blob([`﻿${FAQ_CSV_TEMPLATE}\n`], { type: 'text/csv;charset=utf-8' })
+  const blob = new Blob([`\uFEFF${FAQ_CSV_TEMPLATE}\n`], { type: 'text/csv;charset=utf-8' })
   const link = document.createElement('a')
   link.href = URL.createObjectURL(blob)
   link.download = '问答导入模板.csv'

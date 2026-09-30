@@ -4,8 +4,8 @@ OBS_COMPOSE := docker compose -f deploy/compose/observability/docker-compose.yml
 
 .PHONY: dev-up dev-down dev-reset im-up im-down im-reset obs-up obs-down alerts-check \
 	backend-install migrate backend-dev worker-dev scheduler-dev backend-test backend-lint \
-	frontend-install console-dev platform-dev widget-dev frontend-test frontend-build \
-	openapi test
+	frontend-install console-dev platform-dev widget-dev frontend-lint frontend-test \
+	frontend-build e2e-stack e2e openapi test
 
 # ---- 开发环境 ----
 dev-up:
@@ -79,11 +79,25 @@ platform-dev:
 widget-dev:
 	cd frontend && pnpm --filter @edp/widget dev
 
+# ESLint（Vue、TypeScript）和类型检查
+frontend-lint:
+	cd frontend && pnpm lint && pnpm -r typecheck
+
 frontend-test:
 	cd frontend && pnpm -r test
 
 frontend-build:
 	cd frontend && pnpm -r build
+
+# ---- 浏览器验收 ----
+# 在后台启动验收需要的全部进程（模拟大模型、企业微信和 clamd；日志在 e2e-logs/），前置 make dev-up、make migrate
+e2e-stack:
+	bash scripts/ci/start-stack.sh
+
+# 运行验收脚本：make e2e E2E="p0-acceptance g6-ops-observability"（需要 PLATFORM_PASSWORD）
+E2E ?= p0-acceptance
+e2e:
+	bash scripts/ci/run-e2e.sh $(E2E)
 
 # 后端接口变更后执行：导出 OpenAPI 并重新生成前端类型
 openapi:

@@ -13,6 +13,7 @@
   "dependencies": {
     "@edp/api-client": "workspace:*",
     "@edp/im-client": "workspace:*",
+    "@edp/ui": "workspace:*",
     "@element-plus/icons-vue": "^2.3.2",
     "element-plus": "^2.14.6",
     "pinia": "^3.0.4",
