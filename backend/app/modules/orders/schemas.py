@@ -179,6 +179,14 @@ class OrderItemOut(BaseModel):
     shortage_qty: int | None = Field(default=None, description="缺多少；为空表示整行都缺")
     shortage_note: str | None = None
     restock_date: date | None = Field(default=None, description="预计到货日期")
+    stock_available: int | None = Field(
+        default=None,
+        description="商品的可用库存（§25.12）；不管理库存、或者订单已出库或取消时为空",
+    )
+    stock_short: bool = Field(
+        default=False,
+        description="库存不足：已确认的订单按确认先后占用现有库存，占不到的；还没确认的按可用库存",
+    )
 
 
 class OrderPaymentOut(BaseModel):
@@ -479,6 +487,10 @@ class ProductionItemOut(BaseModel):
     shortage_qty: int | None = Field(description="缺多少；为空表示整行都缺")
     shortage_note: str | None
     restock_date: date | None = Field(description="预计到货日期")
+    stock_short: bool = Field(
+        default=False,
+        description="待加工的商品库存不足（按确认先后占用现有库存，占不到的；只提示）",
+    )
 
 
 class ProductionOrder(BaseModel):

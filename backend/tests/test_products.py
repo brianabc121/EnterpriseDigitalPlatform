@@ -29,6 +29,8 @@ HEADER = [
     "别名",
     "备注",
     "状态",
+    "库存",
+    "库存预警",
 ]
 EXAMPLE = [
     "智能门锁 X1",
@@ -42,6 +44,8 @@ EXAMPLE = [
     "指纹锁、电子锁",
     "示例行，导入前请删除",
     "上架",
+    "100",
+    "10",
 ]
 
 
@@ -157,6 +161,7 @@ async def test_template_import_preview_confirm_and_result(desk: Desk) -> None:
         sheet = archive.read("xl/worksheets/sheet1.xml").decode()
         names = archive.read("xl/workbook.xml").decode()
     assert 'showInputMessage="1"' in sheet and 'type="decimal"' in sheet
+    assert 'type="whole"' in sheet  # 库存列只能填整数
     assert "填写说明" in names
 
     upload = workbook(
@@ -194,7 +199,8 @@ async def test_template_import_preview_confirm_and_result(desk: Desk) -> None:
     problems = {r["row"]: (r["action"], r["problems"]) for r in body["rows"]}
     assert problems[2] == ("skip", ["模板里的示例行，已跳过"])
     assert problems[3] == ("create", [])
-    assert problems[4] == ("skip", ["名称必填"])
+    # 没有名称：代码在商品库里不存在（只更新已有商品时可以不填名称）。
+    assert problems[4] == ("skip", ["名称必填（商品库里没有代码为 LOCK-X3 的商品）"])
     assert problems[5] == ("skip", ["建议零售价只能填数字"])
     assert problems[6] == ("skip", ["代码与第 3 行重复"])
     assert problems[7] == ("skip", ["图片URL 要以 http:// 或 https:// 开头"])
@@ -295,7 +301,7 @@ async def test_export_round_trips_and_includes_cost_only_with_permission(desk: D
     assert rows[0] == HEADER
     by_name = {r[0]: r for r in rows[1:]}
     assert by_name["智能门锁 X1"][6:9] == ["800.00", "1299.00", "指纹锁"]
-    assert by_name["门铃 D1"][-1] == "下架"
+    assert by_name["门铃 D1"][10] == "下架"
     [audit] = await desk.sql("SELECT detail FROM audit_logs WHERE action = 'product.export'")
     assert '"cost": true' in audit["detail"]
     # 只导出上架的；筛选条件与列表相同。

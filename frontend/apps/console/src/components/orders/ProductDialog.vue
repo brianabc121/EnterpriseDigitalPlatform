@@ -30,6 +30,7 @@ const form = reactive({
   aliases: '',
   remark: '',
   status: 'on' as 'on' | 'off',
+  stockAlert: undefined as number | undefined,
 })
 
 watch(open, (value) => {
@@ -47,6 +48,7 @@ watch(open, (value) => {
     aliases: (p?.aliases ?? []).join('、'),
     remark: p?.remark ?? '',
     status: p?.status ?? 'on',
+    stockAlert: p?.stock_alert ?? undefined,
   })
 })
 
@@ -74,6 +76,7 @@ async function save(): Promise<void> {
       .map((a) => a.trim())
       .filter(Boolean),
     status: form.status,
+    stock_alert: form.stockAlert ?? null,
   }
   // 不传成本价时保持原值（没有权限时后端也会忽略）。
   if (viewCost.value) body.cost_price = price(form.costPrice)
@@ -138,6 +141,16 @@ async function save(): Promise<void> {
       <el-form-item label="备注">
         <el-input v-model="form.remark" type="textarea" :rows="2" maxlength="2000" placeholder="内部备注，不给 AI 和客户" />
       </el-form-item>
+      <el-form-item label="库存预警">
+        <el-input-number
+          v-model="form.stockAlert"
+          :min="0"
+          :max="100000000"
+          placeholder="不填为 0"
+          data-testid="product-stock-alert"
+        />
+        <span class="hint">可用库存不高于这个数时标为库存不足；库存数量在列表的"库存"里调整</span>
+      </el-form-item>
       <el-form-item label="状态">
         <el-radio-group v-model="form.status">
           <el-radio value="on">上架</el-radio>
@@ -151,3 +164,12 @@ async function save(): Promise<void> {
     </template>
   </el-dialog>
 </template>
+
+<style scoped>
+.hint {
+  margin-left: 8px;
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+  line-height: 1.4;
+}
+</style>

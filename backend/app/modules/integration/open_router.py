@@ -43,7 +43,8 @@ from app.modules.orders import sync as order_sync
 from app.modules.orders.models import Order, OrderStatus
 from app.modules.orders.schemas import OrderStatusValue
 from app.modules.products import service as product_service
-from app.modules.products.models import Product
+from app.modules.products import stock
+from app.modules.products.models import Product, StockKind
 from app.modules.todos import sync as todo_sync
 from app.modules.todos.models import Todo
 
@@ -64,7 +65,7 @@ def _actor(caller: ApiCaller) -> order_sync.ApiActor:
 # ---- 商品 ----
 
 
-def _product_out(product: Product, created: bool) -> OpenProductOut:
+def _product_out(product: Product, created: bool, level: stock.Level) -> OpenProductOut:
     return OpenProductOut(
         id=product.id,
         code=product.code or "",
@@ -78,6 +79,9 @@ def _product_out(product: Product, created: bool) -> OpenProductOut:
         aliases=list(product.aliases or []),
         remark=product.remark,
         status=product.status,
+        stock=product.stock,
+        stock_available=level.available,
+        stock_alert=product.stock_alert,
         created=created,
         updated_at=product.updated_at,
     )
@@ -101,7 +105,8 @@ async def upsert_product(
         product, created = await _upsert(session, caller, code.strip(), payload)
     if created:
         response.status_code = status.HTTP_201_CREATED
-    return _product_out(product, created)
+    level = (await stock.levels(session, [product.id])).get(product.id, stock.UNTRACKED)
+    return _product_out(product, created, level)
 
 
 async def _find(session: AsyncSession, code: str) -> Product | None:
@@ -143,7 +148,19 @@ async def _upsert(
         product.aliases = product_service.split_aliases(payload.aliases or [])
     if payload.status is not None:
         product.status = payload.status
+    if "stock_alert" in fields:
+        product.stock_alert = payload.stock_alert
     product_service.refresh(product)
+    if "stock" in fields:
+        # 企业系统同步的是盘点数：直接改为这个数（null 表示不再管理库存），写库存记录。
+        await session.flush()
+        await session.refresh(product, ["stock"], with_for_update=True)
+        kind = StockKind.API_SET if payload.stock is not None else StockKind.UNTRACK
+        # 企业系统可能定时全量同步：数量没变时不写库存记录。
+        if payload.stock != product.stock:
+            stock.record(
+                session, product, kind, payload.stock, actor=stock.Actor("api", caller.key_id)
+            )
     await session.commit()
     await session.refresh(product)
     return product, created

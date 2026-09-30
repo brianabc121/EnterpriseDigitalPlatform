@@ -160,6 +160,8 @@ MATRIX: list[tuple[str, str, dict[str, Any] | None]] = [
     ("GET", "/api/v1/products/{product_id}", None),
     ("PUT", "/api/v1/products/{product_id}", {"name": "越权修改"}),
     ("DELETE", "/api/v1/products/{product_id}", None),
+    ("POST", "/api/v1/products/{product_id}/stock", {"mode": "set", "quantity": 1}),
+    ("GET", "/api/v1/products/{product_id}/stock-movements", None),
     ("GET", "/api/v1/products/imports/{import_id}", None),
     ("POST", "/api/v1/products/imports/{import_id}/confirm", None),
     ("POST", "/api/v1/products/imports/{import_id}/cancel", None),
@@ -886,8 +888,11 @@ async def test_agents_only_reach_their_own_sessions_and_customers(
         # 待确认的转接是 Carol 自己发起的，她可以撤回；这里只验证她不能替 Dave 接受或拒绝。
         if template.endswith("/cancel") and "/todos/" not in template:
             continue
-        # 商品库是全租户共享的：能查看订单的坐席都可以查看商品（不含成本价）。
-        if (method, template) == ("GET", "/api/v1/products/{product_id}"):
+        # 商品库是全租户共享的：能查看订单的坐席都可以查看商品（不含成本价）和它的库存记录。
+        if (method, template) in (
+            ("GET", "/api/v1/products/{product_id}"),
+            ("GET", "/api/v1/products/{product_id}/stock-movements"),
+        ):
             continue
         path = fill(template, dave_ids, acme.ids)
         response = await call(

@@ -1,8 +1,9 @@
-"""商品库的 Excel 模板与逐行校验（设计文档 §25.2）。
+"""商品库的 Excel 模板与逐行校验（设计文档 §25.2、§25.12）。
 
-模板第一行是表头，第二行是示例；每一列选中时显示填写说明，价格列只能填不小于 0 的数字；
-另有"填写说明"工作表。上传的表格按表头名称识别列（顺序不限，"名称*""名称（必填）"都可以），
-示例行原样保留时自动跳过。
+模板第一行是表头，第二行是示例；每一列选中时显示填写说明，价格列只能填不小于 0 的数字，库存列
+只能填不小于 0 的整数；另有"填写说明"工作表。上传的表格按表头名称识别列（顺序不限，"名称*"
+"名称（必填）"都可以），示例行原样保留时自动跳过。只更新库存时可以只有"代码"和"库存"（或"数量"）
+两列：按代码更新已有商品。
 """
 
 import re
@@ -17,6 +18,7 @@ from app.modules.products.service import normalize_category, split_aliases
 MAX_ROWS = 5000
 MAX_BYTES = 10 * 1024 * 1024
 MAX_PRICE = Decimal("9999999999.99")
+MAX_STOCK = 100_000_000
 CENT = Decimal("0.01")
 URL = re.compile(r"^https?://[^\s]+$", re.IGNORECASE)
 
@@ -29,6 +31,7 @@ class SheetColumn:
     hint: str
     width: int = 14
     money: bool = False
+    integer: bool = False
     limit: int = 0
     aliases: tuple[str, ...] = ()
 
@@ -77,6 +80,25 @@ COLUMNS: tuple[SheetColumn, ...] = (
     SheetColumn("aliases", "别名", False, "客户常用的俗称、简称，多个用、分隔", 20),
     SheetColumn("remark", "备注", False, "内部备注，不给 AI，也不给客户", 24, limit=2000),
     SheetColumn("status", "状态", False, "上架或下架，不填为上架（下架的商品 AI 不推荐）", 10),
+    SheetColumn(
+        "stock",
+        "库存",
+        False,
+        "只能填整数。上传时选择“盘点”（这个数就是现有库存）或“入库”（加到现有库存上）；"
+        "留空表示不修改库存",
+        10,
+        integer=True,
+        aliases=("数量", "库存数量", "现有库存", "入库数量"),
+    ),
+    SheetColumn(
+        "stock_alert",
+        "库存预警",
+        False,
+        "只能填整数。可用库存不高于这个数时，商品列表标为库存不足",
+        10,
+        integer=True,
+        aliases=("预警库存", "安全库存", "库存预警值"),
+    ),
 )
 KEYS = tuple(c.key for c in COLUMNS)
 EXAMPLE: dict[str, str] = {
@@ -91,6 +113,8 @@ EXAMPLE: dict[str, str] = {
     "aliases": "指纹锁、电子锁",
     "remark": "示例行，导入前请删除",
     "status": "上架",
+    "stock": "100",
+    "stock_alert": "10",
 }
 NOTES = (
     "第一行是表头，列的顺序可以调整；只有“名称”必填。",
@@ -99,20 +123,25 @@ NOTES = (
     "更新已有商品时，留空的列保持原来的值。",
     "价格列只能填数字（不带货币符号），最多两位小数。",
     "成本价和备注只有有权限的员工能看到，永远不会告诉客户或交给 AI。",
+    "库存：上传时选择“盘点”（表格里的数就是现有库存）或“入库”（加到现有库存上），需要有调整"
+    "库存的权限；留空的商品不修改库存，不填的商品不管理库存。",
+    "只更新库存时，表格可以只有“代码”和“库存”（或“数量”）两列，按代码更新已有商品。",
     "每次最多导入 5000 行；上传后先预览校验结果，确认后才写入商品库。",
 )
 
 
+def _column(c: SheetColumn) -> Column:
+    return Column(
+        title=f"{c.title}*" if c.required else c.title,
+        width=c.width,
+        prompt=(f"{c.title}（{'必填' if c.required else '选填'}）", c.hint),
+        decimal_error="价格只能填不小于 0 的数字" if c.money else None,
+        whole_error=f"{c.title}只能填不小于 0 的整数" if c.integer else None,
+    )
+
+
 def template() -> bytes:
-    columns = [
-        Column(
-            title=f"{c.title}*" if c.required else c.title,
-            width=c.width,
-            prompt=(f"{c.title}（{'必填' if c.required else '选填'}）", c.hint),
-            decimal_error="价格只能填不小于 0 的数字" if c.money else None,
-        )
-        for c in COLUMNS
-    ]
+    columns = [_column(c) for c in COLUMNS]
     guide_rows: list[list[Cell]] = [
         [c.title, "必填" if c.required else "选填", c.hint] for c in COLUMNS
     ]
@@ -147,15 +176,7 @@ def export_workbook(products: list[Any], *, cost: bool) -> bytes:
         [
             Sheet(
                 "商品",
-                [
-                    Column(
-                        title=f"{c.title}*" if c.required else c.title,
-                        width=c.width,
-                        prompt=(f"{c.title}（{'必填' if c.required else '选填'}）", c.hint),
-                        decimal_error="价格只能填不小于 0 的数字" if c.money else None,
-                    )
-                    for c in columns
-                ],
+                [_column(c) for c in columns],
                 rows=[[value(p, c.key) for c in columns] for p in products],
                 validate_rows=max(len(products) + 100, 1000),
             )
@@ -188,6 +209,22 @@ def parse_money(raw: str) -> Decimal:
     return value
 
 
+def parse_stock(raw: str) -> int:
+    """库存、预警值：不小于 0 的整数（"10.0" 这样的也可以）。"""
+    text = raw.strip().replace(",", "").replace("，", "")
+    try:
+        value = Decimal(text)
+    except InvalidOperation as exc:
+        raise ValueError("只能填整数") from exc
+    if not value.is_finite() or value != value.to_integral_value():
+        raise ValueError("只能填整数")
+    if value < 0:
+        raise ValueError("不能小于 0")
+    if value > MAX_STOCK:
+        raise ValueError("数量太大")
+    return int(value)
+
+
 def parse_status(raw: str) -> str | None:
     text = raw.strip().lower()
     if text in ("", "上架", "on", "在售", "是"):
@@ -205,10 +242,10 @@ class ParsedRow:
     example: bool = False
 
     def cleaned(self) -> dict[str, Any]:
-        """校验通过的行转成商品字段（空的选填列为 None，表示不修改）。"""
+        """校验通过的行转成商品字段（空的列为 None，表示不修改）。"""
         v = self.values
         return {
-            "name": v["name"],
+            "name": v["name"] or None,
             "code": v["code"] or None,
             "model": v["model"] or None,
             "spec": v["spec"] or None,
@@ -219,12 +256,15 @@ class ParsedRow:
             "aliases": split_aliases(v["aliases"]) if v["aliases"] else None,
             "remark": v["remark"] or None,
             "status": parse_status(v["status"]),
+            "stock": parse_stock(v["stock"]) if v["stock"] else None,
+            "stock_alert": parse_stock(v["stock_alert"]) if v["stock_alert"] else None,
         }
 
 
 def _check(row: ParsedRow) -> None:
     v = row.values
-    if not v["name"]:
+    # 只更新库存等字段时可以只填代码（按代码更新已有商品；代码不存在时在预览里提示）。
+    if not v["name"] and not v["code"]:
         row.problems.append("名称必填")
     for column in COLUMNS:
         value = v[column.key]
@@ -233,6 +273,11 @@ def _check(row: ParsedRow) -> None:
         if column.money and value:
             try:
                 parse_money(value)
+            except ValueError as exc:
+                row.problems.append(f"{column.title}{exc}")
+        if column.integer and value:
+            try:
+                parse_stock(value)
             except ValueError as exc:
                 row.problems.append(f"{column.title}{exc}")
     if v["image_url"] and not URL.match(v["image_url"]):
@@ -256,8 +301,11 @@ def read(filename: str, data: bytes) -> list[ParsedRow]:
     if not table:
         raise ParseError("表格是空的")
     header = [_header_key(cell) for cell in table[0]]
-    if "name" not in header:
-        raise ParseError("第一行的表头里没有“名称”列（请使用下载的模板）")
+    if "name" not in header and not ("code" in header and "stock" in header):
+        raise ParseError(
+            "第一行的表头里没有“名称”列（请使用下载的模板；只更新库存时可以只有“代码”和“库存”两列）"
+        )
+    present = {key for key in header if key}
     body = table[1:]
     if not body:
         raise ParseError("表格里没有商品")
@@ -272,7 +320,8 @@ def read(filename: str, data: bytes) -> list[ParsedRow]:
             if key and index < len(cells):
                 values[key] = cells[index].strip()
         row = ParsedRow(offset, values)
-        if values == {**EXAMPLE}:
+        # 原样保留的示例行（旧版模板没有的列不参与比较）。
+        if "name" in present and all(values[key] == EXAMPLE[key] for key in present):
             row.example = True
             rows.append(row)
             continue
@@ -291,9 +340,24 @@ def read(filename: str, data: bytes) -> list[ParsedRow]:
     return rows
 
 
+def stock_note(row: dict[str, Any]) -> str:
+    """导入的一行对库存的修改，如"库存 10 → 15"（原来不管理库存的写作"—"）。"""
+    if row.get("stock_after") is None:
+        return ""
+    before = row.get("stock_before")
+    return f"库存 {'—' if before is None else before} → {row['stock_after']}"
+
+
 def result_workbook(rows: list[dict[str, Any]]) -> bytes:
-    """导入结果：每一行的处理结果（新增、更新、跳过及原因）。"""
+    """导入结果：每一行的处理结果（新增、更新、跳过及原因，以及库存的变化）。"""
     outcome = {"create": "新增", "update": "更新", "skip": "跳过"}
+
+    def note(row: dict[str, Any]) -> str:
+        parts = list(row.get("problems") or [])
+        if (row.get("result") or row.get("action")) in ("create", "update") and stock_note(row):
+            parts.append(stock_note(row))
+        return "；".join(parts)
+
     return write_workbook(
         [
             Sheet(
@@ -311,7 +375,7 @@ def result_workbook(rows: list[dict[str, Any]]) -> bytes:
                         r["values"].get("name", ""),
                         r["values"].get("code", ""),
                         outcome.get(r.get("result") or r.get("action") or "", ""),
-                        "；".join(r.get("problems") or []),
+                        note(r),
                     ]
                     for r in rows
                 ],

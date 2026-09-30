@@ -145,6 +145,15 @@ class OpenProductIn(BaseModel):
     remark: str | None = Field(default=None, max_length=2000)
     aliases: list[str] | None = Field(default=None, max_length=20)
     status: Literal["on", "off"] | None = None
+    stock: int | None = Field(
+        default=None,
+        ge=0,
+        le=100_000_000,
+        description="现有库存（盘点数）；传 null 表示不再管理这个商品的库存，不传时保持原值",
+    )
+    stock_alert: int | None = Field(
+        default=None, ge=0, le=100_000_000, description="库存预警值；不传时保持原值"
+    )
 
 
 class OpenProductOut(BaseModel):
@@ -160,6 +169,9 @@ class OpenProductOut(BaseModel):
     aliases: list[str]
     remark: str
     status: str
+    stock: int | None = Field(description="现有库存；为空表示不管理库存")
+    stock_available: int | None = Field(description="可用库存 = 现有 − 已确认、还没发货的订单占用")
+    stock_alert: int | None
     created: bool = Field(description="这次请求新建了商品")
     updated_at: datetime
 

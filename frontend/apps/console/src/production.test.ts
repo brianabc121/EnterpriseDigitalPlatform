@@ -25,6 +25,7 @@ const item = (name: string, work_status: ProductionItem['work_status'], spec = '
   shortage_qty: null,
   shortage_note: null,
   restock_date: null,
+  stock_short: false,
 })
 
 const order = (items: ProductionItem[], extra: Partial<ProductionOrder> = {}): ProductionOrder => ({

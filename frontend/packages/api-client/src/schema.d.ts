@@ -2955,6 +2955,47 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/products/{product_id}/stock": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Adjust Stock
+         * @description 调整库存：盘点（改为这个数）、入库（增加）、出库（减少，不能超过现有库存）、不再管理库存。
+         *     每次调整都写库存记录，并记审计。
+         */
+        post: operations["adjust_stock_api_v1_products__product_id__stock_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/products/{product_id}/stock-movements": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Stock Movements
+         * @description 库存记录：每一次变化、变化前后的数量、原因和操作人（订单出库关联订单）。
+         */
+        get: operations["list_stock_movements_api_v1_products__product_id__stock_movements_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/public/orders/{token}": {
         parameters: {
             query?: never;
@@ -8092,6 +8133,22 @@ export interface components {
              */
             row: number;
             /**
+             * Stock After
+             * @description 导入后的现有库存；为空表示这一行不修改库存
+             */
+            stock_after?: number | null;
+            /**
+             * Stock Before
+             * @description 导入前的现有库存
+             */
+            stock_before?: number | null;
+            /**
+             * Stock Ignored
+             * @description 填了库存，但上传的人没有调整库存的权限，不导入
+             * @default false
+             */
+            stock_ignored: boolean;
+            /**
              * Values
              * @description 这一行的内容（没有查看成本价的权限时不含成本价）
              */
@@ -10526,6 +10583,16 @@ export interface components {
             spec?: string | null;
             /** Status */
             status?: ("on" | "off") | null;
+            /**
+             * Stock
+             * @description 现有库存（盘点数）；传 null 表示不再管理这个商品的库存，不传时保持原值
+             */
+            stock?: number | null;
+            /**
+             * Stock Alert
+             * @description 库存预警值；不传时保持原值
+             */
+            stock_alert?: number | null;
         };
         /** OpenProductOut */
         OpenProductOut: {
@@ -10561,6 +10628,18 @@ export interface components {
             spec: string;
             /** Status */
             status: string;
+            /**
+             * Stock
+             * @description 现有库存；为空表示不管理库存
+             */
+            stock: number | null;
+            /** Stock Alert */
+            stock_alert: number | null;
+            /**
+             * Stock Available
+             * @description 可用库存 = 现有 − 已确认、还没发货的订单占用
+             */
+            stock_available: number | null;
             /**
              * Updated At
              * Format: date-time
@@ -11227,6 +11306,17 @@ export interface components {
             shortage_qty?: number | null;
             /** Spec */
             spec: string;
+            /**
+             * Stock Available
+             * @description 商品的可用库存（§25.12）；不管理库存、或者订单已出库或取消时为空
+             */
+            stock_available?: number | null;
+            /**
+             * Stock Short
+             * @description 库存不足：已确认的订单按确认先后占用现有库存，占不到的；还没确认的按可用库存
+             * @default false
+             */
+            stock_short: boolean;
             /**
              * Unit Price
              * @description 成交单价；为空表示待定价
@@ -12046,7 +12136,7 @@ export interface components {
          * Permission
          * @enum {string}
          */
-        Permission: "dashboard:view" | "workbench:use" | "customer:read" | "customer:read_all" | "customer:create" | "customer:assign" | "customer:view_sensitive" | "customer:export" | "customer:manage" | "session:read_all" | "session:read_team" | "session:transfer" | "session:transfer_any" | "session:monitor" | "routing:manage" | "staff:read" | "staff:manage" | "quick_reply:manage" | "kb:read" | "kb:manage" | "kb:publish" | "report:view" | "settings:manage" | "broadcast:manage" | "tenant:manage" | "audit:read" | "todo:read" | "todo:handle" | "todo:assign" | "todo:config" | "todo:export" | "order:read" | "order:create" | "order:review" | "order:price" | "order:payment" | "order:credit" | "order:export" | "order:config" | "product:manage" | "product:view_cost" | "production:work" | "production:assign" | "integration:manage";
+        Permission: "dashboard:view" | "workbench:use" | "customer:read" | "customer:read_all" | "customer:create" | "customer:assign" | "customer:view_sensitive" | "customer:export" | "customer:manage" | "session:read_all" | "session:read_team" | "session:transfer" | "session:transfer_any" | "session:monitor" | "routing:manage" | "staff:read" | "staff:manage" | "quick_reply:manage" | "kb:read" | "kb:manage" | "kb:publish" | "report:view" | "settings:manage" | "broadcast:manage" | "tenant:manage" | "audit:read" | "todo:read" | "todo:handle" | "todo:assign" | "todo:config" | "todo:export" | "order:read" | "order:create" | "order:review" | "order:price" | "order:payment" | "order:credit" | "order:export" | "order:config" | "product:manage" | "product:view_cost" | "inventory:manage" | "production:work" | "production:assign" | "integration:manage";
         /** PermissionInfo */
         PermissionInfo: {
             code: components["schemas"]["Permission"];
@@ -12601,6 +12691,21 @@ export interface components {
              * @enum {string}
              */
             status: "preview" | "done" | "cancelled";
+            /**
+             * Stock Ignored
+             * @description 表格里有库存，但没有调整库存的权限，库存列不导入
+             */
+            stock_ignored: boolean;
+            /**
+             * Stock Mode
+             * @enum {string}
+             */
+            stock_mode: "set" | "add";
+            /**
+             * Stock Rows
+             * @description 修改库存的行数
+             */
+            stock_rows: number;
             /** Total */
             total: number;
             /** Updated */
@@ -12684,6 +12789,31 @@ export interface components {
              */
             status: "on" | "off";
             /**
+             * Stock
+             * @description 现有库存；为空表示不管理这个商品的库存
+             */
+            stock: number | null;
+            /**
+             * Stock Alert
+             * @description 库存预警值
+             */
+            stock_alert: number | null;
+            /**
+             * Stock Available
+             * @description 可用库存 = 现有 − 占用
+             */
+            stock_available: number | null;
+            /**
+             * Stock Low
+             * @description 库存不足：可用库存不高于预警值（没有预警值时为 0）
+             */
+            stock_low: boolean;
+            /**
+             * Stock Reserved
+             * @description 已确认、还没发货的订单占用的数量
+             */
+            stock_reserved: number;
+            /**
              * Updated At
              * Format: date-time
              */
@@ -12693,6 +12823,11 @@ export interface components {
         ProductPage: {
             /** Items */
             items: components["schemas"]["ProductOut"][];
+            /**
+             * Low Stock
+             * @description 库存不足的商品数（不受筛选条件影响）
+             */
+            low_stock: number;
             /** Total */
             total: number;
         };
@@ -12713,6 +12848,13 @@ export interface components {
              * @description 文件名（.xlsx 或 .csv）
              */
             filename: string;
+            /**
+             * Stock Mode
+             * @description “库存”列的算法：set 盘点（表格里的数就是现有库存），add 入库（加到现有库存上）
+             * @default set
+             * @enum {string}
+             */
+            stock_mode: "set" | "add";
         };
         /** ProductWrite */
         ProductWrite: {
@@ -12764,6 +12906,11 @@ export interface components {
              * @enum {string}
              */
             status: "on" | "off";
+            /**
+             * Stock Alert
+             * @description 库存预警值；不传时保持原值。库存数量要通过调整库存或导入修改
+             */
+            stock_alert?: number | null;
         };
         /** ProductionCounts */
         ProductionCounts: {
@@ -12831,6 +12978,12 @@ export interface components {
             shortage_qty: number | null;
             /** Spec */
             spec: string;
+            /**
+             * Stock Short
+             * @description 待加工的商品库存不足（按确认先后占用现有库存，占不到的；只提示）
+             * @default false
+             */
+            stock_short: boolean;
             /**
              * Work Status
              * @enum {string}
@@ -14184,6 +14337,82 @@ export interface components {
              * @description 停用后立即退出登录、下线，接待中的会话退回队列；名下客户需要另行交接
              */
             status?: ("active" | "disabled") | null;
+        };
+        /**
+         * StockAdjustIn
+         * @description 手动调整库存：盘点（改为这个数）、入库（增加）、出库（减少）、不再管理库存。
+         */
+        StockAdjustIn: {
+            /**
+             * Mode
+             * @enum {string}
+             */
+            mode: "set" | "add" | "remove" | "untrack";
+            /**
+             * Note
+             * @description 原因，例如到货批次、损耗、盘点
+             * @default
+             */
+            note: string;
+            /**
+             * Quantity
+             * @description 数量（不再管理库存时不填）
+             */
+            quantity?: number | null;
+        };
+        /** StockMovementOut */
+        StockMovementOut: {
+            /** Actor Name */
+            actor_name: string | null;
+            /** Actor Type */
+            actor_type: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Delta
+             * @description 变化量（出库为负数）
+             */
+            delta: number;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Import Id */
+            import_id: string | null;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "import_set" | "import_add" | "adjust_set" | "adjust_add" | "adjust_remove" | "untrack" | "order_out" | "order_return" | "api_set";
+            /** Kind Label */
+            kind_label: string;
+            /** Note */
+            note: string;
+            /** Order Id */
+            order_id: string | null;
+            /** Order No */
+            order_no: string | null;
+            /**
+             * Stock After
+             * @description 变化后的现有库存；为空表示之后不再管理库存
+             */
+            stock_after: number | null;
+            /**
+             * Stock Before
+             * @description 变化前的现有库存；为空表示原来不管理库存
+             */
+            stock_before: number | null;
+        };
+        /** StockMovementPage */
+        StockMovementPage: {
+            /** Items */
+            items: components["schemas"]["StockMovementOut"][];
+            /** Total */
+            total: number;
         };
         /**
          * SubscriptionCreate
@@ -29103,6 +29332,7 @@ export interface operations {
                 /** @description 分类（含下级分类） */
                 category?: string | null;
                 status?: string | null;
+                stock?: ("low" | "tracked" | "untracked") | null;
                 limit?: number;
                 offset?: number;
             };
@@ -30341,6 +30571,165 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    adjust_stock_api_v1_products__product_id__stock_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                product_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StockAdjustIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProductOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    list_stock_movements_api_v1_products__product_id__stock_movements_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path: {
+                product_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StockMovementPage"];
+                };
             };
             /** @description Bad Request */
             400: {

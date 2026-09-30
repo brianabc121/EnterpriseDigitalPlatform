@@ -55,6 +55,7 @@ from app.modules.orders.models import (
 from app.modules.orders.public import visitor_scope
 from app.modules.orders.settings import OrderSettings
 from app.modules.products import service as product_service
+from app.modules.products import stock
 from app.modules.products.models import Product, ProductStatus
 from app.modules.todos import ai as todo_ai
 from app.modules.todos import fields as todo_fields
@@ -118,8 +119,8 @@ def specs(options: OrderAi) -> dict[str, tuple[str, dict[str, Any]]]:
     """订单工具的说明和参数（按租户的设置提供）。"""
     tools: dict[str, tuple[str, dict[str, Any]]] = {
         "search_products": (
-            "在商品库里查找商品（名称、型号、规格、代码、俗称都可以）。客户咨询商品或价格、"
-            "或者想购买时使用；有多个候选时列出来请客户选择，不要替客户决定。",
+            "在商品库里查找商品（名称、型号、规格、代码、俗称都可以）。客户咨询商品、价格或者"
+            "有没有货、或者想购买时使用；有多个候选时列出来请客户选择，不要替客户决定。",
             {
                 "type": "object",
                 "properties": {"query": _text("客户说的商品，如「黑色的智能门锁」")},
@@ -191,8 +192,9 @@ def specs(options: OrderAi) -> dict[str, tuple[str, dict[str, Any]]]:
 # ---- 商品：描述、首轮检索、查商品 ----
 
 
-def describe(product: Product, *, price: bool) -> str:
-    """给模型看的一行商品描述（只用对客可见的字段）。"""
+def describe(product: Product, *, price: bool, availability: str | None = None) -> str:
+    """给模型看的一行商品描述（只用对客可见的字段）。availability 是"有现货"或"暂时缺货"
+    （管理库存的商品，§25.12；不给具体数量）。"""
     details = [
         f"{label} {value}"
         for label, value in (
@@ -206,9 +208,10 @@ def describe(product: Product, *, price: bool) -> str:
     if product.aliases:
         details.append("也叫 " + "、".join(product.aliases[:5]))
     head = f"{product.name}（{'，'.join(details)}）" if details else product.name
+    tail = f"；{availability}" if availability else ""
     if price and product.retail_price is not None:
-        return f"{head}：建议零售价 {product.retail_price:.2f} 元"
-    return f"{head}：价格以客服确认为准"
+        return f"{head}：建议零售价 {product.retail_price:.2f} 元{tail}"
+    return f"{head}：价格以客服确认为准{tail}"
 
 
 @dataclass(frozen=True)
@@ -228,7 +231,7 @@ async def candidates(
 ) -> list[ProductHit]:
     """首轮检索：按（改写后的）问题查商品，作为回复用的【商品信息】。第一个问题用调用方算好的
     向量做语义检索，其余的只做关键词检索。"""
-    best: dict[uuid.UUID, ProductHit] = {}
+    best: dict[uuid.UUID, tuple[Product, float]] = {}
     async with ctx.db.tenant_session(tenant_id) as db:
         for index, query in enumerate(queries):
             found = await product_service.search(
@@ -243,11 +246,18 @@ async def candidates(
             )
             for hit in found:
                 current = best.get(hit.product.id)
-                if current is None or hit.score > current.score:
-                    best[hit.product.id] = ProductHit(
-                        hit.product.id, describe(hit.product, price=price), hit.score
-                    )
-    return sorted(best.values(), key=lambda h: h.score, reverse=True)[:MAX_RESULTS]
+                if current is None or hit.score > current[1]:
+                    best[hit.product.id] = (hit.product, hit.score)
+        known = await stock.levels(db, best)
+    hits = [
+        ProductHit(
+            product_id,
+            describe(product, price=price, availability=stock.availability(known.get(product_id))),
+            score,
+        )
+        for product_id, (product, score) in best.items()
+    ]
+    return sorted(hits, key=lambda h: h.score, reverse=True)[:MAX_RESULTS]
 
 
 @dataclass(frozen=True)
@@ -277,8 +287,20 @@ async def search_tool(
                 "说法或提供型号；不要推荐商品库以外的商品，也不要编造价格。",
                 found=False,
             )
-        lines = [f"{i}. {describe(h.product, price=options.price)}" for i, h in enumerate(hits, 1)]
-    head = "查到这些商品（回答时只使用这里的名称、规格和价格；有多个时请客户选择）："
+        known = await stock.levels(db, (h.product.id for h in hits))
+        lines = [
+            f"{i}. "
+            + describe(
+                h.product,
+                price=options.price,
+                availability=stock.availability(known.get(h.product.id)),
+            )
+            for i, h in enumerate(hits, 1)
+        ]
+    head = (
+        "查到这些商品（回答时只使用这里的名称、规格和价格；有多个时请客户选择。标了「有现货」"
+        "「暂时缺货」的可以如实告诉客户，不要说具体数量）："
+    )
     return Found("\n".join([head, *lines]), tuple(h.product.id for h in hits))
 
 

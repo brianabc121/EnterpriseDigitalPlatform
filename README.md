@@ -217,6 +217,12 @@ AI 与知识增强（G5）：
   订单进入订单中心的"待发货"（没有发货环节时叫"待交付"），订单处理人收到"待发货"待办。有缺货商品的订单进入
   "缺货"，订单处理人收到"缺货处理"待办，客服或工人登记到货后继续加工。主管在订单详情里指派或改派加工人，被指派的
   工人收到站内信。
+- **库存（设计文档 §25.12）**："商品"列表显示每个商品的可用库存（现有减去已确认、还没发货的订单占用），可以筛选
+  库存不足的商品（可用库存不高于"库存预警"）。有调整库存权限的员工（管理员、主管，也可以加到自定义角色）可以入库、
+  出库、盘点，每次变化都写库存记录（前后数量、原因、操作人，订单出库带订单号）。Excel 导入时选择"盘点"（表格里的
+  数就是现有库存）或"入库"（加到现有库存上），商品表格有"库存""库存预警"列，只更新库存时表格可以只有"代码"和
+  "数量"两列。订单发货时（没有发货环节的在完成时）自动出库；库存不够时只提示（确认订单、订单详情、加工页），不拦截。
+  AI 只告诉客户"有现货"或"暂时缺货"，不说数量。企业系统同步商品时可以带库存。
 - **企业系统对接**："设置 → 企业系统对接"里创建接口密钥（按权限范围授权，完整密钥只显示一次）和推送地址（签名密钥
   只显示一次）。企业系统用 `/open/v1`（`Authorization: Bearer edp_...`）同步商品、价格和上下架，创建订单（带自己的单号，
   重复提交返回原订单）、查询订单、回传状态、物流和收款、创建待办。平台把订单的创建、修改、确认、状态变化、取消、
@@ -362,6 +368,7 @@ make alerts-check    # 告警规则（promtool）
   NODE_PATH=$(npm root -g) PLATFORM_PASSWORD=<平台账号密码> node scripts/e2e/p6-orders-acceptance.cjs
   NODE_PATH=$(npm root -g) PLATFORM_PASSWORD=<平台账号密码> node scripts/e2e/p6-integration-acceptance.cjs
   NODE_PATH=$(npm root -g) PLATFORM_PASSWORD=<平台账号密码> node scripts/e2e/p7-production-acceptance.cjs
+  NODE_PATH=$(npm root -g) PLATFORM_PASSWORD=<平台账号密码> node scripts/e2e/p8-inventory-acceptance.cjs
   NODE_PATH=$(npm root -g) PLATFORM_PASSWORD=<平台账号密码> \
     METRICS_URLS=http://127.0.0.1:9464/metrics,http://127.0.0.1:9465/metrics,http://127.0.0.1:9466/metrics \
     node scripts/e2e/g6-ops-observability.cjs
@@ -418,6 +425,10 @@ make alerts-check    # 告警规则（promtool）
   收货信息；领取订单（另一个工人不能再领），逐个商品标记完成、登记和修改缺货；客服从站内信打开"缺货处理"待办，
   在订单中心的"缺货"里登记到货；工人完成订单后，客服收到"待发货"待办并发货，客户的跟踪页显示"已加工完成，
   等待发货"；主管指派加工人，工人从站内信直接打开这张订单。需要后端（含实时消费进程）、控制台和 Widget。
+- **库存**（`scripts/e2e/p8-inventory-acceptance.cjs`）：管理员下载模板按"盘点"导入商品和库存（预览标出库存变化）；
+  主管用"代码 + 数量"两列的表格按"入库"导入、手动出库，库存不足的筛选和库存记录；客服确认超出库存的订单时看到
+  提示（不拦截）；后确认的订单占不到库存，工人在手机上看到"库存不足"；发货后出库，库存记录带订单号。需要后端和
+  控制台。
   前置同 P3；脚本在后端目录执行 `uv run python -m app.cli webhook-jobs`（需要同样的环境变量）。
 
 - **P1 M1**（`scripts/e2e/m1-im-acceptance.cjs`）：访客在 Widget 里发消息、实时收到机器人回复，消息经回调入库；

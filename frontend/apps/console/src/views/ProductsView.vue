@@ -6,17 +6,24 @@ import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { api, formatDateTime } from '../api'
 import ProductDialog from '../components/orders/ProductDialog.vue'
 import ProductImportDialog from '../components/orders/ProductImportDialog.vue'
+import StockDialog from '../components/orders/StockDialog.vue'
+import StockHistory from '../components/orders/StockHistory.vue'
 import { downloadBlob } from '../download'
+import { STOCK_FILTERS, stockDetail, type StockFilter } from '../inventory'
 import { money, type Product } from '../orders'
 import { useAuthStore } from '../stores/auth'
 
 /**
  * 商品库（设计文档 §25.2、§25.9）：商品列表（成本价列按权限显示）、新建和修改、Excel 模板下载与
  * 导入（先预览再确认）、导出（可以改完再导入）、导入记录，以及客户问到但商品库里没有的"商品缺口"。
+ * 库存（§25.12）：可用 = 现有 − 已确认、还没发货的订单占用；可以筛选库存不足的商品，调整库存
+ * （入库、出库、盘点）并查看库存记录；库存也可以用 Excel 导入（盘点或入库）。
  */
 const PAGE_SIZE = 50
 const auth = useAuthStore()
 const manage = computed(() => auth.can('product:manage'))
+const stockManage = computed(() => auth.can('inventory:manage'))
+const importable = computed(() => manage.value || stockManage.value)
 
 const tab = ref<'products' | 'imports' | 'gaps'>('products')
 const items = ref<Product[]>([])
@@ -24,7 +31,15 @@ const total = ref(0)
 const page = ref(1)
 const loading = ref(false)
 const categories = ref<string[]>([])
-const filters = reactive({ q: '', category: '', status: '' as 'on' | 'off' | '' })
+const filters = reactive({
+  q: '',
+  category: '',
+  status: '' as 'on' | 'off' | '',
+  stock: '' as StockFilter | '',
+})
+const lowStock = ref(0)
+const stocking = reactive({ open: false, product: null as Product | null })
+const history = reactive({ open: false, product: null as Product | null })
 const editing = reactive({ open: false, product: null as Product | null, name: '' })
 const importing = reactive({ open: false, id: null as string | null })
 const imports = ref<Schemas['ProductImportSummary'][]>([])
@@ -40,6 +55,7 @@ async function load(): Promise<void> {
         q: filters.q.trim() || undefined,
         category: filters.category || undefined,
         status: filters.status || undefined,
+        stock: filters.stock || undefined,
         limit: PAGE_SIZE,
         offset: (page.value - 1) * PAGE_SIZE,
       },
@@ -52,6 +68,7 @@ async function load(): Promise<void> {
   }
   items.value = data.items
   total.value = data.total
+  lowStock.value = data.low_stock
 }
 
 async function loadCategories(): Promise<void> {
@@ -137,8 +154,16 @@ function openImport(id: string | null = null): void {
   Object.assign(importing, { open: true, id })
 }
 
+function openStock(product: Product): void {
+  Object.assign(stocking, { open: true, product })
+}
+
+function openHistory(product: Product): void {
+  Object.assign(history, { open: true, product })
+}
+
 watch(
-  () => [filters.category, filters.status],
+  () => [filters.category, filters.status, filters.stock],
   () => {
     page.value = 1
     void load()
@@ -156,10 +181,10 @@ onMounted(refresh)
   <div>
     <div class="page-header">
       <h2>商品</h2>
-      <span v-if="manage">
+      <span v-if="importable">
         <el-button :loading="exporting" data-testid="products-export" @click="exportProducts">导出</el-button>
         <el-button data-testid="products-import" @click="openImport()">导入 Excel</el-button>
-        <el-button type="primary" data-testid="new-product" @click="create()">新建商品</el-button>
+        <el-button v-if="manage" type="primary" data-testid="new-product" @click="create()">新建商品</el-button>
       </span>
     </div>
 
@@ -182,6 +207,18 @@ onMounted(refresh)
             <el-option label="上架" value="on" />
             <el-option label="下架" value="off" />
           </el-select>
+          <el-select v-model="filters.stock" clearable placeholder="库存" class="filter" data-testid="stock-filter">
+            <el-option v-for="[value, label] in STOCK_FILTERS" :key="value" :label="label" :value="value" />
+          </el-select>
+          <el-tag
+            v-if="lowStock && filters.stock !== 'low'"
+            type="danger"
+            effect="plain"
+            class="low-tag"
+            data-testid="products-low-stock"
+            @click="filters.stock = 'low'"
+            >库存不足 {{ lowStock }}</el-tag
+          >
         </div>
         <el-table v-loading="loading" :data="items" row-key="id" data-testid="products-table" empty-text="商品库还是空的">
           <el-table-column label="" width="56">
@@ -213,13 +250,31 @@ onMounted(refresh)
               }}</el-tag>
             </template>
           </el-table-column>
+          <el-table-column label="库存" width="150">
+            <template #default="{ row }">
+              <template v-if="row.stock !== null">
+                <div data-testid="product-stock">
+                  可用 <b :class="{ low: row.stock_low }">{{ row.stock_available }}</b>
+                  <el-tag v-if="row.stock_low" size="small" type="danger" data-testid="product-stock-low"
+                    >不足</el-tag
+                  >
+                </div>
+                <div class="muted">{{ stockDetail(row) }}</div>
+              </template>
+              <span v-else class="muted" data-testid="product-stock">不管理</span>
+            </template>
+          </el-table-column>
           <el-table-column label="更新" width="150">
             <template #default="{ row }">{{ formatDateTime(row.updated_at) }}</template>
           </el-table-column>
-          <el-table-column v-if="manage" label="" width="110">
+          <el-table-column label="" :width="manage ? 190 : 110" fixed="right">
             <template #default="{ row }">
-              <el-button link type="primary" size="small" @click="edit(row)">修改</el-button>
-              <el-button link type="danger" size="small" @click="remove(row)">删除</el-button>
+              <el-button v-if="stockManage" link type="primary" size="small" data-testid="product-adjust-stock" @click="openStock(row)"
+                >库存</el-button
+              >
+              <el-button link size="small" data-testid="product-stock-history" @click="openHistory(row)">记录</el-button>
+              <el-button v-if="manage" link type="primary" size="small" @click="edit(row)">修改</el-button>
+              <el-button v-if="manage" link type="danger" size="small" @click="remove(row)">删除</el-button>
             </template>
           </el-table-column>
         </el-table>
@@ -234,7 +289,7 @@ onMounted(refresh)
         </div>
       </el-tab-pane>
 
-      <el-tab-pane v-if="manage" label="导入记录" name="imports">
+      <el-tab-pane v-if="importable" label="导入记录" name="imports">
         <el-table :data="imports" size="small" empty-text="还没有导入过" data-testid="product-imports">
           <el-table-column prop="file_name" label="文件" min-width="180" />
           <el-table-column label="状态" width="90">
@@ -288,6 +343,8 @@ onMounted(refresh)
     </el-tabs>
 
     <ProductDialog v-model="editing.open" :product="editing.product" :name="editing.name" @saved="refresh" />
+    <StockDialog v-model="stocking.open" :product="stocking.product" @saved="load" />
+    <StockHistory v-model="history.open" :product="history.product" />
     <ProductImportDialog
       v-model="importing.open"
       :import-id="importing.id"
@@ -319,6 +376,15 @@ onMounted(refresh)
 
 .tip {
   margin-bottom: 12px;
+}
+
+.low-tag {
+  cursor: pointer;
+  align-self: center;
+}
+
+.low {
+  color: var(--el-color-danger);
 }
 
 .thumb {

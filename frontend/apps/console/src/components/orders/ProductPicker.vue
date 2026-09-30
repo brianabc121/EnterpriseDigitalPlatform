@@ -55,6 +55,9 @@ function label(p: Product): string {
       <span class="name">{{ label(p) }}</span>
       <span v-if="p.code" class="code">{{ p.code }}</span>
       <span class="price">{{ money(p.retail_price) }}</span>
+      <span v-if="p.stock_available !== null" class="stock" :class="{ short: p.stock_available <= 0 }"
+        >可用 {{ p.stock_available }}</span
+      >
     </el-option>
   </el-select>
 </template>
@@ -78,5 +81,16 @@ function label(p: Product): string {
   float: right;
   color: var(--el-text-color-secondary);
   font-size: 12px;
+}
+
+.stock {
+  float: right;
+  margin-right: 12px;
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+}
+
+.stock.short {
+  color: var(--el-color-danger);
 }
 </style>

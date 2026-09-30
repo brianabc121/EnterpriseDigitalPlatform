@@ -228,6 +228,8 @@ class Order(IdMixin, TimestampMixin, TenantMixin, Base):
     shortage_at: Mapped[datetime | None]
     ship_todo_id: Mapped[uuid.UUID | None]
     shortage_todo_id: Mapped[uuid.UUID | None]
+    # 库存（§25.12）：商品出库（扣减库存）的时间，发货时或者没有发货环节的在完成时；只扣一次。
+    stock_out_at: Mapped[datetime | None]
 
 
 class OrderItem(IdMixin, TenantMixin, Base):

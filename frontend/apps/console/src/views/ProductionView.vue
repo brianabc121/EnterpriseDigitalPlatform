@@ -412,6 +412,9 @@ onBeforeUnmount(() => clearInterval(timer))
             <el-tag size="small" :type="WORK_STATUS_TAG[item.work_status]" data-testid="production-item-status">{{
               WORK_STATUS[item.work_status]
             }}</el-tag>
+            <el-tag v-if="item.stock_short" size="small" type="warning" effect="plain" data-testid="production-item-stock-short"
+              >库存不足</el-tag
+            >
             <div v-if="order.can_work" class="item-actions">
               <el-button
                 v-if="item.work_status === 'pending'"

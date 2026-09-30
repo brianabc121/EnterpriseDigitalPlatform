@@ -25,6 +25,7 @@ import {
   type OrderDetail,
   type PaymentMethod,
 } from '../../orders'
+import { lineStockText, shortLines } from '../../inventory'
 import { useAuthStore } from '../../stores/auth'
 import { TODO_STATUS } from '../../todos'
 import SessionDrawer from '../sessions/SessionDrawer.vue'
@@ -100,6 +101,8 @@ const producing = computed(() => {
   return !!d && !['draft', 'pending_review'].includes(d.status)
 })
 const active = computed(() => ['confirmed', 'fulfilling'].includes(detail.value?.status ?? ''))
+// 库存不足的商品（§25.12，只提示、不拦截）。
+const short = computed(() => shortLines(detail.value?.items ?? []))
 const handler = computed(() => {
   const d = detail.value
   if (!d) return ''
@@ -464,6 +467,13 @@ async function onSaved(): Promise<void> {
                 <div v-if="producing && row.work_status === 'out_of_stock'" class="short" data-testid="order-item-shortage">
                   缺货：{{ shortageText(row) }}
                 </div>
+                <div
+                  v-if="lineStockText(row)"
+                  :class="row.stock_short ? 'short' : 'muted'"
+                  data-testid="order-item-stock"
+                >
+                  {{ lineStockText(row) }}
+                </div>
               </template>
             </el-table-column>
             <el-table-column prop="quantity" label="数量" width="70" align="right" />
@@ -792,6 +802,17 @@ async function onSaved(): Promise<void> {
     </el-dialog>
 
     <el-dialog v-model="confirm.open" title="确认订单" width="460px" append-to-body data-testid="confirm-order-dialog">
+      <el-alert
+        v-if="short.length"
+        type="warning"
+        :closable="false"
+        show-icon
+        class="ship-tip"
+        title="这些商品的可用库存不够，确认后仍然可以继续处理："
+        data-testid="confirm-stock-short"
+      >
+        <div v-for="line in short" :key="line">{{ line }}</div>
+      </el-alert>
       <el-form label-width="96px">
         <el-form-item label="收款方式" required>
           <el-radio-group v-model="confirm.method" data-testid="confirm-method">

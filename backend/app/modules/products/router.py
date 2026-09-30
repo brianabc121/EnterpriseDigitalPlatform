@@ -1,12 +1,14 @@
-"""商品库接口（设计文档 §25.2、§25.9）：列表与检索、维护、Excel 模板与导入、商品缺口。
+"""商品库接口（设计文档 §25.2、§25.9、§25.12）：列表与检索、维护、Excel 模板与导入、商品缺口、
+库存（现有、占用、可用，调整与库存记录）。
 
-查看商品需要 order:read 或 product:manage；成本价只返回给有 product:view_cost 权限的员工。
+查看商品需要 order:read 或 product:manage；成本价只返回给有 product:view_cost 权限的员工；调整库存
+（包括导入表格里的库存）需要 inventory:manage。
 """
 
 import base64
 import binascii
 from datetime import UTC, datetime
-from typing import Annotated
+from typing import Annotated, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, Request, Response, status
@@ -19,9 +21,17 @@ from app.core.xlsx import XLSX_MEDIA_TYPE
 from app.modules.audit.service import record_audit
 from app.modules.billing.entitlements import require_feature
 from app.modules.iam.deps import CurrentPrincipal, TenantDb, require_permission
+from app.modules.iam.models import Staff
 from app.modules.iam.principal import Principal
-from app.modules.products import imports, service, sheet
-from app.modules.products.models import ImportStatus, Product, ProductGap, ProductImport
+from app.modules.products import imports, service, sheet, stock
+from app.modules.products.models import (
+    ImportStatus,
+    Product,
+    ProductGap,
+    ProductImport,
+    StockKind,
+    StockMovement,
+)
 from app.modules.products.schemas import (
     CategoryList,
     ImportRowOut,
@@ -36,6 +46,9 @@ from app.modules.products.schemas import (
     ProductSearchResult,
     ProductUpload,
     ProductWrite,
+    StockAdjustIn,
+    StockMovementOut,
+    StockMovementPage,
 )
 
 router = APIRouter(prefix="/api/v1/products", tags=["products"], responses=ERROR_RESPONSES)
@@ -56,11 +69,31 @@ async def _can_manage(
     return principal
 
 
+async def _can_stock(
+    principal: Annotated[Principal, Depends(require_permission(Permission.INVENTORY_MANAGE))],
+    session: TenantDb,
+) -> Principal:
+    await require_feature(session, principal.tenant_id, "orders")
+    return principal
+
+
+async def _can_import(principal: CurrentPrincipal, session: TenantDb) -> Principal:
+    """Excel 导入导出：维护商品库，或者调整库存（只导入已有商品的库存）。"""
+    if not (principal.has(Permission.PRODUCT_MANAGE) or principal.has(Permission.INVENTORY_MANAGE)):
+        raise Forbidden("没有执行该操作的权限")
+    await require_feature(session, principal.tenant_id, "orders")
+    return principal
+
+
 CanRead = Annotated[Principal, Depends(_can_read)]
 CanManage = Annotated[Principal, Depends(_can_manage)]
+CanStock = Annotated[Principal, Depends(_can_stock)]
+CanImport = Annotated[Principal, Depends(_can_import)]
 
 
-def product_out(product: Product, principal: Principal) -> ProductOut:
+def product_out(
+    product: Product, principal: Principal, level: stock.Level = stock.UNTRACKED
+) -> ProductOut:
     cost = principal.has(Permission.PRODUCT_VIEW_COST)
     return ProductOut(
         id=product.id,
@@ -76,9 +109,27 @@ def product_out(product: Product, principal: Principal) -> ProductOut:
         remark=product.remark,
         aliases=list(product.aliases),
         status=product.status,
+        stock=level.stock,
+        stock_reserved=level.reserved,
+        stock_available=level.available,
+        stock_alert=product.stock_alert,
+        stock_low=level.low,
         created_at=product.created_at,
         updated_at=product.updated_at,
     )
+
+
+async def product_outs(
+    session: TenantDb, products: list[Product], principal: Principal
+) -> list[ProductOut]:
+    """商品和它们的库存（现有、占用、可用）。"""
+    known = await stock.levels(session, (p.id for p in products))
+    return [product_out(p, principal, known.get(p.id, stock.UNTRACKED)) for p in products]
+
+
+async def _one(session: TenantDb, product: Product, principal: Principal) -> ProductOut:
+    [out] = await product_outs(session, [product], principal)
+    return out
 
 
 def _import_out(record: ProductImport, principal: Principal) -> ProductImportOut:
@@ -96,6 +147,9 @@ def _import_out(record: ProductImport, principal: Principal) -> ProductImportOut
                 action=item["action"],
                 product_id=item.get("product_id"),
                 result=item.get("result"),
+                stock_before=item.get("stock_before"),
+                stock_after=item.get("stock_after"),
+                stock_ignored=bool(item.get("stock_ignored")),
             )
         )
     return ProductImportOut(
@@ -109,6 +163,9 @@ def _import_out(record: ProductImport, principal: Principal) -> ProductImportOut
         created=record.created,
         updated=record.updated,
         skipped=record.skipped,
+        stock_mode="add" if record.stock_mode == "add" else "set",
+        stock_rows=sum(1 for r in rows if r.stock_after is not None),
+        stock_ignored=any(r.stock_ignored for r in rows),
         rows=rows,
         created_at=record.created_at,
         applied_at=record.applied_at,
@@ -135,6 +192,10 @@ async def _check_code(session: TenantDb, code: str | None, exclude: UUID | None 
 Keyword = Annotated[str | None, Query(max_length=100, description="名称、代码、型号、规格、别名")]
 Category = Annotated[str | None, Query(max_length=128, description="分类（含下级分类）")]
 StatusFilter = Annotated[str | None, Query(alias="status", pattern="^(on|off)$")]
+StockFilter = Annotated[
+    Literal["low", "tracked", "untracked"] | None,
+    Query(description="库存：low 库存不足、tracked 管理库存的、untracked 不管理库存的"),
+]
 
 
 def _filters(q: str | None, category: str | None, status_: str | None) -> ColumnElement[bool]:
@@ -166,19 +227,42 @@ async def list_products(
     q: Keyword = None,
     category: Category = None,
     status_: StatusFilter = None,
+    stock_: Annotated[StockFilter, Query(alias="stock")] = None,
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> ProductPage:
-    where = _filters(q, category, status_)
-    total = int(await session.scalar(select(func.count()).select_from(Product).where(where)) or 0)
-    rows = await session.scalars(
-        select(Product)
-        .where(where)
-        .order_by(Product.category, Product.name)
-        .limit(limit)
-        .offset(offset)
+    reserved = stock.reserved_subquery()
+    conditions = [_filters(q, category, status_)]
+    if stock_ == "low":
+        conditions.append(stock.low_condition(reserved))
+    elif stock_ == "tracked":
+        conditions.append(Product.stock.is_not(None))
+    elif stock_ == "untracked":
+        conditions.append(Product.stock.is_(None))
+    where = and_(*conditions)
+    joined = Product.__table__.outerjoin(reserved, reserved.c.product_id == Product.id)
+    total = int(await session.scalar(select(func.count()).select_from(joined).where(where)) or 0)
+    low = int(
+        await session.scalar(
+            select(func.count()).select_from(joined).where(stock.low_condition(reserved))
+        )
+        or 0
     )
-    return ProductPage(items=[product_out(p, principal) for p in rows], total=total)
+    rows = list(
+        (
+            await session.scalars(
+                select(Product)
+                .select_from(joined)
+                .where(where)
+                .order_by(Product.category, Product.name)
+                .limit(limit)
+                .offset(offset)
+            )
+        ).all()
+    )
+    return ProductPage(
+        items=await product_outs(session, rows, principal), total=total, low_stock=low
+    )
 
 
 @router.get("/search", response_model=ProductSearchResult)
@@ -199,10 +283,10 @@ async def search_products(
         limit=limit,
         on_shelf=not include_off,
     )
+    outs = await product_outs(session, [c.product for c in found], principal)
     return ProductSearchResult(
         items=[
-            ProductCandidate(product=product_out(c.product, principal), score=c.score)
-            for c in found
+            ProductCandidate(product=out, score=c.score) for out, c in zip(outs, found, strict=True)
         ]
     )
 
@@ -220,7 +304,7 @@ async def list_categories(session: TenantDb, _: CanRead) -> CategoryList:
     response_class=Response,
     responses={200: {"content": {XLSX_MEDIA_TYPE: {}}, "description": "商品表格模板"}},
 )
-async def download_template(_: CanManage) -> Response:
+async def download_template(_: CanImport) -> Response:
     """商品表格模板（.xlsx）：表头、示例行、每列的填写说明；价格列只能填数字。"""
     return Response(
         sheet.template(),
@@ -237,7 +321,7 @@ async def download_template(_: CanManage) -> Response:
 async def export_products(
     request: Request,
     session: TenantDb,
-    principal: CanManage,
+    principal: CanImport,
     q: Keyword = None,
     category: Category = None,
     status_: StatusFilter = None,
@@ -286,7 +370,7 @@ async def create_product(
     session.add(product)
     await session.commit()
     await session.refresh(product)
-    return product_out(product, principal)
+    return await _one(session, product, principal)
 
 
 def _write(product: Product, payload: ProductWrite, principal: Principal) -> None:
@@ -294,13 +378,15 @@ def _write(product: Product, payload: ProductWrite, principal: Principal) -> Non
         setattr(product, key, getattr(payload, key))
     product.aliases = payload.aliases
     product.status = payload.status
+    if "stock_alert" in payload.model_fields_set:
+        product.stock_alert = payload.stock_alert
     # 成本价：不传、或者没有查看成本价的权限时保持原值。
     if principal.has(Permission.PRODUCT_VIEW_COST) and "cost_price" in payload.model_fields_set:
         product.cost_price = payload.cost_price
 
 
 @router.get("/imports", response_model=ProductImportList)
-async def list_imports(session: TenantDb, _: CanManage) -> ProductImportList:
+async def list_imports(session: TenantDb, _: CanImport) -> ProductImportList:
     rows = await session.scalars(
         select(ProductImport).order_by(ProductImport.created_at.desc()).limit(20)
     )
@@ -323,7 +409,7 @@ async def list_imports(session: TenantDb, _: CanManage) -> ProductImportList:
 
 @router.post("/imports", response_model=ProductImportOut, status_code=status.HTTP_201_CREATED)
 async def upload_import(
-    payload: ProductUpload, session: TenantDb, principal: CanManage
+    payload: ProductUpload, session: TenantDb, principal: CanImport
 ) -> ProductImportOut:
     """上传商品表格：逐行校验并预览（将新增、更新还是跳过以及原因），确认后才写入商品库。"""
     try:
@@ -333,7 +419,13 @@ async def upload_import(
     if not data:
         raise Unprocessable("文件是空的")
     record = await imports.preview(
-        session, file_name=payload.filename.strip(), data=data, staff_id=principal.staff_id
+        session,
+        file_name=payload.filename.strip(),
+        data=data,
+        staff_id=principal.staff_id,
+        stock_mode=payload.stock_mode,
+        can_stock=principal.has(Permission.INVENTORY_MANAGE),
+        can_products=principal.has(Permission.PRODUCT_MANAGE),
     )
     await session.commit()
     await session.refresh(record)
@@ -341,16 +433,22 @@ async def upload_import(
 
 
 @router.get("/imports/{import_id}", response_model=ProductImportOut)
-async def get_import(import_id: UUID, session: TenantDb, principal: CanManage) -> ProductImportOut:
+async def get_import(import_id: UUID, session: TenantDb, principal: CanImport) -> ProductImportOut:
     return _import_out(await imports.get(session, import_id), principal)
 
 
 @router.post("/imports/{import_id}/confirm", response_model=ProductImportOut)
 async def confirm_import(
-    import_id: UUID, request: Request, session: TenantDb, principal: CanManage
+    import_id: UUID, request: Request, session: TenantDb, principal: CanImport
 ) -> ProductImportOut:
     record = await imports.get(session, import_id)
-    await imports.apply(session, record, staff_id=principal.staff_id)
+    await imports.apply(
+        session,
+        record,
+        staff_id=principal.staff_id,
+        can_stock=principal.has(Permission.INVENTORY_MANAGE),
+        can_products=principal.has(Permission.PRODUCT_MANAGE),
+    )
     record_audit(
         session,
         action="product.import",
@@ -364,6 +462,8 @@ async def confirm_import(
             "created": record.created,
             "updated": record.updated,
             "skipped": record.skipped,
+            "stock_mode": record.stock_mode,
+            "stock_rows": sum(1 for r in record.rows if r.get("stock_after") is not None),
         },
         ip=client_ip(request),
     )
@@ -374,7 +474,7 @@ async def confirm_import(
 
 @router.post("/imports/{import_id}/cancel", response_model=ProductImportOut)
 async def cancel_import(
-    import_id: UUID, session: TenantDb, principal: CanManage
+    import_id: UUID, session: TenantDb, principal: CanImport
 ) -> ProductImportOut:
     record = await imports.get(session, import_id)
     if record.status != ImportStatus.PREVIEW:
@@ -390,7 +490,7 @@ async def cancel_import(
     response_class=Response,
     responses={200: {"content": {XLSX_MEDIA_TYPE: {}}, "description": "导入结果"}},
 )
-async def download_import_result(import_id: UUID, session: TenantDb, _: CanManage) -> Response:
+async def download_import_result(import_id: UUID, session: TenantDb, _: CanImport) -> Response:
     """导入结果（.xlsx）：每一行新增、更新还是跳过，以及跳过的原因。"""
     record = await imports.get(session, import_id)
     return Response(
@@ -440,7 +540,107 @@ async def resolve_gap(gap_id: UUID, session: TenantDb, _: CanManage) -> None:
 
 @router.get("/{product_id}", response_model=ProductOut)
 async def get_product(product_id: UUID, session: TenantDb, principal: CanRead) -> ProductOut:
-    return product_out(await _get(session, product_id), principal)
+    return await _one(session, await _get(session, product_id), principal)
+
+
+@router.post("/{product_id}/stock", response_model=ProductOut)
+async def adjust_stock(
+    product_id: UUID,
+    payload: StockAdjustIn,
+    request: Request,
+    session: TenantDb,
+    principal: CanStock,
+) -> ProductOut:
+    """调整库存：盘点（改为这个数）、入库（增加）、出库（减少，不能超过现有库存）、不再管理库存。
+    每次调整都写库存记录，并记审计。"""
+    product = await stock.adjust(
+        session,
+        product_id,
+        mode=payload.mode,
+        quantity=payload.quantity,
+        note=payload.note,
+        actor=stock.Actor("staff", principal.staff_id),
+    )
+    record_audit(
+        session,
+        action="product.stock",
+        actor_type="staff",
+        actor_id=principal.staff_id,
+        tenant_id=principal.tenant_id,
+        resource_type="product",
+        resource_id=str(product.id),
+        detail={
+            "mode": payload.mode,
+            "quantity": payload.quantity,
+            "stock": product.stock,
+            "note": payload.note,
+        },
+        ip=client_ip(request),
+    )
+    await session.commit()
+    await session.refresh(product)
+    return await _one(session, product, principal)
+
+
+@router.get("/{product_id}/stock-movements", response_model=StockMovementPage)
+async def list_stock_movements(
+    product_id: UUID,
+    session: TenantDb,
+    _: CanRead,
+    limit: Annotated[int, Query(ge=1, le=100)] = 20,
+    offset: Annotated[int, Query(ge=0)] = 0,
+) -> StockMovementPage:
+    """库存记录：每一次变化、变化前后的数量、原因和操作人（订单出库关联订单）。"""
+    from app.modules.orders.models import Order
+
+    await _get(session, product_id)
+    rows, total = await stock.movements(session, product_id, limit=limit, offset=offset)
+    orders = dict(
+        (
+            await session.execute(
+                select(Order.id, Order.no).where(
+                    Order.id.in_({m.order_id for m in rows if m.order_id})
+                )
+            )
+        ).all()
+    )
+    staff = dict(
+        (
+            await session.execute(
+                select(Staff.id, Staff.display_name).where(
+                    Staff.id.in_(
+                        {m.actor_id for m in rows if m.actor_type == "staff" and m.actor_id}
+                    )
+                )
+            )
+        ).all()
+    )
+    return StockMovementPage(items=[_movement_out(m, orders, staff) for m in rows], total=total)
+
+
+def _movement_out(
+    movement: StockMovement, orders: dict[UUID, str], staff: dict[UUID, str]
+) -> StockMovementOut:
+    actor = None
+    if movement.actor_type == "staff" and movement.actor_id:
+        actor = staff.get(movement.actor_id)
+    elif movement.actor_type == "api":
+        actor = "企业系统"
+    return StockMovementOut(
+        id=movement.id,
+        kind=movement.kind,
+        kind_label=stock.KIND_LABELS.get(StockKind(movement.kind), movement.kind),
+        delta=movement.delta,
+        stock_before=movement.stock_before,
+        stock_after=movement.stock_after,
+        order_id=movement.order_id,
+        order_no=orders.get(movement.order_id) if movement.order_id else None,
+        import_id=movement.import_id,
+        note=movement.note,
+        actor_type=movement.actor_type,
+        actor_name=actor,
+        created_at=movement.created_at,
+    )
 
 
 @router.put("/{product_id}", response_model=ProductOut)
@@ -454,7 +654,7 @@ async def update_product(
     service.refresh(product)
     await session.commit()
     await session.refresh(product)
-    return product_out(product, principal)
+    return await _one(session, product, principal)
 
 
 @router.delete("/{product_id}", status_code=status.HTTP_204_NO_CONTENT)

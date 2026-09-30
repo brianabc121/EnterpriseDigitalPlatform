@@ -9,6 +9,19 @@ from app.modules.products.service import normalize_category, split_aliases
 
 Money = Decimal
 ProductStatusValue = Literal["on", "off"]
+StockModeValue = Literal["set", "add"]
+StockKindValue = Literal[
+    "import_set",
+    "import_add",
+    "adjust_set",
+    "adjust_add",
+    "adjust_remove",
+    "untrack",
+    "order_out",
+    "order_return",
+    "api_set",
+]
+STOCK_LIMIT = 100_000_000
 
 
 class ProductOut(BaseModel):
@@ -27,6 +40,11 @@ class ProductOut(BaseModel):
     remark: str
     aliases: list[str]
     status: ProductStatusValue
+    stock: int | None = Field(description="现有库存；为空表示不管理这个商品的库存")
+    stock_reserved: int = Field(description="已确认、还没发货的订单占用的数量")
+    stock_available: int | None = Field(description="可用库存 = 现有 − 占用")
+    stock_alert: int | None = Field(description="库存预警值")
+    stock_low: bool = Field(description="库存不足：可用库存不高于预警值（没有预警值时为 0）")
     created_at: datetime
     updated_at: datetime
 
@@ -34,6 +52,7 @@ class ProductOut(BaseModel):
 class ProductPage(BaseModel):
     items: list[ProductOut]
     total: int
+    low_stock: int = Field(description="库存不足的商品数（不受筛选条件影响）")
 
 
 class ProductCandidate(BaseModel):
@@ -65,6 +84,12 @@ class ProductWrite(BaseModel):
     remark: str = Field(default="", max_length=2000)
     aliases: list[str] = Field(default_factory=list, max_length=20)
     status: ProductStatusValue = "on"
+    stock_alert: int | None = Field(
+        default=None,
+        ge=0,
+        le=STOCK_LIMIT,
+        description="库存预警值；不传时保持原值。库存数量要通过调整库存或导入修改",
+    )
 
     @field_validator("code")
     @classmethod
@@ -92,6 +117,11 @@ class ProductUpload(BaseModel):
     content_base64: str = Field(
         min_length=1, max_length=14_000_000, description="文件内容（base64），文件最大 10 MB"
     )
+    stock_mode: StockModeValue = Field(
+        default="set",
+        description="“库存”列的算法：set 盘点（表格里的数就是现有库存），"
+        "add 入库（加到现有库存上）",
+    )
 
 
 class ImportRowOut(BaseModel):
@@ -102,6 +132,13 @@ class ImportRowOut(BaseModel):
     product_id: UUID | None = None
     result: Literal["create", "update", "skip"] | None = Field(
         default=None, description="确认导入后的实际结果"
+    )
+    stock_before: int | None = Field(default=None, description="导入前的现有库存")
+    stock_after: int | None = Field(
+        default=None, description="导入后的现有库存；为空表示这一行不修改库存"
+    )
+    stock_ignored: bool = Field(
+        default=False, description="填了库存，但上传的人没有调整库存的权限，不导入"
     )
 
 
@@ -116,6 +153,9 @@ class ProductImportOut(BaseModel):
     created: int
     updated: int
     skipped: int
+    stock_mode: StockModeValue
+    stock_rows: int = Field(description="修改库存的行数")
+    stock_ignored: bool = Field(description="表格里有库存，但没有调整库存的权限，库存列不导入")
     rows: list[ImportRowOut]
     created_at: datetime
     applied_at: datetime | None
@@ -151,3 +191,34 @@ class ProductGapList(BaseModel):
 
 class CategoryList(BaseModel):
     items: list[str]
+
+
+class StockAdjustIn(BaseModel):
+    """手动调整库存：盘点（改为这个数）、入库（增加）、出库（减少）、不再管理库存。"""
+
+    mode: Literal["set", "add", "remove", "untrack"]
+    quantity: int | None = Field(
+        default=None, ge=0, le=STOCK_LIMIT, description="数量（不再管理库存时不填）"
+    )
+    note: str = Field(default="", max_length=200, description="原因，例如到货批次、损耗、盘点")
+
+
+class StockMovementOut(BaseModel):
+    id: UUID
+    kind: StockKindValue
+    kind_label: str
+    delta: int = Field(description="变化量（出库为负数）")
+    stock_before: int | None = Field(description="变化前的现有库存；为空表示原来不管理库存")
+    stock_after: int | None = Field(description="变化后的现有库存；为空表示之后不再管理库存")
+    order_id: UUID | None
+    order_no: str | None
+    import_id: UUID | None
+    note: str
+    actor_type: str
+    actor_name: str | None
+    created_at: datetime
+
+
+class StockMovementPage(BaseModel):
+    items: list[StockMovementOut]
+    total: int

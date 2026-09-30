@@ -5315,6 +5315,36 @@
             "title": "Row",
             "type": "integer"
           },
+          "stock_after": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "导入后的现有库存；为空表示这一行不修改库存",
+            "title": "Stock After"
+          },
+          "stock_before": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "导入前的现有库存",
+            "title": "Stock Before"
+          },
+          "stock_ignored": {
+            "default": false,
+            "description": "填了库存，但上传的人没有调整库存的权限，不导入",
+            "title": "Stock Ignored",
+            "type": "boolean"
+          },
           "values": {
             "additionalProperties": {
               "type": "string"
@@ -11528,6 +11558,34 @@
               }
             ],
             "title": "Status"
+          },
+          "stock": {
+            "anyOf": [
+              {
+                "maximum": 100000000.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "现有库存（盘点数）；传 null 表示不再管理这个商品的库存，不传时保持原值",
+            "title": "Stock"
+          },
+          "stock_alert": {
+            "anyOf": [
+              {
+                "maximum": 100000000.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "库存预警值；不传时保持原值",
+            "title": "Stock Alert"
           }
         },
         "title": "OpenProductIn",
@@ -11615,6 +11673,41 @@
             "title": "Status",
             "type": "string"
           },
+          "stock": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "现有库存；为空表示不管理库存",
+            "title": "Stock"
+          },
+          "stock_alert": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stock Alert"
+          },
+          "stock_available": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "可用库存 = 现有 − 已确认、还没发货的订单占用",
+            "title": "Stock Available"
+          },
           "updated_at": {
             "format": "date-time",
             "title": "Updated At",
@@ -11634,6 +11727,9 @@
           "aliases",
           "remark",
           "status",
+          "stock",
+          "stock_available",
+          "stock_alert",
           "created",
           "updated_at"
         ],
@@ -13555,6 +13651,24 @@
           "spec": {
             "title": "Spec",
             "type": "string"
+          },
+          "stock_available": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "商品的可用库存（§25.12）；不管理库存、或者订单已出库或取消时为空",
+            "title": "Stock Available"
+          },
+          "stock_short": {
+            "default": false,
+            "description": "库存不足：已确认的订单按确认先后占用现有库存，占不到的；还没确认的按可用库存",
+            "title": "Stock Short",
+            "type": "boolean"
           },
           "unit_price": {
             "anyOf": [
@@ -15661,6 +15775,7 @@
           "order:config",
           "product:manage",
           "product:view_cost",
+          "inventory:manage",
           "production:work",
           "production:assign",
           "integration:manage"
@@ -16991,6 +17106,24 @@
             "title": "Status",
             "type": "string"
           },
+          "stock_ignored": {
+            "description": "表格里有库存，但没有调整库存的权限，库存列不导入",
+            "title": "Stock Ignored",
+            "type": "boolean"
+          },
+          "stock_mode": {
+            "enum": [
+              "set",
+              "add"
+            ],
+            "title": "Stock Mode",
+            "type": "string"
+          },
+          "stock_rows": {
+            "description": "修改库存的行数",
+            "title": "Stock Rows",
+            "type": "integer"
+          },
           "total": {
             "title": "Total",
             "type": "integer"
@@ -17019,6 +17152,9 @@
           "created",
           "updated",
           "skipped",
+          "stock_mode",
+          "stock_rows",
+          "stock_ignored",
           "rows",
           "created_at",
           "applied_at"
@@ -17180,6 +17316,52 @@
             "title": "Status",
             "type": "string"
           },
+          "stock": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "现有库存；为空表示不管理这个商品的库存",
+            "title": "Stock"
+          },
+          "stock_alert": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "库存预警值",
+            "title": "Stock Alert"
+          },
+          "stock_available": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "可用库存 = 现有 − 占用",
+            "title": "Stock Available"
+          },
+          "stock_low": {
+            "description": "库存不足：可用库存不高于预警值（没有预警值时为 0）",
+            "title": "Stock Low",
+            "type": "boolean"
+          },
+          "stock_reserved": {
+            "description": "已确认、还没发货的订单占用的数量",
+            "title": "Stock Reserved",
+            "type": "integer"
+          },
           "updated_at": {
             "format": "date-time",
             "title": "Updated At",
@@ -17199,6 +17381,11 @@
           "remark",
           "aliases",
           "status",
+          "stock",
+          "stock_reserved",
+          "stock_available",
+          "stock_alert",
+          "stock_low",
           "created_at",
           "updated_at"
         ],
@@ -17214,6 +17401,11 @@
             "title": "Items",
             "type": "array"
           },
+          "low_stock": {
+            "description": "库存不足的商品数（不受筛选条件影响）",
+            "title": "Low Stock",
+            "type": "integer"
+          },
           "total": {
             "title": "Total",
             "type": "integer"
@@ -17221,7 +17413,8 @@
         },
         "required": [
           "items",
-          "total"
+          "total",
+          "low_stock"
         ],
         "title": "ProductPage",
         "type": "object"
@@ -17256,6 +17449,16 @@
             "maxLength": 200,
             "minLength": 1,
             "title": "Filename",
+            "type": "string"
+          },
+          "stock_mode": {
+            "default": "set",
+            "description": "“库存”列的算法：set 盘点（表格里的数就是现有库存），add 入库（加到现有库存上）",
+            "enum": [
+              "set",
+              "add"
+            ],
+            "title": "Stock Mode",
             "type": "string"
           }
         },
@@ -17375,6 +17578,20 @@
             ],
             "title": "Status",
             "type": "string"
+          },
+          "stock_alert": {
+            "anyOf": [
+              {
+                "maximum": 100000000.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "库存预警值；不传时保持原值。库存数量要通过调整库存或导入修改",
+            "title": "Stock Alert"
           }
         },
         "required": [
@@ -17531,6 +17748,12 @@
           "spec": {
             "title": "Spec",
             "type": "string"
+          },
+          "stock_short": {
+            "default": false,
+            "description": "待加工的商品库存不足（按确认先后占用现有库存，占不到的；只提示）",
+            "title": "Stock Short",
+            "type": "boolean"
           },
           "work_status": {
             "enum": [
@@ -20999,6 +21222,201 @@
           }
         },
         "title": "StaffUpdate",
+        "type": "object"
+      },
+      "StockAdjustIn": {
+        "description": "手动调整库存：盘点（改为这个数）、入库（增加）、出库（减少）、不再管理库存。",
+        "properties": {
+          "mode": {
+            "enum": [
+              "set",
+              "add",
+              "remove",
+              "untrack"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
+          "note": {
+            "default": "",
+            "description": "原因，例如到货批次、损耗、盘点",
+            "maxLength": 200,
+            "title": "Note",
+            "type": "string"
+          },
+          "quantity": {
+            "anyOf": [
+              {
+                "maximum": 100000000.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "数量（不再管理库存时不填）",
+            "title": "Quantity"
+          }
+        },
+        "required": [
+          "mode"
+        ],
+        "title": "StockAdjustIn",
+        "type": "object"
+      },
+      "StockMovementOut": {
+        "properties": {
+          "actor_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actor Name"
+          },
+          "actor_type": {
+            "title": "Actor Type",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "delta": {
+            "description": "变化量（出库为负数）",
+            "title": "Delta",
+            "type": "integer"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "import_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Import Id"
+          },
+          "kind": {
+            "enum": [
+              "import_set",
+              "import_add",
+              "adjust_set",
+              "adjust_add",
+              "adjust_remove",
+              "untrack",
+              "order_out",
+              "order_return",
+              "api_set"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "kind_label": {
+            "title": "Kind Label",
+            "type": "string"
+          },
+          "note": {
+            "title": "Note",
+            "type": "string"
+          },
+          "order_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Order Id"
+          },
+          "order_no": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Order No"
+          },
+          "stock_after": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "变化后的现有库存；为空表示之后不再管理库存",
+            "title": "Stock After"
+          },
+          "stock_before": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "变化前的现有库存；为空表示原来不管理库存",
+            "title": "Stock Before"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "kind_label",
+          "delta",
+          "stock_before",
+          "stock_after",
+          "order_id",
+          "order_no",
+          "import_id",
+          "note",
+          "actor_type",
+          "actor_name",
+          "created_at"
+        ],
+        "title": "StockMovementOut",
+        "type": "object"
+      },
+      "StockMovementPage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/StockMovementOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total"
+        ],
+        "title": "StockMovementPage",
         "type": "object"
       },
       "SubscriptionCreate": {
@@ -43874,6 +44292,27 @@
           },
           {
             "in": "query",
+            "name": "stock",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "low",
+                    "tracked",
+                    "untracked"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Stock"
+            }
+          },
+          {
+            "in": "query",
             "name": "limit",
             "required": false,
             "schema": {
@@ -45558,6 +45997,237 @@
           }
         ],
         "summary": "Update Product",
+        "tags": [
+          "products"
+        ]
+      }
+    },
+    "/api/v1/products/{product_id}/stock": {
+      "post": {
+        "description": "调整库存：盘点（改为这个数）、入库（增加）、出库（减少，不能超过现有库存）、不再管理库存。\n每次调整都写库存记录，并记审计。",
+        "operationId": "adjust_stock_api_v1_products__product_id__stock_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "product_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Product Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StockAdjustIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Adjust Stock",
+        "tags": [
+          "products"
+        ]
+      }
+    },
+    "/api/v1/products/{product_id}/stock-movements": {
+      "get": {
+        "description": "库存记录：每一次变化、变化前后的数量、原因和操作人（订单出库关联订单）。",
+        "operationId": "list_stock_movements_api_v1_products__product_id__stock_movements_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "product_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Product Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StockMovementPage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Stock Movements",
         "tags": [
           "products"
         ]

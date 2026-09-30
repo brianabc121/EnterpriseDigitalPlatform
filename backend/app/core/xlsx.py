@@ -27,6 +27,8 @@ class Column:
     prompt: tuple[str, str] | None = None
     # 只能填不小于 0 的数字（价格等），填错时的提示。
     decimal_error: str | None = None
+    # 只能填不小于 0 的整数（库存等），填错时的提示。
+    whole_error: str | None = None
 
 
 @dataclass
@@ -74,11 +76,16 @@ def _validations(sheet: Sheet) -> str:
                 f' showInputMessage="1" promptTitle={quoteattr(title[:32])}'
                 f" prompt={quoteattr(body[:255])}"
             )
-        if column.decimal_error:
+        kind, error = (
+            ("decimal", column.decimal_error)
+            if column.decimal_error
+            else ("whole", column.whole_error)
+        )
+        if error:
             items.append(
-                '<dataValidation type="decimal" operator="greaterThanOrEqual" allowBlank="1"'
+                f'<dataValidation type="{kind}" operator="greaterThanOrEqual" allowBlank="1"'
                 f' showErrorMessage="1" errorTitle="格式不正确"'
-                f" error={quoteattr(column.decimal_error[:255])}{prompt}"
+                f" error={quoteattr(error[:255])}{prompt}"
                 f' sqref="{area}"><formula1>0</formula1></dataValidation>'
             )
         elif prompt:

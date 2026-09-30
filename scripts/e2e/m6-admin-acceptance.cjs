@@ -274,7 +274,10 @@ async function run(browser) {
   await page.locator('textarea[data-testid="done-result"]').fill('周末正常送货，已电话告知客户')
   await page.click('[data-testid="done-submit"]')
   await page.locator('.el-message--success', { hasText: '已完成' }).waitFor()
+  // 等"完成待办"对话框关闭后再按 Esc 关闭详情（关闭动画中按下的 Esc 会被对话框吃掉）。
+  await page.locator('[data-testid="done-submit"]').waitFor({ state: 'hidden' })
   await page.keyboard.press('Escape')
+  await page.locator('.el-drawer:visible').waitFor({ state: 'hidden' }).catch(() => null)
   const doneRow = await todoRow
     .locator('[data-testid="todo-row-status"]', { hasText: '已完成' })
     .waitFor({ timeout: 15000 })

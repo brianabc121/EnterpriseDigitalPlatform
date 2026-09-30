@@ -39,6 +39,7 @@ from app.modules.orders.models import (
 )
 from app.modules.orders.schemas import OrderNotice
 from app.modules.orders.settings import OrderSettings
+from app.modules.products import stock
 from app.modules.products.models import Product
 from app.modules.todos import sla
 from app.modules.todos.models import ActorType
@@ -539,6 +540,13 @@ async def update_status(
                 actor_id=None,
                 now=now,
             )
+        # 库存（§25.12）：发货或完成时出库（只扣一次）；已出库的订单被取消时退回。
+        if target in (OrderStatus.SHIPPED, OrderStatus.COMPLETED):
+            await stock.ship_out(
+                session, order, items, actor=stock.Actor(API, actor.key_id), now=now
+            )
+        elif target == OrderStatus.CANCELLED:
+            await stock.return_order(session, order, actor=stock.Actor(API, actor.key_id))
         if target in (OrderStatus.SHIPPED, OrderStatus.COMPLETED, OrderStatus.CANCELLED):
             await service.close_production_todos(
                 session,

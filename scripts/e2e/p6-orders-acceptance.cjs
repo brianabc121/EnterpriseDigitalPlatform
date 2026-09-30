@@ -100,6 +100,8 @@ const TEMPLATE_COLUMNS = [
   '别名',
   '备注',
   '状态',
+  '库存',
+  '库存预警',
 ]
 
 const summary = { tenant: TENANT, checks: [], consoleErrors: [] }
@@ -455,7 +457,7 @@ async function catalogSection(browser, ctx) {
   const filled = path.resolve(SHOTS, 'products-filled.xlsx')
   const header = xlsx('fill', template, filled, JSON.stringify(PRODUCTS))
   check(
-    '下载的 Excel 模板：型号、代码、名称、规格、分类、图片URL、成本价、建议零售价、备注等列（名称必填）',
+    '下载的 Excel 模板：型号、代码、名称、规格、分类、图片URL、成本价、建议零售价、备注、库存等列（名称必填）',
     JSON.stringify(header) === JSON.stringify(TEMPLATE_COLUMNS),
     header,
   )

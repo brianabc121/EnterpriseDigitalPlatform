@@ -47,6 +47,7 @@ from app.modules.orders.schemas import (
     View,
 )
 from app.modules.orders.settings import OrderSettings
+from app.modules.products import stock
 from app.modules.routing.models import SkillGroup
 from app.modules.todos import sla
 from app.modules.todos.models import Todo, TodoType
@@ -337,6 +338,7 @@ async def detail(
 ) -> OrderDetail:
     [base] = await outs(session, [order])
     items = await service.load_items(session, order.id)
+    lines = await stock.line_stock(session, [order], items)
     payments = (
         await session.scalars(
             select(OrderPayment)
@@ -421,6 +423,8 @@ async def detail(
                 shortage_qty=i.shortage_qty,
                 shortage_note=i.shortage_note,
                 restock_date=i.restock_date,
+                stock_available=lines.get(i.id, stock.LineStock()).available,
+                stock_short=lines.get(i.id, stock.LineStock()).short,
             )
             for i in items
         ],

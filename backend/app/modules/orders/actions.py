@@ -55,6 +55,7 @@ from app.modules.orders.schemas import (
     VoidRequest,
 )
 from app.modules.orders.settings import OrderSettings
+from app.modules.products import stock
 from app.modules.routing.models import SkillGroup
 from app.modules.todos import notify as todo_notify
 from app.modules.todos import sla
@@ -671,6 +672,10 @@ async def ship(
         actor_id=principal.staff_id,
         now=now,
     )
+    # 发货时出库（扣减库存，§25.12）。
+    await stock.ship_out(
+        session, order, items, actor=stock.Actor(STAFF, principal.staff_id), now=now
+    )
     notice: OrderNotice | None = None
     room: uuid.UUID | None = None
     if payload.notify_customer:
@@ -721,6 +726,10 @@ async def complete(
         actor_type=STAFF,
         actor_id=principal.staff_id,
         now=now,
+    )
+    # 没有发货环节的订单在完成时出库；已发货的订单在发货时已经出库，这里不再扣。
+    await stock.ship_out(
+        session, order, items, actor=stock.Actor(STAFF, principal.staff_id), now=now
     )
     notice: OrderNotice | None = None
     room: uuid.UUID | None = None
@@ -784,6 +793,7 @@ async def cancel(
             actor_id=me,
             now=now,
         )
+    await stock.return_order(session, order, actor=stock.Actor(STAFF, me))
     record_audit(
         session,
         action="order.cancel",

@@ -37,6 +37,7 @@ from app.modules.orders.schemas import (
     ProductionView,
     ShortageIn,
 )
+from app.modules.products import stock
 from app.modules.todos import assign as todo_assign
 from app.modules.todos import notify as todo_notify
 from app.modules.todos.models import ActorType
@@ -183,6 +184,9 @@ async def outs(
             )
         ).all()
     )
+    lines = await stock.line_stock(
+        session, orders, [item for rows in items.values() for item in rows]
+    )
     staff_ids = {o.worker_id for o in orders if o.worker_id}
     staff_ids |= {i.done_by for rows in items.values() for i in rows if i.done_by}
     staff = dict(
@@ -198,7 +202,8 @@ async def outs(
             select(Order.id).where(Order.id.in_(list(items)), claimable())
         )
     }
-    return [_out(principal, o, items[o.id], customers, staff, o.id in pool) for o in orders]
+    short = {item_id for item_id, line in lines.items() if line.short}
+    return [_out(principal, o, items[o.id], customers, staff, o.id in pool, short) for o in orders]
 
 
 def _out(
@@ -208,6 +213,7 @@ def _out(
     customers: dict[uuid.UUID, str],
     staff: dict[uuid.UUID, str],
     in_pool: bool,
+    short: set[uuid.UUID],
 ) -> ProductionOrder:
     mine = order.worker_id == principal.staff_id
     manage = principal.has(Permission.PRODUCTION_ASSIGN)
@@ -240,6 +246,7 @@ def _out(
                 shortage_qty=i.shortage_qty,
                 shortage_note=i.shortage_note,
                 restock_date=i.restock_date,
+                stock_short=i.id in short and i.work_status == WorkStatus.PENDING,
             )
             for i in items
         ],

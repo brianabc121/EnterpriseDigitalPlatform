@@ -10,6 +10,8 @@ import { downloadBlob } from '../../download'
  * 用 Excel 批量导入商品（设计文档 §25.2）：下载模板 → 上传 → 逐行校验并预览（有问题的行标出原因，
  * 将跳过）→ 确认后才写入商品库。有代码的按代码更新，没有代码的按"名称 + 型号 + 规格"匹配，
  * 留空的列保持原值。导入结果可以下载。
+ * 库存（§25.12）：上传前选择"盘点"（表格里的数就是现有库存）或"入库"（加到现有库存上）；只更新
+ * 库存时表格可以只有"代码"和"库存"（或"数量"）两列。
  */
 const open = defineModel<boolean>({ required: true })
 const props = defineProps<{ importId?: string | null }>()
@@ -20,6 +22,7 @@ const preview = ref<ImportOut | null>(null)
 const uploading = ref(false)
 const confirming = ref(false)
 const onlyProblems = ref(false)
+const stockMode = ref<'set' | 'add'>('set')
 const fileInput = ref<HTMLInputElement | null>(null)
 
 const ACTION: Record<string, [string, 'success' | 'primary' | 'info']> = {
@@ -37,6 +40,7 @@ watch(open, async (value) => {
   if (!value) return
   preview.value = null
   onlyProblems.value = false
+  stockMode.value = 'set'
   if (props.importId) {
     const { data } = await api.GET('/api/v1/products/imports/{import_id}', {
       params: { path: { import_id: props.importId } },
@@ -74,7 +78,7 @@ async function upload(event: Event): Promise<void> {
   }
   uploading.value = true
   const { data, error } = await api.POST('/api/v1/products/imports', {
-    body: { filename: file.name, content_base64: await base64(file) },
+    body: { filename: file.name, content_base64: await base64(file), stock_mode: stockMode.value },
   })
   uploading.value = false
   if (!data) {
@@ -131,8 +135,23 @@ async function result(): Promise<void> {
     <div v-if="!preview" class="start">
       <ol class="steps">
         <li>
-          下载表格模板，按说明填写（只有"名称"必填，价格列只能填数字）。
+          下载表格模板，按说明填写（只有"名称"必填，价格列只能填数字，库存列只能填整数）。
           <el-button link type="primary" data-testid="product-template" @click="template">下载模板</el-button>
+        </li>
+        <li>
+          表格里的"库存"按：
+          <el-radio-group v-model="stockMode" size="small" data-testid="import-stock-mode">
+            <el-radio-button value="set">盘点</el-radio-button>
+            <el-radio-button value="add">入库</el-radio-button>
+          </el-radio-group>
+          <div class="muted">
+            {{
+              stockMode === 'set'
+                ? '盘点：表格里的数就是现有库存。'
+                : '入库：表格里的数加到现有库存上（到货时用）。'
+            }}
+            留空的商品不修改库存；只更新库存时表格可以只有“代码”和“库存”（或“数量”）两列。
+          </div>
         </li>
         <li>上传填好的表格（.xlsx 或 .csv，最多 5000 行、10 MB）。</li>
         <li>核对预览：有问题的行会标出原因并跳过；确认后才写入商品库。</li>
@@ -161,8 +180,20 @@ async function result(): Promise<void> {
           <el-tag>将更新 {{ preview.will_update }}</el-tag>
           <el-tag :type="preview.invalid ? 'warning' : 'info'">有问题（跳过） {{ preview.invalid }}</el-tag>
         </template>
+        <el-tag v-if="preview.stock_rows" type="warning" data-testid="product-import-stock-rows"
+          >{{ preview.stock_mode === 'add' ? '入库' : '盘点' }} {{ preview.stock_rows }} 个商品</el-tag
+        >
         <el-checkbox v-model="onlyProblems">只看有问题的行</el-checkbox>
       </div>
+      <el-alert
+        v-if="preview.stock_ignored"
+        type="warning"
+        :closable="false"
+        show-icon
+        class="tip"
+        title="没有调整库存的权限：表格里的库存不会导入，其他内容照常导入。"
+        data-testid="product-import-stock-ignored"
+      />
       <el-table :data="rows" size="small" max-height="420" data-testid="product-import-rows">
         <el-table-column prop="row" label="行号" width="64" />
         <el-table-column label="名称" min-width="160">
@@ -173,6 +204,13 @@ async function result(): Promise<void> {
         </el-table-column>
         <el-table-column label="建议零售价" width="100" align="right">
           <template #default="{ row }">{{ row.values.retail_price ?? '' }}</template>
+        </el-table-column>
+        <el-table-column label="库存" width="110">
+          <template #default="{ row }">
+            <span v-if="row.stock_after !== null" data-testid="product-import-stock"
+              >{{ row.stock_before ?? '—' }} → {{ row.stock_after }}</span
+            >
+          </template>
         </el-table-column>
         <el-table-column :label="done ? '结果' : '操作'" width="80">
           <template #default="{ row }">
@@ -226,6 +264,16 @@ async function result(): Promise<void> {
   flex-wrap: wrap;
   align-items: center;
   gap: 8px;
+  margin-bottom: 12px;
+}
+
+.muted {
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.tip {
   margin-bottom: 12px;
 }
 

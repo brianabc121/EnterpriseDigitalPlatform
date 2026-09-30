@@ -1,7 +1,7 @@
 # 企业数字化转型平台 · 全渠道智能客服 设计文档
 
-> 状态：草案 v0.5（v0.3 增加待办事项与订单管理；v0.4 纳入第三轮决定；v0.5 增加加工与工人角色，待评审）
-> 日期：2026-09-28（v0.3、v0.4、v0.5 更新于 2026-09-30）
+> 状态：草案 v0.6（v0.3 增加待办事项与订单管理；v0.4 纳入第三轮决定；v0.5 增加加工与工人角色；v0.6 增加库存，待评审）
+> 日期：2026-09-28（v0.3–v0.6 更新于 2026-09-30）
 > 范围：需求 R1–R8 的整体架构、关键决策与分期方案。本文确认后，再按阶段拆解实施计划。
 > 修订记录见附录 B。
 
@@ -1326,10 +1326,11 @@ sequenceDiagram
 | | `todos` | no, type_id, title, detail, fields(jsonb，敏感字段加密), customer_id, session_id, order_id, source(ai_chat/ai_summary/zone/copilot/sidebar/staff/visitor/rule/api), confidence, evidence_message_ids, priority, status(pending/open/in_progress/waiting/done/cancelled/rejected), assignee_id, skill_group_id, due_at, respond_due_at, first_response_at, confirmed_at, closed_at, result, reject_reason, nudge_count, dedupe_key, external_ref（企业系统的单号，租户内唯一，同一个单号重复创建返回原待办）, created_by_type, created_by |
 | | `todo_events` | todo_id, type(created/confirmed/rejected/assigned/claimed/started/waiting/resumed/commented/reminded/escalated/customer_notified/merged/done/cancelled/reopened…), actor_type(ai/staff/system/api/visitor), actor_id, payload(jsonb) |
 | | `todo_extractions` | session_id, status, created, skipped（会话结束后的解析，每个会话一次） |
-| 订单（v0.3） | `products` | code（租户内唯一）, name, model, spec, category, image_url, cost_price（仅有权限可见，不进入 AI）, retail_price, remark, aliases, status, terms（检索词）, embedding |
+| 订单（v0.3） | `products` | code（租户内唯一）, name, model, spec, category, image_url, cost_price（仅有权限可见，不进入 AI）, retail_price, remark, aliases, status, terms（检索词）, embedding；库存（v0.6，§25.12）：stock（现有库存，为空表示不管理库存）, stock_alert（预警值） |
 | | `product_imports` | 上传的文件、状态、逐行校验结果（rows）、新增/更新/跳过的数量，确认人 |
 | | `product_gaps` | term, sample, count, first_seen_at, last_seen_at, resolved_at（客户问到、商品库里没有的商品） |
-| | `orders` | no, status(draft/pending_review/confirmed/fulfilling/shipped/completed/cancelled), source(ai_chat/copilot/sidebar/staff/api), customer_id, session_id, assignee_id, skill_group_id, receiver(jsonb：收货人、电话、地址逐项加密并带掩码), payment_method(online/cod/deposit/credit), deposit_amount, credit_due_date, credit_approved_by, payment_status, items_amount, discount, total, paid_amount, refunded_amount, expected_at, shipping_company, tracking_no, submitted_at, confirmed_at, confirmed_by, shipped_at, completed_at, cancelled_at, cancel_reason, tracking_token, tracking_expires_at, external_no（企业系统的单号，租户内唯一）, version, modified, ai_error, confirm_message_id, evidence_message_ids, customer_note, internal_note, created_by_type(ai/staff/api), review_todo_id, collection_todo_id；加工（v0.5，§25.11）：worker_id, claimed_at, processed_at, processed_by, shortage_at（有缺货的商品时不为空）, ship_todo_id, shortage_todo_id |
+| | `orders` | no, status(draft/pending_review/confirmed/fulfilling/shipped/completed/cancelled), source(ai_chat/copilot/sidebar/staff/api), customer_id, session_id, assignee_id, skill_group_id, receiver(jsonb：收货人、电话、地址逐项加密并带掩码), payment_method(online/cod/deposit/credit), deposit_amount, credit_due_date, credit_approved_by, payment_status, items_amount, discount, total, paid_amount, refunded_amount, expected_at, shipping_company, tracking_no, submitted_at, confirmed_at, confirmed_by, shipped_at, completed_at, cancelled_at, cancel_reason, tracking_token, tracking_expires_at, external_no（企业系统的单号，租户内唯一）, version, modified, ai_error, confirm_message_id, evidence_message_ids, customer_note, internal_note, created_by_type(ai/staff/api), review_todo_id, collection_todo_id；加工（v0.5，§25.11）：worker_id, claimed_at, processed_at, processed_by, shortage_at（有缺货的商品时不为空）, ship_todo_id, shortage_todo_id；库存（v0.6）：stock_out_at（商品出库的时间，只扣一次） |
+| | `stock_movements`（v0.6） | product_id, kind(import_set/import_add/adjust_set/adjust_add/adjust_remove/untrack/order_out/order_return/api_set), delta, stock_before, stock_after（为空表示不管理库存）, order_id, import_id, note, actor_type(staff/api/system), actor_id（只追加） |
 | | `order_items` | order_id, product_id（未匹配时为空）, 代码、名称、型号、规格和图片的快照, raw_text（客户原话）, quantity, list_price（建议零售价快照）, unit_price, cost_price 快照（仅有权限可见）, amount；加工（v0.5）：work_status(pending/done/out_of_stock), done_at, done_by, shortage_qty（为空表示整行都缺）, shortage_note, restock_date, shortage_at, shortage_by |
 | | `order_payments` | order_id, kind(payment/refund), amount, channel(wechat/alipay/bank/cash/other), paid_at, reference_no（企业系统回传时按它去重）, proof_url, note, recorded_by_type, recorded_by, voided_at, void_reason |
 | | `order_revisions` | order_id, version, kind(created/edit/status/payment), actor_type(ai/staff/system/api), actor_id, reason(customer_request/ai_error/price_adjust/substitution/other), note, changes(jsonb), snapshot(jsonb)（只追加，不修改） |
@@ -1381,6 +1382,10 @@ POST   /api/v1/orders/{id}/payments       POST /orders/{id}/payments/{pid}/void 
 GET    /api/v1/orders/{id}/revisions  |  /orders/{id}/revisions/{version}          # 修改记录与版本对比
 POST   /api/v1/orders/{id}/tracking-link            # 重新生成跟踪链接
 POST   /api/v1/orders/{id}/items/{item_id}/restock  # 客服登记缺货商品到货（v0.5）
+GET    /api/v1/products?stock=low|tracked|untracked # 商品列表带现有、占用、可用库存（v0.6）
+POST   /api/v1/products/{id}/stock                  # 调整库存：入库、出库、盘点、不再管理（inventory:manage）
+GET    /api/v1/products/{id}/stock-movements        # 库存记录
+POST   /api/v1/products/imports                     # 导入商品表格，stock_mode=set（盘点）|add（入库）
 POST   /api/v1/orders/extract                       # 从选中的消息或粘贴的文字预填（不落库）
 POST   /api/v1/orders/export                        # 导出（再次输入密码）
 CRUD   /api/v1/products        GET /products/search?q=  |  /products/categories  |  /products/export
@@ -1426,6 +1431,7 @@ GET    /platform/v1/ops/webhook-deliveries?status=dead|retrying    POST /platfor
 
 # 开放接口（Authorization: Bearer edp_<prefix>_<密钥>，按权限范围授权；每个密钥每分钟 600 次，另计入租户的接口限额）
 PUT    /open/v1/products/{code}                     # 同步商品、价格和上下架（products:write）
+PUT    /open/v1/products/{code}                     # 同步商品和价格；v0.6 可以带 stock（盘点数，null 表示不再管理）和 stock_alert
 GET    /open/v1/orders?updated_since=&cursor=       # 按更新时间增量拉取（orders:read，含明文收货信息）
 GET    /open/v1/orders/{ref}                        # ref 是平台订单号或企业系统单号
 POST   /open/v1/orders                              # 企业系统创建订单（orders:write；带 external_no 时幂等）
@@ -2153,7 +2159,7 @@ stateDiagram-v2
 
 ### 25.7 权限与数据
 
-- **权限点**：`order:read`、`order:create`、`order:review`（确认、取消）、`order:price`（改价和优惠）、`order:payment`（登记和作废收款、退款）、`order:credit`（同意暂欠）、`order:export`、`order:config`（订单设置）、`product:manage`（商品库）、`product:view_cost`（查看和导出成本价）；v0.5 增加 `production:work`（领取订单加工，标记商品完成或缺货，完成订单）和 `production:assign`（指派和改派加工人），以及只有 `production:work` 的系统角色"工人"（§25.11）。
+- **权限点**：`order:read`、`order:create`、`order:review`（确认、取消）、`order:price`（改价和优惠）、`order:payment`（登记和作废收款、退款）、`order:credit`（同意暂欠）、`order:export`、`order:config`（订单设置）、`product:manage`（商品库）、`product:view_cost`（查看和导出成本价）；v0.5 增加 `production:work`（领取订单加工，标记商品完成或缺货，完成订单）和 `production:assign`（指派和改派加工人），以及只有 `production:work` 的系统角色"工人"（§25.11）；v0.6 增加 `inventory:manage`（调整库存：入库、出库、盘点和导入库存，默认给管理员和主管，§25.12）。
 - **数据范围**与客户一致：坐席能看到自己客户的订单和分派给自己的订单；主管能看到本团队的订单；管理员能看到全部。
 - **收货信息**：收货人、电话和地址加密保存，默认掩码。导出时需要再次输入密码，并记审计日志；没有 `customer:view_sensitive` 权限时，导出的是掩码。
 - **成本价**：见 §25.2 的"价格与成本价保护"。
@@ -2174,7 +2180,7 @@ stateDiagram-v2
   - 详情：商品行、金额、收款方式与收款记录、收货信息、依据的对话、动态、修改记录（任意两个版本对比）、关联的待办、跟踪链接。
   - 新建与编辑（改价、改商品、改数量时选择原因）。
 - **工作台**：右栏新增"订单"页签（当前客户的订单、新建订单、AI 预填）；AI 提交订单时，聊天区显示订单卡片和一条内部提示。
-- **商品库**（控制台菜单"商品"）：表格模板下载、上传与预览、商品列表（成本价列按权限显示）、商品缺口。
+- **商品库**（控制台菜单"商品"）：表格模板下载、上传与预览、商品列表（成本价列按权限显示）、商品缺口；v0.6 增加库存列、库存筛选、调整库存和库存记录（§25.12）。
 - **设置 → 订单**：编号前缀、必填项、启用的收款方式和定金规则、是否有发货环节、AI 告知建议零售价（默认开启）、AI 下单（关闭 / 采集并提交审核）、折扣上限、分派规则、通知模板、跟踪链接的有效期、企业系统对接（推送地址、接口密钥）。
 - **加工**（控制台菜单"加工"，v0.5）：工人的待领取、我的加工、已完成，主管另有全部加工中的；手机上按卡片排列（§25.11）。
 - **访客端**：订单跟踪页，以及 Widget 的"我的订单"。
@@ -2240,7 +2246,64 @@ stateDiagram-v2
   - 详情增加"加工人"（指派 / 改派）和"加工完成"时间。
 - **动态**：领取、放弃、指派、商品完成与撤销、缺货与到货、加工完成都写入订单动态。其中加工完成客户可见。加工完成、缺货和到货作为 `order.updated` 推送给企业系统（§25.8）。
 
-**不做的**：本期不做库存。缺货由工人按实际情况登记，不与商品库的库存数量联动。
+**库存**（v0.6，§25.12）：加工页只提示"库存不足"，缺货仍由工人按实际情况登记，不按库存数量自动登记。
+
+### 25.12 库存（v0.6 新增）
+
+目标：商品库记录每个商品的库存数量，可以用 Excel 上传（盘点或入库），发货时自动扣减；库存不够时提示，不拦截。
+
+**确认的决定（2026-09-30）**
+
+1. 发货时扣减库存（没有发货环节的在完成时扣减）。已确认、还没发货的订单算"占用"，页面显示现有、占用、可用；取消的订单不影响库存。
+2. 可用库存不够时只提示、不拦截：确认订单、订单详情和加工页标出"库存不足"；缺货仍由工人登记（§25.11）。
+3. Excel 上传时选择"盘点"（表格里的数就是现有库存）或"入库"（加到现有库存上）。商品表格加"库存"列，也可以只填"代码"和"数量"两列。
+4. AI 接待时只告诉客户"有现货"或"暂时缺货"，不说具体数量。
+
+**数据**
+
+- 商品的现有库存和库存预警值。现有库存为空表示不管理库存，例如服务类商品。
+- 占用 = 已确认、处理中的订单里这个商品的数量；可用 = 现有 − 占用。可用库存不高于预警值（没有预警值时为 0）算库存不足。
+- 库存记录（只追加）：
+  - 每一次变化：导入盘点、导入入库、盘点、入库、出库、不再管理、订单出库、订单取消退回、企业系统同步；
+  - 变化前后的数量、原因和操作人；
+  - 订单出库的记录关联订单号。
+
+**库存怎么变**
+
+- **手动调整**（需要 `inventory:manage`，默认给管理员和主管）：
+  - 入库（增加）、出库（减少，不能超过现有库存）、盘点（改为实际数量）、不再管理；
+  - 每次调整都记审计。
+- **Excel**：
+  - 商品表格的"库存"列按上传时选择的盘点或入库计算；留空的商品不修改库存。"库存预警"列设预警值。
+  - 只有"代码"和"库存"（或"数量"）两列的表格，按代码更新已有商品。
+  - 预览里标出每个商品的库存从多少变为多少；确认时按最新的库存计算。
+  - 没有调整库存权限的人上传时，库存列不导入。只能调整库存、不能维护商品库的人，只能导入已有商品的库存。
+- **订单**：
+  - 发货时出库，没有发货环节的在完成时出库，每张订单只扣一次。
+  - 已出库的订单被企业系统取消时，按出库记录退回。
+  - 发货多于记录的库存时，现有库存可以是负数，提示需要盘点。
+- **企业系统**：
+  - 同步商品时可以带库存和预警值。库存是盘点数，null 表示不再管理。
+  - 数量没变时不写库存记录。
+
+**库存不足提示（不拦截）**
+
+- 已确认的订单按确认的先后依次占用现有库存；排在后面、占不到的订单行标为库存不足。还没确认的订单按可用库存判断。
+- 订单详情的商品行显示可用库存和"库存不足"。确认订单的对话框列出库存不足的商品，仍然可以确认。
+- 加工页：待加工的商品标出"库存不足"，不显示数量；缺货仍由工人登记。
+- 新建订单选择商品时，显示可用库存。
+
+**AI**：查商品的结果和【商品信息】里，管理库存的商品注明"有现货"或"暂时缺货"（按可用库存），不给具体数量。AI 如实告诉客户、不说数量；不管理库存的商品，说"库存以客服确认为准"。
+
+**界面**
+
+- 商品库：
+  - 库存列：可用、现有、占用和"不足"；
+  - 库存筛选（库存不足、管理库存的、不管理库存的），以及"库存不足 N"快捷筛选；
+  - 调整库存、库存记录，商品的"库存预警"。
+- 导入对话框：选择盘点或入库，预览里有库存列。
+
+**不做的**：多仓库、批次和保质期、采购单，以及按库存自动登记缺货或拦截下单（按决定只提示）。
 
 ---
 
@@ -2306,5 +2369,6 @@ stateDiagram-v2
 | v0.2 | 2026-09-28 | 纳入第一轮决策（多租户 SaaS、国内大模型、OpenIM 先用后购、企业微信一客一群场景）。新增 §1 已确认决策、§4 群场景方案对比、§7 多租户设计、§10.5 侧边栏；企业微信改为服务商（代开发）接入；LLM 只接国内模型；更新数据模型、接口、前端、路线图（含上线闸门）、风险和待确认问题 |
 | v0.2.1 | 2026-09-28 | §8.3：OpenIM 的 ID 不接受 "-"，`{t}` 改为租户的 IM 前缀（"-" 写作 "X"）；OpenIM 实测结论记录在实施计划 §7.1 |
 | v0.3 | 2026-09-30 | 新增需求 R9 待办事项、R10 订单管理：新增 §24 待办事项、§25 订单管理（含商品库和企业系统对接）、§26 第三轮待确认问题；相应调整 §0、§1、§2、§5 D5、§6.2、§7.3、§8、§11（新工具、Copilot、护栏）、§13、§15 数据模型、§16 接口、§17 前端、§18、§19.3、§20、§21（新增 P6）和 §22 风险 |
+| v0.6 | 2026-09-30 | 新增 §25.12 库存：现有、占用和可用库存，库存预警，库存记录，手动调整（`inventory:manage`），Excel 导入时选择盘点或入库（可以只有代码和数量两列），发货时出库、已出库的订单被取消时退回，库存不足只提示，AI 只说有没有现货，企业系统同步库存；相应调整 §15、§16、§25.7、§25.9、§25.11 |
 | v0.5 | 2026-09-30 | 新增 §25.11 加工与缺货：工人角色（`production:work`、`production:assign`）、加工页（手机优先）、逐个商品标记完成或缺货、订单中心的"待发货""缺货"视图、"待发货""缺货处理"系统待办；相应调整 §15、§16、§24.2、§25.4、§25.7、§25.9、§25.10 |
 | v0.4 | 2026-09-30 | 纳入第三轮决定（§26）：AI 生成的待办一律进入待确认页；订单增加收款方式与收款记录、应收与催收、修改记录与版本对比、订单跟踪页；商品库改为按用户给出的字段用 Excel 模板上传；AI 只能告知建议零售价，并增加成本价保护；相应调整 §0、§1、§2.2、§11、§15、§16、§17、§18、§19.3、§21、§22 |
