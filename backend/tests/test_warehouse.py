@@ -590,3 +590,49 @@ async def test_excel_categories_units_and_ready_made(desk: Desk) -> None:
     assert rows[2]["action"] == "create"
     assert rows[3]["problems"] == ["商品库里没有这个商品（只能导入已有商品的库存）"]
     assert (rows[4]["action"], rows[4]["stock_after"]) == ("update", 15)
+
+
+async def test_order_edits_void_pending_receipts_and_drafts_skip_received_goods(desk: Desk) -> None:
+    window = await goods(desk, "WIN-01", "铝合金窗")
+    cang = await desk.agent("cang", online=False)
+    wang = await worker(desk, "wang")
+    await call(desk, desk.admin, "PUT", f"{BASE}/settings", keeper_id=str(cang.staff_id))
+    customer_id = await customer(desk)
+    order = await confirmed(desk, customer_id, [(window["id"], 1)])
+    url = f"{PRODUCTION}/orders/{order['id']}"
+
+    async def edit(quantity: int) -> dict[str, Any]:
+        detail = await call(desk, desk.admin, "GET", f"/api/v1/orders/{order['id']}")
+        result: dict[str, Any] = await call(
+            desk, desk.admin, "PATCH", f"/api/v1/orders/{order['id']}",
+            version=detail["version"], reason="customer_request",
+            items=[{"product_id": window["id"], "quantity": quantity}],
+        )  # fmt: skip
+        return result
+
+    # 入库单等仓管确认时客户加了数量：入库单作废，订单回到加工中。
+    await call(desk, wang.headers, "POST", f"{url}/claim")
+    pending = await call(desk, wang.headers, "POST", f"{url}/complete", mark_all=True)
+    receipt_id = pending["receipt"]["id"]
+    edited = await edit(2)
+    assert [i["work_status"] for i in edited["order"]["items"]] == ["pending"]
+    view = await call(desk, wang.headers, "GET", url)
+    assert (view["receipt"], view["documents"]) == (None, [])
+    voided = await call(desk, cang.headers, "GET", f"{BASE}/documents/{receipt_id}")
+    assert (voided["status"], voided["void_reason"]) == ("voided", "订单修改后需要重新加工")
+
+    # 重新完成、仓管确认入库：成品库存 2，订单加工完成。
+    again = await call(desk, wang.headers, "POST", f"{url}/complete", mark_all=True)
+    assert [line["quantity"] for line in (
+        await call(desk, cang.headers, "GET", f"{BASE}/documents/{again['receipt']['id']}")
+    )["lines"]] == [2]  # fmt: skip
+    await call(desk, cang.headers, "POST", f"{BASE}/documents/{again['receipt']['id']}/confirm")
+    assert (await stock_of(desk, window["id"]))[:2] == (2, 2)
+
+    # 加工完成后又加了 1 樘：订单回到加工中，再开入库单时只预填还没入库的 1 樘。
+    more = await edit(3)
+    assert more["order"]["processed_at"] is None
+    draft = await call(
+        desk, wang.headers, "GET", f"{BASE}/drafts?kind=receipt&order_id={order['id']}"
+    )
+    assert [(line["name"], line["quantity"]) for line in draft["lines"]] == [("铝合金窗", 1)]

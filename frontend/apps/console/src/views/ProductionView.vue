@@ -593,7 +593,7 @@ onBeforeUnmount(() => clearInterval(timer))
                 :disabled="acting === order.id"
                 data-testid="production-open-requisition"
                 @click="openRequisition(order)"
-                >{{ needsRequisition(order) ? '开领料单' : '补领材料' }}</el-button
+                >{{ order.documents.some((d) => d.kind === 'requisition') ? '补领材料' : '开领料单' }}</el-button
               >
               <el-button
                 type="success"
