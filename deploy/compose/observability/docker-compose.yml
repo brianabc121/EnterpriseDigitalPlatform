@@ -1,0 +1,46 @@
+# 本地可观测性环境（设计文档 §19.3）：Prometheus（抓取平台三个进程的指标、加载告警规则）、
+# Grafana（预置平台总览看板）与 Jaeger（接收 OTLP 链路）。make obs-up 启动。
+#
+# 平台进程按下面的端口导出指标、上报链路（见 README「可观测性」）：
+#   EDP_METRICS_PORT=9464 make backend-dev   # API
+#   EDP_METRICS_PORT=9465 make worker-dev    # 实时消费
+#   EDP_METRICS_PORT=9466 make scheduler-dev # 调度
+#   以及 EDP_OTEL_ENDPOINT=http://localhost:4318
+# Prometheus http://localhost:9090，Grafana http://localhost:3000（admin / admin），
+# Jaeger http://localhost:16686。
+name: edp-observability
+
+services:
+  prometheus:
+    image: ${EDP_PROMETHEUS_IMAGE:-prom/prometheus:v3.5.0}
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --web.enable-lifecycle
+    ports:
+      - "${EDP_PROMETHEUS_PORT:-9090}:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ../../observability/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  grafana:
+    image: ${EDP_GRAFANA_IMAGE:-grafana/grafana:12.1.1}
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_DEFAULT_LANGUAGE: zh-Hans
+    ports:
+      - "${EDP_GRAFANA_PORT:-3000}:3000"
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ../../observability/grafana:/var/lib/grafana/dashboards/edp:ro
+    depends_on:
+      - prometheus
+
+  jaeger:
+    image: ${EDP_JAEGER_IMAGE:-jaegertracing/all-in-one:1.72.0}
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+    ports:
+      - "${EDP_JAEGER_UI_PORT:-16686}:16686"
+      - "${EDP_OTLP_HTTP_PORT:-4318}:4318"

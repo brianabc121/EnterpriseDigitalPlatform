@@ -1,0 +1,149 @@
+# OpenIM 开发环境（P1 M1）。与平台自身的依赖分开启动：make im-up / make im-down。
+#
+# - 依赖组件只在内部网络可见；宿主机只开放 OpenIM REST（10002）和 WebSocket（10001）。
+# - 回调地址指向宿主机上的后端（make backend-dev 监听 0.0.0.0:8000），路径中带共享密钥，
+#   需要与后端的 EDP_OPENIM_WEBHOOK_SECRET 一致。
+# - 镜像名都可以通过环境变量替换，便于使用内网镜像仓库或镜像加速地址。
+name: edp-im
+
+services:
+  mongo:
+    image: ${EDP_IM_MONGO_IMAGE:-mongo:7.0}
+    command: ["mongod", "--wiredTigerCacheSizeGB", "0.5"]
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: openim
+      MONGO_INITDB_ROOT_PASSWORD: openim-dev
+    volumes:
+      - mongo:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand({ ping: 1 }).ok"]
+      interval: 3s
+      timeout: 5s
+      retries: 40
+
+  redis:
+    image: ${EDP_IM_REDIS_IMAGE:-redis:7-alpine}
+    command: ["redis-server", "--requirepass", "openim-dev", "--appendonly", "yes"]
+    volumes:
+      - redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "openim-dev", "--no-auth-warning", "ping"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  etcd:
+    image: ${EDP_IM_ETCD_IMAGE:-quay.io/coreos/etcd:v3.5.13}
+    environment:
+      ETCD_NAME: s1
+      ETCD_DATA_DIR: /etcd-data
+      ETCD_LISTEN_CLIENT_URLS: http://0.0.0.0:2379
+      ETCD_ADVERTISE_CLIENT_URLS: http://etcd:2379
+      ETCD_LISTEN_PEER_URLS: http://0.0.0.0:2380
+      ETCD_INITIAL_ADVERTISE_PEER_URLS: http://etcd:2380
+      ETCD_INITIAL_CLUSTER: s1=http://etcd:2380
+      ETCD_INITIAL_CLUSTER_TOKEN: edp-im
+      ETCD_INITIAL_CLUSTER_STATE: new
+    volumes:
+      - etcd:/etcd-data
+    healthcheck:
+      test: ["CMD", "etcdctl", "endpoint", "health"]
+      interval: 3s
+      timeout: 5s
+      retries: 30
+
+  kafka:
+    image: ${EDP_IM_KAFKA_IMAGE:-apache/kafka:3.9.1}
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_NUM_PARTITIONS: 8
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_HEAP_OPTS: -Xms256m -Xmx512m
+    volumes:
+      - kafka:/var/lib/kafka/data
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 > /dev/null"]
+      interval: 5s
+      timeout: 15s
+      retries: 30
+
+  # OpenIM 的文件服务（openim-rpc-third）依赖 S3 兼容存储。平台自己的对象存储在 P1 M6 选型。
+  minio:
+    image: ${EDP_IM_MINIO_IMAGE:-bitnamilegacy/minio:2024.1.11}
+    environment:
+      MINIO_ROOT_USER: openim
+      MINIO_ROOT_PASSWORD: openim-dev-secret
+    volumes:
+      - minio:/bitnami/minio/data
+    healthcheck:
+      test: ["CMD", "curl", "-fs", "http://localhost:9000/minio/health/live"]
+      interval: 3s
+      timeout: 5s
+      retries: 30
+
+  openim-server:
+    image: ${EDP_IM_SERVER_IMAGE:-openim/openim-server:v3.8.3}
+    init: true
+    ports:
+      - "${EDP_IM_WS_PORT:-10001}:10001"
+      - "${EDP_IM_API_PORT:-10002}:10002"
+    environment:
+      IMENV_SHARE_SECRET: ${EDP_OPENIM_SECRET:-openim-dev-secret}
+      IMENV_MONGODB_ADDRESS: mongo:27017
+      IMENV_MONGODB_USERNAME: openim
+      IMENV_MONGODB_PASSWORD: openim-dev
+      IMENV_MONGODB_AUTHSOURCE: admin
+      IMENV_REDIS_ADDRESS: redis:6379
+      IMENV_REDIS_PASSWORD: openim-dev
+      IMENV_KAFKA_ADDRESS: kafka:9092
+      IMENV_DISCOVERY_ETCD_ADDRESS: etcd:2379
+      IMENV_MINIO_INTERNALADDRESS: minio:9000
+      IMENV_MINIO_EXTERNALADDRESS: http://localhost:10005
+      IMENV_MINIO_ACCESSKEYID: openim
+      IMENV_MINIO_SECRETACCESSKEY: openim-dev-secret
+      IMENV_LOG_ISSTDOUT: "true"
+      IMENV_LOG_REMAINLOGLEVEL: "3"
+      # 单聊需要好友关系：访客之间、访客与员工之间不能私聊（设计文档 §8.3）
+      IMENV_OPENIM_RPC_MSG_FRIENDVERIFY: "true"
+      # OpenIM 自己保存的聊天记录天数（openim-crontask 每天清理）。平台的消息归档按各租户的保留期清理，
+      # 这里应不长于最短的租户保留期。
+      IMENV_OPENIM_CRONTASK_RETAINCHATRECORDS: ${EDP_IM_RETAIN_DAYS:-365}
+      # 关闭离线推送（默认配置启用个推但没有凭证）。推送服务按分区顺序处理消息，每次给离线用户
+      # 推送都要等一次失败的外部 HTTP 请求，会拖慢排在后面的在线推送（实施计划 §10.1）。
+      # 平台用 Web 端，不需要手机离线推送；以后接入 App 时再按供应商配置。
+      IMENV_OPENIM_PUSH_ENABLE: none
+      IMENV_WEBHOOKS_URL: ${EDP_OPENIM_WEBHOOK_BASE:-http://host.docker.internal:8000/hooks/openim}/${EDP_OPENIM_WEBHOOK_SECRET:-dev-openim-webhook-secret}
+    volumes:
+      - ./webhooks.yml:/openim-server/config/webhooks.yml:ro
+      - ./start-config.yml:/openim-server/start-config.yml:ro
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      mongo: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      etcd: { condition: service_healthy }
+      kafka: { condition: service_healthy }
+      minio: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "sh", "-c", "mage check"]
+      interval: 5s
+      timeout: 60s
+      retries: 30
+      start_period: 20s
+
+volumes:
+  mongo:
+  redis:
+  etcd:
+  kafka:
+  minio:

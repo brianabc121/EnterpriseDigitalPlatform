@@ -1,0 +1,303 @@
+import uuid
+from datetime import datetime
+from enum import StrEnum
+from typing import Any
+
+from sqlalchemy import (
+    BigInteger,
+    ForeignKeyConstraint,
+    Identity,
+    SmallInteger,
+    String,
+    Text,
+    UniqueConstraint,
+    func,
+)
+from sqlalchemy.orm import Mapped, mapped_column
+
+from app.db.base import Base, IdMixin, TenantMixin, TimestampMixin
+
+
+class Room(IdMixin, TimestampMixin, TenantMixin, Base):
+    """客户身份的长期对话容器，对应一个 OpenIM 服务群。"""
+
+    __tablename__ = "rooms"
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "id"),
+        UniqueConstraint("tenant_id", "identity_id"),
+        UniqueConstraint("tenant_id", "im_group_id"),
+        ForeignKeyConstraint(["tenant_id", "customer_id"], ["customers.tenant_id", "customers.id"]),
+        ForeignKeyConstraint(
+            ["tenant_id", "identity_id"],
+            ["customer_identities.tenant_id", "customer_identities.id"],
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "channel_account_id"],
+            ["channel_accounts.tenant_id", "channel_accounts.id"],
+        ),
+    )
+
+    customer_id: Mapped[uuid.UUID]
+    identity_id: Mapped[uuid.UUID]
+    channel_account_id: Mapped[uuid.UUID]
+    im_group_id: Mapped[str] = mapped_column(String(128))
+    # OpenIM 服务群建好的时间；为空表示还没建（访客初始化时补建）。
+    im_ready_at: Mapped[datetime | None]
+    # 对账游标：不大于它的 seq 都已核对过。
+    synced_seq: Mapped[int] = mapped_column(BigInteger, server_default="0")
+    last_message_at: Mapped[datetime | None]
+    last_active_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+
+class Direction(StrEnum):
+    IN = "in"
+    OUT = "out"
+
+
+class SenderType(StrEnum):
+    CUSTOMER = "customer"
+    AGENT = "agent"
+    BOT = "bot"
+    SYSTEM = "system"
+
+
+class MessageSource(StrEnum):
+    WEBHOOK = "webhook"
+    RECONCILE = "reconcile"
+    API = "api"
+    CHANNEL = "channel"  # 从外部渠道（微信客服）拉取的入站消息
+
+
+class Message(IdMixin, TimestampMixin, TenantMixin, Base):
+    """统一的消息归档。
+
+    按 sent_at 按月分区（迁移 0017，主键是 (id, sent_at)）。唯一约束都带着 sent_at：同一条 IM 消息
+    经回调和对账入库时发送时间相同，企业微信消息入库前按 msgid 检查，坐席经 API 发送时用咨询锁。
+    """
+
+    __tablename__ = "messages"
+    __table_args__ = (
+        UniqueConstraint(
+            "tenant_id",
+            "channel_account_id",
+            "channel_msg_id",
+            "sent_at",
+            name="uq_messages_channel_msg",
+        ),
+        UniqueConstraint(
+            "tenant_id", "channel_account_id", "ext_msg_id", "sent_at", name="uq_messages_ext_msg"
+        ),
+        ForeignKeyConstraint(["tenant_id", "room_id"], ["rooms.tenant_id", "rooms.id"]),
+        ForeignKeyConstraint(
+            ["tenant_id", "channel_account_id"],
+            ["channel_accounts.tenant_id", "channel_accounts.id"],
+        ),
+        {"postgresql_partition_by": "RANGE (sent_at)"},
+    )
+
+    room_id: Mapped[uuid.UUID]
+    channel_account_id: Mapped[uuid.UUID]
+    # 所属会话。入库时可能还没有会话，由实时消费进程补上。
+    session_id: Mapped[uuid.UUID | None]
+    direction: Mapped[str] = mapped_column(String(8))
+    sender_type: Mapped[str] = mapped_column(String(16))
+    sender_id: Mapped[uuid.UUID | None]
+    content_type: Mapped[str] = mapped_column(String(16))
+    content: Mapped[dict[str, Any]]
+    text_plain: Mapped[str | None] = mapped_column(Text)
+    channel_msg_id: Mapped[str | None] = mapped_column(String(128))
+    # 外部渠道（微信客服）的消息 ID；channel_msg_id 是服务群里 OpenIM 的消息 ID。
+    ext_msg_id: Mapped[str | None] = mapped_column(String(128))
+    client_msg_id: Mapped[str | None] = mapped_column(String(128))
+    im_seq: Mapped[int | None] = mapped_column(BigInteger)
+    source: Mapped[str] = mapped_column(String(16))
+    sent_at: Mapped[datetime]
+    # 平台经 API 发出的消息：pending → sent / failed；回调和对账入库的消息为空。
+    send_status: Mapped[str | None] = mapped_column(String(16))
+    send_error: Mapped[str | None] = mapped_column(Text)
+
+
+class SendStatus(StrEnum):
+    PENDING = "pending"
+    SENT = "sent"
+    FAILED = "failed"
+
+
+class SessionStatus(StrEnum):
+    AI_SERVING = "ai_serving"
+    QUEUED = "queued"
+    HUMAN_SERVING = "human_serving"
+    TRANSFERRING = "transferring"
+    CLOSED = "closed"
+
+
+OPEN_STATUSES = (
+    SessionStatus.AI_SERVING,
+    SessionStatus.QUEUED,
+    SessionStatus.HUMAN_SERVING,
+    SessionStatus.TRANSFERRING,
+)
+
+
+class CloseReason(StrEnum):
+    AGENT = "agent"  # 坐席结束
+    IDLE_TIMEOUT = "idle_timeout"  # 长时间没有新消息
+    LEAVE_MESSAGE = "leave_message"  # 排队超时或非工作时间，转为留言
+    AI_RESOLVED = "ai_resolved"  # AI 接待结束（P3）
+    VISITOR_CANCEL = "visitor_cancel"  # 客户取消排队，且 AI 不能接待
+
+
+class ChatSession(IdMixin, TimestampMixin, TenantMixin, Base):
+    """会话：Room 中的一次服务过程。同一个 Room 同时只有一个未结束的会话。"""
+
+    __tablename__ = "sessions"
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "id"),
+        ForeignKeyConstraint(["tenant_id", "room_id"], ["rooms.tenant_id", "rooms.id"]),
+        ForeignKeyConstraint(["tenant_id", "customer_id"], ["customers.tenant_id", "customers.id"]),
+        ForeignKeyConstraint(
+            ["tenant_id", "channel_account_id"],
+            ["channel_accounts.tenant_id", "channel_accounts.id"],
+        ),
+        ForeignKeyConstraint(["tenant_id", "assignee_id"], ["staff.tenant_id", "staff.id"]),
+        ForeignKeyConstraint(
+            ["tenant_id", "skill_group_id"], ["skill_groups.tenant_id", "skill_groups.id"]
+        ),
+    )
+
+    room_id: Mapped[uuid.UUID]
+    customer_id: Mapped[uuid.UUID]
+    channel_account_id: Mapped[uuid.UUID]
+    status: Mapped[str] = mapped_column(String(16))
+    assignee_id: Mapped[uuid.UUID | None]
+    skill_group_id: Mapped[uuid.UUID | None]
+    # 排队优先级：数值越大越优先（VIP、投诉等）。
+    priority: Mapped[int] = mapped_column(SmallInteger, server_default="0")
+    queued_at: Mapped[datetime | None]
+    assigned_at: Mapped[datetime | None]
+    first_response_at: Mapped[datetime | None]
+    closed_at: Mapped[datetime | None]
+    close_reason: Mapped[str | None] = mapped_column(String(32))
+    handoff_reason: Mapped[str | None] = mapped_column(String(64))
+    ai_summary: Mapped[str | None] = mapped_column(Text)
+    csat: Mapped[int | None] = mapped_column(SmallInteger)
+    csat_comment: Mapped[str | None] = mapped_column(Text)
+    last_customer_message_at: Mapped[datetime | None]
+    last_agent_message_at: Mapped[datetime | None]
+    # 识别出的意图（按意图分配到技能组）；排队溢出到备用技能组的时间。
+    intent: Mapped[str | None] = mapped_column(String(32))
+    overflowed_at: Mapped[datetime | None]
+
+
+class SessionEvent(IdMixin, TenantMixin, Base):
+    """会话事件流水：创建、排队、分配、转接、结束等，供追溯和报表使用。"""
+
+    __tablename__ = "session_events"
+    __table_args__ = (
+        ForeignKeyConstraint(["tenant_id", "session_id"], ["sessions.tenant_id", "sessions.id"]),
+    )
+
+    session_id: Mapped[uuid.UUID]
+    type: Mapped[str] = mapped_column(String(32))
+    actor_type: Mapped[str] = mapped_column(String(16))
+    actor_id: Mapped[uuid.UUID | None]
+    payload: Mapped[dict[str, Any]] = mapped_column(server_default="{}")
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+
+class ImOpType(StrEnum):
+    INVITE = "invite"  # payload: staff_id, nickname
+    KICK = "kick"  # payload: staff_id
+    NOTICE = "notice"  # payload: text（系统用户发到服务群，客户可见）
+    SIGNAL = "signal"  # payload: staff_id, signal（在线信令，失败不重试）
+    BOT_MESSAGE = "bot_message"  # payload: text, nickname（AI 回复，机器人身份发到服务群）
+    CHANNEL_SEND = "channel_send"  # payload: message_id（投递到外部渠道，成功后镜像到服务群）
+    MIRROR = "mirror"  # payload: message_id（外部渠道的入站消息以客户身份镜像到服务群）
+    TYPING = "typing"  # 智能客服"正在输入"：服务群里的在线信令，不落库，失败不重试
+
+
+class ImOpStatus(StrEnum):
+    PENDING = "pending"
+    DONE = "done"
+    FAILED = "failed"
+
+
+class ImOp(TenantMixin, Base):
+    """待执行的 IM 操作（发件箱）。与业务状态在同一个事务里写入，提交后按 Room 顺序执行。"""
+
+    __tablename__ = "im_ops"
+    __table_args__ = (
+        ForeignKeyConstraint(["tenant_id", "room_id"], ["rooms.tenant_id", "rooms.id"]),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, Identity(always=True), primary_key=True)
+    room_id: Mapped[uuid.UUID]
+    op: Mapped[str] = mapped_column(String(16))
+    payload: Mapped[dict[str, Any]] = mapped_column(server_default="{}")
+    status: Mapped[str] = mapped_column(String(16), server_default=ImOpStatus.PENDING.value)
+    attempts: Mapped[int] = mapped_column(server_default="0")
+    next_attempt_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    last_error: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    done_at: Mapped[datetime | None]
+
+
+class TransferStatus(StrEnum):
+    PENDING = "pending"  # 等待目标坐席接受
+    ACCEPTED = "accepted"
+    REJECTED = "rejected"
+    EXPIRED = "expired"  # 超时未接受，会话留在原坐席
+    CANCELLED = "cancelled"  # 发起人撤回，或会话已结束
+    COMPLETED = "completed"  # 转给技能组或强制转接，立即生效
+
+
+class SessionTransfer(IdMixin, TimestampMixin, TenantMixin, Base):
+    """会话转接记录（设计文档 §14.2）。"""
+
+    __tablename__ = "session_transfers"
+    __table_args__ = (
+        ForeignKeyConstraint(["tenant_id", "session_id"], ["sessions.tenant_id", "sessions.id"]),
+        ForeignKeyConstraint(["tenant_id", "from_staff_id"], ["staff.tenant_id", "staff.id"]),
+        ForeignKeyConstraint(["tenant_id", "to_staff_id"], ["staff.tenant_id", "staff.id"]),
+        ForeignKeyConstraint(
+            ["tenant_id", "to_group_id"], ["skill_groups.tenant_id", "skill_groups.id"]
+        ),
+    )
+
+    session_id: Mapped[uuid.UUID]
+    from_staff_id: Mapped[uuid.UUID | None]
+    to_staff_id: Mapped[uuid.UUID | None]
+    to_group_id: Mapped[uuid.UUID | None]
+    note: Mapped[str | None] = mapped_column(Text)
+    forced: Mapped[bool] = mapped_column(server_default="false")
+    transfer_ownership: Mapped[bool] = mapped_column(server_default="false")
+    status: Mapped[str] = mapped_column(String(16), server_default=TransferStatus.PENDING.value)
+    expires_at: Mapped[datetime | None]
+    decided_at: Mapped[datetime | None]
+    created_by: Mapped[uuid.UUID | None]
+
+
+class WatcherRole(StrEnum):
+    MONITOR = "monitor"  # 主管旁听：只看，客户看不到
+    ASSIST = "assist"  # 邀请协助：可以发言
+
+
+class SessionWatcher(TenantMixin, Base):
+    """加入服务群旁听或协助的员工（设计文档 §8.3、§14.1）。left_at 不为空表示已经退出。"""
+
+    __tablename__ = "session_watchers"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["tenant_id", "session_id"], ["sessions.tenant_id", "sessions.id"], ondelete="CASCADE"
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "staff_id"], ["staff.tenant_id", "staff.id"], ondelete="CASCADE"
+        ),
+    )
+
+    session_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    staff_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    role: Mapped[str] = mapped_column(String(16))
+    invited_by: Mapped[uuid.UUID | None]
+    joined_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    left_at: Mapped[datetime | None]

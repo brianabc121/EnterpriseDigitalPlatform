@@ -1,0 +1,18 @@
+# 平台只启用下面两个回调，其余保持关闭（未列出的项默认关闭）。
+# url 由 docker-compose.yml 中的 IMENV_WEBHOOKS_URL 覆盖；OpenIM 会在其后拼接 /<callbackCommand>。
+url: http://host.docker.internal:8000/hooks/openim/dev-openim-webhook-secret
+
+# 群消息发送后回调：异步投递、失败不重试，平台另有按 seq 对账兜底。
+afterSendGroupMsg:
+  enable: true
+  timeout: 5
+  attentionIds: []
+  allowedTypes: []
+  # 群通知（建群、进群、退群等）不回调
+  deniedTypes: ["1000-5000"]
+
+# 建群前回调：只允许平台建立服务群（群主必须是租户系统用户）。平台不可用时拒绝建群。
+beforeCreateGroup:
+  enable: true
+  timeout: 5
+  failedContinue: false

@@ -1,0 +1,138 @@
+"""访客端操作：满意度评价、留言、请求人工、上传文件。"""
+
+from datetime import UTC, datetime, timedelta
+from uuid import UUID
+
+from sqlalchemy import select
+
+from app.context import AppContext
+from app.core.errors import Conflict, NotFound, Unprocessable
+from app.core.ratelimit import Limit, RateLimiter
+from app.modules.ai import feedback
+from app.modules.conversation.models import ChatSession, Room, SessionStatus
+from app.modules.files import service as files
+from app.modules.sessions import collab, engine
+from app.modules.tenancy.models import Tenant
+from app.modules.todos import service as todos
+from app.modules.visitor.deps import VisitorContext
+from app.modules.visitor.schemas import AiFeedbackRequest, CsatRequest, LeaveMessageRequest
+
+CSAT_WINDOW = timedelta(days=7)
+LEAVE_MESSAGE_LIMIT = Limit("visitor-ticket", 5, 3600)
+UPLOAD_LIMIT = Limit("visitor-upload", 30, 3600)
+
+
+async def _room(visitor: VisitorContext) -> Room:
+    room = await visitor.session.scalar(
+        select(Room).where(Room.identity_id == visitor.claims.identity_id)
+    )
+    if room is None:
+        raise NotFound("会话不存在")
+    return room
+
+
+async def rate(visitor: VisitorContext, payload: CsatRequest) -> None:
+    """对已结束的会话评价一次（结束后 7 天内）。"""
+    room = await _room(visitor)
+    chat = await visitor.session.scalar(
+        select(ChatSession)
+        .where(ChatSession.id == payload.session_id, ChatSession.room_id == room.id)
+        .with_for_update()
+    )
+    if chat is None:
+        raise NotFound("会话不存在")
+    if chat.status != SessionStatus.CLOSED or chat.closed_at is None:
+        raise Conflict("会话结束后才能评价")
+    if chat.csat is not None:
+        raise Conflict("已经评价过了")
+    if chat.closed_at < datetime.now(UTC) - CSAT_WINDOW:
+        raise Conflict("评价已过期")
+    chat.csat = payload.score
+    chat.csat_comment = payload.comment or None
+    engine.record_event(
+        visitor.session,
+        chat,
+        "csat",
+        actor_type=engine.ActorType.VISITOR,
+        payload={"score": payload.score},
+    )
+    await visitor.session.commit()
+
+
+async def rate_ai_answer(visitor: VisitorContext, payload: AiFeedbackRequest) -> None:
+    """评价智能客服的一条回答（有用 / 没用，可以改）。"""
+    room = await _room(visitor)
+    await feedback.rate_answer(visitor.session, room.id, payload.server_msg_id, payload.value)
+
+
+async def leave_message(
+    ctx: AppContext, visitor: VisitorContext, limiter: RateLimiter, payload: LeaveMessageRequest
+) -> None:
+    """访客留言：生成"留言"类待办（直接进入待办列表），按规则分派给归属坐席或渠道默认技能组。"""
+    await limiter.check(LEAVE_MESSAGE_LIMIT, str(visitor.claims.identity_id))
+    session = visitor.session
+    room = await _room(visitor)
+    latest = await session.scalar(
+        select(ChatSession.id)
+        .where(ChatSession.room_id == room.id)
+        .order_by(ChatSession.created_at.desc())
+        .limit(1)
+    )
+    await todos.leave_message(
+        session,
+        tenant_id=room.tenant_id,
+        customer_id=room.customer_id,
+        session_id=latest,
+        origin="visitor",
+        detail=payload.content,
+        channel_account_id=room.channel_account_id,
+        contact=payload.contact or None,
+        keys=ctx.keys,
+    )
+    await session.commit()
+
+
+async def request_human(ctx: AppContext, visitor: VisitorContext) -> None:
+    room = await _room(visitor)
+    await visitor.session.commit()
+    await engine.request_handoff(
+        ctx,
+        visitor.claims.tenant_id,
+        room.id,
+        reason="visitor_request",
+        actor_type=engine.ActorType.VISITOR,
+    )
+
+
+async def cancel_queue(ctx: AppContext, visitor: VisitorContext) -> None:
+    room = await _room(visitor)
+    await visitor.session.commit()
+    await collab.cancel_queue(ctx, visitor.claims.tenant_id, room.id)
+
+
+async def tenant_code(visitor: VisitorContext, tenant_id: UUID) -> str:
+    code = await visitor.session.scalar(select(Tenant.code).where(Tenant.id == tenant_id))
+    if code is None:
+        raise NotFound("租户不存在")
+    return code
+
+
+async def new_upload(
+    ctx: AppContext,
+    visitor: VisitorContext,
+    limiter: RateLimiter,
+    *,
+    filename: str,
+    content_type: str,
+    size: int,
+) -> files.UploadTicket:
+    await limiter.check(UPLOAD_LIMIT, str(visitor.claims.identity_id))
+    if size <= 0:
+        raise Unprocessable("文件为空")
+    return files.new_upload(
+        ctx.settings,
+        tenant_code=await tenant_code(visitor, visitor.claims.tenant_id),
+        filename=filename,
+        content_type=content_type,
+        size=size,
+    )

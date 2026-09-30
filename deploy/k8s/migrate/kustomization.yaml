@@ -1,0 +1,12 @@
+# 数据库迁移（alembic upgrade head）：每次发布新版本前运行一次，完成后再更新各进程。
+# Job 的内容不能修改，重新运行前先删除上一次的 Job（见 overlays/production/migrate）。
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+labels:
+  - pairs:
+      app.kubernetes.io/part-of: edp
+    includeSelectors: false
+
+resources:
+  - job.yaml

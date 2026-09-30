@@ -1,0 +1,13 @@
+# 按环境修改的对外地址（与 ingress.yaml 的域名一致）。
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: edp-config
+data:
+  EDP_OTEL_ENDPOINT: http://otel-collector.observability:4318
+  EDP_PUBLIC_API_URL: https://api.edp.example.com
+  EDP_CONSOLE_PUBLIC_URL: https://console.edp.example.com
+  EDP_WIDGET_PUBLIC_URL: https://widget.edp.example.com
+  EDP_CORS_ORIGINS: '["https://console.edp.example.com","https://admin.edp.example.com","https://widget.edp.example.com"]'
+  EDP_OPENIM_PUBLIC_API_URL: https://im.edp.example.com/api
+  EDP_OPENIM_PUBLIC_WS_URL: wss://im.edp.example.com/msg_gateway

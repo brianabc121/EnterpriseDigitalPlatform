@@ -1,0 +1,314 @@
+# 平台告警规则（设计文档 §19.3）：排队超时、LLM 错误率升高、回调积压、对账差异过大、
+# 企业微信凭证失效、租户用量异常，服务、发件箱、死信和调度任务，以及待办与订单的积压和
+# 向企业系统推送失败。
+#
+# 指标由各进程在 EDP_METRICS_PORT 上导出（backend/app/observability/metrics.py）；排队、坐席、
+# 发件箱、事件积压等状态类指标只由持有调度租约的调度进程导出（state.py）。
+# 抓取任务名约定为 edp-api、edp-worker、edp-scheduler（deploy/k8s 的 ServiceMonitor 按此设置）。
+# 修改后运行：docker run --rm -v "$PWD/deploy/observability/prometheus:/rules" \
+#   --entrypoint promtool prom/prometheus check rules /rules/alerts.yml
+# deploy/k8s/monitoring/prometheus-rule.yaml 必须与本文件的 groups 一致（后端测试会检查）。
+groups:
+  - name: edp-service
+    rules:
+      - alert: EdpTargetDown
+        expr: up{job=~"edp-.*"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "{{ $labels.job }} 的实例 {{ $labels.instance }} 无法抓取"
+          description: "进程不在运行或指标端口不可达，检查 Pod 状态与日志。"
+      - alert: EdpWorkerMissing
+        expr: sum(up{job="edp-worker"}) == 0 or absent(up{job="edp-worker"})
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "没有实时消费进程在运行"
+          description: "消息不会归入会话，排队与 AI 接待都会停止。"
+      - alert: EdpSchedulerMissing
+        expr: absent(edp_job_last_success_timestamp_seconds{task="im-ops"})
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "没有调度进程在执行任务"
+          description: "对账、会话超时、发件箱重试等周期任务都已停止。"
+      - alert: EdpApiErrorRateHigh
+        expr: |
+          sum(rate(edp_http_requests_total{status=~"5.."}[5m]))
+            / clamp_min(sum(rate(edp_http_requests_total[5m])), 0.001) > 0.05
+          and sum(increase(edp_http_requests_total[5m])) > 50
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "API 5xx 比例 {{ $value | humanizePercentage }}"
+          description: "最近 5 分钟服务端错误超过 5%。"
+      - alert: EdpApiLatencyHigh
+        expr: |
+          histogram_quantile(0.95,
+            sum by (le) (rate(edp_http_request_duration_seconds_bucket[5m]))) > 1
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "API P95 延迟 {{ $value | humanizeDuration }}"
+          description: "最近 10 分钟 API 的 P95 延迟超过 1 秒。"
+
+  - name: edp-queue
+    rules:
+      - alert: EdpQueueWaitTooLong
+        expr: max by (tenant) (edp_queue_oldest_wait_seconds) > 300
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "租户 {{ $labels.tenant }} 有会话排队超过 5 分钟"
+          description: "排队最久的会话已等待 {{ $value | humanizeDuration }}，检查坐席在线与接待上限。"
+      - alert: EdpQueueTimeouts
+        expr: sum by (tenant) (increase(edp_queue_timeouts_total[15m])) >= 5
+        labels:
+          severity: warning
+        annotations:
+          summary: "租户 {{ $labels.tenant }} 15 分钟内 {{ $value }} 个会话排队超时转留言"
+          description: "客户等不到人工，已转为留言。"
+      - alert: EdpQueueWithoutAgents
+        expr: |
+          max by (tenant) (edp_queue_length) > 0
+          unless on (tenant) max by (tenant) (edp_agents_online) > 0
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "租户 {{ $labels.tenant }} 有排队但没有坐席在线"
+          description: "工作时间内排队 10 分钟没有在线坐席。"
+
+  - name: edp-ai
+    rules:
+      - alert: EdpLlmErrorRateHigh
+        expr: |
+          sum by (tenant) (rate(edp_llm_calls_total{status!="ok"}[10m]))
+            / sum by (tenant) (rate(edp_llm_calls_total[10m])) > 0.2
+          and sum by (tenant) (increase(edp_llm_calls_total[10m])) >= 5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "租户 {{ $labels.tenant }} 大模型调用失败率 {{ $value | humanizePercentage }}"
+          description: "失败时 AI 接待会转人工；检查供应商状态、额度与并发上限（status=busy 表示排队超时）。"
+      - alert: EdpLlmLatencyHigh
+        expr: |
+          histogram_quantile(0.95,
+            sum by (le, scene) (rate(edp_llm_call_seconds_bucket[10m]))) > 15
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "大模型 {{ $labels.scene }} 场景 P95 延迟 {{ $value | humanizeDuration }}"
+          description: "AI 首次回复的目标是 P95 < 8 秒。"
+      - alert: EdpAiHandoffRateHigh
+        expr: |
+          sum by (tenant) (increase(edp_ai_handoffs_total[1h]))
+            / (sum by (tenant) (increase(edp_ai_handoffs_total[1h]))
+               + sum by (tenant) (increase(edp_sessions_closed_total{served_by="ai"}[1h]))) > 0.6
+          and sum by (tenant) (increase(edp_ai_handoffs_total[1h])) >= 20
+        for: 30m
+        labels:
+          severity: info
+        annotations:
+          summary: "租户 {{ $labels.tenant }} AI 转人工率 {{ $value | humanizePercentage }}"
+          description: "知识可能不足或模型异常，查看知识缺口与 AI 判定原因。"
+
+  - name: edp-pipeline
+    rules:
+      - alert: EdpEventBacklog
+        expr: sum(edp_event_backlog) > 1000
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "事件流积压 {{ $value }} 条"
+          description: "实时消费跟不上回调与消息，检查实时消费进程与数据库。"
+      - alert: EdpEventDelayHigh
+        expr: |
+          histogram_quantile(0.95,
+            sum by (le) (rate(edp_event_delay_seconds_bucket[5m]))) > 10
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "事件从发布到处理的 P95 延迟 {{ $value | humanizeDuration }}"
+          description: "消息归入会话、排队分配变慢。"
+      - alert: EdpDeadLetters
+        expr: sum by (type) (increase(edp_dead_letters_total[15m])) > 0
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.type }} 事件处理失败进入死信（15 分钟内 {{ $value }} 条）"
+          description: "在运营后台「运维 → 死信与发件箱」查看错误并重新处理。"
+      - alert: EdpWebhookDelayHigh
+        expr: |
+          histogram_quantile(0.95,
+            sum by (le) (rate(edp_webhook_delay_seconds_bucket{source="openim"}[5m]))) > 5
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "OpenIM 回调 P95 延迟 {{ $value | humanizeDuration }}"
+          description: "消息发出后很久才回调到平台，检查 OpenIM 与网络。"
+      - alert: EdpReconcileRecoveredHigh
+        expr: sum by (tenant) (increase(edp_reconcile_recovered_total[15m])) > 20
+        labels:
+          severity: warning
+        annotations:
+          summary: "租户 {{ $labels.tenant }} 15 分钟内对账补录 {{ $value }} 条消息"
+          description: "OpenIM 回调在丢失，检查回调地址与 OpenIM 日志。"
+      - alert: EdpOutboxStuck
+        expr: max(edp_im_ops_oldest_pending_seconds) > 600
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "IM 发件箱有操作超过 10 分钟没有执行成功"
+          description: "拉人、提示或 AI 回复没有送达，检查 OpenIM 与企业微信接口。"
+      - alert: EdpOutboxFailures
+        expr: sum by (tenant) (increase(edp_im_ops_total{outcome="failed"}[15m])) > 10
+        labels:
+          severity: warning
+        annotations:
+          summary: "租户 {{ $labels.tenant }} 15 分钟内 {{ $value }} 个 IM 操作最终失败"
+          description: "在运营后台「运维 → 死信与发件箱」查看错误并重试。"
+
+  - name: edp-wecom
+    rules:
+      - alert: EdpWecomAuthCancelled
+        expr: max by (tenant) (edp_wecom_auth_invalid) > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "租户 {{ $labels.tenant }} 的企业微信授权已取消"
+          description: "微信客服与客户联系不可用，需要企业管理员重新授权。"
+      - alert: EdpWecomCredentialErrors
+        expr: |
+          sum by (api) (increase(edp_wecom_api_errors_total{errcode=~"40001|40014|40082|40084|40085|48001"}[15m])) > 5
+        labels:
+          severity: warning
+        annotations:
+          summary: "企业微信接口 {{ $labels.api }} 持续返回凭证类错误"
+          description: "凭证失效或权限不足，检查服务商配置、永久授权码和应用权限。"
+      - alert: EdpWecomUnavailable
+        expr: sum(increase(edp_wecom_api_errors_total{errcode="-1"}[10m])) > 20
+        labels:
+          severity: warning
+        annotations:
+          summary: "企业微信接口不可达或系统繁忙"
+          description: "10 分钟内 {{ $value }} 次网络或服务端故障，消息会在恢复后补发。"
+
+  - name: edp-tenant
+    rules:
+      - alert: EdpTenantMessageSpike
+        expr: |
+          sum by (tenant) (rate(edp_messages_total[1h]))
+            > 3 * sum by (tenant) (rate(edp_messages_total[1h] offset 1d))
+          and sum by (tenant) (increase(edp_messages_total[1h])) > 500
+        for: 30m
+        labels:
+          severity: info
+        annotations:
+          summary: "租户 {{ $labels.tenant }} 消息量是昨天同一时段的 3 倍以上"
+          description: "可能是营销活动或刷量，关注额度与坐席排班。"
+      - alert: EdpTenantLlmCostSpike
+        expr: |
+          sum by (tenant) (increase(edp_llm_cost_fen_total[1h]))
+            > 3 * sum by (tenant) (increase(edp_llm_cost_fen_total[1h] offset 1d))
+          and sum by (tenant) (increase(edp_llm_cost_fen_total[1h])) > 1000
+        for: 30m
+        labels:
+          severity: info
+        annotations:
+          summary: "租户 {{ $labels.tenant }} 大模型费用是昨天同一时段的 3 倍以上"
+          description: "最近 1 小时约 {{ $value }} 分。"
+      - alert: EdpTenantRateLimited
+        expr: sum by (tenant, rule) (increase(edp_rate_limited_total[10m])) > 100
+        labels:
+          severity: info
+        annotations:
+          summary: "租户 {{ $labels.tenant }} 触发限流 {{ $labels.rule }}"
+          description: "10 分钟内 {{ $value }} 次，确认是否需要调整该租户的限额。"
+
+  - name: edp-database
+    rules:
+      - alert: EdpMessagePartitionsMissing
+        expr: max(edp_message_partitions_ahead) < 1
+        for: 1h
+        labels:
+          severity: warning
+        annotations:
+          summary: "下个月的消息分区还没有建好"
+          description: "调度任务 partitions 每小时建好本月和之后 3 个月的分区，检查它的日志。"
+      - alert: EdpMessagesInDefaultPartition
+        expr: max(edp_message_default_partition_rows) > 0
+        for: 2h
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $value }} 条消息落进了默认分区"
+          description: "没有对应月份的分区；建好分区时会自动搬走，持续存在说明发送时间异常或分区任务失败。"
+
+  - name: edp-jobs
+    rules:
+      - alert: EdpJobFailing
+        expr: sum by (task) (increase(edp_job_runs_total{outcome="error"}[30m])) >= 3
+        labels:
+          severity: warning
+        annotations:
+          summary: "调度任务 {{ $labels.task }} 连续失败"
+          description: "30 分钟内失败 {{ $value }} 次，查看调度进程日志。"
+      - alert: EdpJobStale
+        expr: |
+          time() - max by (task) (edp_job_last_success_timestamp_seconds)
+            > 3 * max by (task) (edp_job_interval_seconds) + 300
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "调度任务 {{ $labels.task }} 长时间没有成功执行"
+          description: "上次成功是 {{ $value | humanizeDuration }} 前。"
+
+  - name: edp-todos-orders
+    rules:
+      - alert: EdpTodoPendingBacklog
+        expr: max by (tenant) (edp_todos_pending) > 50
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: "租户 {{ $labels.tenant }} 有 {{ $value }} 条待确认的待办"
+          description: "AI 生成的待办长时间没有人确认：检查确认人是否在线、待办类型的分派规则是否正确。"
+      - alert: EdpTodoOverdueBacklog
+        expr: max by (tenant) (edp_todos_overdue) > 20
+        for: 1h
+        labels:
+          severity: warning
+        annotations:
+          summary: "租户 {{ $labels.tenant }} 有 {{ $value }} 条待办已逾期"
+          description: "逾期待办持续积压，提醒租户主管处理或调整时限。"
+      - alert: EdpOrderReviewBacklog
+        expr: max by (tenant) (edp_orders_pending_review_oldest_seconds) > 7200
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "租户 {{ $labels.tenant }} 有订单等待审核超过 {{ $value | humanizeDuration }}"
+          description: "订单提交后长时间没有审核：检查订单审核待办的处理人是否在线。"
+      - alert: EdpWebhookDeliveriesDead
+        expr: max by (tenant) (edp_webhook_deliveries{state="dead"}) > 0
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "租户 {{ $labels.tenant }} 有 {{ $value }} 条向企业系统的推送已停止重试"
+          description: "推送地址多次失败：在「设置 → 企业系统对接」或运营后台「运维 → 企业系统推送」查看原因并重发。"

@@ -1,0 +1,16 @@
+# 数据库迁移 Job：
+#   kubectl -n edp delete job edp-migrate --ignore-not-found
+#   kubectl apply -k deploy/k8s/overlays/production/migrate
+#   kubectl -n edp wait --for=condition=complete job/edp-migrate --timeout=30m
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: edp
+
+resources:
+  - ../../../migrate
+
+images:
+  - name: edp-backend
+    newName: registry.example.com/edp/backend
+    newTag: "1.0.0"

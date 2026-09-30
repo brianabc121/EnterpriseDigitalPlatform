@@ -1,0 +1,25 @@
+{
+  "name": "@edp/ui",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "vue-tsc --noEmit",
+    "test": "vitest run",
+    "build": "vue-tsc --noEmit"
+  },
+  "peerDependencies": {
+    "vue": "^3.5.43"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^6.0.9",
+    "typescript": "~5.9.3",
+    "vite": "^8.3.1",
+    "vitest": "^5.0.2",
+    "vue": "^3.5.43",
+    "vue-tsc": "^3.3.11"
+  }
+}

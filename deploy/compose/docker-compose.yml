@@ -1,0 +1,53 @@
+# 开发环境依赖：PostgreSQL（含 pgvector）、Redis 与对象存储（MinIO）。
+# OpenIM 单独启动，见 openim/docker-compose.yml（make im-up）。
+name: edp
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg17
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: edp
+    ports:
+      - "${EDP_PG_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d edp"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "${EDP_REDIS_PORT:-6379}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  # 平台自己的对象存储（S3 兼容），保存聊天中的图片和文件；与 OpenIM 自带的 MinIO 相互独立。
+  # 生产环境使用云厂商的 S3 兼容对象存储，见实施计划 §12。启动时自动创建 edp-files 桶。
+  minio:
+    image: ${EDP_MINIO_IMAGE:-bitnamilegacy/minio:2024.1.11}
+    environment:
+      MINIO_ROOT_USER: edp
+      MINIO_ROOT_PASSWORD: edp-dev-storage-secret
+      MINIO_DEFAULT_BUCKETS: edp-files
+    ports:
+      - "${EDP_MINIO_PORT:-9000}:9000"
+    volumes:
+      - minio:/bitnami/minio/data
+    healthcheck:
+      test: ["CMD", "curl", "-fs", "http://localhost:9000/minio/health/live"]
+      interval: 3s
+      timeout: 5s
+      retries: 30
+
+volumes:
+  pgdata:
+  minio:
