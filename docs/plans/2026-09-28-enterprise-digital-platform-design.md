@@ -1,7 +1,7 @@
 # 企业数字化转型平台 · 全渠道智能客服 设计文档
 
-> 状态：草案 v0.8（v0.3 增加待办事项与订单管理；v0.4 纳入第三轮决定；v0.5 增加加工与工人角色；v0.6 增加库存；v0.7 增加仓库：材料与成品、领料单与入库单；v0.8 重做开单界面，增加修改历史，待评审）
-> 日期：2026-09-28（v0.3–v0.8 更新于 2026-09-30）
+> 状态：草案 v0.9（v0.3 增加待办事项与订单管理；v0.4 纳入第三轮决定；v0.5 增加加工与工人角色；v0.6 增加库存；v0.7 增加仓库：材料与成品、领料单与入库单；v0.8 重做开单界面，增加修改历史；v0.9 增加接口传输加密和按岗位的控制台，待评审）
+> 日期：2026-09-28（v0.3–v0.9 更新于 2026-09-30）
 > 范围：需求 R1–R8 的整体架构、关键决策与分期方案。本文确认后，再按阶段拆解实施计划。
 > 修订记录见附录 B。
 
@@ -1289,7 +1289,7 @@ sequenceDiagram
 | | `tenant_keys` | key_ref, wrapped_key（信封加密） |
 | | `platform_users`（平台级） | 运营人员账号，与租户员工分开 |
 | 组织与权限 | `staff` | name, email, phone_enc, password_hash, wecom_userid, im_user_id, status |
-| | `roles` / `role_permissions` / `staff_roles` | 用权限点组合出角色 |
+| | `roles` / `role_permissions` / `staff_roles` | 用权限点组合出角色；`roles.console`（v0.9，§25.15）：自定义角色选择的岗位 |
 | | `teams` / `skill_groups` / `skill_group_members` | 主管团队、技能组 |
 | | `agent_settings` | staff_id, max_concurrency, status(online/busy/away/offline), status_changed_at |
 | 客户 | `customers` | display_name, avatar, phone_enc, email, company, level, owner_id, owner_since, custom_fields(jsonb), lead_fields(jsonb), first_contact_at, last_contact_at |
@@ -1339,6 +1339,7 @@ sequenceDiagram
 | | `order_revisions` | order_id, version, kind(created/edit/status/payment), actor_type(ai/staff/system/api), actor_id, reason(customer_request/ai_error/price_adjust/substitution/other), note, changes(jsonb), snapshot(jsonb)（只追加，不修改） |
 | | `order_events` | order_id, type(submitted/api_created/updated/confirmed/started/shipped/completed/cancelled/paid/refunded/payment_voided/customer_notified/link_regenerated/collection_due/claimed/released/worker_assigned/item_done/item_reopened/shortage/restocked/processed/reprocess…), actor_type, actor_id, payload(jsonb), public（客户在跟踪页能看到的动态） |
 | | `tenant_settings.orders`（jsonb） | 编号前缀、必填信息、启用的收款方式和定金尾款规则、发货环节、AI 告知建议零售价、AI 下单与每日上限、草稿跟进、数量与优惠上限、跟踪链接保留天数 |
+| | `tenant_settings.console`（jsonb，v0.9，§25.15） | 除管理员以外每个岗位显示的菜单（没有调整时用默认值） |
 | | `ai_security_events` | kind(price_probe/reply_blocked), session_id, customer_id, detail(jsonb) |
 | 开放接口（v0.3） | `api_keys` | name, prefix（`edp_<prefix>_…` 里用于查找和显示的部分，唯一）, key_hash（SHA-256，完整密钥只在创建时显示一次）, scopes(products:write/orders:read/orders:write/todos:write), last_used_at, revoked_at |
 | | `webhook_endpoints` | name, url, secret_enc（签名密钥，租户数据密钥加密）, events（订阅的事件）, enabled |
@@ -1401,6 +1402,10 @@ GET    /api/v1/warehouse/orders?q=                  # 在仓库开领料单时�
 GET    /api/v1/warehouse/categories?kind=           # 成品或材料的分类（开单时"批量选择"按分类筛选，v0.8）
 GET    /api/v1/history/{record_type}/{record_id}    # 一条记录的修改历史：每个版本的内容和与上一版本的差异（v0.8；能看到这条记录的员工，已删除的需要 audit:read）
 GET    /api/v1/history?type=&action=&actor_id=&start=&end=&q=&cursor=   # 全部修改历史，新的在前（audit:read；action=create/delete/change）
+GET    /api/v1/transport/key                        # 传输加密的服务器公钥（v0.9，§25.15；生产环境的前端在构建时写入）
+POST   /api/v1/transport/handshake                  # 传输加密握手：浏览器的一次性公钥 → 会话号、服务器的一次性公钥、过期时间、签名（按 IP 限流）
+GET    /api/v1/tenant/console                       # 每个岗位显示的菜单（v0.9，settings:manage）
+PUT    /api/v1/tenant/console
 POST   /api/v1/products/imports                     # 导入商品表格，stock_mode=set（盘点）|add（入库）
 POST   /api/v1/orders/extract                       # 从选中的消息或粘贴的文字预填（不落库）
 POST   /api/v1/orders/export                        # 导出（再次输入密码）
@@ -1522,6 +1527,7 @@ POST   /hooks/wecom/{callbackType}                  # 指令回调：授权变�
 - **密钥**：
   - 包括 OpenIM 管理员密钥、企业微信服务商凭证与各企业的永久授权码、模型 API Key。
   - 统一放在密钥管理系统中（K8s Secret + 外部 KMS/Vault）。数据库里只存引用或加密值，租户凭证用租户级密钥加密。
+- **传输加密**（v0.9，§25.15）：控制台、Widget、运营后台的接口请求和响应在 HTTPS 之外再用 ECDH 握手 + AES-256-GCM 加密，防重放、防篡改；生产环境强制。
 - **网络**：
   - OpenIM 的 Webhook 只在内网可达，并附带共享密钥。
   - 企业微信回调需要验签和解密。
@@ -2469,6 +2475,79 @@ stateDiagram-v2
 
 **不做的**：恢复到某个历史版本（订单和单据会影响库存和收款，改回去要走正常的修改和审核，这样每次改动也都有自己的版本；删除的商品可以照着删除前的内容重新新建）、给版本命名、客户和员工资料的修改历史（这些操作记在"系统日志"里）。
 
+### 25.15 接口传输加密与按岗位的控制台（v0.9 新增）
+
+目标：
+
+1. 控制台、访客 Widget、运营后台和后端之间的接口数据，在 HTTPS 之外再加一层应用层加密：中间环节（企业网关或代理做 HTTPS 检查、CDN 或负载均衡记录请求内容、电脑上装了抓包工具的根证书）即使解开了 HTTPS，看到的也只是密文；浏览器开发者工具"网络"里的请求和响应也是密文；截获的请求不能重放，改动任何一个字节都会被拒绝。
+2. 同一个企业里客服、仓管、工人、管理员看到的控制台不一样：只显示和岗位有关的菜单和首页，和岗位无关的功能直接不显示。
+
+#### 25.15.1 接口传输加密
+
+**能防什么、不能防什么**
+
+- 能防：HTTPS 在中间被解开时，请求和响应（包括访问令牌、密码、客户资料、搜索的手机号）仍是密文，不会出现在网关、代理、CDN 的日志里；截获的请求不能重放，也不能挪到别的接口用；密文被改动会被拒绝。
+- 不能防：能在浏览器里运行代码的人（用户本人打开调试器、恶意浏览器插件、页面被 XSS）看得到解密后的数据，任何前端加密都做不到；能改写下发给浏览器的前端代码的人可以换掉整套逻辑，所以仍然必须用 HTTPS，生产环境的服务器公钥在构建前端时写进代码。
+- 不在范围内：
+  - 聊天消息走 OpenIM 的 WebSocket（wss），文件上传下载直连对象存储（预签名链接），由 TLS 保护。
+  - 刷新令牌在 httpOnly Cookie 里（浏览器自动带上，脚本读不到），由 HTTPS、SameSite 和刷新令牌轮换保护。
+  - 服务器之间的调用：企业系统接口（`/open/v1`，接口密钥和签名）、企业微信和 OpenIM 的回调（企业微信的回调本身是 AES 加密的）。
+  - 浏览器直接打开的链接：带签名的文件链接、企业微信授权的跳转。
+
+**方案**
+
+- **服务器签名密钥**：一对长期的 ECDSA P-256 密钥（`EDP_TRANSPORT_SIGNING_KEY`，PEM，生产环境必须配置；开发和测试环境没有配置时由 `EDP_DATA_ENCRYPTION_KEY` 派生）。公钥在构建前端时写入（`VITE_TRANSPORT_PUBLIC_KEY`，用 `app.cli transport-public-key` 导出）；没有写入时（开发环境）从 `GET /api/v1/transport/key` 获取。
+- **握手**（每次打开页面一次）：
+  - 浏览器生成一次性的 ECDH P-256 密钥对，把公钥发给 `POST /api/v1/transport/handshake`。
+  - 服务器也生成一次性的密钥对，算出共享密钥，用 HKDF-SHA256 派生两把 AES-256-GCM 密钥（请求用、响应用），返回会话号、服务器的一次性公钥、过期时间和签名。签名覆盖双方公钥、会话号和过期时间，浏览器用写死的公钥验证，中间人换不掉。
+  - 会话密钥存在 Redis 里，12 小时后过期（浏览器自动重新握手）；浏览器里是不可导出的 CryptoKey，只在内存里，刷新页面重新握手。握手按来源 IP 限流。
+- **请求**：
+  - `X-EDP-Transport`：会话号。`X-EDP-Sealed`：时间戳、随机数和加密的"信封"，信封里是原来的查询参数和 `Authorization`、`Content-Type` 等请求头。
+  - 请求体（JSON、上传的 Excel 等任何类型）整体加密，`Content-Type: application/x-edp-sealed`。
+  - 附加认证数据绑定方法、路径、会话号、时间戳和随机数：密文不能挪到别的接口用。
+  - 防重放：时间戳在前后 5 分钟内，随机数 10 分钟内只能用一次（Redis）。
+- **响应**：状态码不变（前端要按 401 刷新令牌等）；响应体连同原来的 `Content-Type`、`Content-Disposition` 一起加密（`application/x-edp-sealed`），附加认证数据绑定这次请求的随机数，不能被换成别的请求的响应；导出的 CSV、Excel 也加密，前端解密后照常保存；`Cache-Control: no-store`。
+- **出错**：会话不存在或已过期返回 428（前端重新握手后重试一次）；密文不对、重放、时间不对返回 400；要求加密而请求没加密时返回 426。
+- **是否强制**（`EDP_TRANSPORT_ENCRYPTION`）：
+  - `required`（生产环境的默认值）：只接受加密的请求（排除的路径除外）。
+  - `optional`（开发和测试的默认值；CI 的浏览器验收脚本直接调接口准备数据）：加密和不加密的都接受，加密的请求返回加密的响应。
+  - `off`：关闭。
+- **实现**：后端是一个 ASGI 中间件（在 CORS 里面、业务路由外面），业务代码不用改；前端在 `@edp/api-client` 里包一层 `fetch`，控制台、Widget、运营后台三个客户端和刷新令牌都经过它，页面代码不用改。
+
+#### 25.15.2 按岗位的控制台
+
+**现在的问题**
+
+- 菜单只按权限显示：客服能看到"商品"，主管、管理员的菜单很长；首页对所有人都一样（实时接待数字和"常用功能"），仓管、知识管理员打开首页没有有用的内容。
+- 仓管不是一个角色，而是"仓库设置"里指定的一名工人（没指定时是最早创建的工人），不能单独给仓管开账号。
+
+**岗位**
+
+| 岗位 | 由哪些角色决定 | 菜单（还要有相应的权限） | 首页 |
+|---|---|---|---|
+| 管理员 | 租户管理员 | 全部 | 实时接待（团队）、待处理（待审核订单、待确认待办、待确认单据）、常用功能 |
+| 主管 | 主管 | 全部（按权限） | 同管理员 |
+| 客服 | 坐席 | 首页、工作台、会话记录、待办、订单、客户、知识库 | 我的接待（排队、正在接待、今天的会话）、我的待办（逾期、今天到期）、待审核的订单、快捷入口（工作台、新建订单、新建待办） |
+| 仓管 | 仓管（新增的系统角色），或仓库设置里指定的仓管 | 首页、仓库、待办（兼工人的另有"加工"） | 待确认的领料单和入库单（点开直接确认）、库存不足的材料和成品、快捷入口（开领料单、开入库单、库存记录） |
+| 工人 | 工人 | 加工 | 没有首页，登录后直接打开"加工" |
+| 知识管理员 | 知识管理员 | 首页、知识库 | 待审核的知识、快到期的知识 |
+
+- 一个员工有多个角色时（例如小企业里客服兼仓管），菜单是几个岗位的菜单合在一起，首页依次显示各个岗位的内容；登录后打开第一个菜单。
+- 自定义角色在"员工 → 角色"里选择岗位；不选时按权限判断（能管理设置的是管理员，能看团队或报表的是主管，能用工作台的是客服，能确认单据或管理库存的是仓管，能加工的是工人，能维护知识库的是知识管理员）。
+- 管理员可以在"设置 → 控制台"里调整除管理员以外每个岗位显示的菜单（例如让客服也能打开"商品"）；菜单不会超出权限，隐藏菜单也不改变权限（接口照常按权限判断）。
+
+**仓管角色**
+
+- 新增系统角色"仓管"（权限：首页、库存管理、确认单据），升级时给已有的企业加上。
+- 谁是仓管：仓库设置里指定的员工；没有指定时，有"仓管"角色的员工都是仓管（都收到待确认的提醒，谁都可以确认）；也没有"仓管"角色的员工时，和原来一样由最早创建的工人担任。
+
+**实现**
+
+- 后端：`/api/v1/me` 增加 `console`（岗位和菜单；菜单名是 OpenAPI 里的枚举，前端写错会在编译时报错）；岗位和菜单的默认值在 `iam/console.py`；角色增加 `console`（自定义角色选择的岗位）；企业的调整存在 `tenant_settings.console`，`GET/PUT /api/v1/tenant/console`（`settings:manage`）。
+- 前端：菜单、路由和登录后的首页按 `console.menus`；首页按岗位组合（管理员和主管、客服、仓管、知识管理员各一块）；"设置 → 控制台"勾选每个岗位的菜单；"员工 → 角色"选择岗位。
+
+**不做的**：按员工单独配置菜单（按岗位配置就够了，员工多了难以维护）；隐藏菜单以外的页面内容定制。
+
 ---
 
 ## 26. 第三轮问题与决定（待办与订单，2026-09-30 已确认）
@@ -2531,6 +2610,11 @@ stateDiagram-v2
   - Frappe 审计记录与版本：<https://docs.frappe.io/framework/user/en/audit-trail>
   - Odoo 明细行的字段跟踪（第三方文章）：<https://www.cybrosys.com/blog/how-to-track-one2many-field-changes-in-odoo-19-chatter>
   - Google 表格版本历史（第三方整理）：<https://ablebits.com/office-addins-blog/google-sheets-edit-history>
+- 接口传输加密（v0.9）
+  - Web Cryptography API（W3C）：<https://www.w3.org/TR/WebCryptoAPI/>
+  - HKDF（RFC 5869）：<https://www.rfc-editor.org/rfc/rfc5869>
+  - GCM 模式（NIST SP 800-38D）：<https://csrc.nist.gov/pubs/sp/800/38/d/final>
+  - cryptography（Python）椭圆曲线：<https://cryptography.io/en/latest/hazmat/primitives/asymmetric/ec/>
 
 ## 附录 B：修订记录
 
@@ -2542,6 +2626,7 @@ stateDiagram-v2
 | v0.3 | 2026-09-30 | 新增需求 R9 待办事项、R10 订单管理：新增 §24 待办事项、§25 订单管理（含商品库和企业系统对接）、§26 第三轮待确认问题；相应调整 §0、§1、§2、§5 D5、§6.2、§7.3、§8、§11（新工具、Copilot、护栏）、§13、§15 数据模型、§16 接口、§17 前端、§18、§19.3、§20、§21（新增 P6）和 §22 风险 |
 | v0.7 | 2026-09-30 | 新增 §25.13 仓库：商品库分成品和材料（单位、小数库存、现货）、成品的配方、领料单（领取订单后按配方预填，库存不够只提示）和入库单（完成订单时开，确认后订单进入"待发货"）、仓管确认（指定的员工，或者最早创建的工人；`warehouse:confirm`）、仓库菜单；成品的占用改为只算要从库存发出的订单行，AI 只对现货商品说有没有现货；相应调整 §15、§16、§25.7、§25.9、§25.11、§25.12 |
 | v0.8 | 2026-09-30 | 新增 §25.14：下单、领料、入库改为统一的单据页（单据头、带表头的明细表、键盘连续录入和扫码、批量选择、合计、固定操作栏、手机卡片），在仓库开领料单时可以关联订单，单据可以打印；订单、领料单、入库单、待办、商品和材料的修改历史（`record_versions`，每次操作一个版本，查看时计算差异，版本列表和"显示更改"），"操作日志"增加"修改历史"；相应调整 §15、§16 |
+| v0.9 | 2026-09-30 | 新增 §25.15：接口传输加密（ECDH 握手、AES-256-GCM 加密请求和响应、防重放、生产环境强制；如实说明能防和不能防的）；按岗位的控制台（管理员、主管、客服、仓管、工人、知识管理员各自的菜单和首页，新增"仓管"系统角色，管理员可以调整每个岗位的菜单）；相应调整 §15、§16、§18 |
 | v0.6 | 2026-09-30 | 新增 §25.12 库存：现有、占用和可用库存，库存预警，库存记录，手动调整（`inventory:manage`），Excel 导入时选择盘点或入库（可以只有代码和数量两列），发货时出库、已出库的订单被取消时退回，库存不足只提示，AI 只说有没有现货，企业系统同步库存；相应调整 §15、§16、§25.7、§25.9、§25.11 |
 | v0.5 | 2026-09-30 | 新增 §25.11 加工与缺货：工人角色（`production:work`、`production:assign`）、加工页（手机优先）、逐个商品标记完成或缺货、订单中心的"待发货""缺货"视图、"待发货""缺货处理"系统待办；相应调整 §15、§16、§24.2、§25.4、§25.7、§25.9、§25.10 |
 | v0.4 | 2026-09-30 | 纳入第三轮决定（§26）：AI 生成的待办一律进入待确认页；订单增加收款方式与收款记录、应收与催收、修改记录与版本对比、订单跟踪页；商品库改为按用户给出的字段用 Excel 模板上传；AI 只能告知建议零售价，并增加成本价保护；相应调整 §0、§1、§2.2、§11、§15、§16、§17、§18、§19.3、§21、§22 |
