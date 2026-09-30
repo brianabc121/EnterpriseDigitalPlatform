@@ -129,6 +129,15 @@ class Settings(BaseSettings):
     # 渠道凭证（企业微信永久授权码等）的加密密钥，任意长度的随机字符串。
     data_encryption_key: SecretStr = SecretStr(_DEV_DATA_ENCRYPTION_KEY)
 
+    # 接口传输加密（设计文档 §25.15）。transport_encryption：required 只接受加密的请求，optional
+    # 加密和不加密的都接受，off 关闭；不设置时生产环境为 required，其他环境为 optional（测试和
+    # 浏览器验收的脚本直接调接口）。transport_signing_key：握手签名用的 ECDSA P-256 私钥（PEM），
+    # 生产环境必须配置；其他环境不配置时由 data_encryption_key 派生。
+    transport_encryption: Literal["required", "optional", "off"] | None = None
+    transport_signing_key: SecretStr = SecretStr("")
+    transport_session_ttl_seconds: int = 12 * 3600
+    transport_handshakes_per_minute: int = 300
+
     # 企业微信服务商（设计文档 §7.4，代开发应用）：模板 ID（suite_id）与 Secret，以及模板和
     # 代开发应用共用的回调 Token、EncodingAESKey。wecom_suite_id 为空时不启用企业微信接入。
     wecom_suite_id: str = ""
@@ -164,6 +173,12 @@ class Settings(BaseSettings):
     @property
     def wecom_enabled(self) -> bool:
         return bool(self.wecom_suite_id)
+
+    @property
+    def transport_mode(self) -> Literal["required", "optional", "off"]:
+        if self.transport_encryption is not None:
+            return self.transport_encryption
+        return "required" if self.env == "prod" else "optional"
 
     @property
     def platform_mfa_enforced(self) -> bool:
@@ -207,6 +222,8 @@ class Settings(BaseSettings):
         unset = [
             name for name, (value, dev) in dev_defaults.items() if value.get_secret_value() == dev
         ]
+        if not self.transport_signing_key.get_secret_value():
+            unset.append("EDP_TRANSPORT_SIGNING_KEY")
         if unset:
             raise ValueError(f"{', '.join(unset)} must be set in prod")
         if not self.cookie_secure:

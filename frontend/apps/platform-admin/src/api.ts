@@ -1,4 +1,4 @@
-import { createPlatformApi, memoryTokenStore } from '@edp/api-client'
+import { createPlatformApi, memoryTokenStore, transportKey } from '@edp/api-client'
 
 export const tokens = memoryTokenStore()
 
@@ -12,6 +12,7 @@ export function onUnauthorized(handler: () => void): void {
 export const api = createPlatformApi({
   baseUrl: import.meta.env.VITE_API_BASE ?? '',
   tokens,
+  transportKey: transportKey(import.meta.env.VITE_TRANSPORT_PUBLIC_KEY),
   onUnauthorized: () => unauthorizedHandler(),
 })
 

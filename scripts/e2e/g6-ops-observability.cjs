@@ -292,7 +292,9 @@ async function rateLimitSection(ctx) {
       (r) => r.url().endsWith('/rate-limits') && r.request().method() === 'PUT',
     )
     await page.locator('[data-testid="rate-limits-save"]').click()
-    return (await saved).json()
+    await saved
+    // 浏览器收到的响应是加密的（设计文档 §25.15），保存后通过接口读取。
+    return json(`${API}/platform/v1/tenants/${ctx.tenantId}/rate-limits`, { token: ctx.ops })
   }
   await input.fill('40')
   await input.press('Tab')

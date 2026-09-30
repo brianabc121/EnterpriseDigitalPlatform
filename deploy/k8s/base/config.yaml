@@ -12,6 +12,11 @@ data:
   EDP_OTEL_ENDPOINT: ""
   EDP_OTEL_SAMPLE_RATIO: "0.2"
   EDP_COOKIE_SECURE: "true"
+  # 接口传输加密（设计文档 §25.15）：生产环境只接受加密的请求。签名私钥在 Secret 里
+  # （EDP_TRANSPORT_SIGNING_KEY）；公钥给三个前端（容器启动时写进 /config.js），用
+  # python -m app.cli transport-public-key 导出。
+  EDP_TRANSPORT_ENCRYPTION: required
+  EDP_TRANSPORT_PUBLIC_KEY: ""
   EDP_USAGE_TIMEZONE: Asia/Shanghai
   # 对外地址（按环境修改）。
   EDP_PUBLIC_API_URL: https://api.example.com

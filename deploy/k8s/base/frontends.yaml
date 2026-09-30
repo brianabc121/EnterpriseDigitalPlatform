@@ -37,6 +37,11 @@ spec:
                 configMapKeyRef:
                   name: edp-config
                   key: EDP_WIDGET_PUBLIC_URL
+            - name: EDP_TRANSPORT_PUBLIC_KEY
+              valueFrom:
+                configMapKeyRef:
+                  name: edp-config
+                  key: EDP_TRANSPORT_PUBLIC_KEY
           readinessProbe:
             httpGet:
               path: /healthz
@@ -111,6 +116,12 @@ spec:
           ports:
             - name: http
               containerPort: 8080
+          env:
+            - name: EDP_TRANSPORT_PUBLIC_KEY
+              valueFrom:
+                configMapKeyRef:
+                  name: edp-config
+                  key: EDP_TRANSPORT_PUBLIC_KEY
           readinessProbe:
             httpGet:
               path: /healthz
@@ -185,6 +196,12 @@ spec:
           ports:
             - name: http
               containerPort: 8080
+          env:
+            - name: EDP_TRANSPORT_PUBLIC_KEY
+              valueFrom:
+                configMapKeyRef:
+                  name: edp-config
+                  key: EDP_TRANSPORT_PUBLIC_KEY
           readinessProbe:
             httpGet:
               path: /healthz

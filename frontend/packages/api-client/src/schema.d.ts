@@ -4599,6 +4599,47 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/transport/handshake": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Handshake
+         * @description 浏览器的一次性公钥 → 会话号、服务器的一次性公钥和签名；会话密钥存在 Redis 里。
+         *     关闭了传输加密时返回 409（浏览器改为不加密）。
+         */
+        post: operations["handshake_api_v1_transport_handshake_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/transport/key": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Transport Key
+         * @description 握手签名用的服务器公钥。生产环境的前端在构建时写入公钥，不从这里获取。
+         */
+        get: operations["transport_key_api_v1_transport_key_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/uploads": {
         parameters: {
             query?: never;
@@ -8700,6 +8741,44 @@ export interface components {
              * @default false
              */
             transfer_groups: boolean;
+        };
+        /** HandshakeIn */
+        HandshakeIn: {
+            /**
+             * Client Key
+             * @description 浏览器的一次性 ECDH P-256 公钥（未压缩的点，base64url）
+             */
+            client_key: string;
+        };
+        /** HandshakeOut */
+        HandshakeOut: {
+            /**
+             * Expires At
+             * @description 会话的过期时间（Unix 秒）
+             */
+            expires_at: number;
+            /** Key Id */
+            key_id: string;
+            /**
+             * Server Key
+             * @description 服务器的一次性 ECDH P-256 公钥（未压缩的点，base64url）
+             */
+            server_key: string;
+            /**
+             * Server Time
+             * @description 服务器的当前时间（Unix 秒）：浏览器按它校正请求的时间戳
+             */
+            server_time: number;
+            /**
+             * Session
+             * @description 会话号：放在请求头 X-EDP-Transport 里
+             */
+            session: string;
+            /**
+             * Signature
+             * @description 服务器签名密钥对握手内容的 ECDSA P-256 / SHA-256 签名（r || s，base64url）
+             */
+            signature: string;
         };
         /** HealthReport */
         HealthReport: {
@@ -17163,6 +17242,31 @@ export interface components {
             agents: components["schemas"]["TransferAgent"][];
             /** Groups */
             groups: components["schemas"]["TransferGroup"][];
+        };
+        /** TransportKey */
+        TransportKey: {
+            /**
+             * Algorithm
+             * @default ECDSA-P256-SHA256
+             * @constant
+             */
+            algorithm: "ECDSA-P256-SHA256";
+            /**
+             * Key Id
+             * @description 公钥的指纹（SHA-256 的前 16 位十六进制）
+             */
+            key_id: string;
+            /**
+             * Mode
+             * @description 是否强制加密
+             * @enum {string}
+             */
+            mode: "required" | "optional" | "off";
+            /**
+             * Public Key
+             * @description 服务器公钥：SubjectPublicKeyInfo DER 的 base64
+             */
+            public_key: string;
         };
         /**
          * UnassignedCustomerOut
@@ -39761,6 +39865,158 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TransferOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    handshake_api_v1_transport_handshake_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HandshakeIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HandshakeOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    transport_key_api_v1_transport_key_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TransportKey"];
                 };
             };
             /** @description Bad Request */

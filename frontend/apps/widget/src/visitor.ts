@@ -1,10 +1,13 @@
-import { createVisitorApi, errorMessage, type Schemas } from '@edp/api-client'
+import { createVisitorApi, errorMessage, transportKey, type Schemas } from '@edp/api-client'
 
 export type VisitorSession = Schemas['VisitorInitResponse']
 export type SessionState = Schemas['VisitorSessionState']
 export type Identity = Schemas['VisitorIdentity']
 
-const api = createVisitorApi(import.meta.env.VITE_API_BASE ?? '')
+const api = createVisitorApi(
+  import.meta.env.VITE_API_BASE ?? '',
+  transportKey(import.meta.env.VITE_TRANSPORT_PUBLIC_KEY),
+)
 
 const tokenKey = (channelKey: string): string => `edp.visitor.${channelKey}`
 

@@ -6000,6 +6000,65 @@
         "title": "HandoverRequest",
         "type": "object"
       },
+      "HandshakeIn": {
+        "properties": {
+          "client_key": {
+            "description": "浏览器的一次性 ECDH P-256 公钥（未压缩的点，base64url）",
+            "maxLength": 100,
+            "minLength": 80,
+            "title": "Client Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "client_key"
+        ],
+        "title": "HandshakeIn",
+        "type": "object"
+      },
+      "HandshakeOut": {
+        "properties": {
+          "expires_at": {
+            "description": "会话的过期时间（Unix 秒）",
+            "title": "Expires At",
+            "type": "integer"
+          },
+          "key_id": {
+            "title": "Key Id",
+            "type": "string"
+          },
+          "server_key": {
+            "description": "服务器的一次性 ECDH P-256 公钥（未压缩的点，base64url）",
+            "title": "Server Key",
+            "type": "string"
+          },
+          "server_time": {
+            "description": "服务器的当前时间（Unix 秒）：浏览器按它校正请求的时间戳",
+            "title": "Server Time",
+            "type": "integer"
+          },
+          "session": {
+            "description": "会话号：放在请求头 X-EDP-Transport 里",
+            "title": "Session",
+            "type": "string"
+          },
+          "signature": {
+            "description": "服务器签名密钥对握手内容的 ECDSA P-256 / SHA-256 签名（r || s，base64url）",
+            "title": "Signature",
+            "type": "string"
+          }
+        },
+        "required": [
+          "session",
+          "server_key",
+          "expires_at",
+          "server_time",
+          "signature",
+          "key_id"
+        ],
+        "title": "HandshakeOut",
+        "type": "object"
+      },
       "HealthReport": {
         "properties": {
           "checked_at": {
@@ -27684,6 +27743,43 @@
           "groups"
         ],
         "title": "TransferTargets",
+        "type": "object"
+      },
+      "TransportKey": {
+        "properties": {
+          "algorithm": {
+            "const": "ECDSA-P256-SHA256",
+            "default": "ECDSA-P256-SHA256",
+            "title": "Algorithm",
+            "type": "string"
+          },
+          "key_id": {
+            "description": "公钥的指纹（SHA-256 的前 16 位十六进制）",
+            "title": "Key Id",
+            "type": "string"
+          },
+          "mode": {
+            "description": "是否强制加密",
+            "enum": [
+              "required",
+              "optional",
+              "off"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
+          "public_key": {
+            "description": "服务器公钥：SubjectPublicKeyInfo DER 的 base64",
+            "title": "Public Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key_id",
+          "public_key",
+          "mode"
+        ],
+        "title": "TransportKey",
         "type": "object"
       },
       "UnassignedCustomerOut": {
@@ -58939,6 +59035,180 @@
         "summary": "Reject Transfer",
         "tags": [
           "sessions"
+        ]
+      }
+    },
+    "/api/v1/transport/handshake": {
+      "post": {
+        "description": "浏览器的一次性公钥 → 会话号、服务器的一次性公钥和签名；会话密钥存在 Redis 里。\n关闭了传输加密时返回 409（浏览器改为不加密）。",
+        "operationId": "handshake_api_v1_transport_handshake_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HandshakeIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HandshakeOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "summary": "Handshake",
+        "tags": [
+          "transport"
+        ]
+      }
+    },
+    "/api/v1/transport/key": {
+      "get": {
+        "description": "握手签名用的服务器公钥。生产环境的前端在构建时写入公钥，不从这里获取。",
+        "operationId": "transport_key_api_v1_transport_key_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TransportKey"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "summary": "Transport Key",
+        "tags": [
+          "transport"
         ]
       }
     },
