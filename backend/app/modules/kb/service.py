@@ -110,7 +110,7 @@ async def list_items(
     now: datetime | None = None,
 ) -> KbItemPage:
     query = _scope(principal)
-    order = (KbItem.updated_at.desc(), KbItem.id.desc())
+    order: list[Any] = [KbItem.updated_at.desc(), KbItem.id.desc()]
     if status:
         query = query.where(KbItem.status == status)
     if space_id is not None:
@@ -138,7 +138,7 @@ async def list_items(
             KbItem.valid_to > current,
             KbItem.valid_to <= current + EXPIRING_WITHIN,
         )
-        order = (KbItem.valid_to.asc(), KbItem.id.desc())
+        order = [KbItem.valid_to.asc(), KbItem.id.desc()]
     if must_read:
         query = query.where(KbItem.must_read.is_(True))
     if kind:
