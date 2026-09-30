@@ -295,10 +295,12 @@ async function claimSection(browser, ctx) {
   const listed = await page.locator('[data-testid="production-order"]').evaluateAll((els) =>
     els.map((el) => el.getAttribute('data-order-no')),
   )
+  // 菜单收起时，待领取数显示在"加工"图标的右上角。
+  const corner = await seen(page.locator('[data-testid="production-corner-badge"]', { hasText: '2' }))
   check(
-    '工人登录后进入"加工"（手机上菜单收起，只有这一个），手上没有订单时先看"待领取"',
-    menus === 1 && active === 1,
-    { menus, active },
+    '工人登录后进入"加工"（手机上菜单收起，只有这一个，图标上显示待领取 2），手上没有订单时先看"待领取"',
+    menus === 1 && active === 1 && corner,
+    { menus, active, corner },
   )
   check(
     '待领取：两张货到付款的已确认订单；在线收款还没收清的不在里面',
@@ -334,10 +336,11 @@ async function claimSection(browser, ctx) {
   const mine = await seen(
     page.locator('[data-testid="production-view-mine"] .el-badge__content', { hasText: '1' }),
   )
+  const left = await seen(page.locator('[data-testid="production-corner-badge"]', { hasText: '1' }))
   check(
-    '领取后订单离开"待领取"、"我的加工"角标 1；另一个工人不能再领（409，提示已由老王领取）',
-    taken.status === 409 && taken.text.includes('工人老王') && mine,
-    { status: taken.status, text: taken.text },
+    '领取后订单离开"待领取"（图标上的待领取数变为 1）、"我的加工"角标 1；另一个工人不能再领（409，提示已由老王领取）',
+    taken.status === 409 && taken.text.includes('工人老王') && mine && left,
+    { status: taken.status, text: taken.text, left },
   )
   return page
 }

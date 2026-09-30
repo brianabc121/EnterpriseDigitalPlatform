@@ -111,6 +111,18 @@ function onNarrow(event: MediaQueryListEvent): void {
   narrow.value = event.matches
 }
 
+// 收起时菜单名称和角标只在悬停提示里，角标另外显示在图标右上角（工人在手机上也看得到待领取数）。
+const badges = computed<Record<string, number>>(() => ({
+  todos: todoBadge.value,
+  orders: orderBadge.value,
+  production: productionBadge.value,
+}))
+const BADGE_TYPE: Record<string, 'danger' | 'warning'> = {
+  todos: 'danger',
+  orders: 'warning',
+  production: 'warning',
+}
+
 onMounted(() => {
   void loadTodoBadge()
   void loadOrderBadge()
@@ -162,6 +174,14 @@ async function logout(): Promise<void> {
       >
         <el-menu-item v-for="item in menus" :key="item.name" :index="item.path">
           <el-icon><component :is="icons[item.icon]" /></el-icon>
+          <el-badge
+            v-if="narrow && badges[item.name]"
+            :value="badges[item.name]"
+            :max="99"
+            :type="BADGE_TYPE[item.name]"
+            class="corner-badge"
+            :data-testid="`${item.name}-corner-badge`"
+          />
           <template #title>
             <span>{{ item.title }}</span>
             <el-badge
@@ -236,6 +256,13 @@ async function logout(): Promise<void> {
 
 .menu-badge {
   margin-left: 8px;
+  line-height: 1;
+}
+
+.corner-badge {
+  position: absolute;
+  top: 4px;
+  right: 4px;
   line-height: 1;
 }
 
