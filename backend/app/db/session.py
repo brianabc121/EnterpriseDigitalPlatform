@@ -8,6 +8,8 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from sqlalchemy.orm import Session, SessionTransaction
 
 from app.core.config import Settings
+from app.observability import tracing
+from app.observability.context import bind_tenant as bind_current_tenant
 
 TENANT_INFO_KEY = "tenant_id"
 _SET_TENANT_SQL = text("SELECT set_config('app.tenant_id', :tenant_id, true)")
@@ -25,12 +27,15 @@ class Database:
         self.platform_sessionmaker = async_sessionmaker(
             self.platform_engine, expire_on_commit=False
         )
+        tracing.instrument_engines([self.app_engine.sync_engine, self.platform_engine.sync_engine])
 
     @asynccontextmanager
     async def tenant_session(self, tenant_id: UUID) -> AsyncIterator[AsyncSession]:
-        async with self.app_sessionmaker() as session:
-            await bind_tenant(session, tenant_id)
-            yield session
+        # 期间的 span 和日志带这个租户。
+        with bind_current_tenant(tenant_id):
+            async with self.app_sessionmaker() as session:
+                await bind_tenant(session, tenant_id)
+                yield session
 
     async def dispose(self) -> None:
         await self.app_engine.dispose()

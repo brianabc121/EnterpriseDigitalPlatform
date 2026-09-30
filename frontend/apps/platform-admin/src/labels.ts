@@ -45,6 +45,26 @@ export const ACTOR_TYPE: Record<string, string> = {
   visitor: '访客',
 }
 
+/** 事件类型（死信列表）。 */
+export const EVENT_TYPE: Record<string, string> = {
+  'message.received': '消息归入会话',
+  'wecom.callback': '企业微信回调',
+  'wecom.sync': '企业微信全量同步',
+  'wecom.notify': '企业微信应用消息',
+}
+
+/** IM 发件箱的操作类型。 */
+export const IM_OP_TYPE: Record<string, string> = {
+  invite: '拉坐席进群',
+  kick: '移出坐席',
+  notice: '系统提示',
+  signal: '坐席信令',
+  bot_message: 'AI 回复',
+  channel_send: '渠道投递',
+  mirror: '渠道消息镜像',
+  typing: '正在输入',
+}
+
 export const OVERAGE_POLICY: Record<string, string> = {
   degrade: '停止 AI 接待（转人工）',
   warn: '继续回复并按条计费',

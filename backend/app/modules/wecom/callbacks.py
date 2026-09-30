@@ -21,6 +21,8 @@ from app.events.bus import Event, EventType
 from app.integrations.wecom import CallbackCrypto, CallbackError
 from app.modules.wecom.auth import handle_provider_event
 from app.modules.wecom.service import callback_crypto, tenant_of_corp
+from app.observability import metrics
+from app.observability.context import note_tenant
 
 logger = logging.getLogger(__name__)
 
@@ -102,6 +104,7 @@ async def dispatch(ctx: AppContext, event: dict[str, Any], receive_id: str) -> N
         if receive_id != suite_id or event.get("SuiteId", suite_id) != suite_id:
             raise Forbidden("回调不属于本服务商")
         await handle_provider_event(ctx, event)
+        metrics.WEBHOOKS.labels("wecom", "", "provider").inc()
         return
     corp_id = event.get("AuthCorpId") or event.get("ToUserName") or receive_id
     if not isinstance(corp_id, str) or receive_id not in (suite_id, corp_id):
@@ -109,7 +112,9 @@ async def dispatch(ctx: AppContext, event: dict[str, Any], receive_id: str) -> N
     tenant_id = await tenant_of_corp(ctx.db, corp_id)
     if tenant_id is None:
         logger.info("wecom event %s for unknown corp %s ignored", name, corp_id)
+        metrics.WEBHOOKS.labels("wecom", "", "skipped").inc()
         return
+    note_tenant(tenant_id)
     open_kfid = event.get("OpenKfId")
     key = f"kf:{corp_id}:{open_kfid}" if name == "kf_msg_or_event" else f"wecom:{corp_id}"
     await ctx.bus.publish(
@@ -120,3 +125,4 @@ async def dispatch(ctx: AppContext, event: dict[str, Any], receive_id: str) -> N
             data={"corp_id": corp_id, "event": event},
         )
     )
+    metrics.WEBHOOKS.labels("wecom", metrics.tenant_label(tenant_id), "queued").inc()

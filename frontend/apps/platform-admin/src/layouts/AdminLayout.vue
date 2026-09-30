@@ -17,6 +17,7 @@ const MENU = [
   { name: 'llm-usage', label: '大模型用量' },
   { name: 'content', label: '内容安全' },
   { name: 'health', label: '系统健康' },
+  { name: 'ops', label: '运维' },
   { name: 'audit', label: '审计日志' },
   { name: 'deletions', label: '删除记录' },
   { name: 'settings', label: '平台设置' },

@@ -22,6 +22,7 @@ from app.modules.conversation import imids
 from app.modules.conversation.ingest import IMGroupMessage, ingest_messages
 from app.modules.conversation.models import MessageSource, Room
 from app.modules.tenancy.models import Tenant
+from app.observability import metrics
 
 logger = logging.getLogger(__name__)
 
@@ -139,6 +140,10 @@ async def _sync_room(
         if batch:
             result = await ingest_messages(db, batch, source=MessageSource.RECONCILE, bus=bus)
             report.recovered += result.inserted
+            if result.inserted:
+                metrics.RECONCILE_RECOVERED.labels(metrics.tenant_label(tenant_id)).inc(
+                    result.inserted
+                )
             report.backfilled += result.duplicates
         highest = max(m.seq for m in pulled.messages)
         if highest <= synced:

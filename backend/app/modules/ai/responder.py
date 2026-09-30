@@ -21,6 +21,7 @@ from app.modules.ai import pipeline
 from app.modules.ai import service as ai_service
 from app.modules.ai.models import AiDecision, AiSessionState, DecisionAction
 from app.modules.ai.prompts import Turn
+from app.modules.ai.schedule import recall_trace
 from app.modules.ai.segments import split_reply
 from app.modules.channels.models import ChannelAccount, ChannelType
 from app.modules.conversation import outbox
@@ -37,6 +38,8 @@ from app.modules.routing.priority import intent_names
 from app.modules.sessions import engine
 from app.modules.tenancy.models import Tenant
 from app.modules.wecom import menus
+from app.observability import tracing
+from app.observability.context import bind_tenant
 
 logger = logging.getLogger(__name__)
 
@@ -105,10 +108,19 @@ async def run_due(ctx: AppContext, *, limit: int = 20, now: datetime | None = No
 
     async def one(tenant_id: uuid.UUID, session_id: uuid.UUID, lease: datetime) -> None:
         async with semaphore:
-            try:
-                await respond(ctx, tenant_id, session_id, lease)
-            except Exception:
-                logger.exception("AI reply failed for session %s", session_id)
+            carrier = await recall_trace(ctx.redis, session_id)
+            with (
+                bind_tenant(tenant_id),
+                tracing.tracer().start_as_current_span(
+                    "ai reply",
+                    context=tracing.extract(carrier),
+                    attributes={"edp.session_id": str(session_id)},
+                ),
+            ):
+                try:
+                    await respond(ctx, tenant_id, session_id, lease)
+                except Exception:
+                    logger.exception("AI reply failed for session %s", session_id)
 
     await asyncio.gather(*(one(*item) for item in claimed))
     return len(claimed)

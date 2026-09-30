@@ -275,3 +275,66 @@ class PromptVersionCreate(BaseModel):
 
 class PromptActivate(BaseModel):
     version: int | None = Field(description="要启用的版本；为空表示改回内置模板")
+
+
+# ---- 运维：死信与 IM 发件箱 ----
+
+DeadLetterId = Annotated[str, Field(pattern=r"^\d{1,20}-\d{1,20}$", examples=["1727650000000-0"])]
+
+
+class DeadLetterOut(BaseModel):
+    id: DeadLetterId = Field(description="死信流里的条目 ID")
+    failed_at: datetime
+    type: str
+    tenant_id: UUID | None = None
+    tenant_code: str | None = None
+    key: str = Field(description="分区键（通常是 Room ID）")
+    data: dict[str, Any]
+    error: str
+
+
+class DeadLetterList(BaseModel):
+    items: list[DeadLetterOut]
+    total: int = Field(description="死信流里的事件总数")
+    next_before: str | None = Field(default=None, description="翻页：下一页传 before")
+
+
+class DeadLetterAction(BaseModel):
+    ids: list[DeadLetterId] = Field(min_length=1, max_length=500)
+
+
+class OpsResult(BaseModel):
+    done: int
+    skipped: int = Field(description="已经不存在或不能处理的条目")
+
+
+class ImOpOut(BaseModel):
+    id: int
+    tenant_id: UUID
+    tenant_code: str
+    room_id: UUID
+    op: str
+    status: str
+    attempts: int
+    next_attempt_at: datetime
+    last_error: str | None
+    created_at: datetime
+    done_at: datetime | None
+    detail: dict[str, Any] = Field(description="操作参数（不含消息正文）")
+    retryable: bool = Field(description="在线信令过期就没有意义，不能重试")
+
+
+class ImOpCounts(BaseModel):
+    pending: int
+    stuck: int = Field(description="到期 5 分钟以上仍未执行成功")
+    failed: int = Field(description="最终失败（保留 7 天）")
+
+
+class ImOpList(BaseModel):
+    items: list[ImOpOut]
+    counts: ImOpCounts
+    next_before_id: int | None = Field(default=None, description="翻页：下一页传 before_id")
+
+
+class ImOpAction(BaseModel):
+    ids: list[int] = Field(min_length=1, max_length=500)

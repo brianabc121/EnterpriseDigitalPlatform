@@ -20,6 +20,9 @@ const METRICS: Record<string, string> = {
   dead_letters: '死信事件',
 }
 
+// 可以在"运维"页处理的指标。
+const OPS_METRICS = new Set(['outbox_lagging', 'outbox_failed_24h', 'dead_letters'])
+
 const report = ref<Schemas['HealthReport'] | null>(null)
 const loading = ref(false)
 let timer: ReturnType<typeof setInterval> | undefined
@@ -82,6 +85,9 @@ onBeforeUnmount(() => clearInterval(timer))
       <el-descriptions :column="4" border size="small">
         <el-descriptions-item v-for="(value, key) in report.metrics" :key="key" :label="METRICS[key] ?? key">
           {{ value }}
+          <router-link v-if="OPS_METRICS.has(String(key)) && value" :to="{ name: 'ops' }" class="ops-link">
+            去处理
+          </router-link>
         </el-descriptions-item>
       </el-descriptions>
     </template>
@@ -89,6 +95,11 @@ onBeforeUnmount(() => clearInterval(timer))
 </template>
 
 <style scoped>
+.ops-link {
+  margin-left: 8px;
+  font-size: 12px;
+}
+
 .page-header {
   display: flex;
   align-items: center;

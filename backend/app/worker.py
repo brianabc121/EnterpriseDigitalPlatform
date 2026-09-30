@@ -15,6 +15,7 @@ from app.core.config import get_settings
 from app.events.bus import EventProcessor, wait_or_stop
 from app.modules.ai.responder import run_due
 from app.modules.sessions.handlers import event_handlers
+from app.observability import logs, metrics, tracing
 
 logger = logging.getLogger("app.worker")
 
@@ -46,7 +47,10 @@ async def run(ctx: AppContext, stop: asyncio.Event) -> None:
 
 
 async def _main() -> None:
-    ctx = AppContext.create(get_settings())
+    settings = get_settings()
+    tracing.setup(settings, "worker")
+    metrics.start_metrics_server(settings.metrics_port)
+    ctx = AppContext.create(settings)
     stop = asyncio.Event()
     loop = asyncio.get_running_loop()
     for sig in (signal.SIGINT, signal.SIGTERM):
@@ -55,12 +59,11 @@ async def _main() -> None:
         await run(ctx, stop)
     finally:
         await ctx.aclose()
+        tracing.shutdown()
 
 
 def main() -> None:
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
-    # 每个 HTTP 请求一行的日志太多，只保留警告。
-    logging.getLogger("httpx").setLevel(logging.WARNING)
+    logs.configure(get_settings())
     asyncio.run(_main())
 
 

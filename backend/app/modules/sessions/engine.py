@@ -22,7 +22,7 @@ from app.core.ids import new_id
 from app.events.bus import Event
 from app.modules.ai import copilot, reasons
 from app.modules.ai import service as ai_service
-from app.modules.ai.schedule import schedule_reply
+from app.modules.ai.schedule import remember_trace, schedule_reply
 from app.modules.conversation import outbox
 from app.modules.conversation.ingest import message_received
 from app.modules.conversation.models import (
@@ -59,6 +59,7 @@ from app.modules.routing.models import (
 )
 from app.modules.wecom import menus
 from app.modules.wecom.notify import notify_staff
+from app.observability import metrics
 
 logger = logging.getLogger(__name__)
 
@@ -100,6 +101,13 @@ class ActorType:
 
 def utcnow() -> datetime:
     return datetime.now(UTC)
+
+
+def handoff_reason_label(reason: str | None) -> str:
+    """指标里的转人工原因：只用已知的原因，其余归为 other。"""
+    if reason and (reason in reasons.REASON_LABELS or reason == "busy"):
+        return reason
+    return "other"
 
 
 @dataclass
@@ -187,6 +195,9 @@ async def on_message_received(ctx: AppContext, event: Event) -> None:
         if chat is not None:
             message.session_id = chat.id
             touch_session(chat, message)
+            metrics.MESSAGES.labels(
+                metrics.tenant_label(event.tenant_id), message.sender_type
+            ).inc()
             # 人工接待中：坐席助手按客户的消息给出实时提醒（情绪、敏感信息）。
             if message.sender_type == SenderType.CUSTOMER and await copilot.inspect_customer(
                 session, chat, message, now
@@ -197,6 +208,7 @@ async def on_message_received(ctx: AppContext, event: Event) -> None:
                 # AI 回复，见 ai/responder.py。
                 delay = timedelta(seconds=ctx.settings.ai_debounce_seconds)
                 await schedule_reply(session, chat, now + delay)
+                await remember_trace(ctx.redis, chat.id)
         await session.commit()
     await _run_after_commit(ctx, event.tenant_id, todo)
 
@@ -382,6 +394,9 @@ async def request_handoff(
             record_event(
                 session, chat, "handoff", actor_type=actor_type, payload={"reason": reason}
             )
+            metrics.AI_HANDOFFS.labels(
+                metrics.tenant_label(tenant_id), handoff_reason_label(reason)
+            ).inc()
             policy = await PolicyResolver(session).for_channel(room.channel_account_id)
             if in_business_hours(policy.business_hours, now):
                 chat.status = SessionStatus.QUEUED
@@ -635,6 +650,10 @@ async def assign_to(
     actor_type: str = ActorType.SYSTEM,
     actor_id: uuid.UUID | None = None,
 ) -> None:
+    if chat.status == SessionStatus.QUEUED and chat.queued_at is not None:
+        metrics.QUEUE_WAIT.labels(metrics.tenant_label(chat.tenant_id)).observe(
+            max(0.0, (now - chat.queued_at).total_seconds())
+        )
     chat.status = SessionStatus.HUMAN_SERVING
     chat.assignee_id = agent.staff_id
     chat.assigned_at = now
@@ -746,6 +765,14 @@ async def mark_closed(
     actor_id: uuid.UUID | None = None,
     notice: str | None,
 ) -> None:
+    served_by = (
+        "ai"
+        if chat.status == SessionStatus.AI_SERVING
+        else "human"
+        if chat.assigned_at is not None
+        else "none"
+    )
+    metrics.SESSIONS_CLOSED.labels(metrics.tenant_label(chat.tenant_id), served_by).inc()
     chat.status = SessionStatus.CLOSED
     chat.closed_at = now
     chat.close_reason = reason
@@ -980,6 +1007,7 @@ def _overflow(
 
 
 async def _queue_timeout(session: AsyncSession, chat: ChatSession, now: datetime) -> None:
+    metrics.QUEUE_TIMEOUTS.labels(metrics.tenant_label(chat.tenant_id)).inc()
     texts = await _customer_texts(session, chat.id)
     session.add(
         Ticket(

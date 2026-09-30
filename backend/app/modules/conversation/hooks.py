@@ -7,6 +7,7 @@ nextCode=1 才会拦截。所以密钥错误时返回纯文本，让配置错误
 
 import hmac
 import logging
+import time
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Request
@@ -19,6 +20,8 @@ from app.core.deps import get_app_settings, get_context
 from app.modules.conversation import imids
 from app.modules.conversation.ingest import IMGroupMessage, ingest_messages
 from app.modules.conversation.models import MessageSource
+from app.observability import metrics
+from app.observability.context import note_tenant
 
 logger = logging.getLogger(__name__)
 
@@ -116,8 +119,10 @@ async def _after_send_group_msg(ctx: AppContext, body: Any) -> None:
         payload = AfterSendGroupMsg.model_validate(body)
     except ValidationError as exc:
         logger.warning("openim afterSendGroupMsg: invalid payload: %s", exc)
+        metrics.WEBHOOKS.labels("openim", "", "invalid").inc()
         return
-    await ingest_messages(
+    metrics.WEBHOOK_DELAY.labels("openim").observe(max(0.0, time.time() - payload.send_time / 1000))
+    result = await ingest_messages(
         ctx.db,
         [
             IMGroupMessage(
@@ -134,3 +139,8 @@ async def _after_send_group_msg(ctx: AppContext, body: Any) -> None:
         source=MessageSource.WEBHOOK,
         bus=ctx.bus,
     )
+    tenant_id = result.new_messages[0].tenant_id if result.new_messages else None
+    if tenant_id is not None:
+        note_tenant(tenant_id)
+    outcome = "inserted" if result.inserted else "duplicate" if result.duplicates else "skipped"
+    metrics.WEBHOOKS.labels("openim", metrics.tenant_label(tenant_id), outcome).inc()

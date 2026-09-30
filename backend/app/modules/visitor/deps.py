@@ -10,6 +10,7 @@ from app.core.deps import get_app_settings, get_database
 from app.core.errors import Unauthorized
 from app.core.security import TokenError, VisitorClaims, decode_visitor_token
 from app.db.session import Database
+from app.observability.context import note_tenant
 
 VISITOR_TOKEN_HEADER = "X-Visitor-Token"
 
@@ -24,9 +25,11 @@ async def get_visitor_claims(
     if not token:
         raise Unauthorized("缺少访客令牌")
     try:
-        return decode_visitor_token(token, secret=settings.visitor_jwt_secret.get_secret_value())
+        claims = decode_visitor_token(token, secret=settings.visitor_jwt_secret.get_secret_value())
     except TokenError as exc:
         raise Unauthorized("访客令牌无效或已过期") from exc
+    note_tenant(claims.tenant_id)
+    return claims
 
 
 @dataclass(frozen=True)

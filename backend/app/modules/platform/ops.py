@@ -199,15 +199,9 @@ async def _processes(ctx: AppContext, metrics: dict[str, int | float]) -> list[C
     try:
         scheduler = bool(await ctx.redis.exists(SCHEDULER_LEASE))
         workers = 0
-        pending = 0
         for partition in range(ctx.bus.partitions):
-            stream = ctx.bus.stream(partition)
-            workers += bool(await ctx.redis.exists(f"{stream}:lease"))
-            try:
-                info = await ctx.redis.xpending(stream, "edp")
-                pending += int(info.get("pending", 0) if isinstance(info, dict) else 0)
-            except Exception:
-                pass
+            workers += bool(await ctx.redis.exists(ctx.bus.lease_key(partition)))
+        pending = sum(item.lag + item.pending for item in await ctx.bus.backlog())
         dead = int(await ctx.redis.xlen(DEAD_LETTER_STREAM))
     except Exception as exc:
         detail = f"{type(exc).__name__}: {exc}"[:300]

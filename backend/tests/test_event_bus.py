@@ -8,6 +8,7 @@ from redis.asyncio import Redis
 from app.events.bus import (
     DEAD_LETTER_STREAM,
     GROUP,
+    TENANTS_KEY,
     Event,
     EventBus,
     EventProcessor,
@@ -89,19 +90,21 @@ async def test_failing_handler_is_retried_then_dead_lettered(bus: EventBus, redi
     [(_, fields)] = await redis.xrange(DEAD_LETTER_STREAM)
     assert Event.decode(fields) == event("room-a", 0)
     assert b"boom" in fields[b"error"]
-    pending = await redis.xpending(bus.stream(partition_of("room-a", 4)), GROUP)
+    pending = await redis.xpending(bus.stream(partition_of("room-a", 4), TENANT), GROUP)
     assert pending["pending"] == 0
 
 
 async def test_malformed_and_unhandled_events_are_acknowledged(bus: EventBus, redis: Redis) -> None:
-    stream = bus.stream(0)
+    stream = bus.stream(0, TENANT)
+    await bus.ensure_group(stream)
+    await redis.sadd(TENANTS_KEY, str(TENANT))
     await redis.xadd(stream, {"type": "test.event", "tenant_id": "not-a-uuid"})
     await bus.publish(event("room-x", 1, type_="nobody.handles.this"))
 
     await EventProcessor(bus, {}, consumer="c1").process_available()
 
     for partition in range(4):
-        pending = await redis.xpending(bus.stream(partition), GROUP)
+        pending = await redis.xpending(bus.stream(partition, TENANT), GROUP)
         assert pending["pending"] == 0
 
 
@@ -110,7 +113,8 @@ async def test_new_lease_holder_takes_over_pending_events_first(
 ) -> None:
     key = "room-a"
     partition = partition_of(key, 4)
-    stream = bus.stream(partition)
+    stream = bus.stream(partition, TENANT)
+    await bus.ensure_group(stream)
     await bus.publish(event(key, 0))
     await bus.publish(event(key, 1))
     # 前一个消费者读到了事件但没来得及确认就崩溃了（租约随后过期）。
@@ -131,13 +135,13 @@ async def test_new_lease_holder_takes_over_pending_events_first(
     assert seen == [0, 1, 2]
     assert (await redis.xpending(stream, GROUP))["pending"] == 0
     # 退出时释放租约。
-    assert await redis.get(f"{stream}:lease") is None
+    assert await redis.get(bus.lease_key(partition)) is None
 
 
 async def test_partition_is_consumed_only_by_the_lease_holder(bus: EventBus, redis: Redis) -> None:
     key = "room-a"
     partition = partition_of(key, 4)
-    holder = Lease(redis, f"{bus.stream(partition)}:lease", "someone-else")
+    holder = Lease(redis, bus.lease_key(partition), "someone-else")
     assert await holder.hold()
     await bus.publish(event(key, 0))
 
@@ -169,3 +173,54 @@ async def test_lease_is_exclusive_and_renewable(redis: Redis) -> None:
     assert await b.hold()
     await a.release()  # 不是持有者，释放无效
     assert not await a.hold()
+
+
+async def test_tenants_take_turns_within_a_partition(bus: EventBus) -> None:
+    """一个租户积压了大量事件时，其他租户的事件不用排在它后面（每轮每个租户最多 20 条）。"""
+    noisy, quiet = uuid.uuid4(), uuid.uuid4()
+    for n in range(60):
+        await bus.publish(Event(type="test.event", tenant_id=noisy, key="room-a", data={"n": n}))
+    await bus.publish(Event(type="test.event", tenant_id=quiet, key="room-a", data={"n": 0}))
+
+    seen: list[tuple[uuid.UUID, int]] = []
+
+    async def handler(e: Event) -> None:
+        seen.append((e.tenant_id, e.data["n"]))
+
+    processor = EventProcessor(bus, {"test.event": handler}, consumer="c1")
+    assert await processor.process_available() == 61
+    # 安静租户的事件在第一轮里就处理了，吵闹租户的事件仍按顺序处理。
+    assert seen.index((quiet, 0)) < 20
+    assert [n for t, n in seen if t == noisy] == list(range(60))
+
+
+async def test_events_published_before_upgrade_are_still_consumed(
+    bus: EventBus, redis: Redis
+) -> None:
+    """升级前按分区的旧流里剩下的事件仍会被处理。"""
+    legacy = bus.legacy_stream(partition_of("room-a", 4))
+    await redis.xadd(legacy, dict(event("room-a", 7).encode()))
+    seen: list[int] = []
+
+    async def handler(e: Event) -> None:
+        seen.append(e.data["n"])
+
+    await EventProcessor(bus, {"test.event": handler}, consumer="c1").process_available()
+    assert seen == [7]
+
+
+async def test_backlog_and_forgetting_a_tenant(bus: EventBus, redis: Redis) -> None:
+    other = uuid.uuid4()
+    await bus.publish(event("room-a", 0))
+    await bus.publish(Event(type="test.event", tenant_id=other, key="room-b", data={}))
+    await bus.ensure_groups()
+
+    backlog = {(b.partition, b.tenant_id): b.lag + b.pending for b in await bus.backlog()}
+    assert backlog == {
+        (partition_of("room-a", 4), TENANT): 1,
+        (partition_of("room-b", 4), other): 1,
+    }
+
+    await bus.forget_tenant(other)
+    assert await bus.tenants() == [TENANT]
+    assert not await redis.exists(bus.stream(partition_of("room-b", 4), other))

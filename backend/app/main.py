@@ -42,6 +42,8 @@ from app.modules.usage.router import router as usage_router
 from app.modules.visitor.router import router as visitor_router
 from app.modules.wecom.callbacks import router as wecom_hooks_router
 from app.modules.wecom.router import router as wecom_router
+from app.observability import logs, metrics, tracing
+from app.observability.http import ObservabilityMiddleware
 
 
 def create_app(
@@ -59,8 +61,11 @@ def create_app(
     im、llm 和几个 transport 供测试注入（内存版 OpenIM、模拟大模型、模拟企业微信、内存对象存储；
     llm_transport 用于运营后台配置的供应商）；默认按配置连接。
     """
+    settings = settings or get_settings()
+    logs.configure(settings, force=False)
+    tracing.setup(settings, "api")
     ctx = AppContext.create(
-        settings or get_settings(),
+        settings,
         im=im,
         llm=llm,
         wecom_transport=wecom_transport,
@@ -71,6 +76,7 @@ def create_app(
 
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+        metrics.start_metrics_server(ctx.settings.metrics_port)
         yield
         await ctx.aclose()
 
@@ -91,6 +97,8 @@ def create_app(
         allow_methods=["*"],
         allow_headers=["*"],
     )
+    # 最外层：记录每个请求（包括被 CORS 拒绝的）的指标与服务端 span。
+    app.add_middleware(ObservabilityMiddleware)
 
     app.include_router(health_router)
     app.include_router(auth_router)

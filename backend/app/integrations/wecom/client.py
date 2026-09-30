@@ -18,6 +18,8 @@ from typing import Any
 import httpx
 from redis.asyncio import Redis
 
+from app.observability import metrics
+
 logger = logging.getLogger(__name__)
 
 _KEY_PREFIX = "edp:wecom"
@@ -270,19 +272,28 @@ class WeComClient:
         try:
             response = await self._http.request(method, path, params=params, json=json, files=files)
         except httpx.HTTPError as exc:
+            metrics.WECOM_API_ERRORS.labels(_api_name(path), str(_SYSTEM_BUSY)).inc()
             raise WeComUnavailable(f"{type(exc).__name__}: {exc}", path) from exc
         if response.status_code >= 400:
+            metrics.WECOM_API_ERRORS.labels(_api_name(path), str(_SYSTEM_BUSY)).inc()
             raise WeComUnavailable(f"HTTP {response.status_code}", path)
         return response
 
     @staticmethod
     def _check(path: str, data: dict[str, Any]) -> dict[str, Any]:
         errcode = int(data.get("errcode") or 0)
+        if errcode:
+            metrics.WECOM_API_ERRORS.labels(_api_name(path), str(errcode)).inc()
         if errcode == _SYSTEM_BUSY:
             raise WeComUnavailable(str(data.get("errmsg") or "system busy"), path)
         if errcode:
             raise WeComError(errcode, str(data.get("errmsg") or ""), path)
         return data
+
+
+def _api_name(path: str) -> str:
+    """指标里的接口名：去掉公共前缀，如 /cgi-bin/kf/send_msg → kf/send_msg。"""
+    return path.removeprefix("/cgi-bin/").strip("/")[:64] or "unknown"
 
 
 def _json(response: httpx.Response) -> dict[str, Any]:

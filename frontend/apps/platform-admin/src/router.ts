@@ -56,6 +56,7 @@ export const router = createRouter({
           component: () => import('./views/ContentPolicyView.vue'),
         },
         { path: 'health', name: 'health', component: () => import('./views/HealthView.vue') },
+        { path: 'ops', name: 'ops', component: () => import('./views/OpsView.vue') },
         { path: 'audit', name: 'audit', component: () => import('./views/AuditView.vue') },
         {
           path: 'deletions',

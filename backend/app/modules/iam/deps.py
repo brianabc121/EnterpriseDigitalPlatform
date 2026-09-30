@@ -12,6 +12,7 @@ from app.core.security import AccessClaims, TokenError, decode_access_token
 from app.db.session import Database
 from app.modules.iam.principal import Principal
 from app.modules.iam.service import load_principal
+from app.observability.context import note_tenant
 
 bearer_scheme = HTTPBearer(auto_error=False, description="员工 Access Token")
 
@@ -23,11 +24,13 @@ async def get_access_claims(
     if credentials is None:
         raise Unauthorized("未登录")
     try:
-        return decode_access_token(
+        claims = decode_access_token(
             credentials.credentials, secret=settings.jwt_secret.get_secret_value()
         )
     except TokenError as exc:
         raise Unauthorized("登录已失效，请重新登录") from exc
+    note_tenant(claims.tenant_id)
+    return claims
 
 
 async def get_tenant_db(

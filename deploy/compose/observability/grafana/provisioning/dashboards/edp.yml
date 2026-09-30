@@ -1,0 +1,7 @@
+apiVersion: 1
+providers:
+  - name: edp
+    folder: EDP
+    type: file
+    options:
+      path: /var/lib/grafana/dashboards/edp

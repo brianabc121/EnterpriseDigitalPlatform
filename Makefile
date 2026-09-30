@@ -1,7 +1,8 @@
 COMPOSE := docker compose -f deploy/compose/docker-compose.yml
 IM_COMPOSE := docker compose -f deploy/compose/openim/docker-compose.yml
+OBS_COMPOSE := docker compose -f deploy/compose/observability/docker-compose.yml
 
-.PHONY: dev-up dev-down dev-reset im-up im-down im-reset \
+.PHONY: dev-up dev-down dev-reset im-up im-down im-reset obs-up obs-down alerts-check \
 	backend-install migrate backend-dev worker-dev scheduler-dev backend-test backend-lint \
 	frontend-install console-dev platform-dev widget-dev frontend-test frontend-build \
 	openapi test
@@ -25,6 +26,20 @@ im-down:
 
 im-reset:
 	$(IM_COMPOSE) down -v
+
+# 可观测性（Prometheus :9090、Grafana :3000、Jaeger :16686），见 README「可观测性」
+obs-up:
+	$(OBS_COMPOSE) up -d
+
+obs-down:
+	$(OBS_COMPOSE) down
+
+# 校验告警规则并运行规则单测（promtool）
+alerts-check:
+	docker run --rm -v "$(CURDIR)/deploy/observability/prometheus:/rules" \
+		--entrypoint promtool prom/prometheus:v3.5.0 check rules /rules/alerts.yml
+	docker run --rm -v "$(CURDIR)/deploy/observability/prometheus:/rules" \
+		--entrypoint promtool prom/prometheus:v3.5.0 test rules /rules/alerts.test.yml
 
 # ---- 后端 ----
 backend-install:

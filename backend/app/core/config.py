@@ -144,6 +144,15 @@ class Settings(BaseSettings):
     # 员工控制台的对外地址：授权完成、登录后跳回这里，应用消息里的链接也指向这里。
     console_public_url: str = "http://localhost:5173"
 
+    # 可观测性（设计文档 §19.3）。metrics_port：Prometheus 指标端口，每个进程（API、实时消费、
+    # 调度）单独监听，0 表示不开启；otel_endpoint：OpenTelemetry 链路追踪的 OTLP/HTTP 地址
+    # （如 http://otel-collector:4318），为空时不上报；log_format 为 json 时日志每行一个 JSON，
+    # 带租户与链路 ID，便于 Loki 检索。
+    metrics_port: int = 0
+    otel_endpoint: str = ""
+    otel_sample_ratio: float = 1.0
+    log_format: Literal["text", "json"] = "text"
+
     @property
     def wecom_enabled(self) -> bool:
         return bool(self.wecom_suite_id)

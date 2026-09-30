@@ -283,6 +283,10 @@ async def purge_tenant(
         await session.refresh(deletion)
     # 数据密钥随 tenant_keys 一起删除：残留的密文（备份等）再也无法解密。
     ctx.keys.forget(tenant_id)
+    try:
+        await ctx.bus.forget_tenant(tenant_id)
+    except Exception:  # 残留的空事件流不影响其他租户
+        logger.warning("failed to remove event streams of tenant %s", code, exc_info=True)
     logger.info("purged tenant %s: %s rows, %s objects", code, counts["rows"], objects)
     return deletion
 

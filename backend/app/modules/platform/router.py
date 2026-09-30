@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Annotated
+from typing import Annotated, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, Request, status
@@ -8,13 +8,17 @@ from app.context import AppContext
 from app.core.deps import client_ip, get_context
 from app.core.errors import ERROR_RESPONSES
 from app.modules.audit.service import record_audit
-from app.modules.platform import llm, ops, prompts
+from app.modules.platform import deadletters, llm, ops, prompts
 from app.modules.platform import settings as platform_settings
 from app.modules.platform.content import CONTENT_POLICY, content_policy
 from app.modules.platform.schemas import (
     ChannelOverview,
     ContentPolicy,
+    DeadLetterAction,
+    DeadLetterList,
     HealthReport,
+    ImOpAction,
+    ImOpList,
     LlmProviderCreate,
     LlmProviderList,
     LlmProviderOut,
@@ -23,6 +27,7 @@ from app.modules.platform.schemas import (
     LlmRoutesUpdate,
     LlmTestResult,
     LlmUsage,
+    OpsResult,
     PlatformAuditList,
     PromptActivate,
     PromptList,
@@ -74,6 +79,129 @@ async def channel_overview(
 ) -> ChannelOverview:
     """各租户的渠道与企业微信授权状态。"""
     return await ops.channel_overview(ctx, session)
+
+
+# ---- 运维：死信与 IM 发件箱 ----
+
+
+@router.get("/ops/dead-letters", response_model=DeadLetterList)
+async def list_dead_letters(
+    session: PlatformDb,
+    _: CurrentPlatformUser,
+    ctx: ContextDep,
+    tenant_id: UUID | None = None,
+    event_type: Annotated[str | None, Query(alias="type", max_length=64)] = None,
+    before: Annotated[
+        str | None, Query(pattern=r"^\d{1,20}-\d{1,20}$", description="上一页返回的 next_before")
+    ] = None,
+    limit: Annotated[int, Query(ge=1, le=200)] = 50,
+) -> DeadLetterList:
+    """处理失败进入死信的事件（新的在前）。"""
+    return await deadletters.list_dead_letters(
+        ctx, session, tenant_id=tenant_id, type_=event_type, before=before, limit=limit
+    )
+
+
+@router.post("/ops/dead-letters/retry", response_model=OpsResult)
+async def retry_dead_letters(
+    payload: DeadLetterAction,
+    request: Request,
+    session: PlatformDb,
+    user: CurrentPlatformUser,
+    ctx: ContextDep,
+) -> OpsResult:
+    """重新发布这些事件（问题修复后），成功后从死信中删除。"""
+    result = await deadletters.retry_dead_letters(ctx, payload.ids)
+    _record_ops(session, "platform.dead_letters.retry", user.id, payload.ids, result, request)
+    await session.commit()
+    return result
+
+
+@router.post("/ops/dead-letters/discard", response_model=OpsResult)
+async def discard_dead_letters(
+    payload: DeadLetterAction,
+    request: Request,
+    session: PlatformDb,
+    user: CurrentPlatformUser,
+    ctx: ContextDep,
+) -> OpsResult:
+    result = await deadletters.discard_dead_letters(ctx, payload.ids)
+    _record_ops(session, "platform.dead_letters.discard", user.id, payload.ids, result, request)
+    await session.commit()
+    return result
+
+
+@router.get("/ops/im-ops", response_model=ImOpList)
+async def list_im_ops(
+    session: PlatformDb,
+    _: CurrentPlatformUser,
+    status_: Annotated[Literal["failed", "stuck", "pending"], Query(alias="status")] = "failed",
+    tenant_id: UUID | None = None,
+    op: Annotated[str | None, Query(max_length=16)] = None,
+    before_id: Annotated[int | None, Query(ge=1)] = None,
+    limit: Annotated[int, Query(ge=1, le=200)] = 50,
+) -> ImOpList:
+    """IM 发件箱：最终失败、积压（到期 5 分钟以上仍未执行）或全部待执行的操作。"""
+    return await deadletters.list_im_ops(
+        session, status=status_, tenant_id=tenant_id, op=op, before_id=before_id, limit=limit
+    )
+
+
+@router.post("/ops/im-ops/retry", response_model=OpsResult)
+async def retry_im_ops(
+    payload: ImOpAction,
+    request: Request,
+    session: PlatformDb,
+    user: CurrentPlatformUser,
+    ctx: ContextDep,
+) -> OpsResult:
+    """失败的操作重新排队（重试次数清零），待执行的立即执行；在线信令不能重试。"""
+    result, tenants = await deadletters.retry_im_ops(ctx, session, payload.ids)
+    _record_ops(
+        session, "platform.im_ops.retry", user.id, payload.ids, result, request, tenants=tenants
+    )
+    await session.commit()
+    return result
+
+
+@router.post("/ops/im-ops/discard", response_model=OpsResult)
+async def discard_im_ops(
+    payload: ImOpAction,
+    request: Request,
+    session: PlatformDb,
+    user: CurrentPlatformUser,
+) -> OpsResult:
+    """放弃待执行的操作，同一个 Room 后面的操作可以继续执行。"""
+    result, tenants = await deadletters.discard_im_ops(session, payload.ids)
+    _record_ops(
+        session, "platform.im_ops.discard", user.id, payload.ids, result, request, tenants=tenants
+    )
+    await session.commit()
+    return result
+
+
+def _record_ops(
+    session: PlatformDb,
+    action: str,
+    actor_id: UUID,
+    ids: list[str] | list[int],
+    result: OpsResult,
+    request: Request,
+    *,
+    tenants: list[UUID] | None = None,
+) -> None:
+    detail: dict[str, object] = {"ids": [str(i) for i in ids[:50]], "done": result.done}
+    if tenants:
+        detail["tenants"] = [str(t) for t in tenants]
+    record_audit(
+        session,
+        action=action,
+        actor_type="platform",
+        actor_id=actor_id,
+        resource_type="ops",
+        detail=detail,
+        ip=client_ip(request),
+    )
 
 
 # ---- 内容安全 ----

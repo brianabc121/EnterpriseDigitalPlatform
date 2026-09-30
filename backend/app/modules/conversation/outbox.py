@@ -19,6 +19,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import UUID
 
+from opentelemetry.trace import StatusCode
 from sqlalchemy import delete, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -47,6 +48,7 @@ from app.modules.conversation.provisioning import BOT_NICKNAME, SYSTEM_NICKNAME
 from app.modules.customer.models import Customer, CustomerIdentity
 from app.modules.iam.models import Staff
 from app.modules.tenancy.models import Tenant
+from app.observability import metrics, tracing
 
 logger = logging.getLogger(__name__)
 
@@ -129,6 +131,10 @@ def enqueue_mirror(session: AsyncSession, room_id: UUID, message_id: UUID) -> No
 
 
 def _enqueue(session: AsyncSession, room_id: UUID, op: ImOpType, payload: dict[str, Any]) -> None:
+    # 记下写入时的链路：稍后由调度进程执行时作为链接，能找到是哪个请求或事件引起的。
+    trace = tracing.inject()
+    if trace:
+        payload = {**payload, "trace": trace}
     session.add(ImOp(room_id=room_id, op=op, payload=payload))
 
 
@@ -234,29 +240,40 @@ async def dispatch_room(
             if op is None:
                 break
             lane = _lane(op, channel_first)
-            try:
-                if room is None:
-                    raise ValueError("room is missing")
-                finished = await _step(ctx, session, room, channel, op, now, created)
-            except _RETRYABLE as exc:
-                op.attempts += 1
-                op.last_error = str(exc)[:500]
-                if op.op in _ONLINE_ONLY or op.attempts >= _MAX_ATTEMPTS:
-                    logger.warning("im op %s (%s) given up: %s", op.id, op.op, exc)
-                    op.status = ImOpStatus.FAILED
+            tenant = metrics.tenant_label(tenant_id)
+            with tracing.tracer().start_as_current_span(
+                f"im_op {op.op}",
+                links=tracing.links_from(op.payload.get("trace")),
+                attributes={"edp.im_op.id": op.id, "edp.im_op.attempts": op.attempts},
+            ) as span:
+                try:
+                    if room is None:
+                        raise ValueError("room is missing")
+                    finished = await _step(ctx, session, room, channel, op, now, created)
+                except _RETRYABLE as exc:
+                    span.record_exception(exc)
+                    span.set_status(StatusCode.ERROR)
+                    op.attempts += 1
+                    op.last_error = str(exc)[:500]
+                    if op.op in _ONLINE_ONLY or op.attempts >= _MAX_ATTEMPTS:
+                        logger.warning("im op %s (%s) given up: %s", op.id, op.op, exc)
+                        op.status = ImOpStatus.FAILED
+                        op.done_at = now
+                        metrics.IM_OPS.labels(op.op, tenant, "failed").inc()
+                    else:
+                        op.next_attempt_at = now + timedelta(
+                            seconds=min(2**op.attempts, _MAX_BACKOFF_SECONDS)
+                        )
+                        blocked.add(lane)
+                        metrics.IM_OPS.labels(op.op, tenant, "retry").inc()
+                    await session.commit()
+                    continue
+                if finished:
+                    op.status = ImOpStatus.DONE
                     op.done_at = now
-                else:
-                    op.next_attempt_at = now + timedelta(
-                        seconds=min(2**op.attempts, _MAX_BACKOFF_SECONDS)
-                    )
-                    blocked.add(lane)
+                    done += 1
+                    metrics.IM_OPS.labels(op.op, tenant, "done").inc()
                 await session.commit()
-                continue
-            if finished:
-                op.status = ImOpStatus.DONE
-                op.done_at = now
-                done += 1
-            await session.commit()
     for message_id in created:
         # 平台写入的提示和 AI 回复：与回调入库的消息一样发布事件，由实时消费进程归入会话。
         try:

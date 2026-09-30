@@ -16,9 +16,13 @@
 - 标记到期的订阅，宽限期过后停用租户（每小时）；
 - 生成上个月的账单（每 6 小时检查，已收款的不变）；
 - 生成排队中的数据导出、删除过期的导出文件（每 30 秒）；
-- 删除注销保留期已到的租户数据（每小时）。
+- 删除注销保留期已到的租户数据（每小时）；
+- 读取排队、坐席、发件箱、事件积压等状态类指标（每 15 秒，见 app/observability/state.py）。
 
-用法：uv run python -m app.scheduler。可以运行多个实例：持有租约的实例执行任务，其他实例待命。
+每个任务的执行次数、耗时和最近一次成功的时间计入 Prometheus 指标，每次执行是一个 span。
+
+用法：uv run python -m app.scheduler。可以运行多个实例：持有租约的实例执行任务，其他实例待命
+（不导出状态类指标）。
 """
 
 import asyncio
@@ -29,6 +33,8 @@ import socket
 import time
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
+
+from opentelemetry.trace import StatusCode
 
 from app.context import AppContext
 from app.core.config import get_settings
@@ -55,6 +61,7 @@ from app.modules.wecom.contacts import poll_transfers
 from app.modules.wecom.kf import sync_all as kf_sync_all
 from app.modules.wecom.marketing import poll_broadcasts
 from app.modules.wecom.zone import pull_zone_results
+from app.observability import logs, metrics, state, tracing
 
 logger = logging.getLogger("app.scheduler")
 
@@ -96,16 +103,39 @@ JOBS = (
     Job("file-scan", 60, run_file_scan),
     Job("ai-cache", 3600, purge_expired_answers),
     Job("session-summaries", 60, run_session_summaries),
+    Job("metrics-state", state.INTERVAL_SECONDS, state.refresh),
 )
 
 
+async def run_once(ctx: AppContext, job: Job) -> object:
+    """执行一次任务，记录指标和 span。失败时抛出异常。"""
+    started = time.perf_counter()
+    with tracing.tracer().start_as_current_span(f"job {job.name}") as span:
+        try:
+            result = await job.run(ctx)
+        except Exception as exc:
+            span.record_exception(exc)
+            span.set_status(StatusCode.ERROR)
+            metrics.JOB_RUNS.labels(job.name, "error").inc()
+            raise
+        finally:
+            metrics.JOB_DURATION.labels(job.name).observe(time.perf_counter() - started)
+    metrics.JOB_RUNS.labels(job.name, "ok").inc()
+    metrics.JOB_LAST_SUCCESS.labels(job.name).set(time.time())
+    return result
+
+
 async def run_job(ctx: AppContext, job: Job, stop: asyncio.Event, lease: Lease) -> None:
+    metrics.JOB_INTERVAL.labels(job.name).set(job.interval)
     while not stop.is_set():
         started = time.monotonic()
         try:
             if await lease.hold():
-                result = await job.run(ctx)
+                result = await run_once(ctx, job)
                 logger.debug("%s: %s", job.name, result)
+            elif job.run is state.refresh:
+                # 没有租约的实例不导出状态类指标，避免与持有租约的实例重复或过时。
+                state.clear()
         except Exception:
             logger.exception("job %s failed", job.name)
         await wait_or_stop(stop, max(0.0, job.interval - (time.monotonic() - started)))
@@ -117,10 +147,14 @@ async def run(ctx: AppContext, stop: asyncio.Event) -> None:
         await asyncio.gather(*(run_job(ctx, job, stop, lease) for job in JOBS))
     finally:
         await lease.release()
+        state.clear()
 
 
 async def _main() -> None:
-    ctx = AppContext.create(get_settings())
+    settings = get_settings()
+    tracing.setup(settings, "scheduler")
+    metrics.start_metrics_server(settings.metrics_port)
+    ctx = AppContext.create(settings)
     stop = asyncio.Event()
     loop = asyncio.get_running_loop()
     for sig in (signal.SIGINT, signal.SIGTERM):
@@ -129,12 +163,11 @@ async def _main() -> None:
         await run(ctx, stop)
     finally:
         await ctx.aclose()
+        tracing.shutdown()
 
 
 def main() -> None:
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
-    # 每个 HTTP 请求一行的日志太多，只保留警告。
-    logging.getLogger("httpx").setLevel(logging.WARNING)
+    logs.configure(get_settings())
     asyncio.run(_main())
 
 
