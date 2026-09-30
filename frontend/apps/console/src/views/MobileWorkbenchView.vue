@@ -5,6 +5,8 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import KbSearchPanel from '../components/knowledge/KbSearchPanel.vue'
+import CustomerTodos from '../components/todos/CustomerTodos.vue'
+import MyTodos from '../components/todos/MyTodos.vue'
 import ChatPanel from '../components/workbench/ChatPanel.vue'
 import CustomerPanel from '../components/workbench/CustomerPanel.vue'
 import IncomingTransfer from '../components/workbench/IncomingTransfer.vue'
@@ -14,14 +16,15 @@ import { STATUS_LABEL, useWorkbenchStore, type AgentStatus } from '../stores/wor
 /**
  * 手机版坐席工作台（设计 §6.2、§17.1）：坐席在企业微信手机端点开应用消息提醒后免登进入，
  * 查看自己接待中的会话并直接回复。与电脑版共用工作台的状态、IM 连接和聊天面板，
- * 按手机屏幕一次显示一屏：会话列表 → 聊天 → 客户资料 / 知识检索（抽屉）。
+ * 按手机屏幕一次显示一屏：会话列表 → 聊天 → 客户资料 / 待办 / 知识检索（抽屉）。
+ * "待办"页签列出等我确认的和我的待办，可以直接确认和处理（设计文档 §24.9）。
  */
 const wb = useWorkbenchStore()
 const auth = useAuthStore()
 const route = useRoute()
 const router = useRouter()
-const tab = ref<'mine' | 'queued'>('mine')
-const drawer = ref<'customer' | 'knowledge' | null>(null)
+const tab = ref<'mine' | 'queued' | 'todos'>('mine')
+const drawer = ref<'customer' | 'knowledge' | 'todos' | null>(null)
 
 const SESSION_LABEL: Record<string, string> = {
   queued: '排队中',
@@ -110,8 +113,10 @@ onMounted(async () => {
       <el-tabs v-model="tab" stretch class="tabs">
         <el-tab-pane :label="`接待中 ${wb.sessions.length}`" name="mine" />
         <el-tab-pane v-if="wb.canSeeQueue" :label="`排队 ${wb.queued.length}`" name="queued" />
+        <el-tab-pane v-if="auth.can('todo:read')" label="待办" name="todos" />
       </el-tabs>
-      <div class="list">
+      <MyTodos v-if="tab === 'todos'" class="list" />
+      <div v-else class="list">
         <div
           v-for="s in list"
           :key="s.id"
@@ -140,6 +145,15 @@ onMounted(async () => {
             客户
           </el-button>
           <el-button
+            v-if="auth.can('todo:read')"
+            link
+            type="primary"
+            data-testid="mobile-todos"
+            @click="drawer = 'todos'"
+          >
+            待办
+          </el-button>
+          <el-button
             v-if="auth.can('kb:read')"
             link
             type="primary"
@@ -157,13 +171,21 @@ onMounted(async () => {
       :model-value="drawer !== null"
       direction="btt"
       size="80%"
-      :title="drawer === 'customer' ? '客户资料' : '知识检索'"
+      :title="drawer === 'customer' ? '客户资料' : drawer === 'todos' ? '客户的待办' : '知识检索'"
       @close="drawer = null"
     >
       <CustomerPanel
         v-if="drawer === 'customer' && wb.active"
         :key="wb.active.customer_id"
         :customer-id="wb.active.customer_id"
+      />
+      <CustomerTodos
+        v-if="drawer === 'todos' && wb.active"
+        :key="wb.active.id"
+        :customer-id="wb.active.customer_id"
+        :customer-name="wb.active.customer_display_name"
+        :session-id="wb.active.id"
+        source="copilot"
       />
       <KbSearchPanel v-if="drawer === 'knowledge'" insertable @insert="insertKnowledge" />
     </el-drawer>

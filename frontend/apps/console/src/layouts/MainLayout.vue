@@ -15,12 +15,14 @@ import {
   Tickets,
   User,
 } from '@element-plus/icons-vue'
-import { computed, ref, type Component } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, type Component } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
+import { api } from '../api'
 import PasswordDialog from '../components/account/PasswordDialog.vue'
 import NotificationBell from '../components/layout/NotificationBell.vue'
 import { visibleMenus, type MenuIcon } from '../menu'
+import { TODOS_CHANGED } from '../todos'
 import { useAuthStore } from '../stores/auth'
 import { useWorkbenchStore } from '../stores/workbench'
 
@@ -53,6 +55,33 @@ function closeNotice(): void {
 
 const passwordOpen = ref(false)
 
+// 待办菜单的角标：等我确认的加上我已逾期的，每分钟刷新一次；待办有变化时立即刷新。
+const TODO_POLL_MS = 60_000
+const todoBadge = ref(0)
+let todoTimer: ReturnType<typeof setInterval> | undefined
+
+async function loadTodoBadge(): Promise<void> {
+  if (!auth.can('todo:read')) return
+  const { data } = await api.GET('/api/v1/todos/counts')
+  if (data) todoBadge.value = data.pending + data.overdue
+}
+
+function onTodosChanged(): void {
+  void loadTodoBadge()
+}
+
+onMounted(() => {
+  void loadTodoBadge()
+  todoTimer = setInterval(() => {
+    if (document.visibilityState === 'visible') void loadTodoBadge()
+  }, TODO_POLL_MS)
+  window.addEventListener(TODOS_CHANGED, onTodosChanged)
+})
+onBeforeUnmount(() => {
+  clearInterval(todoTimer)
+  window.removeEventListener(TODOS_CHANGED, onTodosChanged)
+})
+
 async function onCommand(command: string): Promise<void> {
   if (command === 'password') {
     passwordOpen.value = true
@@ -77,6 +106,13 @@ async function logout(): Promise<void> {
         <el-menu-item v-for="item in menus" :key="item.name" :index="item.path">
           <el-icon><component :is="icons[item.icon]" /></el-icon>
           <span>{{ item.title }}</span>
+          <el-badge
+            v-if="item.name === 'todos' && todoBadge"
+            :value="todoBadge"
+            :max="99"
+            class="menu-badge"
+            data-testid="todo-badge"
+          />
         </el-menu-item>
       </el-menu>
     </el-aside>
@@ -121,6 +157,11 @@ async function logout(): Promise<void> {
 <style scoped>
 .billing-notice {
   margin-bottom: 12px;
+}
+
+.menu-badge {
+  margin-left: 8px;
+  line-height: 1;
 }
 
 .right {

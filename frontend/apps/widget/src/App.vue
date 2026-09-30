@@ -8,6 +8,7 @@ import {
   cancelQueue,
   embedOrigin,
   fetchMessages,
+  fetchProgress,
   fetchState,
   imageSize,
   initVisitor,
@@ -16,6 +17,7 @@ import {
   rateAnswer,
   requestHuman,
   upload,
+  type ProgressList,
   type SessionState,
   type VisitorSession,
 } from './visitor'
@@ -55,7 +57,9 @@ const error = ref<string | null>(channelKey ? null : '缺少渠道参数 key')
 const list = ref<HTMLElement | null>(null)
 const fileInput = ref<HTMLInputElement | null>(null)
 const noticeRead = ref(false)
-const panel = ref<'chat' | 'leave'>('chat')
+const panel = ref<'chat' | 'leave' | 'progress'>('chat')
+// 服务进度（设计文档 §24.9）：企业开启后显示访客自己登记的事项。
+const progress = ref<ProgressList | null>(null)
 const leaveForm = ref({ content: '', contact: '', sent: false })
 const csat = ref({ score: 0, comment: '', done: false })
 const visible = ref(!embedded)
@@ -194,7 +198,7 @@ async function start(key: string): Promise<void> {
       wsAddr: login.ws_url,
       platformID: login.platform_id,
     })
-    await Promise.all([syncFromApi(), refreshState()])
+    await Promise.all([syncFromApi(), refreshState(), loadProgress()])
     timers.push(setTimeout(() => void syncFromApi(), SYNC_AFTER_CONNECT_MS))
     timers.push(
       setInterval(() => {
@@ -207,6 +211,20 @@ async function start(key: string): Promise<void> {
   } catch (e) {
     error.value = e instanceof Error ? e.message : '客服暂时不可用，请稍后再试'
   }
+}
+
+async function loadProgress(): Promise<void> {
+  if (!session.value) return
+  try {
+    progress.value = await fetchProgress(session.value.visitor_token)
+  } catch {
+    progress.value = null
+  }
+}
+
+function showProgress(): void {
+  panel.value = panel.value === 'progress' ? 'chat' : 'progress'
+  if (panel.value === 'progress') void loadProgress()
 }
 
 async function send(): Promise<void> {
@@ -337,6 +355,15 @@ onBeforeUnmount(() => {
       <span class="title" data-testid="widget-title">{{ title }}</span>
       <span class="header-actions">
         <span class="state" :class="state" data-testid="widget-state">{{ STATE_TEXT[state] }}</span>
+        <button
+          v-if="progress?.enabled && panel === 'chat'"
+          type="button"
+          class="link"
+          data-testid="progress-tab"
+          @click="showProgress"
+        >
+          服务进度
+        </button>
         <button
           type="button"
           class="link"
@@ -482,6 +509,20 @@ onBeforeUnmount(() => {
         <button type="submit" :disabled="!canSend" data-testid="send-button">发送</button>
       </form>
     </template>
+
+    <div v-else-if="panel === 'progress'" class="progress" data-testid="progress">
+      <p v-if="!progress?.items.length" class="empty">暂时没有需要跟进的事项。</p>
+      <div v-for="item in progress?.items ?? []" :key="item.no" class="progress-item" data-testid="progress-item">
+        <div class="progress-head">
+          <span class="progress-title">{{ item.type_name }}：{{ item.title }}</span>
+          <span class="progress-status">{{ item.status_label }}</span>
+        </div>
+        <div v-if="item.due_at" class="progress-meta">
+          预计 {{ new Date(item.due_at).toLocaleString('zh-CN', { hour12: false }) }} 前完成
+        </div>
+        <div v-if="item.progress_note" class="progress-meta">{{ item.progress_note }}</div>
+      </div>
+    </div>
 
     <form v-else class="leave" data-testid="leave-message" @submit.prevent="submitLeave">
       <p v-if="leaveForm.sent" class="thanks" data-testid="leave-thanks">

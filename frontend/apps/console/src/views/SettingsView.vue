@@ -10,11 +10,13 @@ import RoutingPoliciesTab from '../components/settings/RoutingPoliciesTab.vue'
 import SkillGroupsTab from '../components/settings/SkillGroupsTab.vue'
 import SupportTab from '../components/settings/SupportTab.vue'
 import UsageTab from '../components/settings/UsageTab.vue'
+import TodoTypesTab from '../components/todos/TodoTypesTab.vue'
 import { useAuthStore } from '../stores/auth'
 
 const auth = useAuthStore()
 const canRoute = computed(() => auth.can('routing:manage'))
 const canManageTenant = computed(() => auth.can('tenant:manage'))
+const canConfigTodos = computed(() => auth.can('todo:config'))
 const tab = ref('channels')
 </script>
 
@@ -35,6 +37,9 @@ const tab = ref('channels')
       </el-tab-pane>
       <el-tab-pane v-if="canRoute" label="坐席" name="agents" lazy>
         <AgentsTab />
+      </el-tab-pane>
+      <el-tab-pane v-if="canConfigTodos" label="待办" name="todos" lazy>
+        <TodoTypesTab />
       </el-tab-pane>
       <el-tab-pane label="用量" name="usage" lazy>
         <UsageTab />

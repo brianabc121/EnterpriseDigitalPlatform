@@ -7,6 +7,7 @@ import KbFeedPanel from '../components/knowledge/KbFeedPanel.vue'
 import KbSearchPanel from '../components/knowledge/KbSearchPanel.vue'
 import ChatPanel from '../components/workbench/ChatPanel.vue'
 import CustomerPanel from '../components/workbench/CustomerPanel.vue'
+import CustomerTodos from '../components/todos/CustomerTodos.vue'
 import IncomingTransfer from '../components/workbench/IncomingTransfer.vue'
 import { WATCHER_ROLE } from '../labels'
 import { useAuthStore } from '../stores/auth'
@@ -18,7 +19,7 @@ type ListTab = 'mine' | 'queued' | 'ongoing' | 'closed'
 const wb = useWorkbenchStore()
 const auth = useAuthStore()
 const tab = ref<ListTab>('mine')
-const sideTab = ref<'customer' | 'knowledge' | 'feed'>('customer')
+const sideTab = ref<'customer' | 'todos' | 'knowledge' | 'feed'>('customer')
 /** 待确认的必读知识数（显示在"动态"页签上）。 */
 const unreadKnowledge = ref(0)
 
@@ -183,6 +184,9 @@ onMounted(() => void wb.start())
     <aside class="customer side">
       <el-tabs v-model="sideTab" class="side-tabs" stretch>
         <el-tab-pane label="客户" name="customer" />
+        <el-tab-pane v-if="auth.can('todo:read')" name="todos">
+          <template #label><span data-testid="todos-tab">待办</span></template>
+        </el-tab-pane>
         <el-tab-pane v-if="auth.can('kb:read')" label="知识库" name="knowledge" />
         <el-tab-pane v-if="auth.can('kb:read')" name="feed">
           <template #label>
@@ -201,6 +205,18 @@ onMounted(() => void wb.start())
           :customer-id="wb.active.customer_id"
         />
         <div v-else class="side-body placeholder">选择会话后显示客户资料</div>
+      </template>
+      <template v-if="sideTab === 'todos'">
+        <CustomerTodos
+          v-if="wb.active"
+          :key="wb.active.id"
+          class="side-body todos"
+          :customer-id="wb.active.customer_id"
+          :customer-name="wb.active.customer_display_name"
+          :session-id="wb.active.id"
+          source="copilot"
+        />
+        <div v-else class="side-body placeholder">选择会话后显示客户的待办</div>
       </template>
       <KbSearchPanel
         v-if="auth.can('kb:read')"
@@ -339,7 +355,8 @@ onMounted(() => void wb.start())
   overflow-y: auto;
 }
 
-.kb {
+.kb,
+.todos {
   padding: 10px 12px;
 }
 

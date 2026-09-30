@@ -605,6 +605,70 @@ async def test_reject_merge_and_batch_confirm(desk: Desk) -> None:
     assert target["nudge_count"] == 1
 
 
+async def test_confirm_assigns_the_serving_agent_and_requires_fields(
+    desk: Desk, app: FastAPI, fake_llm: FakeLLM
+) -> None:
+    await ai_desk(desk, app)
+    alice = await desk.agent("alice")
+    visitor = await desk.visitor()
+
+    # AI 接待时会话还没有坐席：资料寄送（会话坐席 → 归属坐席）在公共待认领池里等待确认。
+    fake_llm.tool_plan = [
+        (
+            "create_todo",
+            {
+                "type": "send_materials",
+                "title": "寄送产品手册",
+                "detail": "客户要一份产品手册",
+                "fields": {"material": "产品手册"},
+            },
+        )
+    ]
+    await desk.say(visitor, "能把产品手册发我一份吗")
+    [todo] = await todo_rows(desk)
+    assert (todo["status"], todo["assignee_id"], todo["skill_group_id"]) == ("pending", None, None)
+
+    # 转人工后小艾接待；她在会话里直接确认时，按规则交给会话坐席（她自己，不再提醒）。
+    await desk.say(visitor, "转人工")
+    assert (await desk.session_of(visitor))["assignee_id"] == alice.staff_id
+    confirmed = await act(desk, alice.headers, todo["id"], "confirm")
+    assert (confirmed["status"], confirmed["assignee_id"]) == ("open", str(alice.staff_id))
+    assert ("todo_assigned", "新待办：资料寄送「寄送产品手册」") not in await notes(desk, alice)
+
+    # 会话后解析的上门预约缺少地址和电话：批量确认、快速确认都不行，补全后才能确认。
+    [kind] = await desk.sql("SELECT id FROM todo_types WHERE code = 'visit'")
+    [row] = await desk.sql(
+        "INSERT INTO todos (id, tenant_id, no, type_id, title, detail, customer_id, source,"
+        " status, assignee_id, created_by_type)"
+        " VALUES ($1, $2, 'TD20260930-0009', $3, '上门维修', '', $4, 'ai_summary', 'pending',"
+        " $5, 'ai') RETURNING id",
+        uuid.uuid4(),
+        desk.tenant_id,
+        kind["id"],
+        uuid.UUID(await customer_of(desk, visitor)),
+        alice.staff_id,
+    )
+    batch = await desk.client.post(
+        "/api/v1/todos/batch",
+        headers=alice.headers,
+        json={"ids": [str(row["id"])], "action": "confirm"},
+    )
+    assert batch.json()["done"] == []
+    assert "缺少上门地址" in batch.json()["failed"][0]["error"]
+    quick = await desk.client.post(
+        f"/api/v1/todos/{row['id']}/confirm", headers=alice.headers, json={}
+    )
+    assert quick.status_code == 422
+    confirmed = await act(
+        desk,
+        alice.headers,
+        row["id"],
+        "confirm",
+        fields={"address": "上海市浦东新区世纪大道 100 号", "phone": "13900002222"},
+    )
+    assert confirmed["status"] == "open"
+
+
 # ---- 会话后解析与 AI 预填 ----
 
 

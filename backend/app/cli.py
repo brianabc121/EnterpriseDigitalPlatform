@@ -9,6 +9,7 @@ import os
 import sys
 from datetime import date, timedelta
 from pathlib import Path
+from typing import Any
 from zoneinfo import ZoneInfo
 
 from pydantic import SecretStr
@@ -40,6 +41,9 @@ from app.modules.security.scanning import run_file_scan
 from app.modules.tenancy import service as tenancy
 from app.modules.tenancy.models import Tenant
 from app.modules.tenancy.schemas import TenantAdminCreate, TenantCreate
+from app.modules.todos.extract import run_pending as run_todo_extraction
+from app.modules.todos.notify import run_digest as run_todo_digest
+from app.modules.todos.notify import run_timers as run_todo_timers
 from app.modules.usage.service import RollupReport, rollup_day
 from app.modules.wecom.contacts import poll_transfers
 from app.modules.wecom.handlers import on_sync
@@ -121,6 +125,20 @@ async def kb_reindex(settings: Settings, code: str | None) -> dict[str, int]:
         if code and not tenants:
             raise SystemExit(f"租户不存在：{code}")
         return {tenant: await reindex_all(ctx, tenant_id) for tenant_id, tenant in tenants}
+    finally:
+        await ctx.aclose()
+
+
+async def todo_jobs(settings: Settings) -> dict[str, Any]:
+    """立即发送待办提醒、处理到期提醒和逾期升级、发送今日汇总，并解析最近结束的人工会话
+    （平时由调度进程定时执行）。"""
+    ctx = AppContext.create(settings)
+    try:
+        return {
+            "timers": await run_todo_timers(ctx),
+            "digests": await run_todo_digest(ctx),
+            "extracted": await run_todo_extraction(ctx),
+        }
     finally:
         await ctx.aclose()
 
@@ -335,6 +353,11 @@ def main(argv: list[str] | None = None) -> int:
         "kb-jobs", help="立即执行知识导入、知识到期提醒和会话小结（平时由调度进程定时执行）"
     )
 
+    commands.add_parser(
+        "todo-jobs",
+        help="立即发送待办提醒、到期提醒和逾期升级，并解析最近结束的会话（平时由调度进程定时执行）",
+    )
+
     digest = commands.add_parser("kb-digest", help="生成知识周报（默认本周）")
     digest.add_argument("--tenant", help="租户编码，不填时处理全部租户")
     digest.add_argument("--week", type=date.fromisoformat, help="这一周中的任意一天 YYYY-MM-DD")
@@ -412,6 +435,8 @@ def main(argv: list[str] | None = None) -> int:
     elif args.command == "kb-jobs":
         done = asyncio.run(kb_jobs(get_settings()))
         print(json.dumps(done, ensure_ascii=False))
+    elif args.command == "todo-jobs":
+        print(json.dumps(asyncio.run(todo_jobs(get_settings())), ensure_ascii=False))
     elif args.command == "kb-digest":
         digests = asyncio.run(kb_digest(get_settings(), args.tenant, args.week))
         print(json.dumps(digests, ensure_ascii=False))

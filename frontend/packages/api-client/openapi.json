@@ -1034,6 +1034,50 @@
         "title": "AssignUnassignedRequest",
         "type": "object"
       },
+      "AssigneeOption": {
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "AssigneeOption",
+        "type": "object"
+      },
+      "AssigneeOptions": {
+        "description": "可以分派、转交待办的对象：启用状态的员工和技能组。",
+        "properties": {
+          "groups": {
+            "items": {
+              "$ref": "#/components/schemas/AssigneeOption"
+            },
+            "title": "Groups",
+            "type": "array"
+          },
+          "staff": {
+            "items": {
+              "$ref": "#/components/schemas/AssigneeOption"
+            },
+            "title": "Staff",
+            "type": "array"
+          }
+        },
+        "required": [
+          "staff",
+          "groups"
+        ],
+        "title": "AssigneeOptions",
+        "type": "object"
+      },
       "AssistRequest": {
         "properties": {
           "staff_id": {
@@ -37725,6 +37769,93 @@
           }
         ],
         "summary": "Create Todo",
+        "tags": [
+          "todos"
+        ]
+      }
+    },
+    "/api/v1/todos/assignees": {
+      "get": {
+        "description": "新建、确认、转交待办时可以选择的员工和技能组。",
+        "operationId": "assignees_api_v1_todos_assignees_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssigneeOptions"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Assignees",
         "tags": [
           "todos"
         ]

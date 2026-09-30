@@ -99,6 +99,18 @@ class TodoDetail(TodoOut):
     allowed: TodoAllowed
 
 
+class AssigneeOption(BaseModel):
+    id: uuid.UUID
+    name: str
+
+
+class AssigneeOptions(BaseModel):
+    """可以分派、转交待办的对象：启用状态的员工和技能组。"""
+
+    staff: list[AssigneeOption]
+    groups: list[AssigneeOption]
+
+
 class TodoCounts(BaseModel):
     pending: int = Field(description="等我确认的（能分派待办的人是数据范围内全部待确认）")
     mine: int = Field(description="我的未完成待办")

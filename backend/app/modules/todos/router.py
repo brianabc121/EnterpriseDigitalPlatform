@@ -14,6 +14,7 @@ from app.modules.iam.principal import Principal
 from app.modules.todos import actions, admin, extract, queries
 from app.modules.todos.models import Priority, TodoSource, TodoStatus
 from app.modules.todos.schemas import (
+    AssigneeOptions,
     AssignRequest,
     BatchRequest,
     BatchResult,
@@ -98,6 +99,12 @@ async def list_todos(
 async def counts(session: TenantDb, principal: CanRead) -> TodoCounts:
     """菜单角标：等我确认的、我的、今日到期、已逾期、我能认领的。"""
     return await queries.counts(session, principal)
+
+
+@router.get("/todos/assignees", response_model=AssigneeOptions)
+async def assignees(session: TenantDb, principal: CanRead) -> AssigneeOptions:
+    """新建、确认、转交待办时可以选择的员工和技能组。"""
+    return await queries.assignees(session)
 
 
 @router.post("/todos", response_model=TodoOut, status_code=status.HTTP_201_CREATED)

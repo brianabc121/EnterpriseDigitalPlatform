@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.permissions import Permission
 from app.modules.conversation.models import Message
 from app.modules.customer.models import Customer
-from app.modules.iam.models import Staff
+from app.modules.iam.models import Staff, StaffStatus
 from app.modules.iam.principal import Principal
 from app.modules.routing.models import SkillGroup
 from app.modules.todos import actions, sla
@@ -25,6 +25,8 @@ from app.modules.todos.models import (
     TodoType,
 )
 from app.modules.todos.schemas import (
+    AssigneeOption,
+    AssigneeOptions,
     DueFilter,
     EvidenceMessage,
     FieldValue,
@@ -334,4 +336,19 @@ async def counts(
     pending, mine_count, due_today, overdue, pool = row
     return TodoCounts(
         pending=pending, mine=mine_count, due_today=due_today, overdue=overdue, pool=pool
+    )
+
+
+async def assignees(session: AsyncSession) -> AssigneeOptions:
+    staff = await session.execute(
+        select(Staff.id, Staff.display_name)
+        .where(Staff.status == StaffStatus.ACTIVE)
+        .order_by(Staff.display_name, Staff.id)
+    )
+    groups = await session.execute(
+        select(SkillGroup.id, SkillGroup.name).order_by(SkillGroup.name, SkillGroup.id)
+    )
+    return AssigneeOptions(
+        staff=[AssigneeOption(id=i, name=n) for i, n in staff],
+        groups=[AssigneeOption(id=i, name=n) for i, n in groups],
     )

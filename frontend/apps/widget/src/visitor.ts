@@ -123,6 +123,15 @@ export async function rateAnswer(token: string, serverMsgId: string, value: 1 | 
   if (error) throw new Error(errorMessage(error))
 }
 
+export type ProgressList = Schemas['VisitorTodoList']
+
+/** 服务进度：访客自己登记的事项（企业开启后才有内容）。 */
+export async function fetchProgress(token: string): Promise<ProgressList> {
+  const { data, error } = await api.GET('/api/v1/visitor/progress', { params: auth(token) })
+  if (!data) throw new Error(errorMessage(error))
+  return data
+}
+
 export async function leaveMessage(token: string, content: string, contact: string): Promise<void> {
   const { error } = await api.POST('/api/v1/visitor/leave-message', {
     params: auth(token),

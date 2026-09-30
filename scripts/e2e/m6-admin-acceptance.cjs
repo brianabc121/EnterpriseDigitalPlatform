@@ -264,15 +264,23 @@ async function run(browser) {
 
   // 7. 留言：管理员在待办里处理
   await menu(page, '待办')
+  await page.click('[data-testid="todo-view-all"]')
   const todoRow = page.locator('[data-testid="todos-table"] .el-table__row', {
     hasText: '周末能送货吗',
   })
   await todoRow.waitFor({ timeout: 15000 })
-  await todoRow.locator('[data-testid="complete-todo"]').click()
-  await page.locator('.el-message--success', { hasText: '已处理' }).waitFor()
-  await page.locator('[data-testid="todo-status-filter"] .el-radio-button', { hasText: '已完成' }).click()
-  await todoRow.waitFor()
-  check('留言在"待办"页处理完成', true)
+  await todoRow.click()
+  await page.locator('[data-testid="todo-done"]').click()
+  await page.locator('textarea[data-testid="done-result"]').fill('周末正常送货，已电话告知客户')
+  await page.click('[data-testid="done-submit"]')
+  await page.locator('.el-message--success', { hasText: '已完成' }).waitFor()
+  await page.keyboard.press('Escape')
+  const doneRow = await todoRow
+    .locator('[data-testid="todo-row-status"]', { hasText: '已完成' })
+    .waitFor({ timeout: 15000 })
+    .then(() => true)
+    .catch(() => false)
+  check('留言在"待办"页处理完成', doneRow)
 
   // 8. 会话记录：已结束的会话，查看对话与过程
   await menu(page, '会话记录')

@@ -3,6 +3,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { computed, nextTick, ref, watch } from 'vue'
 
 import { ALERT_KIND, HANDOFF_REASON, WATCHER_ROLE } from '../../labels'
+import { useAuthStore } from '../../stores/auth'
 import { useWorkbenchStore } from '../../stores/workbench'
 import type { ReplyOrigin, WorkbenchMessage } from '../../workbench/messages'
 import MessageContent from '../chat/MessageContent.vue'
@@ -10,9 +11,12 @@ import { IMAGE_TYPES, MAX_FILE_BYTES, MAX_IMAGE_BYTES } from '../../workbench/up
 import AssistDialog from './AssistDialog.vue'
 import QuickReplies from './QuickReplies.vue'
 import SessionSummaryCard from './SessionSummaryCard.vue'
+import SessionTodos from './SessionTodos.vue'
 import TransferDialog from './TransferDialog.vue'
 
 const wb = useWorkbenchStore()
+// AI 在这次会话里登记、等待确认的待办（客户看不到）。
+const canSeeTodos = useAuthStore().can('todo:read')
 const transferOpen = ref(false)
 const assistOpen = ref(false)
 const acting = ref(false)
@@ -462,6 +466,7 @@ function insert(text: string, origin: ReplyOrigin = 'quick_reply'): void {
       </div>
 
       <SessionSummaryCard v-if="showSummary" :session-id="session.id" :can-write="canTransfer" />
+      <SessionTodos v-if="canSeeTodos" :key="session.id" :session-id="session.id" />
       <footer v-if="replyable" class="composer">
         <div class="tools">
           <QuickReplies @pick="(text: string) => insert(text, 'quick_reply')" />

@@ -260,12 +260,12 @@ async def confirm(
     if payload.detail is not None and payload.detail.strip() != todo.detail:
         changes["detail"] = True
         todo.detail = payload.detail.strip()
+    # 会话后解析的待办可能缺少必填字段：确认时必须补全（批量确认、会话里的快速确认也一样）。
+    stored = await _plain_fields(ctx, todo)
+    values = {**stored, **(payload.fields or {})}
+    cleaned = _clean_or_raise(type_, values)
     if payload.fields is not None or type_changed:
-        values = await _plain_fields(ctx, todo)
-        if payload.fields is not None:
-            values.update(payload.fields)
-        cleaned = _clean_or_raise(type_, values)
-        if cleaned != await _plain_fields(ctx, todo):
+        if cleaned != stored:
             changes["fields"] = sorted(cleaned)
         todo.fields = await todo_fields.seal(ctx.keys, todo.tenant_id, type_, cleaned)
     if payload.priority is not None and payload.priority != todo.priority:
@@ -278,11 +278,14 @@ async def confirm(
     elif payload.skill_group_id is not None:
         await _group_exists(session, payload.skill_group_id)
         todo.assignee_id, todo.skill_group_id = None, payload.skill_group_id
-    elif type_changed:
+    elif type_changed or todo.assignee_id is None:
+        # 类型改了，或者还没有具体的处理人（例如 AI 登记时会话还没有坐席接待）：按规则重新分派，
+        # 规则仍然没有具体的人时留在原来的待认领池。
         target = await assign.resolve(
             session, type_, customer_id=todo.customer_id, session_id=todo.session_id
         )
-        todo.assignee_id, todo.skill_group_id = target.assignee_id, target.skill_group_id
+        if type_changed or target.assignee_id is not None:
+            todo.assignee_id, todo.skill_group_id = target.assignee_id, target.skill_group_id
     if todo.assignee_id != previous:
         changes["assignee_id"] = {
             "from": str(previous) if previous else None,

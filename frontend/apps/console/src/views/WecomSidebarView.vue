@@ -6,6 +6,7 @@ import { useRoute, useRouter } from 'vue-router'
 
 import { api, formatDateTime } from '../api'
 import KbSearchPanel from '../components/knowledge/KbSearchPanel.vue'
+import CustomerTodos from '../components/todos/CustomerTodos.vue'
 import QuickReplies from '../components/workbench/QuickReplies.vue'
 import { useAuthStore } from '../stores/auth'
 import { SIDEBAR_ORIGIN, TRANSFER_KIND, TRANSFER_STATUS, inWecom } from '../wecom'
@@ -341,6 +342,15 @@ function goLogin(): void {
           群聊摘要：{{ context.group.summary }}
           <template v-if="context.group.sentiment">（情绪：{{ context.group.sentiment }}）</template>
         </div>
+      </section>
+
+      <section v-if="customer && auth.can('todo:read')" class="card" data-testid="sidebar-todos">
+        <h4>待办</h4>
+        <CustomerTodos
+          :customer-id="customer.id"
+          :customer-name="customer.display_name"
+          source="sidebar"
+        />
       </section>
 
       <section v-if="context?.sessions.length" class="card">

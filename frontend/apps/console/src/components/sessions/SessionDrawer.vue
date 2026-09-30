@@ -201,7 +201,6 @@ watch(
             v-for="e in detail.events"
             :key="e.id"
             :timestamp="formatDateTime(e.created_at)"
-            size="small"
           >
             {{ eventText(e) }}
           </el-timeline-item>
