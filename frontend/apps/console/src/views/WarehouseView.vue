@@ -47,7 +47,15 @@ const canConfig = computed(() => auth.can('order:config'))
 const canMaterial = computed(() => auth.can('inventory:manage') || auth.can('product:manage'))
 const canBom = computed(() => auth.can('product:manage'))
 
-const tab = ref<WarehouseTab>('material')
+// 首页的链接（§25.15）：?tab=…打开这个标签页，?low=1 只看库存不足，?new=requisition|receipt 开单。
+function linkedTab(): WarehouseTab | null {
+  const { tab: target, new: kind } = route.query
+  if (kind === 'requisition' || kind === 'receipt') return kind
+  return WAREHOUSE_TABS.some(([name]) => name === target) ? (target as WarehouseTab) : null
+}
+
+const linked = linkedTab()
+const tab = ref<WarehouseTab>(linked ?? 'material')
 const settings = ref<Schemas['WarehouseSettingsOut'] | null>(null)
 const counts = ref<Schemas['WarehouseCounts'] | null>(null)
 
@@ -55,7 +63,7 @@ const items = ref<StockItem[]>([])
 const itemTotal = ref(0)
 const itemPage = ref(1)
 const itemLoading = ref(false)
-const itemFilters = reactive({ q: '', low: false })
+const itemFilters = reactive({ q: '', low: route.query.low === '1' })
 const itemKind = computed<ItemKind>(() => (tab.value === 'goods' ? 'goods' : 'material'))
 
 const docs = ref<WarehouseDocument[]>([])
@@ -305,9 +313,14 @@ watch(
 
 onMounted(async () => {
   await Promise.all([loadSettings(), loadCounts()])
+  const { tab: target, low, new: kind } = route.query
+  if (target !== undefined || low !== undefined || kind !== undefined) {
+    void router.replace({ query: { ...route.query, tab: undefined, low: undefined, new: undefined } })
+    if (kind === 'requisition' || kind === 'receipt') newDocument(kind)
+  }
   if (route.query.doc) {
     await openLinked()
-  } else if (counts.value?.pending_requisitions && auth.can('warehouse:confirm')) {
+  } else if (!linked && counts.value?.pending_requisitions && auth.can('warehouse:confirm')) {
     // 仓管打开时先看待确认的领料单。
     tab.value = 'requisition'
     return
@@ -322,7 +335,8 @@ onMounted(async () => {
       <h2>仓库</h2>
       <span v-if="settings" class="keeper" data-testid="warehouse-keeper">
         仓管：<b>{{ settings.effective_keeper_name ?? '未设置（由管理员确认）' }}</b>
-        <span v-if="settings.fallback && settings.effective_keeper_name" class="muted">（最早创建的工人）</span>
+        <span v-if="settings.by_role" class="muted">（“仓管”角色）</span>
+        <span v-else-if="settings.fallback && settings.effective_keeper_name" class="muted">（最早创建的工人）</span>
         <span v-if="!settings.confirm_required" class="muted">· 单据开单即生效</span>
         <el-button v-if="canConfig" link type="primary" data-testid="warehouse-settings" @click="keeper = true"
           >设置</el-button

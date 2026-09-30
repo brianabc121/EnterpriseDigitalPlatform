@@ -1,4 +1,4 @@
-import type { Permission } from '@edp/api-client'
+import type { ConsoleMenu, Permission } from '@edp/api-client'
 import { describe, expect, it } from 'vitest'
 
 import { MENU, firstAccessiblePath, safeRedirect, visibleMenus } from './menu'
@@ -29,7 +29,7 @@ describe('visibleMenus', () => {
     expect(visibleMenus(all)).toHaveLength(MENU.length)
   })
 
-  it('shows agents only their working menus', () => {
+  it('without console menus shows every menu the permissions allow', () => {
     expect(names(AGENT)).toEqual([
       'dashboard',
       'workbench',
@@ -61,6 +61,45 @@ describe('visibleMenus', () => {
     expect(names({ orders: false })).not.toContain('orders')
     expect(names({ orders: false })).not.toContain('products')
     expect(names({ orders: false })).not.toContain('production')
+  })
+})
+
+describe('visibleMenus with console menus (§25.15)', () => {
+  // 与后端 app/core/consoles.py 的默认菜单一致。
+  const AGENT_CONSOLE: ConsoleMenu[] = [
+    'dashboard',
+    'workbench',
+    'sessions',
+    'todos',
+    'orders',
+    'customers',
+    'knowledge',
+  ]
+
+  it('shows only the menus of the staff member\'s consoles', () => {
+    const menus = visibleMenus(new Set(AGENT), {}, AGENT_CONSOLE).map((item) => item.name)
+    expect(menus).toEqual(AGENT_CONSOLE)
+    expect(menus).not.toContain('products')
+  })
+
+  it('never shows a menu without the permission or the plan feature', () => {
+    const menus = (features: Record<string, boolean>) =>
+      visibleMenus(new Set(AGENT), features, [...AGENT_CONSOLE, 'settings', 'products']).map(
+        (item) => item.name,
+      )
+    expect(menus({})).not.toContain('settings')
+    expect(menus({})).toContain('products')
+    expect(menus({ orders: false })).not.toContain('products')
+  })
+
+  it('lands workers on production and keepers on their first menu', () => {
+    expect(firstAccessiblePath(new Set(WORKER), {}, ['production'])).toBe('/production')
+    expect(firstAccessiblePath(new Set(WORKER), { orders: false }, ['production'])).toBe(
+      '/forbidden',
+    )
+    const keeper = new Set<Permission>(['dashboard:view', 'inventory:manage', 'warehouse:confirm'])
+    expect(firstAccessiblePath(keeper, {}, ['dashboard', 'warehouse'])).toBe('/')
+    expect(firstAccessiblePath(keeper, {}, ['warehouse'])).toBe('/warehouse')
   })
 })
 

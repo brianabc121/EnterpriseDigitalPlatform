@@ -6,8 +6,9 @@ import { reactive, ref, watch } from 'vue'
 import { api } from '../../api'
 
 /**
- * 仓库设置（设计文档 §25.13）：指定一名仓管，确认工人开的领料单和入库单；不指定时由最早创建的
- * 工人担任（小企业里仓管和工人可能是同一个人）。也可以设置为单据不需要确认（开单即生效）。
+ * 仓库设置（设计文档 §25.13、§25.15）：指定一名仓管，确认工人开的领料单和入库单；不指定时有"仓管"
+ * 角色的员工都是仓管，也没有时由最早创建的工人担任（小企业里仓管和工人可能是同一个人）。也可以设置
+ * 为单据不需要确认（开单即生效）。
  */
 const open = defineModel<boolean>({ required: true })
 const props = defineProps<{ settings: Schemas['WarehouseSettingsOut'] | null }>()
@@ -51,7 +52,7 @@ async function save(): Promise<void> {
           v-model="form.keeperId"
           clearable
           filterable
-          placeholder="不指定：由最早创建的工人担任"
+          placeholder="不指定：由有“仓管”角色的员工（或最早创建的工人）担任"
           class="full"
           data-testid="keeper-select"
         >
@@ -64,9 +65,11 @@ async function save(): Promise<void> {
           仓管确认领料单和入库单，也可以盘点和调整库存。
           <template v-if="!form.keeperId">
             {{
-              settings?.fallback && settings.effective_keeper_name
-                ? `现在由最早创建的工人${settings.effective_keeper_name}担任。`
-                : '还没有工人时，由管理员确认。'
+              settings?.by_role
+                ? `现在由有“仓管”角色的员工${settings.effective_keeper_name ?? ''}担任，他们都会收到待确认的提醒。`
+                : settings?.fallback && settings.effective_keeper_name
+                  ? `现在由最早创建的工人${settings.effective_keeper_name}担任（在“员工”里给员工加上“仓管”角色后由他们担任）。`
+                  : '还没有仓管和工人时，由管理员确认。'
             }}
           </template>
         </div>

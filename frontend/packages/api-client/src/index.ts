@@ -18,6 +18,9 @@ export {
 
 export type Schemas = components['schemas']
 export type Permission = Schemas['Permission']
+/** 按岗位的控制台（§25.15）：菜单名和岗位，与后端 app/core/consoles.py 一致。 */
+export type ConsoleMenu = Schemas['ConsoleMenu']
+export type ConsoleProfile = Schemas['ConsoleProfile']
 export type ApiClient = Client<paths>
 
 interface ClientOptions {

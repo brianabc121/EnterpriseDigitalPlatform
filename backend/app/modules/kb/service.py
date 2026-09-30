@@ -65,6 +65,8 @@ _SNAPSHOT_FIELDS = (
 )
 # 发布超过这么久、这段时间里一次也没被引用的知识视为"长期未命中"（设计 §12.7）。
 STALE_AFTER = timedelta(days=90)
+# 快到期：有效期在 7 天内结束（到期前 7 天提醒负责人，见 reminders.py）。
+EXPIRING_WITHIN = timedelta(days=7)
 
 
 def visibilities_for(principal: Principal) -> tuple[str, ...]:
@@ -104,9 +106,11 @@ async def list_items(
     category_id: uuid.UUID | None = None,
     owner_id: uuid.UUID | None = None,
     unassigned: bool = False,
+    expiring: bool = False,
     now: datetime | None = None,
 ) -> KbItemPage:
     query = _scope(principal)
+    order = (KbItem.updated_at.desc(), KbItem.id.desc())
     if status:
         query = query.where(KbItem.status == status)
     if space_id is not None:
@@ -126,6 +130,15 @@ async def list_items(
             KbItem.published_at < cutoff,
             or_(KbItem.last_hit_at.is_(None), KbItem.last_hit_at < cutoff),
         )
+    if expiring:
+        # 已发布、有效期在 7 天内结束的，快到期的排在前面。
+        current = now or datetime.now(UTC)
+        query = query.where(
+            KbItem.status == ItemStatus.PUBLISHED,
+            KbItem.valid_to > current,
+            KbItem.valid_to <= current + EXPIRING_WITHIN,
+        )
+        order = (KbItem.valid_to.asc(), KbItem.id.desc())
     if must_read:
         query = query.where(KbItem.must_read.is_(True))
     if kind:
@@ -142,9 +155,7 @@ async def list_items(
             )
         )
     total = await session.scalar(select(func.count()).select_from(query.subquery()))
-    rows = await session.scalars(
-        query.order_by(KbItem.updated_at.desc(), KbItem.id.desc()).limit(limit).offset(offset)
-    )
+    rows = await session.scalars(query.order_by(*order).limit(limit).offset(offset))
     return KbItemPage(items=[item_out(i) for i in rows.all()], total=total or 0)
 
 

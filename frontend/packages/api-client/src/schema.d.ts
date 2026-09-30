@@ -26174,6 +26174,8 @@ export interface operations {
                 stale?: boolean;
                 /** @description 只看必读知识 */
                 must_read?: boolean;
+                /** @description 只看 7 天内到期的已发布知识（快到期的排在前面） */
+                expiring?: boolean;
                 space_id?: string | null;
                 /** @description 包括它的下级分类 */
                 category_id?: string | null;

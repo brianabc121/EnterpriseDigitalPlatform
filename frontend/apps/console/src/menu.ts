@@ -1,4 +1,4 @@
-import type { Permission } from '@edp/api-client'
+import type { ConsoleMenu, ConsoleProfile, Permission } from '@edp/api-client'
 
 export type MenuIcon =
   | 'home'
@@ -20,7 +20,8 @@ export type MenuIcon =
   | 'setting'
 
 export interface MenuItem {
-  name: string
+  /** 菜单名是后端 OpenAPI 的 ConsoleMenu 枚举（/api/v1/me 的 console.menus 用同样的名字）。 */
+  name: ConsoleMenu
   path: string
   title: string
   icon: MenuIcon
@@ -29,6 +30,17 @@ export interface MenuItem {
   /** 套餐功能：当前套餐不包含时隐藏（/api/v1/me 的 features）。 */
   feature?: string
 }
+
+/** 岗位（§25.15），与后端 app/core/consoles.py 一致，按首页上显示的先后排列。 */
+export const CONSOLE_PROFILES: [ConsoleProfile, string][] = [
+  ['admin', '管理员'],
+  ['supervisor', '主管'],
+  ['agent', '客服'],
+  ['keeper', '仓管'],
+  ['worker', '工人'],
+  ['knowledge', '知识管理员'],
+]
+export const PROFILE_LABEL = Object.fromEntries(CONSOLE_PROFILES) as Record<ConsoleProfile, string>
 
 /** 菜单与路由的唯一来源：router.ts 按这里生成页面路由。 */
 export const MENU: readonly MenuItem[] = [
@@ -122,19 +134,32 @@ export const MENU: readonly MenuItem[] = [
   },
 ]
 
+/**
+ * 显示的菜单（§25.15）：后端按员工的岗位算好的菜单（/api/v1/me 的 console.menus，已经去掉没有
+ * 权限的和套餐里关闭的），前端再按权限和套餐核对一遍；没有岗位的菜单时按权限显示。
+ * 隐藏的菜单不改变权限：站内信、单据里的链接仍然可以打开有权限的页面。
+ */
 export function visibleMenus(
   permissions: ReadonlySet<Permission>,
   features: Readonly<Record<string, boolean>> = {},
+  consoleMenus?: readonly ConsoleMenu[],
 ): MenuItem[] {
+  const chosen = consoleMenus ? new Set(consoleMenus) : null
   return MENU.filter(
     (item) =>
-      permissions.has(item.permission) && (!item.feature || features[item.feature] !== false),
+      (!chosen || chosen.has(item.name)) &&
+      permissions.has(item.permission) &&
+      (!item.feature || features[item.feature] !== false),
   )
 }
 
-/** 登录后的落地页：第一个有权限的菜单；一个都没有时去"无权限"页。 */
-export function firstAccessiblePath(permissions: ReadonlySet<Permission>): string {
-  return visibleMenus(permissions)[0]?.path ?? '/forbidden'
+/** 登录后的落地页：第一个显示的菜单（工人没有首页，直接打开"加工"）；一个都没有时去"无权限"页。 */
+export function firstAccessiblePath(
+  permissions: ReadonlySet<Permission>,
+  features: Readonly<Record<string, boolean>> = {},
+  consoleMenus?: readonly ConsoleMenu[],
+): string {
+  return visibleMenus(permissions, features, consoleMenus)[0]?.path ?? '/forbidden'
 }
 
 /** 登录后跳回原页面时只接受站内路径，避免被构造成跳转到外部地址。 */

@@ -40404,6 +40404,18 @@
             }
           },
           {
+            "description": "只看 7 天内到期的已发布知识（快到期的排在前面）",
+            "in": "query",
+            "name": "expiring",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "只看 7 天内到期的已发布知识（快到期的排在前面）",
+              "title": "Expiring",
+              "type": "boolean"
+            }
+          },
+          {
             "in": "query",
             "name": "space_id",
             "required": false,

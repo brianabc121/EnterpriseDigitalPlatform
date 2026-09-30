@@ -216,6 +216,12 @@ async def test_owners_are_reminded_before_knowledge_expires(desk: Desk) -> None:
     )
     assert unknown.status_code == 422
 
+    # 知识管理员首页的"快到期的知识"（§25.15）：7 天内到期的已发布知识。
+    expiring = await desk.client.get(
+        "/api/v1/kb/items", headers=desk.admin, params={"expiring": True}
+    )
+    assert [i["title"] for i in expiring.json()["items"]] == ["国庆活动规则"]
+
     assert await remind_expiring(desk.ctx) == 1
     assert await remind_expiring(desk.ctx) == 0
     inbox = await _notifications(desk, bob)

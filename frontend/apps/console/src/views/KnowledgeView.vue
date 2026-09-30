@@ -155,6 +155,8 @@ async function remove(item: Item): Promise<void> {
 watch([status, kind, stale, mine], reload)
 watch(() => route.query.item, openFromQuery)
 onMounted(async () => {
+  // 首页的"去审核台"（/knowledge?tab=review）。
+  if (route.query.tab === 'review' && canManage.value) tab.value = 'review'
   await Promise.all([load(), spaces.load(), openFromQuery()])
   // 待审核候选数显示在"审核台"页签上。
   if (canManage.value) {

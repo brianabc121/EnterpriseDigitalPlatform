@@ -4,7 +4,7 @@ import { onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import { api } from '../api'
-import { firstAccessiblePath, safeRedirect } from '../menu'
+import { safeRedirect } from '../menu'
 import { useAuthStore } from '../stores/auth'
 import { checkLoginState } from '../wecom'
 
@@ -60,7 +60,7 @@ onMounted(async () => {
   const saved = sessionStorage.getItem('edp:wecom:next') ?? ''
   sessionStorage.removeItem('edp:wecom:next')
   const next = query('next') || saved
-  await router.replace(safeRedirect(next, firstAccessiblePath(auth.permissions)))
+  await router.replace(safeRedirect(next, auth.home))
 })
 </script>
 
