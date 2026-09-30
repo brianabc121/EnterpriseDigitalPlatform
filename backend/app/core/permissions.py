@@ -43,10 +43,11 @@ class Permission(StrEnum):
     ORDER_PAYMENT = "order:payment"  # 登记和作废收款、登记退款
     ORDER_CREDIT = "order:credit"  # 主管审批：同意暂欠、超过折扣上限的优惠
     ORDER_EXPORT = "order:export"  # 导出订单
-    ORDER_CONFIG = "order:config"  # 订单设置
+    ORDER_CONFIG = "order:config"  # 订单设置、仓库设置（仓管）
     PRODUCT_MANAGE = "product:manage"  # 维护商品库（新建、编辑、Excel 导入）
     PRODUCT_VIEW_COST = "product:view_cost"  # 查看和导出成本价
-    INVENTORY_MANAGE = "inventory:manage"  # 调整库存：入库、出库、盘点和导入库存
+    INVENTORY_MANAGE = "inventory:manage"  # 仓库：查看和调整库存、维护材料、开领料单和入库单
+    WAREHOUSE_CONFIRM = "warehouse:confirm"  # 仓管：确认或退回领料单和入库单
     PRODUCTION_WORK = "production:work"  # 加工：领取订单，标记商品完成或缺货，完成加工
     PRODUCTION_ASSIGN = "production:assign"  # 指派和改派加工人，查看全部加工进度
     INTEGRATION_MANAGE = "integration:manage"  # 企业系统对接：接口密钥与事件推送
@@ -84,12 +85,13 @@ PERMISSION_INFO: dict[Permission, tuple[str, str]] = {
     Permission.ORDER_PAYMENT: ("登记收款和退款", "订单"),
     Permission.ORDER_CREDIT: ("同意暂欠、审批超过折扣上限的优惠", "订单"),
     Permission.ORDER_EXPORT: ("导出订单", "订单"),
-    Permission.ORDER_CONFIG: ("订单设置", "订单"),
+    Permission.ORDER_CONFIG: ("订单设置和仓库设置", "订单"),
     Permission.PRODUCT_MANAGE: ("维护商品库", "订单"),
     Permission.PRODUCT_VIEW_COST: ("查看和导出成本价", "订单"),
-    Permission.INVENTORY_MANAGE: ("调整库存：入库、出库、盘点和导入库存", "订单"),
     Permission.PRODUCTION_WORK: ("领取订单加工，标记商品完成或缺货", "加工"),
     Permission.PRODUCTION_ASSIGN: ("指派加工人，查看全部加工进度", "加工"),
+    Permission.INVENTORY_MANAGE: ("查看和调整库存（盘点、入库、出库、导入），维护材料", "仓库"),
+    Permission.WAREHOUSE_CONFIRM: ("确认或退回领料单和入库单（仓管）", "仓库"),
     Permission.KB_READ: ("查看知识库", "知识库"),
     Permission.KB_MANAGE: ("编辑知识和审核候选", "知识库"),
     Permission.KB_PUBLISH: ("发布知识", "知识库"),

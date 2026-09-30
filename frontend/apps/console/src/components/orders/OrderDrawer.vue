@@ -28,6 +28,7 @@ import {
 import { lineStockText, shortLines } from '../../inventory'
 import { useAuthStore } from '../../stores/auth'
 import { TODO_STATUS } from '../../todos'
+import { briefText, STATUS_TAG } from '../../warehouse'
 import SessionDrawer from '../sessions/SessionDrawer.vue'
 import OrderFormDialog from './OrderFormDialog.vue'
 import RevisionsDialog from './RevisionsDialog.vue'
@@ -36,6 +37,7 @@ import RevisionsDialog from './RevisionsDialog.vue'
  * 订单详情（设计文档 §25.9）：商品行与金额、收款方式与收款记录、收货信息、依据的对话、动态、
  * 修改记录（任意两个版本对比）、关联的待办和跟踪链接，以及按权限和状态显示的处理操作。
  * 加工（§25.11）：每个商品的加工进度和缺货，加工人与加工完成时间；登记到货、指派加工人。
+ * 仓库（§25.13）：现货商品直接从成品库存发货；订单的领料单和入库单。
  */
 const props = withDefaults(defineProps<{ orderId: string | null; size?: string }>(), {
   size: '760px',
@@ -462,6 +464,9 @@ async function onSaved(): Promise<void> {
                 <div>
                   {{ row.name }} <span class="muted">{{ row.spec }}</span>
                   <el-tag v-if="!row.matched" size="small" type="warning">未匹配商品库</el-tag>
+                  <el-tag v-if="row.ready_made" size="small" type="success" effect="plain" data-testid="order-item-ready-made"
+                    >现货</el-tag
+                  >
                 </div>
                 <div v-if="row.raw_text" class="muted">客户原话：{{ row.raw_text }}</div>
                 <div v-if="producing && row.work_status === 'out_of_stock'" class="short" data-testid="order-item-shortage">
@@ -495,7 +500,8 @@ async function onSaved(): Promise<void> {
             </el-table-column>
             <el-table-column v-if="producing" label="加工" width="100">
               <template #default="{ row }">
-                <el-tag size="small" :type="WORK_STATUS_TAG[row.work_status]" data-testid="order-item-work">{{
+                <span v-if="row.ready_made && row.work_status !== 'out_of_stock'" class="muted">不用加工</span>
+                <el-tag v-else size="small" :type="WORK_STATUS_TAG[row.work_status]" data-testid="order-item-work">{{
                   WORK_STATUS[row.work_status]
                 }}</el-tag>
                 <div v-if="row.work_status === 'out_of_stock' && detail.allowed.restock">
@@ -681,6 +687,21 @@ async function onSaved(): Promise<void> {
                 <span class="muted">{{ detail.processed_by_name ?? '' }}</span>
               </dd>
             </template>
+            <template v-if="detail.documents?.length">
+              <dt>领料入库</dt>
+              <dd data-testid="order-documents">
+                <el-tag
+                  v-for="d in detail.documents"
+                  :key="d.id"
+                  :type="STATUS_TAG[d.status]"
+                  effect="plain"
+                  size="small"
+                  class="document"
+                  data-testid="order-document"
+                  >{{ briefText(d) }}</el-tag
+                >
+              </dd>
+            </template>
             <template v-if="detail.shipping_company">
               <dt>物流</dt>
               <dd data-testid="order-shipping">{{ detail.shipping_company }} {{ detail.tracking_no }}</dd>
@@ -845,13 +866,13 @@ async function onSaved(): Promise<void> {
 
     <el-dialog v-model="ship.open" title="登记发货" width="420px" append-to-body data-testid="ship-dialog">
       <el-alert
-        v-if="detail && detail.worker_name && !detail.processed_at"
+        v-if="detail && detail.production_required && detail.worker_name && !detail.processed_at"
         type="warning"
         :closable="false"
         show-icon
         class="ship-tip"
         data-testid="ship-unprocessed"
-        :title="`${detail.worker_name}还没有完成加工${detail.shortage ? '（有缺货的商品）' : ''}，确认要发货吗？`"
+        :title="`${detail.worker_name}还没有完成加工（成品还没入库）${detail.shortage ? '，有缺货的商品' : ''}，确认要发货吗？`"
       />
       <el-form label-width="80px">
         <el-form-item label="物流公司" required>
@@ -1080,6 +1101,10 @@ dd {
 
 .full {
   width: 100%;
+}
+
+.document {
+  margin: 0 4px 4px 0;
 }
 
 .short {

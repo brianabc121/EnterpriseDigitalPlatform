@@ -20,6 +20,61 @@ from tests.support import DatabaseUrls
 HEADER = [
     "名称*",
     "代码",
+    "类别",
+    "型号",
+    "规格",
+    "单位",
+    "分类",
+    "图片URL",
+    "成本价",
+    "建议零售价",
+    "别名",
+    "备注",
+    "状态",
+    "现货",
+    "库存",
+    "库存预警",
+]
+EXAMPLE = [
+    "智能门锁 X1",
+    "LOCK-X1",
+    "成品",
+    "X1",
+    "黑色",
+    "把",
+    "智能家居/门锁",
+    "https://example.com/images/lock-x1.jpg",
+    "800",
+    "1299",
+    "指纹锁、电子锁",
+    "示例行，导入前请删除",
+    "上架",
+    "是",
+    "100",
+    "10",
+]
+MATERIAL_EXAMPLE = [
+    "铝合金型材",
+    "AL-6063",
+    "材料",
+    "6063",
+    "银白",
+    "米",
+    "原材料/型材",
+    "",
+    "35",
+    "",
+    "",
+    "示例行，导入前请删除",
+    "上架",
+    "",
+    "120.5",
+    "20",
+]
+# 上传用的表格（旧版模板的列）：按表头识别，列的顺序和有没有新列都不影响。
+UPLOAD = [
+    "名称*",
+    "代码",
     "型号",
     "规格",
     "分类",
@@ -31,21 +86,6 @@ HEADER = [
     "状态",
     "库存",
     "库存预警",
-]
-EXAMPLE = [
-    "智能门锁 X1",
-    "LOCK-X1",
-    "X1",
-    "黑色",
-    "智能家居/门锁",
-    "https://example.com/images/lock-x1.jpg",
-    "800",
-    "1299",
-    "指纹锁、电子锁",
-    "示例行，导入前请删除",
-    "上架",
-    "100",
-    "10",
 ]
 
 
@@ -67,8 +107,8 @@ async def create_product(desk: Desk, **body: Any) -> dict[str, Any]:
     return product
 
 
-def workbook(rows: list[list[str]]) -> str:
-    data = write_workbook([Sheet("商品", [Column(t) for t in HEADER], rows=list(rows))])
+def workbook(rows: list[list[str]], header: list[str] = UPLOAD) -> str:
+    data = write_workbook([Sheet("商品", [Column(t) for t in header], rows=list(rows))])
     return base64.b64encode(data).decode()
 
 
@@ -157,16 +197,17 @@ async def test_template_import_preview_confirm_and_result(desk: Desk) -> None:
     rows = parse_sheet("template.xlsx", template.content)
     assert rows[0] == HEADER
     assert rows[1] == EXAMPLE
+    assert rows[2] == MATERIAL_EXAMPLE
     with zipfile.ZipFile(io.BytesIO(template.content)) as archive:
         sheet = archive.read("xl/worksheets/sheet1.xml").decode()
         names = archive.read("xl/workbook.xml").decode()
     assert 'showInputMessage="1"' in sheet and 'type="decimal"' in sheet
-    assert 'type="whole"' in sheet  # 库存列只能填整数
+    assert 'type="list"' in sheet and '"成品,材料"' in sheet  # 类别从下拉列表里选
     assert "填写说明" in names
 
     upload = workbook(
         [
-            EXAMPLE,  # 原样保留的示例行：跳过
+            EXAMPLE[:2] + EXAMPLE[3:5] + EXAMPLE[6:13] + EXAMPLE[14:],  # 原样保留的示例行：跳过
             ["智能门锁 X2", "LOCK-X2", "X2", "银色", "智能家居/门锁", "https://example.com/x2.jpg",
              "900", "1,599", "电子锁、密码锁", "", "上架"],
             ["", "LOCK-X3", "", "", "", "", "", "100", "", "", ""],
@@ -300,8 +341,9 @@ async def test_export_round_trips_and_includes_cost_only_with_permission(desk: D
     rows = parse_sheet("products.xlsx", exported.content)
     assert rows[0] == HEADER
     by_name = {r[0]: r for r in rows[1:]}
-    assert by_name["智能门锁 X1"][6:9] == ["800.00", "1299.00", "指纹锁"]
-    assert by_name["门铃 D1"][10] == "下架"
+    assert by_name["智能门锁 X1"][8:11] == ["800.00", "1299.00", "指纹锁"]
+    assert by_name["智能门锁 X1"][2] == "成品"
+    assert by_name["门铃 D1"][12] == "下架"
     [audit] = await desk.sql("SELECT detail FROM audit_logs WHERE action = 'product.export'")
     assert '"cost": true' in audit["detail"]
     # 只导出上架的；筛选条件与列表相同。
@@ -311,7 +353,7 @@ async def test_export_round_trips_and_includes_cost_only_with_permission(desk: D
     assert [r[0] for r in parse_sheet("on.xlsx", on_shelf.content)[1:]] == ["智能门锁 X1"]
 
     # 改完直接再导入：按代码更新。
-    rows[1 if rows[1][0] == "智能门锁 X1" else 2][7] = "1199"
+    rows[1 if rows[1][0] == "智能门锁 X1" else 2][9] = "1199"
     upload = base64.b64encode(
         write_workbook([Sheet("商品", [Column(t) for t in rows[0]], rows=rows[1:])])
     ).decode()

@@ -61,6 +61,7 @@ from app.modules.todos import notify as todo_notify
 from app.modules.todos import sla
 from app.modules.todos.models import UNFINISHED as TODO_UNFINISHED
 from app.modules.todos.models import ActorType, NotifyReason, Todo
+from app.modules.warehouse import documents
 
 STAFF = "staff"
 
@@ -794,6 +795,8 @@ async def cancel(
             now=now,
         )
     await stock.return_order(session, order, actor=stock.Actor(STAFF, me))
+    # 还没生效的领料单、入库单随之作废（§25.13）。
+    await documents.void_for_order(session, order, staff_id=me, reason="订单已取消")
     record_audit(
         session,
         action="order.cancel",

@@ -8,7 +8,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import Any
 
-from sqlalchemy import ColumnElement, and_, func, or_, select
+from sqlalchemy import ColumnElement, and_, func, not_, or_, select
 from sqlalchemy import inspect as sa_inspect
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -51,6 +51,7 @@ from app.modules.products import stock
 from app.modules.routing.models import SkillGroup
 from app.modules.todos import sla
 from app.modules.todos.models import Todo, TodoType
+from app.modules.warehouse import documents
 
 EVIDENCE_LIMIT = 20
 RECEIVABLE = (*IN_PROGRESS, OrderStatus.COMPLETED)
@@ -62,8 +63,12 @@ def _receivable() -> ColumnElement[bool]:
 
 
 def awaiting_shipment() -> ColumnElement[bool]:
-    """待发货：工人加工完成、还没有发货（没有发货环节的是还没有完成）的订单。"""
-    return and_(Order.status == OrderStatus.FULFILLING, Order.processed_at.is_not(None))
+    """待发货：加工完成（成品已入库）、或者全是现货不需要加工，还没有发货（没有发货环节的是还没有
+    完成）的订单。"""
+    return and_(
+        Order.status == OrderStatus.FULFILLING,
+        or_(Order.processed_at.is_not(None), not_(service.needs_production())),
+    )
 
 
 def out_of_stock() -> ColumnElement[bool]:
@@ -339,6 +344,8 @@ async def detail(
     [base] = await outs(session, [order])
     items = await service.load_items(session, order.id)
     lines = await stock.line_stock(session, [order], items)
+    ready = await service.ready_made_ids(session, items)
+    docs = (await documents.for_orders(session, [order.id])).get(order.id, [])
     payments = (
         await session.scalars(
             select(OrderPayment)
@@ -423,6 +430,7 @@ async def detail(
                 shortage_qty=i.shortage_qty,
                 shortage_note=i.shortage_note,
                 restock_date=i.restock_date,
+                ready_made=i.product_id in ready,
                 stock_available=lines.get(i.id, stock.LineStock()).available,
                 stock_short=lines.get(i.id, stock.LineStock()).short,
             )
@@ -500,6 +508,8 @@ async def detail(
         cost_amount=cost_amount,
         claimed_at=order.claimed_at,
         processed_by_name=staff.get(order.processed_by) if order.processed_by else None,
+        production_required=any(i.product_id not in ready for i in items),
+        documents=[documents.brief(d) for d in docs],
     )
 
 

@@ -1,0 +1,181 @@
+from datetime import datetime
+from typing import Literal
+from uuid import UUID
+
+from pydantic import BaseModel, Field
+
+from app.modules.products.schemas import ProductKindValue, Qty, QtyIn
+
+DocumentKindValue = Literal["requisition", "receipt"]
+DocumentStatusValue = Literal["pending", "confirmed", "rejected", "voided"]
+
+
+class DocumentLineIn(BaseModel):
+    product_id: UUID = Field(description="领料单是材料，入库单是成品")
+    quantity: QtyIn = Field(description="数量，大于 0；成品只能是整数，材料最多三位小数")
+    planned: QtyIn | None = Field(
+        default=None, description="按配方或订单算出的建议数量（开单时预填的，只做记录）"
+    )
+
+
+class DocumentIn(BaseModel):
+    kind: DocumentKindValue
+    order_id: UUID | None = Field(
+        default=None,
+        description="关联的销售订单（领料单）；入库单关联订单要在加工页“完成加工”时开",
+    )
+    note: str = Field(default="", max_length=200)
+    lines: list[DocumentLineIn] = Field(min_length=1, max_length=100)
+
+
+class DocumentUpdate(BaseModel):
+    """修改后重新提交（待确认、已退回的单据）。"""
+
+    note: str = Field(default="", max_length=200)
+    lines: list[DocumentLineIn] = Field(min_length=1, max_length=100)
+
+
+class ConfirmLineIn(BaseModel):
+    id: UUID = Field(description="单据行")
+    quantity: QtyIn = Field(description="实际数量；为 0 表示这一行不领（不入库）")
+
+
+class DocumentConfirm(BaseModel):
+    lines: list[ConfirmLineIn] | None = Field(
+        default=None, description="仓管按实际数量修改（不传表示按单据上的数量）"
+    )
+
+
+class ReasonIn(BaseModel):
+    reason: str = Field(default="", max_length=200)
+
+
+class DocumentLineOut(BaseModel):
+    id: UUID
+    product_id: UUID
+    code: str | None
+    name: str
+    spec: str
+    unit: str
+    planned: Qty | None = Field(description="建议数量（配方用量或订单数量）")
+    quantity: Qty
+    stock: Qty | None = Field(description="现在的库存（为空表示不管理库存）")
+    stock_before: Qty | None = Field(description="确认时的库存")
+    stock_after: Qty | None = Field(description="确认后的库存")
+
+
+class DocumentOut(BaseModel):
+    id: UUID
+    kind: DocumentKindValue
+    kind_label: str
+    no: str
+    status: DocumentStatusValue
+    status_label: str
+    order_id: UUID | None
+    order_no: str | None
+    note: str
+    lines: list[DocumentLineOut]
+    created_by_name: str | None
+    created_at: datetime
+    submitted_at: datetime
+    confirmed_by_name: str | None
+    confirmed_at: datetime | None
+    rejected_by_name: str | None
+    rejected_at: datetime | None
+    reject_reason: str | None
+    voided_by_name: str | None
+    voided_at: datetime | None
+    void_reason: str | None
+    short: list[str] = Field(
+        description="待确认的领料单里库存不够的材料（确认后库存会是负数；只提示）"
+    )
+    can_edit: bool = Field(description="可以修改后重新提交（开单人，待确认或已退回）")
+    can_confirm: bool = Field(description="可以确认或退回（仓管，待确认）")
+    can_void: bool = Field(description="可以作废（开单人或仓管，待确认或已退回）")
+
+
+class DocumentPage(BaseModel):
+    items: list[DocumentOut]
+    total: int
+
+
+class DocumentBrief(BaseModel):
+    id: UUID
+    kind: DocumentKindValue
+    no: str
+    status: DocumentStatusValue
+    reject_reason: str | None
+
+
+class DraftLine(BaseModel):
+    product_id: UUID
+    code: str | None
+    name: str
+    spec: str
+    unit: str
+    kind: ProductKindValue
+    planned: Qty | None = Field(description="建议数量")
+    quantity: Qty
+    stock: Qty | None = Field(description="现有库存")
+    available: Qty | None = Field(description="可用库存（材料：现有减去待确认的领料单）")
+
+
+class DocumentDraft(BaseModel):
+    kind: DocumentKindValue
+    order_id: UUID | None
+    lines: list[DraftLine]
+    missing: list[str] = Field(
+        description="没有配方的商品（领料单）或没有对应到成品的订单行（入库单），需要手动添加"
+    )
+
+
+class WarehouseCounts(BaseModel):
+    pending_requisitions: int = Field(description="待确认的领料单")
+    pending_receipts: int = Field(description="待确认的入库单")
+    low_materials: int = Field(description="库存不足的材料")
+    low_goods: int = Field(description="库存不足的成品")
+
+
+class StockItemOut(BaseModel):
+    """仓库里的一个商品（没有价格）。"""
+
+    id: UUID
+    code: str | None
+    name: str
+    model: str
+    spec: str
+    category: str
+    unit: str
+    kind: ProductKindValue
+    ready_made: bool
+    status: Literal["on", "off"]
+    stock: Qty | None
+    stock_reserved: Qty
+    stock_available: Qty | None
+    stock_alert: Qty | None
+    stock_low: bool
+    materials: int = Field(description="配方里的材料数（成品）")
+    remark: str
+
+
+class StockItemPage(BaseModel):
+    items: list[StockItemOut]
+    total: int
+    low_stock: int = Field(description="这个类别里库存不足的数量（不受其他筛选条件影响）")
+
+
+class WarehouseSettingsOut(BaseModel):
+    confirm_required: bool
+    keeper_id: UUID | None = Field(description="设置里指定的仓管")
+    keeper_name: str | None
+    effective_keeper_id: UUID | None = Field(
+        description="实际的仓管：指定的员工；没有指定（或已停用）时是最早创建的工人"
+    )
+    effective_keeper_name: str | None
+    fallback: bool = Field(description="没有指定仓管，由最早创建的工人担任")
+    can_edit: bool = Field(description="可以修改（有订单设置权限）")
+
+
+class WarehouseSettingsIn(BaseModel):
+    confirm_required: bool = True
+    keeper_id: UUID | None = None

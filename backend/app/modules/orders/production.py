@@ -1,13 +1,16 @@
-"""加工（设计文档 §25.11）：工人在"加工"页领取订单，逐个商品标记完成或缺货，全部完成后点
-"完成订单"，订单进入订单中心的"待发货"，客服在待办里收到提醒；缺货的订单进入"缺货"，客服收到
-"缺货处理"待办（等到货、换货或取消）。
+"""加工（设计文档 §25.11、§25.13）：工人在"加工"页领取订单，先开领料单（商品有配方时，按配方
+领材料），逐个商品标记完成或缺货，全部完成后开入库单（生产好的成品），仓管确认入库后订单进入订单
+中心的"待发货"，客服在待办里收到提醒；缺货的订单进入"缺货"，客服收到"缺货处理"待办（等到货、
+换货或取消）。现货商品直接从成品库存发货，不需要加工；全是现货的订单不进加工页。
 
 工人只看加工需要的信息：商品、规格、数量、备注、期望时间和客户称呼，看不到金额和收货信息。
 有 production:assign 权限的主管可以指派或改派加工人，也可以替工人操作。
 """
 
 import uuid
+from collections import defaultdict
 from datetime import date, datetime
+from decimal import Decimal
 from typing import Any
 
 from sqlalchemy import ColumnElement, and_, false, func, or_, select
@@ -21,7 +24,6 @@ from app.modules.iam.models import Staff
 from app.modules.iam.principal import Principal
 from app.modules.notifications import service as notifications
 from app.modules.orders import actions, service
-from app.modules.orders import settings as order_settings
 from app.modules.orders.models import (
     Order,
     OrderItem,
@@ -38,9 +40,20 @@ from app.modules.orders.schemas import (
     ShortageIn,
 )
 from app.modules.products import stock
+from app.modules.products.models import Product, ProductMaterial
 from app.modules.todos import assign as todo_assign
 from app.modules.todos import notify as todo_notify
-from app.modules.todos.models import ActorType
+from app.modules.todos.models import ActorType, Todo
+from app.modules.warehouse import documents
+from app.modules.warehouse.models import (
+    OPEN as DOCUMENT_OPEN,
+)
+from app.modules.warehouse.models import (
+    DocumentKind,
+    DocumentStatus,
+    StockDocument,
+)
+from app.modules.warehouse.schemas import DocumentLineIn
 
 STAFF = ActorType.STAFF
 NOT_FOUND = "订单不存在，或不在你的加工列表里"
@@ -71,6 +84,7 @@ def claimable() -> ColumnElement[bool]:
             Order.status == OrderStatus.FULFILLING,
             and_(Order.status == OrderStatus.CONFIRMED, startable),
         ),
+        service.needs_production(),
     )
 
 
@@ -184,9 +198,14 @@ async def outs(
             )
         ).all()
     )
-    lines = await stock.line_stock(
-        session, orders, [item for rows in items.values() for item in rows]
+    every = [item for rows in items.values() for item in rows]
+    lines = await stock.line_stock(session, orders, every)
+    ready = await service.ready_made_ids(session, every)
+    recipes = await documents.boms(
+        session, {i.product_id for i in every if i.product_id and i.product_id not in ready}
     )
+    docs = await documents.for_orders(session, list(items))
+    short_materials = await _material_short(session, orders, items, ready, recipes, docs)
     staff_ids = {o.worker_id for o in orders if o.worker_id}
     staff_ids |= {i.done_by for rows in items.values() for i in rows if i.done_by}
     staff = dict(
@@ -203,7 +222,121 @@ async def outs(
         )
     }
     short = {item_id for item_id, line in lines.items() if line.short}
-    return [_out(principal, o, items[o.id], customers, staff, o.id in pool, short) for o in orders]
+    return [
+        _out(
+            principal,
+            o,
+            items[o.id],
+            customers,
+            staff,
+            o.id in pool,
+            short,
+            Progress.of(items[o.id], ready, recipes, docs.get(o.id, [])),
+            short_materials.get(o.id, []),
+        )
+        for o in orders
+    ]
+
+
+class Progress:
+    """订单的加工进度里与仓库有关的部分（§25.13）。"""
+
+    def __init__(
+        self,
+        made: list[OrderItem],
+        requisition_required: bool,
+        requisition_ready: bool,
+        receipt: StockDocument | None,
+        documents: list[StockDocument],
+    ) -> None:
+        self.made = made
+        self.requisition_required = requisition_required
+        self.requisition_ready = requisition_ready
+        self.receipt = receipt
+        self.documents = documents
+
+    @classmethod
+    def of(
+        cls,
+        items: list[OrderItem],
+        ready: set[uuid.UUID],
+        recipes: dict[uuid.UUID, list[ProductMaterial]],
+        docs: list[StockDocument],
+    ) -> "Progress":
+        made = documents.made_items(items, ready)
+        required = any(recipes.get(i.product_id) for i in made if i.product_id)
+        opened = any(
+            d.kind == DocumentKind.REQUISITION
+            and d.status in (DocumentStatus.PENDING, DocumentStatus.CONFIRMED)
+            for d in docs
+        )
+        receipt = next(
+            (
+                d
+                for d in reversed(docs)
+                if d.kind == DocumentKind.RECEIPT and d.status in DOCUMENT_OPEN
+            ),
+            None,
+        )
+        return cls(made, required, opened or not required, receipt, docs)
+
+    @property
+    def needs_receipt(self) -> bool:
+        return any(i.product_id is not None for i in self.made)
+
+
+async def _progress(session: AsyncSession, order: Order, items: list[OrderItem]) -> Progress:
+    ready = await service.ready_made_ids(session, items)
+    recipes = await documents.boms(
+        session, {i.product_id for i in items if i.product_id and i.product_id not in ready}
+    )
+    docs = await documents.for_orders(session, [order.id])
+    return Progress.of(items, ready, recipes, docs.get(order.id, []))
+
+
+async def _material_short(
+    session: AsyncSession,
+    orders: list[Order],
+    items: dict[uuid.UUID, list[OrderItem]],
+    ready: set[uuid.UUID],
+    recipes: dict[uuid.UUID, list[ProductMaterial]],
+    docs: dict[uuid.UUID, list[StockDocument]],
+) -> dict[uuid.UUID, list[str]]:
+    """还没领料的订单：按配方算要领的材料，可用库存（现有减去待确认的领料单）不够的（只提示）。"""
+    needs: dict[uuid.UUID, dict[uuid.UUID, Decimal]] = {}
+    for order in orders:
+        if any(
+            d.kind == DocumentKind.REQUISITION
+            and d.status in (DocumentStatus.PENDING, DocumentStatus.CONFIRMED)
+            for d in docs.get(order.id, [])
+        ):
+            continue
+        total: dict[uuid.UUID, Decimal] = defaultdict(Decimal)
+        for item in documents.made_items(items[order.id], ready):
+            for row in recipes.get(item.product_id, []) if item.product_id else []:
+                total[row.material_id] += row.quantity * item.quantity
+        if total:
+            needs[order.id] = total
+    materials = {m for total in needs.values() for m in total}
+    if not materials:
+        return {}
+    known = await stock.levels(session, materials)
+    names = dict(
+        (
+            await session.execute(select(Product.id, Product.name).where(Product.id.in_(materials)))
+        ).all()
+    )
+    result: dict[uuid.UUID, list[str]] = {}
+    for order_id, total in needs.items():
+        short = []
+        for material_id, quantity in total.items():
+            level = known.get(material_id)
+            available = level.available if level is not None else None
+            if available is not None and available < quantity:
+                short.append(names.get(material_id, ""))
+        if short:
+            result[order_id] = sorted(short)
+    return result
 
 
 def _out(
@@ -214,6 +347,8 @@ def _out(
     staff: dict[uuid.UUID, str],
     in_pool: bool,
     short: set[uuid.UUID],
+    progress: Progress,
+    material_short: list[str],
 ) -> ProductionOrder:
     mine = order.worker_id == principal.staff_id
     manage = principal.has(Permission.PRODUCTION_ASSIGN)
@@ -222,6 +357,7 @@ def _out(
         and order.worker_id is not None
         and order.processed_at is None
     )
+    made = {i.id for i in progress.made}
     return ProductionOrder(
         id=order.id,
         no=order.no,
@@ -247,10 +383,11 @@ def _out(
                 shortage_note=i.shortage_note,
                 restock_date=i.restock_date,
                 stock_short=i.id in short and i.work_status == WorkStatus.PENDING,
+                ready_made=i.id not in made,
             )
             for i in items
         ],
-        done_count=sum(1 for i in items if i.work_status == WorkStatus.DONE),
+        done_count=sum(1 for i in progress.made if i.work_status == WorkStatus.DONE),
         shortage=order.shortage_at is not None,
         worker_id=order.worker_id,
         worker_name=staff.get(order.worker_id) if order.worker_id else None,
@@ -259,6 +396,12 @@ def _out(
         confirmed_at=order.confirmed_at,
         can_claim=in_pool,
         can_work=working and (mine or manage),
+        requisition_required=progress.requisition_required,
+        requisition_ready=progress.requisition_ready,
+        needs_receipt=progress.needs_receipt,
+        receipt=documents.brief(progress.receipt) if progress.receipt else None,
+        documents=[documents.brief(d) for d in progress.documents],
+        material_short=material_short,
     )
 
 
@@ -302,6 +445,18 @@ async def _working_order(session: AsyncSession, principal: Principal, order_id: 
     if order.processed_at is not None:
         raise Unprocessable("这个订单已经加工完成")
     return order
+
+
+def _check_receipt(progress: Progress) -> None:
+    if progress.receipt is not None:
+        raise Unprocessable(
+            f"已经开了入库单 {progress.receipt.no}，等仓管确认；要修改加工进度请先作废入库单"
+        )
+
+
+def _check_requisition(progress: Progress) -> None:
+    if not progress.requisition_ready:
+        raise Unprocessable("请先开领料单：这个订单的商品有配方，要按配方领料后再加工")
 
 
 async def _item(session: AsyncSession, order: Order, item_id: uuid.UUID) -> OrderItem:
@@ -421,8 +576,11 @@ async def set_done(
     """标记一个商品加工完成，或撤销完成。"""
     order = await _working_order(session, principal, order_id)
     item = await _item(session, order, item_id)
+    progress = await _progress(session, order, await service.load_items(session, order.id))
+    _check_receipt(progress)
     me = principal.staff_id
     if done:
+        _check_requisition(progress)
         if item.work_status == WorkStatus.OUT_OF_STOCK:
             raise Unprocessable("缺货的商品要先登记到货，才能标记完成")
         if item.work_status == WorkStatus.DONE:
@@ -459,6 +617,7 @@ async def mark_shortage(
     """登记（或修改）一个商品缺货：缺多少、说明、预计到货日期。订单进入"缺货"，客服收到提醒。"""
     order = await _working_order(session, principal, order_id)
     item = await _item(session, order, item_id)
+    _check_receipt(await _progress(session, order, await service.load_items(session, order.id)))
     if payload.quantity is not None and payload.quantity > item.quantity:
         raise Unprocessable(f"缺货数量不能超过订购数量 {item.quantity}")
     now = service.utcnow()
@@ -543,37 +702,52 @@ async def complete(
     order_id: uuid.UUID,
     *,
     mark_all: bool,
+    lines: list[DocumentLineIn] | None = None,
+    note: str = "",
 ) -> Order:
-    """完成订单（加工完成）：订单进入订单中心的"待发货"，客服在待办里收到提醒。有缺货的商品时
-    不能完成；还有没标记的商品时，mark_all 为真表示一并标记完成。"""
+    """完成加工：开入库单（生产好的成品，lines 为空时按订单预填），仓管确认入库后订单进入订单中心
+    的"待发货"，客服在待办里收到提醒；仓管自己完成的、设置为不需要确认的、或者没有要入库的成品时
+    直接进入"待发货"。有缺货的商品时不能完成；还有没标记的商品时，mark_all 为真表示一并标记完成。
+    现货商品不需要加工，随之标记完成。"""
     order = await _working_order(session, principal, order_id)
     items = await service.load_items(session, order.id)
     if service.shortage_items(items):
         raise Unprocessable("有缺货的商品，到货或由客服换货后才能完成")
+    progress = await _progress(session, order, items)
+    _check_receipt(progress)
+    _check_requisition(progress)
+    made = {i.id for i in progress.made}
     pending = [i for i in items if i.work_status == WorkStatus.PENDING]
-    if pending and not mark_all:
-        raise Unprocessable(f"还有 {len(pending)} 个商品没有标记完成")
+    left = [i for i in pending if i.id in made]
+    if left and not mark_all:
+        raise Unprocessable(f"还有 {len(left)} 个商品没有标记完成")
+    if lines is None:
+        draft, _ = await documents.receipt_draft(session, order)
+        lines = [
+            DocumentLineIn(product_id=d.product_id, quantity=d.quantity, planned=d.planned)
+            for d in draft
+        ]
+    checked = await documents.check_lines(session, DocumentKind.RECEIPT, lines) if lines else []
+    if progress.needs_receipt and not checked:
+        raise Unprocessable("入库单至少要有一行：生产好的成品和数量")
     now = service.utcnow()
     me = principal.staff_id
     for item in pending:
         item.work_status = WorkStatus.DONE.value
         item.done_at, item.done_by = now, me
-    order.processed_at, order.processed_by = now, me
-    settings = await order_settings.load(session, order.tenant_id)
-    service.event(
-        session,
-        order,
-        "processed",
-        actor_type=STAFF,
-        actor_id=me,
-        payload={"shipping": settings.shipping_enabled},
-        public=True,
-    )
-    todo = await service.open_ship_todo(
-        session, ctx.keys, order, items, settings, actor_id=me, now=now
-    )
+    todo: Todo | None
+    if checked:
+        # 入库单：仓管确认后订单才加工完成（仓管自己开的、或者不需要确认的，开单即确认）。
+        _, todo = await documents.open_document(
+            ctx, session, principal, DocumentKind.RECEIPT, order, checked, note
+        )
+    else:
+        todo = await service.finish_production(
+            session, ctx.keys, order, items, worker_id=me, now=now
+        )
     await session.commit()
-    await todo_notify.dispatch(ctx, tenant_id=order.tenant_id, ids=[todo.id])
+    if todo is not None:
+        await todo_notify.dispatch(ctx, tenant_id=order.tenant_id, ids=[todo.id])
     return order
 
 

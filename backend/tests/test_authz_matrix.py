@@ -162,6 +162,17 @@ MATRIX: list[tuple[str, str, dict[str, Any] | None]] = [
     ("DELETE", "/api/v1/products/{product_id}", None),
     ("POST", "/api/v1/products/{product_id}/stock", {"mode": "set", "quantity": 1}),
     ("GET", "/api/v1/products/{product_id}/stock-movements", None),
+    ("GET", "/api/v1/products/{product_id}/materials", None),
+    ("PUT", "/api/v1/products/{product_id}/materials", {"items": []}),
+    ("GET", "/api/v1/warehouse/documents/{document_id}", None),
+    (
+        "PUT",
+        "/api/v1/warehouse/documents/{document_id}",
+        {"lines": [{"product_id": "{own_material_id}", "quantity": 1}]},
+    ),
+    ("POST", "/api/v1/warehouse/documents/{document_id}/confirm", None),
+    ("POST", "/api/v1/warehouse/documents/{document_id}/reject", {"reason": "越权退回"}),
+    ("POST", "/api/v1/warehouse/documents/{document_id}/void", None),
     ("GET", "/api/v1/products/imports/{import_id}", None),
     ("POST", "/api/v1/products/imports/{import_id}/confirm", None),
     ("POST", "/api/v1/products/imports/{import_id}/cancel", None),
@@ -411,6 +422,28 @@ async def orders(desk: Desk, chat: Any) -> dict[str, str]:
     [delivery] = await desk.sql(
         "SELECT id FROM webhook_deliveries WHERE tenant_id = $1", desk.tenant_id
     )
+    # 仓库：一个材料和一张待确认的领料单（管理员开的单会直接确认，这里直接写入）。
+    material = await client.post(
+        "/api/v1/products",
+        headers=desk.admin,
+        json={"code": "AL-6063", "name": "铝合金型材", "kind": "material", "unit": "米"},
+    )
+    assert material.status_code == 201, material.text
+    document_id = uuid.uuid4()
+    await desk.sql(
+        "INSERT INTO stock_documents (id, tenant_id, kind, no, status)"
+        " VALUES ($1, $2, 'requisition', 'LL20260930-0001', 'pending')",
+        document_id,
+        desk.tenant_id,
+    )
+    await desk.sql(
+        "INSERT INTO stock_document_lines (id, tenant_id, document_id, product_id, name, quantity)"
+        " VALUES ($1, $2, $3, $4, '铝合金型材', 1)",
+        uuid.uuid4(),
+        desk.tenant_id,
+        document_id,
+        uuid.UUID(material.json()["id"]),
+    )
     return {
         "key_id": key.json()["id"],
         "endpoint_id": endpoint.json()["id"],
@@ -422,6 +455,8 @@ async def orders(desk: Desk, chat: Any) -> dict[str, str]:
         "import_id": upload.json()["id"],
         "gap_id": str(gap["id"]),
         "order_version": str(confirmed.json()["order"]["version"]),
+        "material_id": material.json()["id"],
+        "document_id": str(document_id),
     }
 
 
@@ -553,6 +588,9 @@ async def snapshot(desk: Desk) -> list[Any]:
         "api_keys": "id, name, revoked_at",
         "webhook_endpoints": "id, name, url, secret_enc, enabled, events",
         "webhook_deliveries": "id, status, attempts",
+        "product_materials": "id, product_id, material_id, quantity",
+        "stock_documents": "id, status, note",
+        "stock_document_lines": "id, quantity",
     }
     rows = []
     for table, columns in tables.items():
@@ -880,6 +918,8 @@ async def test_agents_only_reach_their_own_sessions_and_customers(
         "key_id": acme.ids["key_id"],
         "endpoint_id": acme.ids["endpoint_id"],
         "delivery_id": acme.ids["delivery_id"],
+        "material_id": acme.ids["material_id"],
+        "document_id": acme.ids["document_id"],
     }
     before = await snapshot(desk)
 
@@ -892,6 +932,7 @@ async def test_agents_only_reach_their_own_sessions_and_customers(
         if (method, template) in (
             ("GET", "/api/v1/products/{product_id}"),
             ("GET", "/api/v1/products/{product_id}/stock-movements"),
+            ("GET", "/api/v1/products/{product_id}/materials"),
         ):
             continue
         path = fill(template, dave_ids, acme.ids)

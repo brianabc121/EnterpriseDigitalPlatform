@@ -1,4 +1,5 @@
-/** 加工（设计文档 §25.11）用到的名称和小工具，与后端 app/modules/orders/production.py 一致。 */
+/** 加工（设计文档 §25.11、§25.13）用到的名称和小工具，与后端 app/modules/orders/production.py
+ * 一致。 */
 import type { Schemas } from '@edp/api-client'
 
 export type ProductionOrder = Schemas['ProductionOrder']
@@ -25,40 +26,70 @@ export function itemLabel(item: Pick<ProductionItem, 'name' | 'spec'>): string {
   return item.spec ? `${item.name}（${item.spec}）` : item.name
 }
 
-/** 进度："已完成 1/3"，有缺货时加上"缺货 1"。 */
+/** 需要加工的商品（现货直接从成品库存发货，不需要加工）。 */
+export function madeItems(order: Pick<ProductionOrder, 'items'>): ProductionItem[] {
+  return order.items.filter((i) => !i.ready_made)
+}
+
+/** 进度："已完成 1/3"（只算需要加工的商品），有缺货时加上"缺货 1"。 */
 export function progressText(order: Pick<ProductionOrder, 'items' | 'done_count'>): string {
   const short = order.items.filter((i) => i.work_status === 'out_of_stock').length
-  const text = `已完成 ${order.done_count}/${order.items.length}`
+  const text = `已完成 ${order.done_count}/${madeItems(order).length}`
   return short ? `${text}，缺货 ${short}` : text
 }
 
+/** 还没开领料单、不能开始加工（商品有配方时要先按配方领料）。 */
+export function needsRequisition(
+  order: Pick<ProductionOrder, 'requisition_required' | 'requisition_ready'>,
+): boolean {
+  return order.requisition_required && !order.requisition_ready
+}
+
 export interface CompletePlan {
-  /** 不能完成的原因（有缺货的商品）；可以完成时为 null。 */
+  /** 不能完成的原因（有缺货的商品、还没开领料单）；可以完成时为 null。 */
   blocked: string | null
   /** 还有没标记的商品：完成时一并标记为已完成。 */
   markAll: boolean
-  /** 确认框里的说明。 */
+  /** 要开入库单（生产好的成品由仓管确认入库）。 */
+  receipt: boolean
+  /** 确认框（或入库单）里的说明。 */
   message: string
 }
 
-/** 点"完成订单"时：有缺货的商品不能完成；还有没标记的商品时提示会一并标记完成。 */
-export function completePlan(order: Pick<ProductionOrder, 'items'>): CompletePlan {
+type Completable = Pick<
+  ProductionOrder,
+  'items' | 'needs_receipt' | 'requisition_required' | 'requisition_ready'
+>
+
+/** 点"完成加工"时：有缺货的商品、还没开领料单时不能完成；还有没标记的商品时提示会一并标记
+ * 完成；有要入库的成品时开入库单。 */
+export function completePlan(order: Completable): CompletePlan {
   const short = order.items.filter((i) => i.work_status === 'out_of_stock')
+  const receipt = order.needs_receipt
   if (short.length) {
     return {
       blocked: `有 ${short.length} 个商品缺货，到货后才能完成订单`,
       markAll: false,
+      receipt,
       message: '',
     }
   }
-  const after = '完成后订单交给客服继续处理。'
-  const pending = order.items.filter((i) => i.work_status === 'pending')
-  if (!pending.length) return { blocked: null, markAll: false, message: `所有商品都已完成。${after}` }
+  if (needsRequisition(order)) {
+    return { blocked: '请先开领料单', markAll: false, receipt, message: '' }
+  }
+  const after = receipt
+    ? '完成后开入库单，仓管确认入库后订单交给客服发货。'
+    : '完成后订单交给客服继续处理。'
+  const pending = madeItems(order).filter((i) => i.work_status === 'pending')
+  if (!pending.length) {
+    return { blocked: null, markAll: false, receipt, message: `所有商品都已完成。${after}` }
+  }
   const names = pending.map(itemLabel).join('、')
   return {
     blocked: null,
     markAll: true,
-    message: `还有 ${pending.length} 个商品没有标记完成（${names}），完成订单会把它们一并标记为已完成。${after}`,
+    receipt,
+    message: `还有 ${pending.length} 个商品没有标记完成（${names}），完成加工会把它们一并标记为已完成。${after}`,
   }
 }
 

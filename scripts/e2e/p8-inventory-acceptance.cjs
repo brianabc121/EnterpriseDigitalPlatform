@@ -7,7 +7,8 @@
 //    损坏的门铃，门铃库存不足：列表标"不足"，"库存不足"筛选只剩它；库存记录里有导入盘点、导入入库和
 //    出库，以及操作人。
 // 3. 客服确认一张超出可用库存的订单：确认框提示库存不足（不拦截），确认后订单详情标出库存不足的商品。
-// 4. 另一张订单排在后面、占不到库存：工人在手机上的加工页看到"库存不足"（不显示数量）。
+// 4. 另一张订单排在后面、占不到库存：工人在手机上的加工页（订单里有要安排的安装服务）看到现货
+//    商品"库存不足"（不显示数量）。
 // 5. 发货后出库：现有库存减少，库存记录里有"订单出库"和订单号。
 //
 // 前置：后端、控制台。
@@ -32,9 +33,10 @@ const PHONE_VIEWPORT = { width: 390, height: 844 }
 const LOCK = '智能门锁 X1'
 const BELL = '可视门铃 D1'
 const SERVICE = '上门安装服务'
+// 门锁和门铃是现货（直接从库存发货，下单即占用库存）；安装服务要安排（进加工页）。
 const PRODUCTS = [
-  { 名称: LOCK, 代码: 'LOCK-X1', 建议零售价: '1299', 库存: '5', 库存预警: '2' },
-  { 名称: BELL, 代码: 'BELL-D1', 建议零售价: '199', 库存: '1' },
+  { 名称: LOCK, 代码: 'LOCK-X1', 建议零售价: '1299', 现货: '是', 库存: '5', 库存预警: '2' },
+  { 名称: BELL, 代码: 'BELL-D1', 建议零售价: '199', 现货: '是', 库存: '1' },
   { 名称: SERVICE, 代码: 'SVC-01', 建议零售价: '100' },
 ]
 
@@ -335,6 +337,7 @@ async function confirmSection(browser, ctx, products) {
       items: [
         { product_id: products.lock, quantity: 6 },
         { product_id: products.bell, quantity: 1 },
+        { product_id: products.service, quantity: 1 },
       ],
       receiver: { name: '李女士', phone: '13800001111', address: '上海市浦东新区世纪大道100号' },
     },
@@ -379,7 +382,10 @@ async function workerSection(browser, ctx, products, first) {
     token: ctx.mei,
     body: {
       customer_id: ctx.customerId,
-      items: [{ product_id: products.lock, quantity: 3 }],
+      items: [
+        { product_id: products.lock, quantity: 3 },
+        { product_id: products.service, quantity: 1 },
+      ],
       receiver: { name: '李女士', phone: '13800001111', address: '上海市浦东新区世纪大道100号' },
     },
   })
@@ -445,6 +451,7 @@ async function run(browser) {
   const ids = {
     lock: (await byCode(ctx.admin, 'LOCK-X1')).id,
     bell: (await byCode(ctx.admin, 'BELL-D1')).id,
+    service: (await byCode(ctx.admin, 'SVC-01')).id,
   }
   const first = await confirmSection(browser, ctx, ids)
   await workerSection(browser, ctx, ids, first)

@@ -52,13 +52,20 @@ from app.modules.lifecycle.models import SupportGrant, TenantDeletion, TenantExp
 from app.modules.notifications.models import StaffNotification
 from app.modules.orders.models import Order, OrderEvent, OrderItem, OrderPayment, OrderRevision
 from app.modules.platform.models import LlmProvider, PlatformSetting, PromptTemplate
-from app.modules.products.models import Product, ProductGap, ProductImport
+from app.modules.products.models import (
+    Product,
+    ProductGap,
+    ProductImport,
+    ProductMaterial,
+    StockMovement,
+)
 from app.modules.quickreply.models import QuickReply
 from app.modules.routing.models import AgentState, RoutingPolicy, SkillGroup, SkillGroupMember
 from app.modules.security.models import FileScan, PrivacyRequest, TenantKey, TenantSetting
 from app.modules.tenancy.models import PlatformUser, Tenant
 from app.modules.todos.models import Todo, TodoEvent, TodoExtraction, TodoType
 from app.modules.usage.models import UsageDaily
+from app.modules.warehouse.models import StockDocument, StockDocumentLine
 from app.modules.wecom.models import (
     WecomBroadcast,
     WecomBroadcastResult,
@@ -126,6 +133,7 @@ __all__ = [
     "Product",
     "ProductGap",
     "ProductImport",
+    "ProductMaterial",
     "PromptTemplate",
     "QuickReply",
     "RefreshToken",
@@ -141,6 +149,9 @@ __all__ = [
     "Staff",
     "StaffNotification",
     "StaffRole",
+    "StockDocument",
+    "StockDocumentLine",
+    "StockMovement",
     "Subscription",
     "SupportGrant",
     "Tenant",

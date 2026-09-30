@@ -6,21 +6,31 @@ import { computed, reactive, ref, watch } from 'vue'
 import { api } from '../../api'
 import { STOCK_MODES, stockAfter, stockDetail, type StockMode } from '../../inventory'
 import type { Product } from '../../orders'
+import { precisionOf, qty } from '../../warehouse'
 
 /**
- * 调整库存（设计文档 §25.12）：入库、出库、盘点，或者不再管理这个商品的库存。每次调整都写库存记录
- * （变化前后的数量、原因、操作人）并记审计。
+ * 调整库存（设计文档 §25.12）：入库、出库、盘点，或者不再管理这个商品的库存（材料总是管理库存）。
+ * 每次调整都写库存记录（变化前后的数量、原因、操作人）并记审计。成品的数量是整数，材料最多三位
+ * 小数（§25.13）。
  */
+type Adjustable = Pick<
+  Product,
+  'id' | 'name' | 'stock' | 'stock_reserved' | 'stock_available' | 'stock_low' | 'kind' | 'unit'
+>
 const open = defineModel<boolean>({ required: true })
-const props = defineProps<{ product: Product | null }>()
+const props = defineProps<{ product: Adjustable | null }>()
 const emit = defineEmits<{ saved: [product: Product] }>()
 
 const saving = ref(false)
 const form = reactive({ mode: 'add' as StockMode, quantity: undefined as number | undefined, note: '' })
 
 const tracked = computed(() => props.product?.stock !== null && props.product?.stock !== undefined)
+const material = computed(() => props.product?.kind === 'material')
 const modes = computed(() =>
-  STOCK_MODES.filter(([mode]) => tracked.value || mode === 'add' || mode === 'set'),
+  STOCK_MODES.filter(
+    ([mode]) =>
+      (tracked.value || mode === 'add' || mode === 'set') && !(material.value && mode === 'untrack'),
+  ),
 )
 const after = computed(() => {
   const p = props.product
@@ -42,7 +52,7 @@ async function save(): Promise<void> {
     return
   }
   if (form.mode === 'remove' && after.value === null) {
-    ElMessage.warning(`出库数量不能超过现有库存 ${p.stock ?? 0}`)
+    ElMessage.warning(`出库数量不能超过现有库存 ${qty(p.stock ?? 0)}`)
     return
   }
   saving.value = true
@@ -59,7 +69,7 @@ async function save(): Promise<void> {
     ElMessage.error(errorMessage(error))
     return
   }
-  ElMessage.success(data.stock === null ? '已不再管理库存' : `现有库存 ${data.stock}`)
+  ElMessage.success(data.stock === null ? '已不再管理库存' : `现有库存 ${qty(data.stock)} ${data.unit}`.trim())
   open.value = false
   emit('saved', data)
 }
@@ -76,8 +86,8 @@ async function save(): Promise<void> {
     <template v-if="product">
       <p class="current" data-testid="stock-current">
         <template v-if="tracked">
-          可用 <b>{{ product.stock_available }}</b>
-          <span class="muted">（{{ stockDetail(product) }}）</span>
+          可用 <b>{{ qty(product.stock_available) }}</b> {{ product.unit }}
+          <span class="muted">（{{ stockDetail(product, product.kind) }}）</span>
         </template>
         <span v-else class="muted">这个商品还没有管理库存：入库或盘点后开始管理。</span>
       </p>
@@ -89,10 +99,17 @@ async function save(): Promise<void> {
           <div class="muted hint">{{ STOCK_MODES.find(([m]) => m === form.mode)?.[2] }}</div>
         </el-form-item>
         <el-form-item v-if="form.mode !== 'untrack'" :label="form.mode === 'set' ? '实际数量' : '数量'">
-          <el-input-number v-model="form.quantity" :min="0" :max="100000000" class="full" data-testid="stock-quantity" />
+          <el-input-number
+            v-model="form.quantity"
+            :min="0"
+            :max="100000000"
+            :precision="precisionOf(product.kind)"
+            class="full"
+            data-testid="stock-quantity"
+          />
           <div v-if="after !== undefined" class="muted hint" data-testid="stock-after">
-            <template v-if="after === null">出库数量不能超过现有库存 {{ product.stock ?? 0 }}</template>
-            <template v-else>调整后现有库存 {{ after }}</template>
+            <template v-if="after === null">出库数量不能超过现有库存 {{ qty(product.stock ?? 0) }}</template>
+            <template v-else>调整后现有库存 {{ qty(after) }} {{ product.unit }}</template>
           </div>
         </el-form-item>
         <el-form-item label="原因">

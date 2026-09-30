@@ -5,12 +5,15 @@ import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import { api, formatDateTime } from '../api'
+import DocumentDrawer from '../components/warehouse/DocumentDrawer.vue'
+import DocumentEditor from '../components/warehouse/DocumentEditor.vue'
 import { ordersChanged, shortageText, WORK_STATUS, WORK_STATUS_TAG } from '../orders'
 import {
   completePlan,
   EMPTY_TEXT,
   expectedState,
   itemLabel,
+  needsRequisition,
   PRODUCTION_VIEWS,
   progressText,
   viewOf,
@@ -19,12 +22,15 @@ import {
   type ProductionView,
 } from '../production'
 import { useAuthStore } from '../stores/auth'
+import { briefText, STATUS_TAG, type DocumentKind } from '../warehouse'
 
 /**
- * 加工（设计文档 §25.11）：工人领取订单，逐个商品标记完成或缺货，全部完成后点"完成订单"，订单进入
- * 订单中心的"待发货"，客服在待办里收到提醒；登记缺货的订单进入"缺货"。工人只看加工需要的信息：
- * 商品、规格、数量、备注、期望时间和客户称呼，没有金额和收货信息。手机上一张卡片一个订单。
- * 站内信里的链接带 order（主管指派的订单），打开后直接显示这个订单。
+ * 加工（设计文档 §25.11、§25.13）：工人领取订单，先开领料单（商品有配方时按配方领料），逐个商品
+ * 标记完成或缺货，全部完成后点"完成订单"开入库单，仓管确认入库后订单进入订单中心的"待发货"，客服
+ * 在待办里收到提醒；登记缺货的订单进入"缺货"。现货商品直接从成品库存发货，不需要加工。
+ * 工人只看加工需要的信息：商品、规格、数量、备注、期望时间和客户称呼，没有金额和收货信息。手机上
+ * 一张卡片一个订单。站内信里的链接带 order（主管指派的订单、仓管确认或退回的单据），打开后直接
+ * 显示这个订单。
  */
 const PAGE_SIZE = 20
 const POLL_MS = 60_000
@@ -50,6 +56,15 @@ const shortage = reactive({
   note: '',
   restockDate: '',
 })
+const editor = reactive({
+  open: false,
+  kind: 'requisition' as DocumentKind,
+  mode: 'create' as 'create' | 'complete',
+  orderId: '',
+  orderNo: '',
+  intro: '',
+})
+const docDrawer = reactive({ open: false, id: null as string | null })
 let timer: ReturnType<typeof setInterval> | undefined
 
 const manage = computed(() => auth.can('production:assign'))
@@ -139,13 +154,37 @@ const itemPath = (order: ProductionOrder, item: ProductionItem) => ({
   params: { path: { order_id: order.id, order_item_id: item.id } },
 })
 
-function claim(order: ProductionOrder): Promise<boolean> {
-  return act(
+async function claim(order: ProductionOrder): Promise<void> {
+  const ok = await act(
     order,
     () => api.POST('/api/v1/production/orders/{order_id}/claim', orderPath(order)),
-    `已领取 ${order.no}，在"我的加工"里标记进度`,
+    order.requisition_required
+      ? `已领取 ${order.no}，先开领料单`
+      : `已领取 ${order.no}，在"我的加工"里标记进度`,
     true,
   )
+  // 商品有配方：领取后接着开领料单（按配方预填）。
+  if (ok && order.requisition_required) openRequisition(order)
+}
+
+function openRequisition(order: ProductionOrder): void {
+  Object.assign(editor, {
+    open: true,
+    kind: 'requisition',
+    mode: 'create',
+    orderId: order.id,
+    orderNo: order.no,
+    intro: '',
+  })
+}
+
+function openDocument(id: string): void {
+  Object.assign(docDrawer, { open: true, id })
+}
+
+function onDocument(): void {
+  ordersChanged()
+  void refresh()
 }
 
 async function release(order: ProductionOrder): Promise<void> {
@@ -233,6 +272,18 @@ async function complete(order: ProductionOrder): Promise<void> {
     ElMessage.warning(plan.blocked)
     return
   }
+  if (plan.receipt) {
+    // 开入库单：生产好的成品由仓管确认入库，之后订单交给客服发货。
+    Object.assign(editor, {
+      open: true,
+      kind: 'receipt',
+      mode: 'complete',
+      orderId: order.id,
+      orderNo: order.no,
+      intro: plan.markAll ? plan.message : '',
+    })
+    return
+  }
   try {
     await ElMessageBox.confirm(plan.message, '完成订单', {
       confirmButtonText: plan.markAll ? '一并完成' : '完成订单',
@@ -246,7 +297,7 @@ async function complete(order: ProductionOrder): Promise<void> {
     () =>
       api.POST('/api/v1/production/orders/{order_id}/complete', {
         ...orderPath(order),
-        body: { mark_all: plan.markAll },
+        body: { mark_all: plan.markAll, note: '' },
       }),
     `${order.no} 加工完成，已交给客服`,
     true,
@@ -291,6 +342,7 @@ onMounted(async () => {
   await refresh()
   timer = setInterval(() => {
     if (document.visibilityState !== 'visible' || shortage.open || acting.value) return
+    if (editor.open || docDrawer.open) return
     void refresh()
   }, POLL_MS)
 })
@@ -388,6 +440,50 @@ onBeforeUnmount(() => clearInterval(timer))
           </template>
         </dl>
 
+        <div v-if="order.documents.length || order.material_short.length" class="documents">
+          <el-tag
+            v-for="d in order.documents"
+            :key="d.id"
+            :type="STATUS_TAG[d.status]"
+            effect="plain"
+            size="small"
+            class="document"
+            data-testid="production-document"
+            :data-no="d.no"
+            @click="openDocument(d.id)"
+            >{{ briefText(d) }}</el-tag
+          >
+          <el-tag
+            v-if="order.material_short.length"
+            type="warning"
+            size="small"
+            data-testid="production-material-short"
+            >材料不够：{{ order.material_short.join('、') }}</el-tag
+          >
+        </div>
+        <el-alert
+          v-if="order.can_work && needsRequisition(order)"
+          type="warning"
+          :closable="false"
+          show-icon
+          class="tip"
+          title="先开领料单：这个订单的商品有配方，按配方领料后再加工。"
+          data-testid="production-need-requisition"
+        />
+        <el-alert
+          v-if="order.receipt"
+          :type="order.receipt.status === 'rejected' ? 'error' : 'info'"
+          :closable="false"
+          show-icon
+          class="tip"
+          :title="
+            order.receipt.status === 'rejected'
+              ? `入库单 ${order.receipt.no} 被仓管退回：${order.receipt.reject_reason ?? ''}`
+              : `入库单 ${order.receipt.no} 等仓管确认，确认后订单交给客服发货`
+          "
+          data-testid="production-receipt"
+        />
+
         <ul class="items">
           <li
             v-for="item in order.items"
@@ -409,19 +505,28 @@ onBeforeUnmount(() => clearInterval(timer))
               </div>
             </div>
             <span class="qty">× {{ item.quantity }}</span>
-            <el-tag size="small" :type="WORK_STATUS_TAG[item.work_status]" data-testid="production-item-status">{{
+            <el-tag
+              v-if="item.ready_made && item.work_status !== 'out_of_stock'"
+              size="small"
+              type="success"
+              effect="plain"
+              data-testid="production-item-ready-made"
+              >现货，不用加工</el-tag
+            >
+            <el-tag v-else size="small" :type="WORK_STATUS_TAG[item.work_status]" data-testid="production-item-status">{{
               WORK_STATUS[item.work_status]
             }}</el-tag>
             <el-tag v-if="item.stock_short" size="small" type="warning" effect="plain" data-testid="production-item-stock-short"
               >库存不足</el-tag
             >
-            <div v-if="order.can_work" class="item-actions">
+            <div v-if="order.can_work && !order.receipt && !item.ready_made" class="item-actions">
               <el-button
                 v-if="item.work_status === 'pending'"
                 size="small"
                 type="success"
                 plain
-                :disabled="acting === order.id"
+                :disabled="acting === order.id || needsRequisition(order)"
+                :title="needsRequisition(order) ? '请先开领料单' : ''"
                 data-testid="production-item-done"
                 @click="done(order, item)"
                 >完成</el-button
@@ -475,13 +580,30 @@ onBeforeUnmount(() => clearInterval(timer))
               >放弃</el-button
             >
             <el-button
-              type="success"
-              :disabled="order.shortage"
-              :loading="acting === order.id"
-              data-testid="production-complete"
-              @click="complete(order)"
-              >完成订单</el-button
+              v-if="order.receipt"
+              type="primary"
+              plain
+              data-testid="production-receipt-open"
+              @click="openDocument(order.receipt.id)"
+              >{{ order.receipt.status === 'rejected' ? '修改入库单' : '查看入库单' }}</el-button
             >
+            <template v-else>
+              <el-button
+                :type="needsRequisition(order) ? 'primary' : 'default'"
+                :disabled="acting === order.id"
+                data-testid="production-open-requisition"
+                @click="openRequisition(order)"
+                >{{ needsRequisition(order) ? '开领料单' : '补领材料' }}</el-button
+              >
+              <el-button
+                type="success"
+                :disabled="order.shortage || needsRequisition(order)"
+                :loading="acting === order.id"
+                data-testid="production-complete"
+                @click="complete(order)"
+                >完成订单</el-button
+              >
+            </template>
           </template>
         </div>
       </el-card>
@@ -496,6 +618,17 @@ onBeforeUnmount(() => clearInterval(timer))
         @current-change="load"
       />
     </div>
+
+    <DocumentEditor
+      v-model="editor.open"
+      :kind="editor.kind"
+      :mode="editor.mode"
+      :order-id="editor.orderId"
+      :order-no="editor.orderNo"
+      :intro="editor.intro"
+      @saved="onDocument"
+    />
+    <DocumentDrawer v-model="docDrawer.open" :document-id="docDrawer.id" @changed="onDocument" />
 
     <el-dialog
       v-model="shortage.open"
@@ -705,6 +838,17 @@ onBeforeUnmount(() => clearInterval(timer))
 .dialog-item {
   margin: 0 0 12px;
   font-weight: 500;
+}
+
+.documents {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.document {
+  cursor: pointer;
 }
 
 .full {

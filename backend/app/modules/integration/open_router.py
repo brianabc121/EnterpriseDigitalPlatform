@@ -13,6 +13,7 @@ import base64
 import binascii
 import uuid
 from datetime import datetime
+from decimal import Decimal
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Path, Query, Response, status
@@ -44,7 +45,7 @@ from app.modules.orders.models import Order, OrderStatus
 from app.modules.orders.schemas import OrderStatusValue
 from app.modules.products import service as product_service
 from app.modules.products import stock
-from app.modules.products.models import Product, StockKind
+from app.modules.products.models import Product, ProductKind, StockKind
 from app.modules.todos import sync as todo_sync
 from app.modules.todos.models import Todo
 
@@ -79,6 +80,9 @@ def _product_out(product: Product, created: bool, level: stock.Level) -> OpenPro
         aliases=list(product.aliases or []),
         remark=product.remark,
         status=product.status,
+        kind=product.kind,
+        unit=product.unit,
+        ready_made=product.ready_made,
         stock=product.stock,
         stock_available=level.available,
         stock_alert=product.stock_alert,
@@ -127,18 +131,27 @@ async def _upsert(
             code=code,
             model="",
             spec="",
+            unit="",
             category="",
             remark="",
             aliases=[],
             status="on",
+            kind=payload.kind or ProductKind.GOODS,
+            ready_made=False,
+            # 材料总是管理库存（从 0 开始）。
+            stock=Decimal(0) if payload.kind == ProductKind.MATERIAL else None,
         )
         session.add(product)
+    elif payload.kind is not None and payload.kind != product.kind:
+        raise Unprocessable("已有商品的类别（kind）不能修改")
     fields = payload.model_fields_set
     if payload.name is not None:
         product.name = payload.name.strip()
-    for key in ("model", "spec", "remark"):
+    for key in ("model", "spec", "remark", "unit"):
         if key in fields:
             setattr(product, key, (getattr(payload, key) or "").strip())
+    if payload.ready_made is not None:
+        product.ready_made = payload.ready_made and product.kind == ProductKind.GOODS
     for key in ("image_url", "retail_price", "cost_price"):
         if key in fields:
             setattr(product, key, getattr(payload, key))
@@ -149,10 +162,16 @@ async def _upsert(
     if payload.status is not None:
         product.status = payload.status
     if "stock_alert" in fields:
+        if payload.stock_alert is not None:
+            stock.check_quantity(product, payload.stock_alert, label="库存预警（stock_alert）")
         product.stock_alert = payload.stock_alert
     product_service.refresh(product)
     if "stock" in fields:
         # 企业系统同步的是盘点数：直接改为这个数（null 表示不再管理库存），写库存记录。
+        if payload.stock is None and product.kind == ProductKind.MATERIAL:
+            raise Unprocessable("材料总是管理库存，stock 不能为 null")
+        if payload.stock is not None:
+            stock.check_quantity(product, payload.stock, label="库存（stock）")
         await session.flush()
         await session.refresh(product, ["stock"], with_for_update=True)
         kind = StockKind.API_SET if payload.stock is not None else StockKind.UNTRACK

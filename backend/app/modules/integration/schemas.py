@@ -13,6 +13,7 @@ from app.modules.orders.schemas import (
     PaymentChannelValue,
     PaymentMethodValue,
 )
+from app.modules.products.schemas import Qty, QtyIn
 from app.modules.todos.models import Priority
 
 ScopeValue = Literal["products:write", "orders:read", "orders:write", "todos:write"]
@@ -145,15 +146,21 @@ class OpenProductIn(BaseModel):
     remark: str | None = Field(default=None, max_length=2000)
     aliases: list[str] | None = Field(default=None, max_length=20)
     status: Literal["on", "off"] | None = None
-    stock: int | None = Field(
+    kind: Literal["goods", "material"] | None = Field(
         default=None,
-        ge=0,
-        le=100_000_000,
-        description="现有库存（盘点数）；传 null 表示不再管理这个商品的库存，不传时保持原值",
+        description="类别：goods 成品（默认），material 材料；只在新建时有效，"
+        "已有商品的类别不能修改",
     )
-    stock_alert: int | None = Field(
-        default=None, ge=0, le=100_000_000, description="库存预警值；不传时保持原值"
+    unit: str | None = Field(default=None, max_length=16, description="单位，例如 件、米")
+    ready_made: bool | None = Field(
+        default=None, description="现货：直接从成品库存发货，不需要加工（材料没有这一项）"
     )
+    stock: QtyIn | None = Field(
+        default=None,
+        description="现有库存（盘点数；成品是整数，材料最多三位小数）；传 null 表示不再管理这个"
+        "成品的库存，不传时保持原值",
+    )
+    stock_alert: QtyIn | None = Field(default=None, description="库存预警值；不传时保持原值")
 
 
 class OpenProductOut(BaseModel):
@@ -169,9 +176,14 @@ class OpenProductOut(BaseModel):
     aliases: list[str]
     remark: str
     status: str
-    stock: int | None = Field(description="现有库存；为空表示不管理库存")
-    stock_available: int | None = Field(description="可用库存 = 现有 − 已确认、还没发货的订单占用")
-    stock_alert: int | None
+    kind: Literal["goods", "material"]
+    unit: str
+    ready_made: bool
+    stock: Qty | None = Field(description="现有库存；为空表示不管理库存")
+    stock_available: Qty | None = Field(
+        description="可用库存 = 现有 − 占用（成品：要从库存发出的订单；材料：待确认的领料单）"
+    )
+    stock_alert: Qty | None
     created: bool = Field(description="这次请求新建了商品")
     updated_at: datetime
 

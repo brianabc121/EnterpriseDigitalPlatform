@@ -48,6 +48,7 @@ from app.modules.todos.router import router as todos_router
 from app.modules.usage.router import platform_router as platform_usage_router
 from app.modules.usage.router import router as usage_router
 from app.modules.visitor.router import router as visitor_router
+from app.modules.warehouse.router import router as warehouse_router
 from app.modules.wecom.callbacks import router as wecom_hooks_router
 from app.modules.wecom.router import router as wecom_router
 from app.observability import logs, metrics, tracing
@@ -118,6 +119,7 @@ def create_app(
     app.include_router(todos_router)
     app.include_router(orders_router)
     app.include_router(production_router)
+    app.include_router(warehouse_router)
     app.include_router(order_public_router)
     app.include_router(products_router)
     app.include_router(integration_router)

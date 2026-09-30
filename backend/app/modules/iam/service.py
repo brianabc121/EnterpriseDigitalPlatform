@@ -27,6 +27,7 @@ from app.modules.iam.models import RefreshToken, Role, Staff, StaffRole, StaffSt
 from app.modules.iam.principal import Principal
 from app.modules.iam.schemas import StaffCreate, StaffOut
 from app.modules.tenancy.models import Tenant, TenantStatus
+from app.modules.warehouse import settings as warehouse_settings
 
 _SYSTEM_ROLES = {spec.code: spec for spec in DEFAULT_ROLES}
 
@@ -180,6 +181,10 @@ async def principal_for(session: AsyncSession, tenant_id: UUID, staff_id: UUID) 
             .order_by(Role.code)
         )
     ).all()
+    permissions = frozenset(p for role in roles for p in role_permissions(role))
+    if not permissions >= warehouse_settings.KEEPER_PERMISSIONS:
+        # 仓管（设置里指定的员工，或者最早创建的工人）另外可以确认单据、调整库存（§25.13）。
+        permissions |= await warehouse_settings.keeper_permissions(session, tenant.id, staff.id)
     return Principal(
         staff_id=staff.id,
         tenant_id=tenant.id,
@@ -188,7 +193,7 @@ async def principal_for(session: AsyncSession, tenant_id: UUID, staff_id: UUID) 
         username=staff.username,
         display_name=staff.display_name,
         role_codes=tuple(role.code for role in roles),
-        permissions=frozenset(p for role in roles for p in role_permissions(role)),
+        permissions=permissions,
     )
 
 

@@ -5,6 +5,9 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
+from app.modules.products.schemas import Qty
+from app.modules.warehouse.schemas import DocumentBrief, DocumentLineIn
+
 Money = Decimal
 OrderStatusValue = Literal[
     "draft", "pending_review", "confirmed", "fulfilling", "shipped", "completed", "cancelled"
@@ -179,9 +182,13 @@ class OrderItemOut(BaseModel):
     shortage_qty: int | None = Field(default=None, description="缺多少；为空表示整行都缺")
     shortage_note: str | None = None
     restock_date: date | None = Field(default=None, description="预计到货日期")
-    stock_available: int | None = Field(
+    ready_made: bool = Field(
+        default=False, description="现货：直接从成品库存发货，不需要加工（§25.13）"
+    )
+    stock_available: Qty | None = Field(
         default=None,
-        description="商品的可用库存（§25.12）；不管理库存、或者订单已出库或取消时为空",
+        description="商品的可用库存（§25.12）：只对从库存发货的行（现货，或者订单已加工入库）；"
+        "不管理库存、或者订单已出库或取消时为空",
     )
     stock_short: bool = Field(
         default=False,
@@ -351,6 +358,12 @@ class OrderDetail(OrderOut):
     )
     claimed_at: datetime | None = None
     processed_by_name: str | None = None
+    production_required: bool = Field(
+        default=True, description="有需要加工的商品（全是现货的订单直接发货）"
+    )
+    documents: list[DocumentBrief] = Field(
+        default_factory=list, description="订单的领料单和入库单（不含作废的）"
+    )
 
 
 class ReceiverOut(BaseModel):
@@ -489,8 +502,9 @@ class ProductionItemOut(BaseModel):
     restock_date: date | None = Field(description="预计到货日期")
     stock_short: bool = Field(
         default=False,
-        description="待加工的商品库存不足（按确认先后占用现有库存，占不到的；只提示）",
+        description="现货商品库存不足（按确认先后占用现有库存，占不到的；只提示）",
     )
+    ready_made: bool = Field(default=False, description="现货：从成品库存发货，不需要加工")
 
 
 class ProductionOrder(BaseModel):
@@ -514,6 +528,16 @@ class ProductionOrder(BaseModel):
     confirmed_at: datetime | None
     can_claim: bool = Field(description="在待领取列表里，可以领取")
     can_work: bool = Field(description="可以标记完成、缺货和完成订单（自己的，或主管代为操作）")
+    requisition_required: bool = Field(description="要先开领料单：需要加工的商品有配方（§25.13）")
+    requisition_ready: bool = Field(description="已经开了领料单（待确认或已确认），或者不需要领料")
+    needs_receipt: bool = Field(description="完成加工时要开入库单：有需要加工、对应到成品的商品")
+    receipt: DocumentBrief | None = Field(
+        description="还没生效的入库单（待仓管确认或被退回）；有时订单等仓管确认后才加工完成"
+    )
+    documents: list[DocumentBrief] = Field(description="订单的领料单和入库单（不含作废的）")
+    material_short: list[str] = Field(
+        description="还没领料时，按配方算库存不够的材料（只提示，可以领）"
+    )
 
 
 class ProductionPage(BaseModel):
@@ -540,6 +564,12 @@ class CompleteProductionIn(BaseModel):
     mark_all: bool = Field(
         default=False, description="还有没标记的商品时一并标记完成（否则提示先标记）"
     )
+    lines: list[DocumentLineIn] | None = Field(
+        default=None,
+        max_length=100,
+        description="入库单（生产好的成品和数量）；不传时按订单里需要加工的商品预填",
+    )
+    note: str = Field(default="", max_length=200, description="入库单备注")
 
 
 class AssignWorkerIn(BaseModel):

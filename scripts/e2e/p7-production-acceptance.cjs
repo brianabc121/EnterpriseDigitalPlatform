@@ -7,7 +7,7 @@
 //    订单带上"缺货"标记，"完成订单"不可点；再修改缺货说明。
 // 3. 客服小美：站内信收到"缺货处理"待办，订单中心的"缺货"里有这张订单；详情的"加工"一列显示缺货
 //    说明和加工人。小美登记到货：商品回到待加工，订单离开"缺货"，待办随之完成。
-// 4. 老王点"完成订单"：还有没标记的商品时确认框提示一并标记完成；订单进入"已完成"。
+// 4. 老王点"完成订单"：开入库单，还有没标记的商品时提示一并标记完成；订单进入"已完成"。
 // 5. 小美：站内信收到"待发货"待办，订单在"待发货"里（加工完成、加工人、完成时间），登记发货后离开
 //    "待发货"，发货提醒随之完成；客户的跟踪页（手机）显示"已加工完成，等待发货"。
 // 6. 主管在订单详情里把另一张订单指派给工人小李：小李从站内信打开，直接看到这张订单；放弃后回到
@@ -138,6 +138,14 @@ async function prepareTenant() {
     method: 'POST',
     token: admin,
     body: { name: '客服组', members: [{ staff_id: staff.mei }, { staff_id: staff.lead, is_lead: true }] },
+  })
+
+  // 仓库（§25.13）：指定管理员为仓管、单据开单即生效，这里只验收加工（领料和入库见 P9）。
+  const me = await json(`${API}/api/v1/me`, { token: admin })
+  await json(`${API}/api/v1/warehouse/settings`, {
+    method: 'PUT',
+    token: admin,
+    body: { keeper_id: me.id, confirm_required: false },
   })
 
   // 客服小美为客户下单并审核确认（货到付款的可以直接开工；在线收款的要先收清）。
@@ -462,10 +470,14 @@ async function completeSection(page, ctx) {
   await order.waitFor()
   const cleared = (await order.locator('[data-testid="production-order-shortage"]').count()) === 0
   await order.locator('[data-testid="production-complete"]').click()
-  const message = await confirmBox(page, '一并完成')
+  // 完成订单时开入库单（生产好的成品）；设置为开单即生效，提交后直接入库。
+  const editor = page.locator('[data-testid="document-editor"]')
+  await editor.locator('[data-testid="document-line"]').first().waitFor()
+  const message = await editor.locator('.el-alert__title').first().innerText()
+  await editor.locator('[data-testid="document-submit"]').click()
   await order.waitFor({ state: 'detached' })
   check(
-    '完成订单：还有没标记的商品时确认框提示一并标记完成',
+    '完成订单：开入库单，还有没标记的商品时提示一并标记完成',
     cleared && message.includes(`还有 1 个商品没有标记完成（${BELL}）`),
     message,
   )

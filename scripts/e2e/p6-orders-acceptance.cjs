@@ -91,8 +91,10 @@ const PRODUCTS = [
 const TEMPLATE_COLUMNS = [
   '名称*',
   '代码',
+  '类别',
   '型号',
   '规格',
+  '单位',
   '分类',
   '图片URL',
   '成本价',
@@ -100,6 +102,7 @@ const TEMPLATE_COLUMNS = [
   '别名',
   '备注',
   '状态',
+  '现货',
   '库存',
   '库存预警',
 ]

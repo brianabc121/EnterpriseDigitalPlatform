@@ -2582,7 +2582,8 @@ export interface paths {
         put?: never;
         /**
          * Complete
-         * @description 完成订单（加工完成）：订单进入"待发货"，客服在待办里收到提醒。
+         * @description 完成加工：开入库单（生产好的成品），仓管确认入库后订单进入"待发货"，客服在待办里收到提醒；
+         *     没有要入库的成品时直接进入"待发货"。
          */
         post: operations["complete_api_v1_production_orders__order_id__complete_post"];
         delete?: never;
@@ -2715,7 +2716,10 @@ export interface paths {
         /** List Products */
         get: operations["list_products_api_v1_products_get"];
         put?: never;
-        /** Create Product */
+        /**
+         * Create Product
+         * @description 新建成品或材料。材料总是管理库存（从 0 开始）。
+         */
         post: operations["create_product_api_v1_products_post"];
         delete?: never;
         options?: never;
@@ -2902,7 +2906,8 @@ export interface paths {
         };
         /**
          * Search Products
-         * @description 按客户的说法检索商品（与 AI 使用的检索相同：代码和型号精确匹配、关键词、语义）。
+         * @description 按客户的说法检索商品（与 AI 使用的检索相同：代码和型号精确匹配、关键词、语义）。默认只找
+         *     成品（材料不能下单）。
          */
         get: operations["search_products_api_v1_products_search_get"];
         put?: never;
@@ -2942,14 +2947,42 @@ export interface paths {
         };
         /** Get Product */
         get: operations["get_product_api_v1_products__product_id__get"];
-        /** Update Product */
+        /**
+         * Update Product
+         * @description 修改商品（类别不能修改）。
+         */
         put: operations["update_product_api_v1_products__product_id__put"];
         post?: never;
         /**
          * Delete Product
-         * @description 删除商品。已有订单使用的商品不能删除，请改为下架。
+         * @description 删除商品。已有订单或单据使用的商品不能删除，请改为下架（停用）；配方里用到的材料要先从
+         *     配方里去掉。
          */
         delete: operations["delete_product_api_v1_products__product_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/products/{product_id}/materials": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Bom
+         * @description 成品的配方：每一件用多少材料。
+         */
+        get: operations["get_bom_api_v1_products__product_id__materials_get"];
+        /**
+         * Put Bom
+         * @description 保存成品的配方（整体替换）：开领料单时按订单数量乘配方用量预填。
+         */
+        put: operations["put_bom_api_v1_products__product_id__materials_put"];
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -2985,7 +3018,7 @@ export interface paths {
         };
         /**
          * List Stock Movements
-         * @description 库存记录：每一次变化、变化前后的数量、原因和操作人（订单出库关联订单）。
+         * @description 库存记录：每一次变化、变化前后的数量、原因和操作人（关联订单、导入或单据）。
          */
         get: operations["list_stock_movements_api_v1_products__product_id__stock_movements_get"];
         put?: never;
@@ -4781,6 +4814,216 @@ export interface paths {
          * @description 上传图片或文件：返回预签名上传 URL 和发送消息时引用的文件链接。
          */
         post: operations["create_upload_api_v1_visitor_uploads_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/warehouse/counts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Counts
+         * @description 待确认的单据数和库存不足的数量（菜单和标签页上的数字）。
+         */
+        get: operations["counts_api_v1_warehouse_counts_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/warehouse/documents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Documents
+         * @description 领料单和入库单（待确认的在前）。
+         */
+        get: operations["list_documents_api_v1_warehouse_documents_get"];
+        put?: never;
+        /**
+         * Create Document
+         * @description 开单：给订单开领料单（工人给自己加工的订单），或者仓库直接开单（不关联订单）。仓管开的、
+         *     或者设置为不需要确认的，开单即确认（修改库存）。
+         */
+        post: operations["create_document_api_v1_warehouse_documents_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/warehouse/documents/{document_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Document */
+        get: operations["get_document_api_v1_warehouse_documents__document_id__get"];
+        /**
+         * Update Document
+         * @description 修改后重新提交（待确认、已退回的单据；开单人或仓管）。
+         */
+        put: operations["update_document_api_v1_warehouse_documents__document_id__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/warehouse/documents/{document_id}/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirm Document
+         * @description 仓管确认：领料单扣减材料库存（不够也可以领，提示盘点），入库单增加成品库存；订单的入库单
+         *     确认后订单加工完成、进入"待发货"。可以按实际数量修改。
+         */
+        post: operations["confirm_document_api_v1_warehouse_documents__document_id__confirm_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/warehouse/documents/{document_id}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reject Document
+         * @description 仓管退回（写明原因），开单人修改后重新提交。
+         */
+        post: operations["reject_document_api_v1_warehouse_documents__document_id__reject_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/warehouse/documents/{document_id}/void": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Void Document
+         * @description 作废还没生效的单据（开单人或仓管）。
+         */
+        post: operations["void_document_api_v1_warehouse_documents__document_id__void_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/warehouse/drafts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Draft
+         * @description 给订单开单的预填：领料单按配方（订单里需要加工的商品数量 × 配方用量，减去已经领过的），
+         *     入库单按订单里需要加工的成品。
+         */
+        get: operations["draft_api_v1_warehouse_drafts_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/warehouse/items": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Items
+         * @description 材料库存或成品库存（没有价格）：现有、占用（成品：要从库存发出的订单；材料：待确认的领料单）、
+         *     可用和预警值。
+         */
+        get: operations["list_items_api_v1_warehouse_items_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/warehouse/movements": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Movements
+         * @description 库存记录：全部商品的每一次库存变化（新的在前）。
+         */
+        get: operations["list_movements_api_v1_warehouse_movements_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/warehouse/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Settings
+         * @description 仓库设置：谁是仓管（没有指定时由最早创建的工人担任）、单据是否需要仓管确认。
+         */
+        get: operations["get_settings_api_v1_warehouse_settings_get"];
+        /** Put Settings */
+        put: operations["put_settings_api_v1_warehouse_settings_put"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -6764,6 +7007,58 @@ export interface components {
             plan: components["schemas"]["PlanOut"] | null;
             subscription: components["schemas"]["SubscriptionOut"] | null;
         };
+        /** BomIn */
+        BomIn: {
+            /**
+             * Items
+             * @description 配方的全部材料（整体替换）
+             */
+            items: components["schemas"]["BomLineIn"][];
+        };
+        /** BomLineIn */
+        BomLineIn: {
+            /**
+             * Material Id
+             * Format: uuid
+             */
+            material_id: string;
+            /**
+             * Quantity
+             * @description 每一件成品用多少（按材料的单位），大于 0
+             */
+            quantity: number | string;
+        };
+        /** BomLineOut */
+        BomLineOut: {
+            /** Code */
+            code: string | null;
+            /**
+             * Material Id
+             * Format: uuid
+             */
+            material_id: string;
+            /** Name */
+            name: string;
+            /**
+             * Quantity
+             * @description 每一件成品用多少
+             */
+            quantity: number;
+            /** Spec */
+            spec: string;
+            /**
+             * Stock
+             * @description 材料的现有库存
+             */
+            stock: number | null;
+            /** Unit */
+            unit: string;
+        };
+        /** BomOut */
+        BomOut: {
+            /** Items */
+            items: components["schemas"]["BomLineOut"][];
+        };
         /**
          * BroadcastAudience
          * @description 群发对象。发给客户时按客户、标签、归属坐席筛选（取交集，只含员工可见的客户）；
@@ -7103,11 +7398,22 @@ export interface components {
         /** CompleteProductionIn */
         CompleteProductionIn: {
             /**
+             * Lines
+             * @description 入库单（生产好的成品和数量）；不传时按订单里需要加工的商品预填
+             */
+            lines?: components["schemas"]["DocumentLineIn"][] | null;
+            /**
              * Mark All
              * @description 还有没标记的商品时一并标记完成（否则提示先标记）
              * @default false
              */
             mark_all: boolean;
+            /**
+             * Note
+             * @description 入库单备注
+             * @default
+             */
+            note: string;
         };
         /** ComponentHealth */
         ComponentHealth: {
@@ -7124,6 +7430,20 @@ export interface components {
              * @enum {string}
              */
             status: "ok" | "degraded" | "down" | "disabled";
+        };
+        /** ConfirmLineIn */
+        ConfirmLineIn: {
+            /**
+             * Id
+             * Format: uuid
+             * @description 单据行
+             */
+            id: string;
+            /**
+             * Quantity
+             * @description 实际数量；为 0 表示这一行不领（不入库）
+             */
+            quantity: number | string;
         };
         /**
          * ConfirmRequest
@@ -7619,6 +7939,235 @@ export interface components {
             /** Ids */
             ids: string[];
         };
+        /** DocumentBrief */
+        DocumentBrief: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "requisition" | "receipt";
+            /** No */
+            no: string;
+            /** Reject Reason */
+            reject_reason: string | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "pending" | "confirmed" | "rejected" | "voided";
+        };
+        /** DocumentConfirm */
+        DocumentConfirm: {
+            /**
+             * Lines
+             * @description 仓管按实际数量修改（不传表示按单据上的数量）
+             */
+            lines?: components["schemas"]["ConfirmLineIn"][] | null;
+        };
+        /** DocumentDraft */
+        DocumentDraft: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "requisition" | "receipt";
+            /** Lines */
+            lines: components["schemas"]["DraftLine"][];
+            /**
+             * Missing
+             * @description 没有配方的商品（领料单）或没有对应到成品的订单行（入库单），需要手动添加
+             */
+            missing: string[];
+            /** Order Id */
+            order_id: string | null;
+        };
+        /** DocumentIn */
+        DocumentIn: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "requisition" | "receipt";
+            /** Lines */
+            lines: components["schemas"]["DocumentLineIn"][];
+            /**
+             * Note
+             * @default
+             */
+            note: string;
+            /**
+             * Order Id
+             * @description 关联的销售订单（领料单）；入库单关联订单要在加工页“完成加工”时开
+             */
+            order_id?: string | null;
+        };
+        /** DocumentLineIn */
+        DocumentLineIn: {
+            /**
+             * Planned
+             * @description 按配方或订单算出的建议数量（开单时预填的，只做记录）
+             */
+            planned?: number | string | null;
+            /**
+             * Product Id
+             * Format: uuid
+             * @description 领料单是材料，入库单是成品
+             */
+            product_id: string;
+            /**
+             * Quantity
+             * @description 数量，大于 0；成品只能是整数，材料最多三位小数
+             */
+            quantity: number | string;
+        };
+        /** DocumentLineOut */
+        DocumentLineOut: {
+            /** Code */
+            code: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /**
+             * Planned
+             * @description 建议数量（配方用量或订单数量）
+             */
+            planned: number | null;
+            /**
+             * Product Id
+             * Format: uuid
+             */
+            product_id: string;
+            /** Quantity */
+            quantity: number;
+            /** Spec */
+            spec: string;
+            /**
+             * Stock
+             * @description 现在的库存（为空表示不管理库存）
+             */
+            stock: number | null;
+            /**
+             * Stock After
+             * @description 确认后的库存
+             */
+            stock_after: number | null;
+            /**
+             * Stock Before
+             * @description 确认时的库存
+             */
+            stock_before: number | null;
+            /** Unit */
+            unit: string;
+        };
+        /** DocumentOut */
+        DocumentOut: {
+            /**
+             * Can Confirm
+             * @description 可以确认或退回（仓管，待确认）
+             */
+            can_confirm: boolean;
+            /**
+             * Can Edit
+             * @description 可以修改后重新提交（开单人，待确认或已退回）
+             */
+            can_edit: boolean;
+            /**
+             * Can Void
+             * @description 可以作废（开单人或仓管，待确认或已退回）
+             */
+            can_void: boolean;
+            /** Confirmed At */
+            confirmed_at: string | null;
+            /** Confirmed By Name */
+            confirmed_by_name: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Created By Name */
+            created_by_name: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "requisition" | "receipt";
+            /** Kind Label */
+            kind_label: string;
+            /** Lines */
+            lines: components["schemas"]["DocumentLineOut"][];
+            /** No */
+            no: string;
+            /** Note */
+            note: string;
+            /** Order Id */
+            order_id: string | null;
+            /** Order No */
+            order_no: string | null;
+            /** Reject Reason */
+            reject_reason: string | null;
+            /** Rejected At */
+            rejected_at: string | null;
+            /** Rejected By Name */
+            rejected_by_name: string | null;
+            /**
+             * Short
+             * @description 待确认的领料单里库存不够的材料（确认后库存会是负数；只提示）
+             */
+            short: string[];
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "pending" | "confirmed" | "rejected" | "voided";
+            /** Status Label */
+            status_label: string;
+            /**
+             * Submitted At
+             * Format: date-time
+             */
+            submitted_at: string;
+            /** Void Reason */
+            void_reason: string | null;
+            /** Voided At */
+            voided_at: string | null;
+            /** Voided By Name */
+            voided_by_name: string | null;
+        };
+        /** DocumentPage */
+        DocumentPage: {
+            /** Items */
+            items: components["schemas"]["DocumentOut"][];
+            /** Total */
+            total: number;
+        };
+        /**
+         * DocumentUpdate
+         * @description 修改后重新提交（待确认、已退回的单据）。
+         */
+        DocumentUpdate: {
+            /** Lines */
+            lines: components["schemas"]["DocumentLineIn"][];
+            /**
+             * Note
+             * @default
+             */
+            note: string;
+        };
         /** DoneRequest */
         DoneRequest: {
             /**
@@ -7633,6 +8182,44 @@ export interface components {
             notify_customer: boolean;
             /** Result */
             result: string;
+        };
+        /** DraftLine */
+        DraftLine: {
+            /**
+             * Available
+             * @description 可用库存（材料：现有减去待确认的领料单）
+             */
+            available: number | null;
+            /** Code */
+            code: string | null;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "goods" | "material";
+            /** Name */
+            name: string;
+            /**
+             * Planned
+             * @description 建议数量
+             */
+            planned: number | null;
+            /**
+             * Product Id
+             * Format: uuid
+             */
+            product_id: string;
+            /** Quantity */
+            quantity: number;
+            /** Spec */
+            spec: string;
+            /**
+             * Stock
+             * @description 现有库存
+             */
+            stock: number | null;
+            /** Unit */
+            unit: string;
         };
         /** ErasureRequest */
         ErasureRequest: {
@@ -10571,10 +11158,20 @@ export interface components {
             cost_price?: number | string | null;
             /** Image Url */
             image_url?: string | null;
+            /**
+             * Kind
+             * @description 类别：goods 成品（默认），material 材料；只在新建时有效，已有商品的类别不能修改
+             */
+            kind?: ("goods" | "material") | null;
             /** Model */
             model?: string | null;
             /** Name */
             name?: string | null;
+            /**
+             * Ready Made
+             * @description 现货：直接从成品库存发货，不需要加工（材料没有这一项）
+             */
+            ready_made?: boolean | null;
             /** Remark */
             remark?: string | null;
             /** Retail Price */
@@ -10585,14 +11182,19 @@ export interface components {
             status?: ("on" | "off") | null;
             /**
              * Stock
-             * @description 现有库存（盘点数）；传 null 表示不再管理这个商品的库存，不传时保持原值
+             * @description 现有库存（盘点数；成品是整数，材料最多三位小数）；传 null 表示不再管理这个成品的库存，不传时保持原值
              */
-            stock?: number | null;
+            stock?: number | string | null;
             /**
              * Stock Alert
              * @description 库存预警值；不传时保持原值
              */
-            stock_alert?: number | null;
+            stock_alert?: number | string | null;
+            /**
+             * Unit
+             * @description 单位，例如 件、米
+             */
+            unit?: string | null;
         };
         /** OpenProductOut */
         OpenProductOut: {
@@ -10616,10 +11218,17 @@ export interface components {
             id: string;
             /** Image Url */
             image_url: string | null;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "goods" | "material";
             /** Model */
             model: string;
             /** Name */
             name: string;
+            /** Ready Made */
+            ready_made: boolean;
             /** Remark */
             remark: string;
             /** Retail Price */
@@ -10637,9 +11246,11 @@ export interface components {
             stock_alert: number | null;
             /**
              * Stock Available
-             * @description 可用库存 = 现有 − 已确认、还没发货的订单占用
+             * @description 可用库存 = 现有 − 占用（成品：要从库存发出的订单；材料：待确认的领料单）
              */
             stock_available: number | null;
+            /** Unit */
+            unit: string;
             /**
              * Updated At
              * Format: date-time
@@ -11041,6 +11652,11 @@ export interface components {
             deposit_amount: string | null;
             /** Discount */
             discount: string;
+            /**
+             * Documents
+             * @description 订单的领料单和入库单（不含作废的）
+             */
+            documents?: components["schemas"]["DocumentBrief"][];
             /** Events */
             events: components["schemas"]["OrderEventOut"][];
             /** Evidence */
@@ -11104,6 +11720,12 @@ export interface components {
             processed_at?: string | null;
             /** Processed By Name */
             processed_by_name?: string | null;
+            /**
+             * Production Required
+             * @description 有需要加工的商品（全是现货的订单直接发货）
+             * @default true
+             */
+            production_required: boolean;
             /**
              * Receivable Overdue
              * @description 暂欠已过约定付款日期仍未收清
@@ -11293,6 +11915,12 @@ export interface components {
             /** Raw Text */
             raw_text: string | null;
             /**
+             * Ready Made
+             * @description 现货：直接从成品库存发货，不需要加工（§25.13）
+             * @default false
+             */
+            ready_made: boolean;
+            /**
              * Restock Date
              * @description 预计到货日期
              */
@@ -11308,7 +11936,7 @@ export interface components {
             spec: string;
             /**
              * Stock Available
-             * @description 商品的可用库存（§25.12）；不管理库存、或者订单已出库或取消时为空
+             * @description 商品的可用库存（§25.12）：只对从库存发货的行（现货，或者订单已加工入库）；不管理库存、或者订单已出库或取消时为空
              */
             stock_available?: number | null;
             /**
@@ -12136,7 +12764,7 @@ export interface components {
          * Permission
          * @enum {string}
          */
-        Permission: "dashboard:view" | "workbench:use" | "customer:read" | "customer:read_all" | "customer:create" | "customer:assign" | "customer:view_sensitive" | "customer:export" | "customer:manage" | "session:read_all" | "session:read_team" | "session:transfer" | "session:transfer_any" | "session:monitor" | "routing:manage" | "staff:read" | "staff:manage" | "quick_reply:manage" | "kb:read" | "kb:manage" | "kb:publish" | "report:view" | "settings:manage" | "broadcast:manage" | "tenant:manage" | "audit:read" | "todo:read" | "todo:handle" | "todo:assign" | "todo:config" | "todo:export" | "order:read" | "order:create" | "order:review" | "order:price" | "order:payment" | "order:credit" | "order:export" | "order:config" | "product:manage" | "product:view_cost" | "inventory:manage" | "production:work" | "production:assign" | "integration:manage";
+        Permission: "dashboard:view" | "workbench:use" | "customer:read" | "customer:read_all" | "customer:create" | "customer:assign" | "customer:view_sensitive" | "customer:export" | "customer:manage" | "session:read_all" | "session:read_team" | "session:transfer" | "session:transfer_any" | "session:monitor" | "routing:manage" | "staff:read" | "staff:manage" | "quick_reply:manage" | "kb:read" | "kb:manage" | "kb:publish" | "report:view" | "settings:manage" | "broadcast:manage" | "tenant:manage" | "audit:read" | "todo:read" | "todo:handle" | "todo:assign" | "todo:config" | "todo:export" | "order:read" | "order:create" | "order:review" | "order:price" | "order:payment" | "order:credit" | "order:export" | "order:config" | "product:manage" | "product:view_cost" | "inventory:manage" | "warehouse:confirm" | "production:work" | "production:assign" | "integration:manage";
         /** PermissionInfo */
         PermissionInfo: {
             code: components["schemas"]["Permission"];
@@ -12773,10 +13401,26 @@ export interface components {
             id: string;
             /** Image Url */
             image_url: string | null;
+            /**
+             * Kind
+             * @description 类别：goods 成品（可以销售），material 材料
+             * @enum {string}
+             */
+            kind: "goods" | "material";
+            /**
+             * Materials
+             * @description 配方里的材料数（成品）
+             */
+            materials: number;
             /** Model */
             model: string;
             /** Name */
             name: string;
+            /**
+             * Ready Made
+             * @description 现货：直接从成品库存发货，不需要加工
+             */
+            ready_made: boolean;
             /** Remark */
             remark: string;
             /** Retail Price */
@@ -12805,14 +13449,19 @@ export interface components {
             stock_available: number | null;
             /**
              * Stock Low
-             * @description 库存不足：可用库存不高于预警值（没有预警值时为 0）
+             * @description 库存不足：可用库存为负数，或不高于预警值（材料和现货没有预警值时按 0）
              */
             stock_low: boolean;
             /**
              * Stock Reserved
-             * @description 已确认、还没发货的订单占用的数量
+             * @description 成品：已确认、还没发货的订单要从库存发出的数量；材料：还没确认的领料单里的数量
              */
             stock_reserved: number;
+            /**
+             * Unit
+             * @description 单位，例如 件、米、公斤
+             */
+            unit: string;
             /**
              * Updated At
              * Format: date-time
@@ -12825,7 +13474,7 @@ export interface components {
             items: components["schemas"]["ProductOut"][];
             /**
              * Low Stock
-             * @description 库存不足的商品数（不受筛选条件影响）
+             * @description 这个类别里库存不足的商品数（不受其他筛选条件影响）
              */
             low_stock: number;
             /** Total */
@@ -12843,6 +13492,13 @@ export interface components {
              * @description 文件内容（base64），文件最大 10 MB
              */
             content_base64: string;
+            /**
+             * Default Kind
+             * @description “类别”列留空时新增为成品（goods）还是材料（material）
+             * @default goods
+             * @enum {string}
+             */
+            default_kind: "goods" | "material";
             /**
              * Filename
              * @description 文件名（.xlsx 或 .csv）
@@ -12882,12 +13538,25 @@ export interface components {
              */
             image_url?: string | null;
             /**
+             * Kind
+             * @description 类别：goods 成品，material 材料（只在新建时有效）
+             * @default goods
+             * @enum {string}
+             */
+            kind: "goods" | "material";
+            /**
              * Model
              * @default
              */
             model: string;
             /** Name */
             name: string;
+            /**
+             * Ready Made
+             * @description 现货：直接从成品库存发货，不需要加工（材料没有这一项）
+             * @default false
+             */
+            ready_made: boolean;
             /**
              * Remark
              * @default
@@ -12908,9 +13577,15 @@ export interface components {
             status: "on" | "off";
             /**
              * Stock Alert
-             * @description 库存预警值；不传时保持原值。库存数量要通过调整库存或导入修改
+             * @description 库存预警值；不传时保持原值。库存数量要通过调整库存、单据或导入修改
              */
-            stock_alert?: number | null;
+            stock_alert?: number | string | null;
+            /**
+             * Unit
+             * @description 单位，例如 件、米、公斤
+             * @default
+             */
+            unit: string;
         };
         /** ProductionCounts */
         ProductionCounts: {
@@ -12965,6 +13640,12 @@ export interface components {
              */
             raw_text: string | null;
             /**
+             * Ready Made
+             * @description 现货：从成品库存发货，不需要加工
+             * @default false
+             */
+            ready_made: boolean;
+            /**
              * Restock Date
              * @description 预计到货日期
              */
@@ -12980,7 +13661,7 @@ export interface components {
             spec: string;
             /**
              * Stock Short
-             * @description 待加工的商品库存不足（按确认先后占用现有库存，占不到的；只提示）
+             * @description 现货商品库存不足（按确认先后占用现有库存，占不到的；只提示）
              * @default false
              */
             stock_short: boolean;
@@ -13017,6 +13698,11 @@ export interface components {
             customer_name: string | null;
             /** Customer Note */
             customer_note: string;
+            /**
+             * Documents
+             * @description 订单的领料单和入库单（不含作废的）
+             */
+            documents: components["schemas"]["DocumentBrief"][];
             /** Done Count */
             done_count: number;
             /**
@@ -13033,10 +13719,32 @@ export interface components {
             internal_note: string;
             /** Items */
             items: components["schemas"]["ProductionItemOut"][];
+            /**
+             * Material Short
+             * @description 还没领料时，按配方算库存不够的材料（只提示，可以领）
+             */
+            material_short: string[];
+            /**
+             * Needs Receipt
+             * @description 完成加工时要开入库单：有需要加工、对应到成品的商品
+             */
+            needs_receipt: boolean;
             /** No */
             no: string;
             /** Processed At */
             processed_at: string | null;
+            /** @description 还没生效的入库单（待仓管确认或被退回）；有时订单等仓管确认后才加工完成 */
+            receipt: components["schemas"]["DocumentBrief"] | null;
+            /**
+             * Requisition Ready
+             * @description 已经开了领料单（待确认或已确认），或者不需要领料
+             */
+            requisition_ready: boolean;
+            /**
+             * Requisition Required
+             * @description 要先开领料单：需要加工的商品有配方（§25.13）
+             */
+            requisition_required: boolean;
             /**
              * Shortage
              * @description 有缺货的商品
@@ -13294,6 +14002,14 @@ export interface components {
              * @description 可见范围内今天的新会话
              */
             today_sessions: number;
+        };
+        /** ReasonIn */
+        ReasonIn: {
+            /**
+             * Reason
+             * @default
+             */
+            reason: string;
         };
         /** ReasonRequest */
         ReasonRequest: {
@@ -14356,9 +15072,73 @@ export interface components {
             note: string;
             /**
              * Quantity
-             * @description 数量（不再管理库存时不填）
+             * @description 数量（不再管理库存时不填）；成品只能是整数，材料最多三位小数
              */
-            quantity?: number | null;
+            quantity?: number | string | null;
+        };
+        /**
+         * StockItemOut
+         * @description 仓库里的一个商品（没有价格）。
+         */
+        StockItemOut: {
+            /** Category */
+            category: string;
+            /** Code */
+            code: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "goods" | "material";
+            /**
+             * Materials
+             * @description 配方里的材料数（成品）
+             */
+            materials: number;
+            /** Model */
+            model: string;
+            /** Name */
+            name: string;
+            /** Ready Made */
+            ready_made: boolean;
+            /** Remark */
+            remark: string;
+            /** Spec */
+            spec: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "on" | "off";
+            /** Stock */
+            stock: number | null;
+            /** Stock Alert */
+            stock_alert: number | null;
+            /** Stock Available */
+            stock_available: number | null;
+            /** Stock Low */
+            stock_low: boolean;
+            /** Stock Reserved */
+            stock_reserved: number;
+            /** Unit */
+            unit: string;
+        };
+        /** StockItemPage */
+        StockItemPage: {
+            /** Items */
+            items: components["schemas"]["StockItemOut"][];
+            /**
+             * Low Stock
+             * @description 这个类别里库存不足的数量（不受其他筛选条件影响）
+             */
+            low_stock: number;
+            /** Total */
+            total: number;
         };
         /** StockMovementOut */
         StockMovementOut: {
@@ -14377,6 +15157,13 @@ export interface components {
              */
             delta: number;
             /**
+             * Document Id
+             * @description 领料单或入库单
+             */
+            document_id: string | null;
+            /** Document No */
+            document_no: string | null;
+            /**
              * Id
              * Format: uuid
              */
@@ -14387,7 +15174,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "import_set" | "import_add" | "adjust_set" | "adjust_add" | "adjust_remove" | "untrack" | "order_out" | "order_return" | "api_set";
+            kind: "import_set" | "import_add" | "adjust_set" | "adjust_add" | "adjust_remove" | "untrack" | "order_out" | "order_return" | "api_set" | "requisition" | "receipt";
             /** Kind Label */
             kind_label: string;
             /** Note */
@@ -14396,6 +15183,18 @@ export interface components {
             order_id: string | null;
             /** Order No */
             order_no: string | null;
+            /**
+             * Product Id
+             * Format: uuid
+             */
+            product_id: string;
+            /**
+             * Product Kind
+             * @enum {string}
+             */
+            product_kind: "goods" | "material";
+            /** Product Name */
+            product_name: string;
             /**
              * Stock After
              * @description 变化后的现有库存；为空表示之后不再管理库存
@@ -14406,6 +15205,8 @@ export interface components {
              * @description 变化前的现有库存；为空表示原来不管理库存
              */
             stock_before: number | null;
+            /** Unit */
+            unit: string;
         };
         /** StockMovementPage */
         StockMovementPage: {
@@ -16388,6 +17189,68 @@ export interface components {
         VoidRequest: {
             /** Reason */
             reason: string;
+        };
+        /** WarehouseCounts */
+        WarehouseCounts: {
+            /**
+             * Low Goods
+             * @description 库存不足的成品
+             */
+            low_goods: number;
+            /**
+             * Low Materials
+             * @description 库存不足的材料
+             */
+            low_materials: number;
+            /**
+             * Pending Receipts
+             * @description 待确认的入库单
+             */
+            pending_receipts: number;
+            /**
+             * Pending Requisitions
+             * @description 待确认的领料单
+             */
+            pending_requisitions: number;
+        };
+        /** WarehouseSettingsIn */
+        WarehouseSettingsIn: {
+            /**
+             * Confirm Required
+             * @default true
+             */
+            confirm_required: boolean;
+            /** Keeper Id */
+            keeper_id?: string | null;
+        };
+        /** WarehouseSettingsOut */
+        WarehouseSettingsOut: {
+            /**
+             * Can Edit
+             * @description 可以修改（有订单设置权限）
+             */
+            can_edit: boolean;
+            /** Confirm Required */
+            confirm_required: boolean;
+            /**
+             * Effective Keeper Id
+             * @description 实际的仓管：指定的员工；没有指定（或已停用）时是最早创建的工人
+             */
+            effective_keeper_id: string | null;
+            /** Effective Keeper Name */
+            effective_keeper_name: string | null;
+            /**
+             * Fallback
+             * @description 没有指定仓管，由最早创建的工人担任
+             */
+            fallback: boolean;
+            /**
+             * Keeper Id
+             * @description 设置里指定的仓管
+             */
+            keeper_id: string | null;
+            /** Keeper Name */
+            keeper_name: string | null;
         };
         /** WatcherOut */
         WatcherOut: {
@@ -29333,6 +30196,8 @@ export interface operations {
                 category?: string | null;
                 status?: string | null;
                 stock?: ("low" | "tracked" | "untracked") | null;
+                /** @description 类别：goods 成品，material 材料 */
+                kind?: "goods" | "material";
                 limit?: number;
                 offset?: number;
             };
@@ -29487,7 +30352,10 @@ export interface operations {
     };
     list_categories_api_v1_products_categories_get: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description 类别：goods 成品，material 材料 */
+                kind?: "goods" | "material";
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -29567,6 +30435,8 @@ export interface operations {
                 /** @description 分类（含下级分类） */
                 category?: string | null;
                 status?: string | null;
+                /** @description 类别；不传时导出全部 */
+                kind?: ("goods" | "material") | null;
             };
             header?: never;
             path?: never;
@@ -30252,6 +31122,8 @@ export interface operations {
                 limit?: number;
                 /** @description 包含下架的商品 */
                 include_off?: boolean;
+                /** @description 类别：goods 成品，material 材料 */
+                kind?: "goods" | "material";
             };
             header?: never;
             path?: never;
@@ -30571,6 +31443,162 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_bom_api_v1_products__product_id__materials_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                product_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BomOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    put_bom_api_v1_products__product_id__materials_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                product_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BomIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BomOut"];
+                };
             };
             /** @description Bad Request */
             400: {
@@ -39269,6 +40297,1036 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["UploadOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    counts_api_v1_warehouse_counts_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WarehouseCounts"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    list_documents_api_v1_warehouse_documents_get: {
+        parameters: {
+            query?: {
+                kind?: ("requisition" | "receipt") | null;
+                status?: ("pending" | "confirmed" | "rejected" | "voided") | null;
+                order_id?: string | null;
+                /** @description 单号、订单号或商品名称 */
+                q?: string | null;
+                /** @description 只看我开的 */
+                mine?: boolean;
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentPage"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    create_document_api_v1_warehouse_documents_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DocumentIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_document_api_v1_warehouse_documents__document_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                document_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    update_document_api_v1_warehouse_documents__document_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                document_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DocumentUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    confirm_document_api_v1_warehouse_documents__document_id__confirm_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                document_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["DocumentConfirm"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    reject_document_api_v1_warehouse_documents__document_id__reject_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                document_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReasonIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    void_document_api_v1_warehouse_documents__document_id__void_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                document_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["ReasonIn"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    draft_api_v1_warehouse_drafts_get: {
+        parameters: {
+            query: {
+                kind: "requisition" | "receipt";
+                order_id: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentDraft"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    list_items_api_v1_warehouse_items_get: {
+        parameters: {
+            query?: {
+                /** @description 成品或材料 */
+                kind?: "goods" | "material";
+                /** @description 名称、代码、型号、规格 */
+                q?: string | null;
+                category?: string | null;
+                status?: string | null;
+                /** @description low 库存不足、tracked 管理库存的、untracked 不管理的 */
+                stock?: ("low" | "tracked" | "untracked") | null;
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StockItemPage"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    list_movements_api_v1_warehouse_movements_get: {
+        parameters: {
+            query?: {
+                /** @description 成品或材料 */
+                kind?: ("goods" | "material") | null;
+                product_id?: string | null;
+                /** @description 变化的种类，例如 requisition、receipt */
+                type?: string[] | null;
+                /** @description 商品名称或代码 */
+                q?: string | null;
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StockMovementPage"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_settings_api_v1_warehouse_settings_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WarehouseSettingsOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    put_settings_api_v1_warehouse_settings_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WarehouseSettingsIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WarehouseSettingsOut"];
                 };
             };
             /** @description Bad Request */

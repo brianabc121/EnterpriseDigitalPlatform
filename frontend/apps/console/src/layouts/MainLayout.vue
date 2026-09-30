@@ -11,6 +11,7 @@ import {
   Goods,
   HomeFilled,
   MagicStick,
+  OfficeBuilding,
   Promotion,
   Reading,
   Setting,
@@ -42,6 +43,7 @@ const icons: Record<MenuIcon, Component> = {
   order: ShoppingCart,
   goods: Goods,
   production: Box,
+  warehouse: OfficeBuilding,
   user: User,
   reading: Reading,
   ai: MagicStick,
@@ -97,9 +99,19 @@ async function loadProductionBadge(): Promise<void> {
   if (data) productionBadge.value = data.pool
 }
 
+// 仓库菜单的角标：待确认的领料单和入库单（给仓管看），与待办一起刷新；加工或订单有变化时立即刷新。
+const warehouseBadge = ref(0)
+
+async function loadWarehouseBadge(): Promise<void> {
+  if (!auth.can('warehouse:confirm') || auth.me?.features?.orders === false) return
+  const { data } = await api.GET('/api/v1/warehouse/counts')
+  if (data) warehouseBadge.value = data.pending_requisitions + data.pending_receipts
+}
+
 function onOrdersChanged(): void {
   void loadOrderBadge()
   void loadProductionBadge()
+  void loadWarehouseBadge()
 }
 
 // 手机上（工人在车间用手机打开"加工"）侧边栏收起成图标。
@@ -116,22 +128,26 @@ const badges = computed<Record<string, number>>(() => ({
   todos: todoBadge.value,
   orders: orderBadge.value,
   production: productionBadge.value,
+  warehouse: warehouseBadge.value,
 }))
 const BADGE_TYPE: Record<string, 'danger' | 'warning'> = {
   todos: 'danger',
   orders: 'warning',
   production: 'warning',
+  warehouse: 'warning',
 }
 
 onMounted(() => {
   void loadTodoBadge()
   void loadOrderBadge()
   void loadProductionBadge()
+  void loadWarehouseBadge()
   todoTimer = setInterval(() => {
     if (document.visibilityState !== 'visible') return
     void loadTodoBadge()
     void loadOrderBadge()
     void loadProductionBadge()
+    void loadWarehouseBadge()
   }, TODO_POLL_MS)
   window.addEventListener(TODOS_CHANGED, onTodosChanged)
   window.addEventListener(ORDERS_CHANGED, onOrdersChanged)
@@ -206,6 +222,14 @@ async function logout(): Promise<void> {
               type="warning"
               class="menu-badge"
               data-testid="production-badge"
+            />
+            <el-badge
+              v-if="item.name === 'warehouse' && warehouseBadge"
+              :value="warehouseBadge"
+              :max="99"
+              type="warning"
+              class="menu-badge"
+              data-testid="warehouse-badge"
             />
           </template>
         </el-menu-item>

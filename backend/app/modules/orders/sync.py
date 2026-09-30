@@ -43,6 +43,7 @@ from app.modules.products import stock
 from app.modules.products.models import Product
 from app.modules.todos import sla
 from app.modules.todos.models import ActorType
+from app.modules.warehouse import documents
 
 API = ActorType.API.value
 FLOW = (
@@ -547,6 +548,9 @@ async def update_status(
             )
         elif target == OrderStatus.CANCELLED:
             await stock.return_order(session, order, actor=stock.Actor(API, actor.key_id))
+            await documents.void_for_order(
+                session, order, staff_id=None, reason="企业系统已取消订单"
+            )
         if target in (OrderStatus.SHIPPED, OrderStatus.COMPLETED, OrderStatus.CANCELLED):
             await service.close_production_todos(
                 session,

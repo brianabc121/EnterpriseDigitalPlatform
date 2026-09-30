@@ -1,5 +1,7 @@
-/** 库存（设计文档 §25.12）用到的名称和小工具，与后端 app/modules/products/stock.py 一致。 */
+/** 库存（设计文档 §25.12、§25.13）用到的名称和小工具，与后端 app/modules/products/stock.py 一致。 */
 import type { Schemas } from '@edp/api-client'
+
+import { minus, plus, qty } from './warehouse'
 
 export type StockMovement = Schemas['StockMovementOut']
 export type StockMode = Schemas['StockAdjustIn']['mode']
@@ -24,36 +26,39 @@ export const STOCK_FILTERS: [StockFilter, string][] = [
   ['untracked', '不管理库存的'],
 ]
 
-/** 库存摘要，如"现有 12 · 占用 2"；不管理库存时为空。 */
-export function stockDetail(level: StockLevel): string {
+/** 库存摘要，如"现有 12 · 占用 2"（材料是"待领"：还没确认的领料单）；不管理库存时为空。 */
+export function stockDetail(level: StockLevel, kind: 'goods' | 'material' = 'goods'): string {
   if (level.stock === null) return ''
-  return level.stock_reserved ? `现有 ${level.stock} · 占用 ${level.stock_reserved}` : `现有 ${level.stock}`
+  const held = kind === 'material' ? '待领' : '占用'
+  return level.stock_reserved
+    ? `现有 ${qty(level.stock)} · ${held} ${qty(level.stock_reserved)}`
+    : `现有 ${qty(level.stock)}`
 }
 
 /** 调整后的现有库存（出库超过现有库存、不再管理时返回 null）。 */
 export function stockAfter(current: number | null, mode: StockMode, quantity: number): number | null {
   if (mode === 'untrack') return null
   if (mode === 'set') return quantity
-  if (mode === 'add') return (current ?? 0) + quantity
+  if (mode === 'add') return plus(current ?? 0, quantity)
   if (current === null || quantity > current) return null
-  return current - quantity
+  return minus(current, quantity)
 }
 
-/** 库存变化量："+5"、"-3"、"0"。 */
+/** 库存变化量："+5"、"-2.5"、"0"。 */
 export function deltaText(delta: number): string {
-  return delta > 0 ? `+${delta}` : String(delta)
+  return delta > 0 ? `+${qty(delta)}` : qty(delta)
 }
 
 /** 库存记录里变化前后的数量："10 → 12"，不管理库存的写作"—"。 */
 export function changeText(movement: Pick<StockMovement, 'stock_before' | 'stock_after'>): string {
-  const show = (value: number | null) => (value === null ? '—' : String(value))
-  return `${show(movement.stock_before)} → ${show(movement.stock_after)}`
+  return `${qty(movement.stock_before)} → ${qty(movement.stock_after)}`
 }
 
-/** 订单行的库存提示："可用 3"；库存不足时加上"库存不足"。不管理库存的为空。 */
+/** 订单行的库存提示："可用 3"；库存不足时加上"库存不足"。不看库存的行为空。 */
 export function lineStockText(item: { stock_available?: number | null; stock_short?: boolean }): string {
   if (item.stock_available === null || item.stock_available === undefined) return ''
-  return item.stock_short ? `库存不足（可用 ${item.stock_available}）` : `可用 ${item.stock_available}`
+  const available = qty(item.stock_available)
+  return item.stock_short ? `库存不足（可用 ${available}）` : `可用 ${available}`
 }
 
 /** 确认订单前的库存提示：库存不足的商品（只提示，不拦截）。 */
@@ -62,5 +67,5 @@ export function shortLines(
 ): string[] {
   return items
     .filter((i) => i.stock_short)
-    .map((i) => `${i.name}${i.spec ? `（${i.spec}）` : ''}：需要 ${i.quantity}，可用 ${i.stock_available ?? 0}`)
+    .map((i) => `${i.name}${i.spec ? `（${i.spec}）` : ''}：需要 ${i.quantity}，可用 ${qty(i.stock_available ?? 0)}`)
 }

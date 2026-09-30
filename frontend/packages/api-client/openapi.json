@@ -1748,6 +1748,130 @@
         "title": "BillingOverview",
         "type": "object"
       },
+      "BomIn": {
+        "properties": {
+          "items": {
+            "description": "配方的全部材料（整体替换）",
+            "items": {
+              "$ref": "#/components/schemas/BomLineIn"
+            },
+            "maxItems": 50,
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "BomIn",
+        "type": "object"
+      },
+      "BomLineIn": {
+        "properties": {
+          "material_id": {
+            "format": "uuid",
+            "title": "Material Id",
+            "type": "string"
+          },
+          "quantity": {
+            "anyOf": [
+              {
+                "maximum": 100000000.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,9}|(?=[\\d.]{1,13}0*$)\\d{0,9}\\.\\d{0,3}0*$)",
+                "type": "string"
+              }
+            ],
+            "description": "每一件成品用多少（按材料的单位），大于 0",
+            "title": "Quantity"
+          }
+        },
+        "required": [
+          "material_id",
+          "quantity"
+        ],
+        "title": "BomLineIn",
+        "type": "object"
+      },
+      "BomLineOut": {
+        "properties": {
+          "code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Code"
+          },
+          "material_id": {
+            "format": "uuid",
+            "title": "Material Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "quantity": {
+            "description": "每一件成品用多少",
+            "title": "Quantity",
+            "type": "number"
+          },
+          "spec": {
+            "title": "Spec",
+            "type": "string"
+          },
+          "stock": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "材料的现有库存",
+            "title": "Stock"
+          },
+          "unit": {
+            "title": "Unit",
+            "type": "string"
+          }
+        },
+        "required": [
+          "material_id",
+          "code",
+          "name",
+          "spec",
+          "unit",
+          "quantity",
+          "stock"
+        ],
+        "title": "BomLineOut",
+        "type": "object"
+      },
+      "BomOut": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/BomLineOut"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "BomOut",
+        "type": "object"
+      },
       "BroadcastAudience": {
         "description": "群发对象。发给客户时按客户、标签、归属坐席筛选（取交集，只含员工可见的客户）；\n发到客户群时按群或群主筛选。",
         "properties": {
@@ -2696,11 +2820,34 @@
       },
       "CompleteProductionIn": {
         "properties": {
+          "lines": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/DocumentLineIn"
+                },
+                "maxItems": 100,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "入库单（生产好的成品和数量）；不传时按订单里需要加工的商品预填",
+            "title": "Lines"
+          },
           "mark_all": {
             "default": false,
             "description": "还有没标记的商品时一并标记完成（否则提示先标记）",
             "title": "Mark All",
             "type": "boolean"
+          },
+          "note": {
+            "default": "",
+            "description": "入库单备注",
+            "maxLength": 200,
+            "title": "Note",
+            "type": "string"
           }
         },
         "title": "CompleteProductionIn",
@@ -2755,6 +2902,37 @@
           "status"
         ],
         "title": "ComponentHealth",
+        "type": "object"
+      },
+      "ConfirmLineIn": {
+        "properties": {
+          "id": {
+            "description": "单据行",
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "quantity": {
+            "anyOf": [
+              {
+                "maximum": 100000000.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,9}|(?=[\\d.]{1,13}0*$)\\d{0,9}\\.\\d{0,3}0*$)",
+                "type": "string"
+              }
+            ],
+            "description": "实际数量；为 0 表示这一行不领（不入库）",
+            "title": "Quantity"
+          }
+        },
+        "required": [
+          "id",
+          "quantity"
+        ],
+        "title": "ConfirmLineIn",
         "type": "object"
       },
       "ConfirmRequest": {
@@ -4047,6 +4225,607 @@
         "title": "DeliveryIds",
         "type": "object"
       },
+      "DocumentBrief": {
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "requisition",
+              "receipt"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "no": {
+            "title": "No",
+            "type": "string"
+          },
+          "reject_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reject Reason"
+          },
+          "status": {
+            "enum": [
+              "pending",
+              "confirmed",
+              "rejected",
+              "voided"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "no",
+          "status",
+          "reject_reason"
+        ],
+        "title": "DocumentBrief",
+        "type": "object"
+      },
+      "DocumentConfirm": {
+        "properties": {
+          "lines": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/ConfirmLineIn"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "仓管按实际数量修改（不传表示按单据上的数量）",
+            "title": "Lines"
+          }
+        },
+        "title": "DocumentConfirm",
+        "type": "object"
+      },
+      "DocumentDraft": {
+        "properties": {
+          "kind": {
+            "enum": [
+              "requisition",
+              "receipt"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "lines": {
+            "items": {
+              "$ref": "#/components/schemas/DraftLine"
+            },
+            "title": "Lines",
+            "type": "array"
+          },
+          "missing": {
+            "description": "没有配方的商品（领料单）或没有对应到成品的订单行（入库单），需要手动添加",
+            "items": {
+              "type": "string"
+            },
+            "title": "Missing",
+            "type": "array"
+          },
+          "order_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Order Id"
+          }
+        },
+        "required": [
+          "kind",
+          "order_id",
+          "lines",
+          "missing"
+        ],
+        "title": "DocumentDraft",
+        "type": "object"
+      },
+      "DocumentIn": {
+        "properties": {
+          "kind": {
+            "enum": [
+              "requisition",
+              "receipt"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "lines": {
+            "items": {
+              "$ref": "#/components/schemas/DocumentLineIn"
+            },
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "Lines",
+            "type": "array"
+          },
+          "note": {
+            "default": "",
+            "maxLength": 200,
+            "title": "Note",
+            "type": "string"
+          },
+          "order_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "关联的销售订单（领料单）；入库单关联订单要在加工页“完成加工”时开",
+            "title": "Order Id"
+          }
+        },
+        "required": [
+          "kind",
+          "lines"
+        ],
+        "title": "DocumentIn",
+        "type": "object"
+      },
+      "DocumentLineIn": {
+        "properties": {
+          "planned": {
+            "anyOf": [
+              {
+                "maximum": 100000000.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,9}|(?=[\\d.]{1,13}0*$)\\d{0,9}\\.\\d{0,3}0*$)",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "按配方或订单算出的建议数量（开单时预填的，只做记录）",
+            "title": "Planned"
+          },
+          "product_id": {
+            "description": "领料单是材料，入库单是成品",
+            "format": "uuid",
+            "title": "Product Id",
+            "type": "string"
+          },
+          "quantity": {
+            "anyOf": [
+              {
+                "maximum": 100000000.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,9}|(?=[\\d.]{1,13}0*$)\\d{0,9}\\.\\d{0,3}0*$)",
+                "type": "string"
+              }
+            ],
+            "description": "数量，大于 0；成品只能是整数，材料最多三位小数",
+            "title": "Quantity"
+          }
+        },
+        "required": [
+          "product_id",
+          "quantity"
+        ],
+        "title": "DocumentLineIn",
+        "type": "object"
+      },
+      "DocumentLineOut": {
+        "properties": {
+          "code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Code"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "planned": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "建议数量（配方用量或订单数量）",
+            "title": "Planned"
+          },
+          "product_id": {
+            "format": "uuid",
+            "title": "Product Id",
+            "type": "string"
+          },
+          "quantity": {
+            "title": "Quantity",
+            "type": "number"
+          },
+          "spec": {
+            "title": "Spec",
+            "type": "string"
+          },
+          "stock": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "现在的库存（为空表示不管理库存）",
+            "title": "Stock"
+          },
+          "stock_after": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "确认后的库存",
+            "title": "Stock After"
+          },
+          "stock_before": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "确认时的库存",
+            "title": "Stock Before"
+          },
+          "unit": {
+            "title": "Unit",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "product_id",
+          "code",
+          "name",
+          "spec",
+          "unit",
+          "planned",
+          "quantity",
+          "stock",
+          "stock_before",
+          "stock_after"
+        ],
+        "title": "DocumentLineOut",
+        "type": "object"
+      },
+      "DocumentOut": {
+        "properties": {
+          "can_confirm": {
+            "description": "可以确认或退回（仓管，待确认）",
+            "title": "Can Confirm",
+            "type": "boolean"
+          },
+          "can_edit": {
+            "description": "可以修改后重新提交（开单人，待确认或已退回）",
+            "title": "Can Edit",
+            "type": "boolean"
+          },
+          "can_void": {
+            "description": "可以作废（开单人或仓管，待确认或已退回）",
+            "title": "Can Void",
+            "type": "boolean"
+          },
+          "confirmed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confirmed At"
+          },
+          "confirmed_by_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confirmed By Name"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "created_by_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created By Name"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "requisition",
+              "receipt"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "kind_label": {
+            "title": "Kind Label",
+            "type": "string"
+          },
+          "lines": {
+            "items": {
+              "$ref": "#/components/schemas/DocumentLineOut"
+            },
+            "title": "Lines",
+            "type": "array"
+          },
+          "no": {
+            "title": "No",
+            "type": "string"
+          },
+          "note": {
+            "title": "Note",
+            "type": "string"
+          },
+          "order_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Order Id"
+          },
+          "order_no": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Order No"
+          },
+          "reject_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reject Reason"
+          },
+          "rejected_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rejected At"
+          },
+          "rejected_by_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rejected By Name"
+          },
+          "short": {
+            "description": "待确认的领料单里库存不够的材料（确认后库存会是负数；只提示）",
+            "items": {
+              "type": "string"
+            },
+            "title": "Short",
+            "type": "array"
+          },
+          "status": {
+            "enum": [
+              "pending",
+              "confirmed",
+              "rejected",
+              "voided"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "status_label": {
+            "title": "Status Label",
+            "type": "string"
+          },
+          "submitted_at": {
+            "format": "date-time",
+            "title": "Submitted At",
+            "type": "string"
+          },
+          "void_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Void Reason"
+          },
+          "voided_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Voided At"
+          },
+          "voided_by_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Voided By Name"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "kind_label",
+          "no",
+          "status",
+          "status_label",
+          "order_id",
+          "order_no",
+          "note",
+          "lines",
+          "created_by_name",
+          "created_at",
+          "submitted_at",
+          "confirmed_by_name",
+          "confirmed_at",
+          "rejected_by_name",
+          "rejected_at",
+          "reject_reason",
+          "voided_by_name",
+          "voided_at",
+          "void_reason",
+          "short",
+          "can_edit",
+          "can_confirm",
+          "can_void"
+        ],
+        "title": "DocumentOut",
+        "type": "object"
+      },
+      "DocumentPage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/DocumentOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total"
+        ],
+        "title": "DocumentPage",
+        "type": "object"
+      },
+      "DocumentUpdate": {
+        "description": "修改后重新提交（待确认、已退回的单据）。",
+        "properties": {
+          "lines": {
+            "items": {
+              "$ref": "#/components/schemas/DocumentLineIn"
+            },
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "Lines",
+            "type": "array"
+          },
+          "note": {
+            "default": "",
+            "maxLength": 200,
+            "title": "Note",
+            "type": "string"
+          }
+        },
+        "required": [
+          "lines"
+        ],
+        "title": "DocumentUpdate",
+        "type": "object"
+      },
       "DoneRequest": {
         "properties": {
           "notice": {
@@ -4078,6 +4857,100 @@
           "result"
         ],
         "title": "DoneRequest",
+        "type": "object"
+      },
+      "DraftLine": {
+        "properties": {
+          "available": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "可用库存（材料：现有减去待确认的领料单）",
+            "title": "Available"
+          },
+          "code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Code"
+          },
+          "kind": {
+            "enum": [
+              "goods",
+              "material"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "planned": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "建议数量",
+            "title": "Planned"
+          },
+          "product_id": {
+            "format": "uuid",
+            "title": "Product Id",
+            "type": "string"
+          },
+          "quantity": {
+            "title": "Quantity",
+            "type": "number"
+          },
+          "spec": {
+            "title": "Spec",
+            "type": "string"
+          },
+          "stock": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "现有库存",
+            "title": "Stock"
+          },
+          "unit": {
+            "title": "Unit",
+            "type": "string"
+          }
+        },
+        "required": [
+          "product_id",
+          "code",
+          "name",
+          "spec",
+          "unit",
+          "kind",
+          "planned",
+          "quantity",
+          "stock",
+          "available"
+        ],
+        "title": "DraftLine",
         "type": "object"
       },
       "ErasureRequest": {
@@ -5318,7 +6191,7 @@
           "stock_after": {
             "anyOf": [
               {
-                "type": "integer"
+                "type": "number"
               },
               {
                 "type": "null"
@@ -5330,7 +6203,7 @@
           "stock_before": {
             "anyOf": [
               {
-                "type": "integer"
+                "type": "number"
               },
               {
                 "type": "null"
@@ -11479,6 +12352,22 @@
             ],
             "title": "Image Url"
           },
+          "kind": {
+            "anyOf": [
+              {
+                "enum": [
+                  "goods",
+                  "material"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "类别：goods 成品（默认），material 材料；只在新建时有效，已有商品的类别不能修改",
+            "title": "Kind"
+          },
           "model": {
             "anyOf": [
               {
@@ -11503,6 +12392,18 @@
               }
             ],
             "title": "Name"
+          },
+          "ready_made": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "现货：直接从成品库存发货，不需要加工（材料没有这一项）",
+            "title": "Ready Made"
           },
           "remark": {
             "anyOf": [
@@ -11564,13 +12465,17 @@
               {
                 "maximum": 100000000.0,
                 "minimum": 0.0,
-                "type": "integer"
+                "type": "number"
+              },
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,9}|(?=[\\d.]{1,13}0*$)\\d{0,9}\\.\\d{0,3}0*$)",
+                "type": "string"
               },
               {
                 "type": "null"
               }
             ],
-            "description": "现有库存（盘点数）；传 null 表示不再管理这个商品的库存，不传时保持原值",
+            "description": "现有库存（盘点数；成品是整数，材料最多三位小数）；传 null 表示不再管理这个成品的库存，不传时保持原值",
             "title": "Stock"
           },
           "stock_alert": {
@@ -11578,7 +12483,11 @@
               {
                 "maximum": 100000000.0,
                 "minimum": 0.0,
-                "type": "integer"
+                "type": "number"
+              },
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,9}|(?=[\\d.]{1,13}0*$)\\d{0,9}\\.\\d{0,3}0*$)",
+                "type": "string"
               },
               {
                 "type": "null"
@@ -11586,6 +12495,19 @@
             ],
             "description": "库存预警值；不传时保持原值",
             "title": "Stock Alert"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "maxLength": 16,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "单位，例如 件、米",
+            "title": "Unit"
           }
         },
         "title": "OpenProductIn",
@@ -11641,6 +12563,14 @@
             ],
             "title": "Image Url"
           },
+          "kind": {
+            "enum": [
+              "goods",
+              "material"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
           "model": {
             "title": "Model",
             "type": "string"
@@ -11648,6 +12578,10 @@
           "name": {
             "title": "Name",
             "type": "string"
+          },
+          "ready_made": {
+            "title": "Ready Made",
+            "type": "boolean"
           },
           "remark": {
             "title": "Remark",
@@ -11676,7 +12610,7 @@
           "stock": {
             "anyOf": [
               {
-                "type": "integer"
+                "type": "number"
               },
               {
                 "type": "null"
@@ -11688,7 +12622,7 @@
           "stock_alert": {
             "anyOf": [
               {
-                "type": "integer"
+                "type": "number"
               },
               {
                 "type": "null"
@@ -11699,14 +12633,18 @@
           "stock_available": {
             "anyOf": [
               {
-                "type": "integer"
+                "type": "number"
               },
               {
                 "type": "null"
               }
             ],
-            "description": "可用库存 = 现有 − 已确认、还没发货的订单占用",
+            "description": "可用库存 = 现有 − 占用（成品：要从库存发出的订单；材料：待确认的领料单）",
             "title": "Stock Available"
+          },
+          "unit": {
+            "title": "Unit",
+            "type": "string"
           },
           "updated_at": {
             "format": "date-time",
@@ -11727,6 +12665,9 @@
           "aliases",
           "remark",
           "status",
+          "kind",
+          "unit",
+          "ready_made",
           "stock",
           "stock_available",
           "stock_alert",
@@ -12848,6 +13789,14 @@
             "title": "Discount",
             "type": "string"
           },
+          "documents": {
+            "description": "订单的领料单和入库单（不含作废的）",
+            "items": {
+              "$ref": "#/components/schemas/DocumentBrief"
+            },
+            "title": "Documents",
+            "type": "array"
+          },
           "events": {
             "items": {
               "$ref": "#/components/schemas/OrderEventOut"
@@ -13018,6 +13967,12 @@
               }
             ],
             "title": "Processed By Name"
+          },
+          "production_required": {
+            "default": true,
+            "description": "有需要加工的商品（全是现货的订单直接发货）",
+            "title": "Production Required",
+            "type": "boolean"
           },
           "receivable_overdue": {
             "description": "暂欠已过约定付款日期仍未收清",
@@ -13612,6 +14567,12 @@
             ],
             "title": "Raw Text"
           },
+          "ready_made": {
+            "default": false,
+            "description": "现货：直接从成品库存发货，不需要加工（§25.13）",
+            "title": "Ready Made",
+            "type": "boolean"
+          },
           "restock_date": {
             "anyOf": [
               {
@@ -13655,13 +14616,13 @@
           "stock_available": {
             "anyOf": [
               {
-                "type": "integer"
+                "type": "number"
               },
               {
                 "type": "null"
               }
             ],
-            "description": "商品的可用库存（§25.12）；不管理库存、或者订单已出库或取消时为空",
+            "description": "商品的可用库存（§25.12）：只对从库存发货的行（现货，或者订单已加工入库）；不管理库存、或者订单已出库或取消时为空",
             "title": "Stock Available"
           },
           "stock_short": {
@@ -15776,6 +16737,7 @@
           "product:manage",
           "product:view_cost",
           "inventory:manage",
+          "warehouse:confirm",
           "production:work",
           "production:assign",
           "integration:manage"
@@ -17280,6 +18242,20 @@
             ],
             "title": "Image Url"
           },
+          "kind": {
+            "description": "类别：goods 成品（可以销售），material 材料",
+            "enum": [
+              "goods",
+              "material"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "materials": {
+            "description": "配方里的材料数（成品）",
+            "title": "Materials",
+            "type": "integer"
+          },
           "model": {
             "title": "Model",
             "type": "string"
@@ -17287,6 +18263,11 @@
           "name": {
             "title": "Name",
             "type": "string"
+          },
+          "ready_made": {
+            "description": "现货：直接从成品库存发货，不需要加工",
+            "title": "Ready Made",
+            "type": "boolean"
           },
           "remark": {
             "title": "Remark",
@@ -17319,7 +18300,7 @@
           "stock": {
             "anyOf": [
               {
-                "type": "integer"
+                "type": "number"
               },
               {
                 "type": "null"
@@ -17331,7 +18312,7 @@
           "stock_alert": {
             "anyOf": [
               {
-                "type": "integer"
+                "type": "number"
               },
               {
                 "type": "null"
@@ -17343,7 +18324,7 @@
           "stock_available": {
             "anyOf": [
               {
-                "type": "integer"
+                "type": "number"
               },
               {
                 "type": "null"
@@ -17353,14 +18334,19 @@
             "title": "Stock Available"
           },
           "stock_low": {
-            "description": "库存不足：可用库存不高于预警值（没有预警值时为 0）",
+            "description": "库存不足：可用库存为负数，或不高于预警值（材料和现货没有预警值时按 0）",
             "title": "Stock Low",
             "type": "boolean"
           },
           "stock_reserved": {
-            "description": "已确认、还没发货的订单占用的数量",
+            "description": "成品：已确认、还没发货的订单要从库存发出的数量；材料：还没确认的领料单里的数量",
             "title": "Stock Reserved",
-            "type": "integer"
+            "type": "number"
+          },
+          "unit": {
+            "description": "单位，例如 件、米、公斤",
+            "title": "Unit",
+            "type": "string"
           },
           "updated_at": {
             "format": "date-time",
@@ -17381,11 +18367,15 @@
           "remark",
           "aliases",
           "status",
+          "kind",
+          "unit",
+          "ready_made",
           "stock",
           "stock_reserved",
           "stock_available",
           "stock_alert",
           "stock_low",
+          "materials",
           "created_at",
           "updated_at"
         ],
@@ -17402,7 +18392,7 @@
             "type": "array"
           },
           "low_stock": {
-            "description": "库存不足的商品数（不受筛选条件影响）",
+            "description": "这个类别里库存不足的商品数（不受其他筛选条件影响）",
             "title": "Low Stock",
             "type": "integer"
           },
@@ -17442,6 +18432,16 @@
             "maxLength": 14000000,
             "minLength": 1,
             "title": "Content Base64",
+            "type": "string"
+          },
+          "default_kind": {
+            "default": "goods",
+            "description": "“类别”列留空时新增为成品（goods）还是材料（material）",
+            "enum": [
+              "goods",
+              "material"
+            ],
+            "title": "Default Kind",
             "type": "string"
           },
           "filename": {
@@ -17530,6 +18530,16 @@
             "description": "图片链接",
             "title": "Image Url"
           },
+          "kind": {
+            "default": "goods",
+            "description": "类别：goods 成品，material 材料（只在新建时有效）",
+            "enum": [
+              "goods",
+              "material"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
           "model": {
             "default": "",
             "maxLength": 64,
@@ -17541,6 +18551,12 @@
             "minLength": 1,
             "title": "Name",
             "type": "string"
+          },
+          "ready_made": {
+            "default": false,
+            "description": "现货：直接从成品库存发货，不需要加工（材料没有这一项）",
+            "title": "Ready Made",
+            "type": "boolean"
           },
           "remark": {
             "default": "",
@@ -17584,14 +18600,25 @@
               {
                 "maximum": 100000000.0,
                 "minimum": 0.0,
-                "type": "integer"
+                "type": "number"
+              },
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,9}|(?=[\\d.]{1,13}0*$)\\d{0,9}\\.\\d{0,3}0*$)",
+                "type": "string"
               },
               {
                 "type": "null"
               }
             ],
-            "description": "库存预警值；不传时保持原值。库存数量要通过调整库存或导入修改",
+            "description": "库存预警值；不传时保持原值。库存数量要通过调整库存、单据或导入修改",
             "title": "Stock Alert"
+          },
+          "unit": {
+            "default": "",
+            "description": "单位，例如 件、米、公斤",
+            "maxLength": 16,
+            "title": "Unit",
+            "type": "string"
           }
         },
         "required": [
@@ -17709,6 +18736,12 @@
             "description": "客户的原话（没有对应到商品库时）",
             "title": "Raw Text"
           },
+          "ready_made": {
+            "default": false,
+            "description": "现货：从成品库存发货，不需要加工",
+            "title": "Ready Made",
+            "type": "boolean"
+          },
           "restock_date": {
             "anyOf": [
               {
@@ -17751,7 +18784,7 @@
           },
           "stock_short": {
             "default": false,
-            "description": "待加工的商品库存不足（按确认先后占用现有库存，占不到的；只提示）",
+            "description": "现货商品库存不足（按确认先后占用现有库存，占不到的；只提示）",
             "title": "Stock Short",
             "type": "boolean"
           },
@@ -17837,6 +18870,14 @@
             "title": "Customer Note",
             "type": "string"
           },
+          "documents": {
+            "description": "订单的领料单和入库单（不含作废的）",
+            "items": {
+              "$ref": "#/components/schemas/DocumentBrief"
+            },
+            "title": "Documents",
+            "type": "array"
+          },
           "done_count": {
             "title": "Done Count",
             "type": "integer"
@@ -17870,6 +18911,19 @@
             "title": "Items",
             "type": "array"
           },
+          "material_short": {
+            "description": "还没领料时，按配方算库存不够的材料（只提示，可以领）",
+            "items": {
+              "type": "string"
+            },
+            "title": "Material Short",
+            "type": "array"
+          },
+          "needs_receipt": {
+            "description": "完成加工时要开入库单：有需要加工、对应到成品的商品",
+            "title": "Needs Receipt",
+            "type": "boolean"
+          },
           "no": {
             "title": "No",
             "type": "string"
@@ -17885,6 +18939,27 @@
               }
             ],
             "title": "Processed At"
+          },
+          "receipt": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DocumentBrief"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "还没生效的入库单（待仓管确认或被退回）；有时订单等仓管确认后才加工完成"
+          },
+          "requisition_ready": {
+            "description": "已经开了领料单（待确认或已确认），或者不需要领料",
+            "title": "Requisition Ready",
+            "type": "boolean"
+          },
+          "requisition_required": {
+            "description": "要先开领料单：需要加工的商品有配方（§25.13）",
+            "title": "Requisition Required",
+            "type": "boolean"
           },
           "shortage": {
             "description": "有缺货的商品",
@@ -17945,7 +19020,13 @@
           "processed_at",
           "confirmed_at",
           "can_claim",
-          "can_work"
+          "can_work",
+          "requisition_required",
+          "requisition_ready",
+          "needs_receipt",
+          "receipt",
+          "documents",
+          "material_short"
         ],
         "title": "ProductionOrder",
         "type": "object"
@@ -18500,6 +19581,18 @@
           "my_today_sessions"
         ],
         "title": "Realtime",
+        "type": "object"
+      },
+      "ReasonIn": {
+        "properties": {
+          "reason": {
+            "default": "",
+            "maxLength": 200,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "title": "ReasonIn",
         "type": "object"
       },
       "ReasonRequest": {
@@ -21249,13 +22342,17 @@
               {
                 "maximum": 100000000.0,
                 "minimum": 0.0,
-                "type": "integer"
+                "type": "number"
+              },
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,9}|(?=[\\d.]{1,13}0*$)\\d{0,9}\\.\\d{0,3}0*$)",
+                "type": "string"
               },
               {
                 "type": "null"
               }
             ],
-            "description": "数量（不再管理库存时不填）",
+            "description": "数量（不再管理库存时不填）；成品只能是整数，材料最多三位小数",
             "title": "Quantity"
           }
         },
@@ -21263,6 +22360,165 @@
           "mode"
         ],
         "title": "StockAdjustIn",
+        "type": "object"
+      },
+      "StockItemOut": {
+        "description": "仓库里的一个商品（没有价格）。",
+        "properties": {
+          "category": {
+            "title": "Category",
+            "type": "string"
+          },
+          "code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Code"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "goods",
+              "material"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "materials": {
+            "description": "配方里的材料数（成品）",
+            "title": "Materials",
+            "type": "integer"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "ready_made": {
+            "title": "Ready Made",
+            "type": "boolean"
+          },
+          "remark": {
+            "title": "Remark",
+            "type": "string"
+          },
+          "spec": {
+            "title": "Spec",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "on",
+              "off"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "stock": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stock"
+          },
+          "stock_alert": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stock Alert"
+          },
+          "stock_available": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stock Available"
+          },
+          "stock_low": {
+            "title": "Stock Low",
+            "type": "boolean"
+          },
+          "stock_reserved": {
+            "title": "Stock Reserved",
+            "type": "number"
+          },
+          "unit": {
+            "title": "Unit",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "code",
+          "name",
+          "model",
+          "spec",
+          "category",
+          "unit",
+          "kind",
+          "ready_made",
+          "status",
+          "stock",
+          "stock_reserved",
+          "stock_available",
+          "stock_alert",
+          "stock_low",
+          "materials",
+          "remark"
+        ],
+        "title": "StockItemOut",
+        "type": "object"
+      },
+      "StockItemPage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/StockItemOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "low_stock": {
+            "description": "这个类别里库存不足的数量（不受其他筛选条件影响）",
+            "title": "Low Stock",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "low_stock"
+        ],
+        "title": "StockItemPage",
         "type": "object"
       },
       "StockMovementOut": {
@@ -21290,7 +22546,31 @@
           "delta": {
             "description": "变化量（出库为负数）",
             "title": "Delta",
-            "type": "integer"
+            "type": "number"
+          },
+          "document_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "领料单或入库单",
+            "title": "Document Id"
+          },
+          "document_no": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Document No"
           },
           "id": {
             "format": "uuid",
@@ -21319,7 +22599,9 @@
               "untrack",
               "order_out",
               "order_return",
-              "api_set"
+              "api_set",
+              "requisition",
+              "receipt"
             ],
             "title": "Kind",
             "type": "string"
@@ -21355,10 +22637,27 @@
             ],
             "title": "Order No"
           },
+          "product_id": {
+            "format": "uuid",
+            "title": "Product Id",
+            "type": "string"
+          },
+          "product_kind": {
+            "enum": [
+              "goods",
+              "material"
+            ],
+            "title": "Product Kind",
+            "type": "string"
+          },
+          "product_name": {
+            "title": "Product Name",
+            "type": "string"
+          },
           "stock_after": {
             "anyOf": [
               {
-                "type": "integer"
+                "type": "number"
               },
               {
                 "type": "null"
@@ -21370,7 +22669,7 @@
           "stock_before": {
             "anyOf": [
               {
-                "type": "integer"
+                "type": "number"
               },
               {
                 "type": "null"
@@ -21378,10 +22677,18 @@
             ],
             "description": "变化前的现有库存；为空表示原来不管理库存",
             "title": "Stock Before"
+          },
+          "unit": {
+            "title": "Unit",
+            "type": "string"
           }
         },
         "required": [
           "id",
+          "product_id",
+          "product_name",
+          "product_kind",
+          "unit",
           "kind",
           "kind_label",
           "delta",
@@ -21390,6 +22697,8 @@
           "order_id",
           "order_no",
           "import_id",
+          "document_id",
+          "document_no",
           "note",
           "actor_type",
           "actor_name",
@@ -26651,6 +27960,138 @@
           "reason"
         ],
         "title": "VoidRequest",
+        "type": "object"
+      },
+      "WarehouseCounts": {
+        "properties": {
+          "low_goods": {
+            "description": "库存不足的成品",
+            "title": "Low Goods",
+            "type": "integer"
+          },
+          "low_materials": {
+            "description": "库存不足的材料",
+            "title": "Low Materials",
+            "type": "integer"
+          },
+          "pending_receipts": {
+            "description": "待确认的入库单",
+            "title": "Pending Receipts",
+            "type": "integer"
+          },
+          "pending_requisitions": {
+            "description": "待确认的领料单",
+            "title": "Pending Requisitions",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "pending_requisitions",
+          "pending_receipts",
+          "low_materials",
+          "low_goods"
+        ],
+        "title": "WarehouseCounts",
+        "type": "object"
+      },
+      "WarehouseSettingsIn": {
+        "properties": {
+          "confirm_required": {
+            "default": true,
+            "title": "Confirm Required",
+            "type": "boolean"
+          },
+          "keeper_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Keeper Id"
+          }
+        },
+        "title": "WarehouseSettingsIn",
+        "type": "object"
+      },
+      "WarehouseSettingsOut": {
+        "properties": {
+          "can_edit": {
+            "description": "可以修改（有订单设置权限）",
+            "title": "Can Edit",
+            "type": "boolean"
+          },
+          "confirm_required": {
+            "title": "Confirm Required",
+            "type": "boolean"
+          },
+          "effective_keeper_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "实际的仓管：指定的员工；没有指定（或已停用）时是最早创建的工人",
+            "title": "Effective Keeper Id"
+          },
+          "effective_keeper_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Effective Keeper Name"
+          },
+          "fallback": {
+            "description": "没有指定仓管，由最早创建的工人担任",
+            "title": "Fallback",
+            "type": "boolean"
+          },
+          "keeper_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "设置里指定的仓管",
+            "title": "Keeper Id"
+          },
+          "keeper_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Keeper Name"
+          }
+        },
+        "required": [
+          "confirm_required",
+          "keeper_id",
+          "keeper_name",
+          "effective_keeper_id",
+          "effective_keeper_name",
+          "fallback",
+          "can_edit"
+        ],
+        "title": "WarehouseSettingsOut",
         "type": "object"
       },
       "WatcherOut": {
@@ -43494,7 +44935,7 @@
     },
     "/api/v1/production/orders/{order_id}/complete": {
       "post": {
-        "description": "完成订单（加工完成）：订单进入\"待发货\"，客服在待办里收到提醒。",
+        "description": "完成加工：开入库单（生产好的成品），仓管确认入库后订单进入\"待发货\"，客服在待办里收到提醒；\n没有要入库的成品时直接进入\"待发货\"。",
         "operationId": "complete_api_v1_production_orders__order_id__complete_post",
         "parameters": [
           {
@@ -44312,6 +45753,22 @@
             }
           },
           {
+            "description": "类别：goods 成品，material 材料",
+            "in": "query",
+            "name": "kind",
+            "required": false,
+            "schema": {
+              "default": "goods",
+              "description": "类别：goods 成品，material 材料",
+              "enum": [
+                "goods",
+                "material"
+              ],
+              "title": "Kind",
+              "type": "string"
+            }
+          },
+          {
             "in": "query",
             "name": "limit",
             "required": false,
@@ -44418,6 +45875,7 @@
         ]
       },
       "post": {
+        "description": "新建成品或材料。材料总是管理库存（从 0 开始）。",
         "operationId": "create_product_api_v1_products_post",
         "requestBody": {
           "content": {
@@ -44515,6 +45973,24 @@
     "/api/v1/products/categories": {
       "get": {
         "operationId": "list_categories_api_v1_products_categories_get",
+        "parameters": [
+          {
+            "description": "类别：goods 成品，material 材料",
+            "in": "query",
+            "name": "kind",
+            "required": false,
+            "schema": {
+              "default": "goods",
+              "description": "类别：goods 成品，material 材料",
+              "enum": [
+                "goods",
+                "material"
+              ],
+              "title": "Kind",
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -44656,6 +46132,28 @@
                 }
               ],
               "title": "Status"
+            }
+          },
+          {
+            "description": "类别；不传时导出全部",
+            "in": "query",
+            "name": "kind",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "goods",
+                    "material"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "类别；不传时导出全部",
+              "title": "Kind"
             }
           }
         ],
@@ -45503,7 +47001,7 @@
     },
     "/api/v1/products/search": {
       "get": {
-        "description": "按客户的说法检索商品（与 AI 使用的检索相同：代码和型号精确匹配、关键词、语义）。",
+        "description": "按客户的说法检索商品（与 AI 使用的检索相同：代码和型号精确匹配、关键词、语义）。默认只找\n成品（材料不能下单）。",
         "operationId": "search_products_api_v1_products_search_get",
         "parameters": [
           {
@@ -45539,6 +47037,22 @@
               "description": "包含下架的商品",
               "title": "Include Off",
               "type": "boolean"
+            }
+          },
+          {
+            "description": "类别：goods 成品，material 材料",
+            "in": "query",
+            "name": "kind",
+            "required": false,
+            "schema": {
+              "default": "goods",
+              "description": "类别：goods 成品，material 材料",
+              "enum": [
+                "goods",
+                "material"
+              ],
+              "title": "Kind",
+              "type": "string"
             }
           }
         ],
@@ -45710,7 +47224,7 @@
     },
     "/api/v1/products/{product_id}": {
       "delete": {
-        "description": "删除商品。已有订单使用的商品不能删除，请改为下架。",
+        "description": "删除商品。已有订单或单据使用的商品不能删除，请改为下架（停用）；配方里用到的材料要先从\n配方里去掉。",
         "operationId": "delete_product_api_v1_products__product_id__delete",
         "parameters": [
           {
@@ -45896,6 +47410,7 @@
         ]
       },
       "put": {
+        "description": "修改商品（类别不能修改）。",
         "operationId": "update_product_api_v1_products__product_id__put",
         "parameters": [
           {
@@ -45997,6 +47512,212 @@
           }
         ],
         "summary": "Update Product",
+        "tags": [
+          "products"
+        ]
+      }
+    },
+    "/api/v1/products/{product_id}/materials": {
+      "get": {
+        "description": "成品的配方：每一件用多少材料。",
+        "operationId": "get_bom_api_v1_products__product_id__materials_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "product_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Product Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BomOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Bom",
+        "tags": [
+          "products"
+        ]
+      },
+      "put": {
+        "description": "保存成品的配方（整体替换）：开领料单时按订单数量乘配方用量预填。",
+        "operationId": "put_bom_api_v1_products__product_id__materials_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "product_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Product Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BomIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BomOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Put Bom",
         "tags": [
           "products"
         ]
@@ -46113,7 +47834,7 @@
     },
     "/api/v1/products/{product_id}/stock-movements": {
       "get": {
-        "description": "库存记录：每一次变化、变化前后的数量、原因和操作人（订单出库关联订单）。",
+        "description": "库存记录：每一次变化、变化前后的数量、原因和操作人（关联订单、导入或单据）。",
         "operationId": "list_stock_movements_api_v1_products__product_id__stock_movements_get",
         "parameters": [
           {
@@ -57644,6 +59365,1624 @@
         "summary": "Create Upload",
         "tags": [
           "visitor"
+        ]
+      }
+    },
+    "/api/v1/warehouse/counts": {
+      "get": {
+        "description": "待确认的单据数和库存不足的数量（菜单和标签页上的数字）。",
+        "operationId": "counts_api_v1_warehouse_counts_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WarehouseCounts"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Counts",
+        "tags": [
+          "warehouse"
+        ]
+      }
+    },
+    "/api/v1/warehouse/documents": {
+      "get": {
+        "description": "领料单和入库单（待确认的在前）。",
+        "operationId": "list_documents_api_v1_warehouse_documents_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "kind",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "requisition",
+                    "receipt"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Kind"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "pending",
+                    "confirmed",
+                    "rejected",
+                    "voided"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "order_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Order Id"
+            }
+          },
+          {
+            "description": "单号、订单号或商品名称",
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "单号、订单号或商品名称",
+              "title": "Q"
+            }
+          },
+          {
+            "description": "只看我开的",
+            "in": "query",
+            "name": "mine",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "只看我开的",
+              "title": "Mine",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentPage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Documents",
+        "tags": [
+          "warehouse"
+        ]
+      },
+      "post": {
+        "description": "开单：给订单开领料单（工人给自己加工的订单），或者仓库直接开单（不关联订单）。仓管开的、\n或者设置为不需要确认的，开单即确认（修改库存）。",
+        "operationId": "create_document_api_v1_warehouse_documents_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DocumentIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Create Document",
+        "tags": [
+          "warehouse"
+        ]
+      }
+    },
+    "/api/v1/warehouse/documents/{document_id}": {
+      "get": {
+        "operationId": "get_document_api_v1_warehouse_documents__document_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "document_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Document Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Document",
+        "tags": [
+          "warehouse"
+        ]
+      },
+      "put": {
+        "description": "修改后重新提交（待确认、已退回的单据；开单人或仓管）。",
+        "operationId": "update_document_api_v1_warehouse_documents__document_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "document_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Document Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DocumentUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Update Document",
+        "tags": [
+          "warehouse"
+        ]
+      }
+    },
+    "/api/v1/warehouse/documents/{document_id}/confirm": {
+      "post": {
+        "description": "仓管确认：领料单扣减材料库存（不够也可以领，提示盘点），入库单增加成品库存；订单的入库单\n确认后订单加工完成、进入\"待发货\"。可以按实际数量修改。",
+        "operationId": "confirm_document_api_v1_warehouse_documents__document_id__confirm_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "document_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Document Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/DocumentConfirm"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Payload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Confirm Document",
+        "tags": [
+          "warehouse"
+        ]
+      }
+    },
+    "/api/v1/warehouse/documents/{document_id}/reject": {
+      "post": {
+        "description": "仓管退回（写明原因），开单人修改后重新提交。",
+        "operationId": "reject_document_api_v1_warehouse_documents__document_id__reject_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "document_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Document Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReasonIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Reject Document",
+        "tags": [
+          "warehouse"
+        ]
+      }
+    },
+    "/api/v1/warehouse/documents/{document_id}/void": {
+      "post": {
+        "description": "作废还没生效的单据（开单人或仓管）。",
+        "operationId": "void_document_api_v1_warehouse_documents__document_id__void_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "document_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Document Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/ReasonIn"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Payload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Void Document",
+        "tags": [
+          "warehouse"
+        ]
+      }
+    },
+    "/api/v1/warehouse/drafts": {
+      "get": {
+        "description": "给订单开单的预填：领料单按配方（订单里需要加工的商品数量 × 配方用量，减去已经领过的），\n入库单按订单里需要加工的成品。",
+        "operationId": "draft_api_v1_warehouse_drafts_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "kind",
+            "required": true,
+            "schema": {
+              "enum": [
+                "requisition",
+                "receipt"
+              ],
+              "title": "Kind",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "order_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Order Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentDraft"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Draft",
+        "tags": [
+          "warehouse"
+        ]
+      }
+    },
+    "/api/v1/warehouse/items": {
+      "get": {
+        "description": "材料库存或成品库存（没有价格）：现有、占用（成品：要从库存发出的订单；材料：待确认的领料单）、\n可用和预警值。",
+        "operationId": "list_items_api_v1_warehouse_items_get",
+        "parameters": [
+          {
+            "description": "成品或材料",
+            "in": "query",
+            "name": "kind",
+            "required": false,
+            "schema": {
+              "default": "material",
+              "description": "成品或材料",
+              "enum": [
+                "goods",
+                "material"
+              ],
+              "title": "Kind",
+              "type": "string"
+            }
+          },
+          {
+            "description": "名称、代码、型号、规格",
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 100,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "名称、代码、型号、规格",
+              "title": "Q"
+            }
+          },
+          {
+            "in": "query",
+            "name": "category",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 128,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Category"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "pattern": "^(on|off)$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "description": "low 库存不足、tracked 管理库存的、untracked 不管理的",
+            "in": "query",
+            "name": "stock",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "low",
+                    "tracked",
+                    "untracked"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "low 库存不足、tracked 管理库存的、untracked 不管理的",
+              "title": "Stock"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StockItemPage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Items",
+        "tags": [
+          "warehouse"
+        ]
+      }
+    },
+    "/api/v1/warehouse/movements": {
+      "get": {
+        "description": "库存记录：全部商品的每一次库存变化（新的在前）。",
+        "operationId": "list_movements_api_v1_warehouse_movements_get",
+        "parameters": [
+          {
+            "description": "成品或材料",
+            "in": "query",
+            "name": "kind",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "goods",
+                    "material"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "成品或材料",
+              "title": "Kind"
+            }
+          },
+          {
+            "in": "query",
+            "name": "product_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Product Id"
+            }
+          },
+          {
+            "description": "变化的种类，例如 requisition、receipt",
+            "in": "query",
+            "name": "type",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "变化的种类，例如 requisition、receipt",
+              "title": "Type"
+            }
+          },
+          {
+            "description": "商品名称或代码",
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 100,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "商品名称或代码",
+              "title": "Q"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StockMovementPage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Movements",
+        "tags": [
+          "warehouse"
+        ]
+      }
+    },
+    "/api/v1/warehouse/settings": {
+      "get": {
+        "description": "仓库设置：谁是仓管（没有指定时由最早创建的工人担任）、单据是否需要仓管确认。",
+        "operationId": "get_settings_api_v1_warehouse_settings_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WarehouseSettingsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Settings",
+        "tags": [
+          "warehouse"
+        ]
+      },
+      "put": {
+        "operationId": "put_settings_api_v1_warehouse_settings_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WarehouseSettingsIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WarehouseSettingsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Put Settings",
+        "tags": [
+          "warehouse"
         ]
       }
     },

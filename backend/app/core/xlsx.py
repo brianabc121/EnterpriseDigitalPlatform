@@ -1,7 +1,7 @@
 """生成简单的 Excel 文件（.xlsx）：只用标准库（zip + XML），不依赖第三方包。
 
 支持多个工作表、加粗的表头、冻结首行、列宽，以及数据验证（选中单元格时显示的填写提示、
-只能填不小于 0 的数字）。单元格一律写成文本或数字。
+只能填不小于 0 的数字、从下拉列表里选）。单元格一律写成文本或数字。
 """
 
 import io
@@ -27,8 +27,10 @@ class Column:
     prompt: tuple[str, str] | None = None
     # 只能填不小于 0 的数字（价格等），填错时的提示。
     decimal_error: str | None = None
-    # 只能填不小于 0 的整数（库存等），填错时的提示。
+    # 只能填不小于 0 的整数，填错时的提示。
     whole_error: str | None = None
+    # 从下拉列表里选（例如 成品、材料），填错时提示可选的值。
+    choices: tuple[str, ...] = ()
 
 
 @dataclass
@@ -87,6 +89,14 @@ def _validations(sheet: Sheet) -> str:
                 f' showErrorMessage="1" errorTitle="格式不正确"'
                 f" error={quoteattr(error[:255])}{prompt}"
                 f' sqref="{area}"><formula1>0</formula1></dataValidation>'
+            )
+        elif column.choices:
+            listed = ",".join(column.choices)
+            items.append(
+                f'<dataValidation type="list" allowBlank="1" showErrorMessage="1"'
+                f' errorTitle="格式不正确" error={quoteattr(f"只能填：{listed}"[:255])}{prompt}'
+                f' sqref="{area}"><formula1>{escape(f"{chr(34)}{listed}{chr(34)}")}</formula1>'
+                "</dataValidation>"
             )
         elif prompt:
             items.append(f'<dataValidation allowBlank="1"{prompt} sqref="{area}"/>')

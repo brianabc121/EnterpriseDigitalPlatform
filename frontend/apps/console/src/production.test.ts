@@ -4,13 +4,19 @@ import {
   completePlan,
   expectedState,
   itemLabel,
+  needsRequisition,
   progressText,
   viewOf,
   type ProductionItem,
   type ProductionOrder,
 } from './production'
 
-const item = (name: string, work_status: ProductionItem['work_status'], spec = ''): ProductionItem => ({
+const item = (
+  name: string,
+  work_status: ProductionItem['work_status'],
+  spec = '',
+  ready_made = false,
+): ProductionItem => ({
   id: name,
   code: null,
   name,
@@ -26,6 +32,7 @@ const item = (name: string, work_status: ProductionItem['work_status'], spec = '
   shortage_note: null,
   restock_date: null,
   stock_short: false,
+  ready_made,
 })
 
 const order = (items: ProductionItem[], extra: Partial<ProductionOrder> = {}): ProductionOrder => ({
@@ -37,7 +44,7 @@ const order = (items: ProductionItem[], extra: Partial<ProductionOrder> = {}): P
   customer_note: '',
   internal_note: '',
   items,
-  done_count: items.filter((i) => i.work_status === 'done').length,
+  done_count: items.filter((i) => i.work_status === 'done' && !i.ready_made).length,
   shortage: items.some((i) => i.work_status === 'out_of_stock'),
   worker_id: 'w1',
   worker_name: 'Wang',
@@ -46,10 +53,22 @@ const order = (items: ProductionItem[], extra: Partial<ProductionOrder> = {}): P
   confirmed_at: null,
   can_claim: false,
   can_work: true,
+  requisition_required: false,
+  requisition_ready: true,
+  needs_receipt: false,
+  receipt: null,
+  documents: [],
+  material_short: [],
   ...extra,
 })
 
 describe('progressText', () => {
+  it('counts only items that need making', () => {
+    expect(progressText(order([item('锁', 'done'), item('灯', 'pending', '', true)]))).toBe(
+      '已完成 1/1',
+    )
+  })
+
   it('counts finished and out-of-stock items', () => {
     expect(progressText(order([item('锁', 'done'), item('铃', 'pending')]))).toBe('已完成 1/2')
     expect(progressText(order([item('锁', 'done'), item('铃', 'out_of_stock')]))).toBe(
@@ -73,8 +92,27 @@ describe('completePlan', () => {
 
   it('completes directly when every item is done', () => {
     const plan = completePlan(order([item('锁', 'done')]))
-    expect(plan).toMatchObject({ blocked: null, markAll: false })
+    expect(plan).toMatchObject({ blocked: null, markAll: false, receipt: false })
     expect(plan.message).toContain('所有商品都已完成')
+  })
+
+  it('needs a requisition first and a receipt at the end', () => {
+    const waiting = order([item('窗', 'pending')], {
+      requisition_required: true,
+      requisition_ready: false,
+      needs_receipt: true,
+    })
+    expect(needsRequisition(waiting)).toBe(true)
+    expect(completePlan(waiting).blocked).toBe('请先开领料单')
+    const ready = { ...waiting, requisition_ready: true }
+    const plan = completePlan(ready)
+    expect(plan).toMatchObject({ blocked: null, markAll: true, receipt: true })
+    expect(plan.message).toContain('仓管确认入库')
+  })
+
+  it('does not count ready-made items as left to do', () => {
+    const plan = completePlan(order([item('锁', 'done'), item('灯', 'pending', '', true)]))
+    expect(plan.markAll).toBe(false)
   })
 })
 

@@ -156,7 +156,8 @@ async def test_adjust_stock_with_movements_and_permissions(desk: Desk) -> None:
 
 
 async def test_orders_reserve_stock_and_ship_takes_it_out_once(desk: Desk) -> None:
-    lock = await product(desk, "LOCK-X1", "智能门锁 X1")
+    # 现货商品下单即占用库存（需要加工的商品在入库之后才占用，见 test_warehouse）。
+    lock = await product(desk, "LOCK-X1", "智能门锁 X1", ready_made=True)
     bell = await product(desk, "BELL-D1", "可视门铃 D1")
     await adjust(desk, lock["id"], "set", 3)
     customer_id = await customer(desk)
@@ -291,14 +292,16 @@ async def test_excel_import_sets_or_adds_stock(desk: Desk) -> None:
     bell = await product(desk, "BELL-D1", "可视门铃 D1")
     await adjust(desk, bell["id"], "set", 5)
 
-    # 商品表格（盘点）：表格里的数就是现有库存；新商品同时建立库存；库存和预警值只能填整数。
+    # 商品表格（盘点）：表格里的数就是现有库存；新商品同时建立库存；库存和预警值只能填数字，
+    # 成品只能填整数。
     content = sheet(
         ["名称*", "代码", "库存", "库存预警"],
         [
             ["智能门锁 X1", "LOCK-X1", "10", "2"],
             ["可视门铃 D1", "BELL-D1", "8", ""],
             ["安装配件包", "KIT-01", "3", ""],
-            ["坏数据", "BAD-01", "1.5", "abc"],
+            ["坏数据", "BAD-01", "1", "abc"],
+            ["半个", "BAD-02", "1.5", ""],
         ],
     )
     preview = await upload(desk, desk.admin, content, "set")
@@ -313,9 +316,10 @@ async def test_excel_import_sets_or_adds_stock(desk: Desk) -> None:
         (5, 8),
         (None, 3),
     ]
-    assert rows[5]["problems"] == ["库存只能填整数", "库存预警只能填整数"]
+    assert rows[5]["problems"] == ["库存预警只能填数字"]
+    assert rows[6]["problems"] == ["成品的库存只能填整数"]
     done = await call(desk, desk.admin, "POST", f"{PRODUCTS}/imports/{preview['id']}/confirm")
-    assert (done["created"], done["updated"], done["skipped"]) == (1, 2, 1)
+    assert (done["created"], done["updated"], done["skipped"]) == (1, 2, 2)
     assert (await levels(desk, lock["id"]))[0] == 10
     assert (await levels(desk, bell["id"]))[0] == 8
     items = {p["code"]: p for p in (await call(desk, desk.admin, "GET", PRODUCTS))["items"]}
@@ -374,11 +378,13 @@ async def test_ai_says_in_stock_without_numbers(
     desk: Desk, app: FastAPI, fake_llm: FakeLLM
 ) -> None:
     await ai_desk(desk, app)
-    black = await product(desk, "LOCK-X1-B", "智能门锁 X1", spec="黑色")
-    silver = await product(desk, "LOCK-X1-S", "智能门锁 X1", spec="银色")
-    await product(desk, "LOCK-X1-G", "智能门锁 X1", spec="金色")
+    # 现货商品：管理库存的说有没有现货；需要加工的（即使管理库存）不提（§25.13）。
+    black = await product(desk, "LOCK-X1-B", "智能门锁 X1", spec="黑色", ready_made=True)
+    silver = await product(desk, "LOCK-X1-S", "智能门锁 X1", spec="银色", ready_made=True)
+    gold = await product(desk, "LOCK-X1-G", "智能门锁 X1", spec="金色")
     await adjust(desk, black["id"], "set", 37)
     await adjust(desk, silver["id"], "set", 0)
+    await adjust(desk, gold["id"], "set", 5)
 
     fake_llm.tool_plan = [("search_products", {"query": "智能门锁 X1"})]
     response = await desk.client.post(

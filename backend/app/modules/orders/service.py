@@ -9,7 +9,7 @@ from datetime import UTC, datetime, timedelta
 from decimal import ROUND_HALF_UP, Decimal
 from typing import Any
 
-from sqlalchemy import ColumnElement, and_, or_, select, true
+from sqlalchemy import ColumnElement, and_, exists, or_, select, true, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
@@ -36,13 +36,16 @@ from app.modules.orders.models import (
     WorkStatus,
 )
 from app.modules.orders.settings import OrderSettings
-from app.modules.products.models import Product, ProductStatus
+from app.modules.orders.settings import load as load_settings
+from app.modules.products.models import Product, ProductKind, ProductStatus
 from app.modules.routing.scope import led_groups, team_members
 from app.modules.security.keys import TenantKeyring
 from app.modules.todos import events as todo_events
 from app.modules.todos import presets, sla
 from app.modules.todos import service as todo_service
 from app.modules.todos.models import UNFINISHED, ActorType, Todo, TodoSource, TodoStatus
+from app.modules.warehouse.models import OPEN as DOCUMENT_OPEN
+from app.modules.warehouse.models import DocumentKind, DocumentStatus, StockDocument
 
 NOT_FOUND = "订单不存在或没有权限查看"
 NUMBER_SCOPE = "order"
@@ -241,6 +244,8 @@ async def build_items(
             product = products.get(line.product_id)
             if product is None:
                 raise Unprocessable("商品不存在")
+            if product.kind != ProductKind.GOODS:
+                raise Unprocessable(f"「{product.name}」是生产用的材料，不能下单")
             if product.status != ProductStatus.ON:
                 raise Unprocessable(f"「{product.name}」已下架，不能下单")
             item = OrderItem(
@@ -754,6 +759,55 @@ async def open_ship_todo(
     return todo
 
 
+async def finish_production(
+    session: AsyncSession,
+    keys: TenantKeyring | None,
+    order: Order,
+    items: list[OrderItem],
+    *,
+    worker_id: uuid.UUID | None,
+    now: datetime,
+) -> Todo:
+    """加工完成（§25.11、§25.13）：订单进入"待发货"，客服在待办里收到提醒。要入库的订单在入库单
+    确认后才完成（由调用方提交，提交后分发待办提醒）。"""
+    settings = await load_settings(session, order.tenant_id)
+    order.processed_at, order.processed_by = now, worker_id
+    event(
+        session,
+        order,
+        "processed",
+        actor_type=ActorType.STAFF,
+        actor_id=worker_id,
+        payload={"shipping": settings.shipping_enabled},
+        public=True,
+    )
+    return await open_ship_todo(session, keys, order, items, settings, actor_id=worker_id, now=now)
+
+
+def needs_production() -> ColumnElement[bool]:
+    """订单里有需要加工的商品：不是现货的商品，或者没有对应到商品库的行（§25.13）。"""
+    return exists(
+        select(OrderItem.id)
+        .outerjoin(Product, Product.id == OrderItem.product_id)
+        .where(
+            OrderItem.order_id == Order.id,
+            or_(Product.id.is_(None), Product.ready_made.is_(False)),
+        )
+    )
+
+
+async def ready_made_ids(session: AsyncSession, items: list[OrderItem]) -> set[uuid.UUID]:
+    """订单行里的现货商品（直接从成品库存发货，不需要加工）。"""
+    ids = {i.product_id for i in items if i.product_id is not None}
+    if not ids:
+        return set()
+    return set(
+        await session.scalars(
+            select(Product.id).where(Product.id.in_(ids), Product.ready_made.is_(True))
+        )
+    )
+
+
 async def sync_shortage(
     session: AsyncSession,
     keys: TenantKeyring | None,
@@ -846,6 +900,36 @@ async def after_edit(
     "缺货处理"待办跟着变化。返回新建的待办（由调用方提醒处理人）。"""
     if order.status not in (OrderStatus.CONFIRMED, OrderStatus.FULFILLING):
         return []
+    if any(i.work_status == WorkStatus.PENDING for i in items):
+        # 还有要加工的商品：还没生效的入库单作废，加工完成后重新开（§25.13）。
+        voided = await session.scalars(
+            update(StockDocument)
+            .where(
+                StockDocument.order_id == order.id,
+                StockDocument.kind == DocumentKind.RECEIPT,
+                StockDocument.status.in_(DOCUMENT_OPEN),
+            )
+            .values(
+                status=DocumentStatus.VOIDED.value,
+                voided_by=actor_id,
+                voided_at=now,
+                void_reason="订单修改后需要重新加工",
+            )
+            .returning(StockDocument.no)
+        )
+        for no in voided.all():
+            event(
+                session,
+                order,
+                "document_voided",
+                actor_type=ActorType.STAFF,
+                actor_id=actor_id,
+                payload={
+                    "no": no,
+                    "kind": DocumentKind.RECEIPT.value,
+                    "reason": "订单修改后需要重新加工",
+                },
+            )
     if order.processed_at is not None and any(i.work_status == WorkStatus.PENDING for i in items):
         order.processed_at = order.processed_by = None
         await close_todo(

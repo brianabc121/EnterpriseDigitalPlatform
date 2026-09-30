@@ -1,5 +1,6 @@
-"""加工接口（设计文档 §25.11）：工人（production:work）领取订单、标记商品完成或缺货、完成订单；
-主管（production:assign）指派或改派加工人。属于订单功能（套餐不含订单时不可用）。"""
+"""加工接口（设计文档 §25.11、§25.13）：工人（production:work）领取订单、标记商品完成或缺货、
+完成加工（开入库单）；主管（production:assign）指派或改派加工人。领料单在仓库接口开
+（/api/v1/warehouse/documents）。属于订单功能（套餐不含订单时不可用）。"""
 
 from typing import Annotated
 from uuid import UUID
@@ -143,8 +144,17 @@ async def complete(
     session: TenantDb,
     principal: CanWork,
 ) -> ProductionOrder:
-    """完成订单（加工完成）：订单进入"待发货"，客服在待办里收到提醒。"""
-    await production.complete(ctx, session, principal, order_id, mark_all=payload.mark_all)
+    """完成加工：开入库单（生产好的成品），仓管确认入库后订单进入"待发货"，客服在待办里收到提醒；
+    没有要入库的成品时直接进入"待发货"。"""
+    await production.complete(
+        ctx,
+        session,
+        principal,
+        order_id,
+        mark_all=payload.mark_all,
+        lines=payload.lines,
+        note=payload.note,
+    )
     return await production.get(session, principal, order_id)
 
 

@@ -34,6 +34,8 @@ class TenantSetting(Base):
     todos: Mapped[dict[str, Any]] = mapped_column(server_default="{}")
     # 订单设置（orders/settings.py 的 OrderSettings）。
     orders: Mapped[dict[str, Any]] = mapped_column(server_default="{}")
+    # 仓库设置（warehouse/settings.py 的 WarehouseSettings）。
+    warehouse: Mapped[dict[str, Any]] = mapped_column(server_default="{}")
     updated_by: Mapped[uuid.UUID | None]
     updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
 

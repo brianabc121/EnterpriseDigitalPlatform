@@ -1,13 +1,15 @@
-"""商品库接口（设计文档 §25.2、§25.9、§25.12）：列表与检索、维护、Excel 模板与导入、商品缺口、
-库存（现有、占用、可用，调整与库存记录）。
+"""商品库接口（设计文档 §25.2、§25.9、§25.12、§25.13）：列表与检索、维护、Excel 模板与导入、商品
+缺口、库存（现有、占用、可用，调整与库存记录）、成品的配方。
 
-查看商品需要 order:read 或 product:manage；成本价只返回给有 product:view_cost 权限的员工；调整库存
-（包括导入表格里的库存）需要 inventory:manage。
+商品库里有成品和材料两个类别。查看商品需要 order:read、product:manage 或 inventory:manage；成本价
+只返回给有 product:view_cost 权限的员工；维护成品和配方需要 product:manage，维护材料 product:manage
+或 inventory:manage 都可以；调整库存（包括导入表格里的库存）需要 inventory:manage。
 """
 
 import base64
 import binascii
 from datetime import UTC, datetime
+from decimal import Decimal
 from typing import Annotated, Literal
 from uuid import UUID
 
@@ -21,7 +23,6 @@ from app.core.xlsx import XLSX_MEDIA_TYPE
 from app.modules.audit.service import record_audit
 from app.modules.billing.entitlements import require_feature
 from app.modules.iam.deps import CurrentPrincipal, TenantDb, require_permission
-from app.modules.iam.models import Staff
 from app.modules.iam.principal import Principal
 from app.modules.products import imports, service, sheet, stock
 from app.modules.products.models import (
@@ -29,10 +30,13 @@ from app.modules.products.models import (
     Product,
     ProductGap,
     ProductImport,
-    StockKind,
-    StockMovement,
+    ProductKind,
+    ProductMaterial,
 )
 from app.modules.products.schemas import (
+    BomIn,
+    BomLineOut,
+    BomOut,
     CategoryList,
     ImportRowOut,
     ProductCandidate,
@@ -47,18 +51,36 @@ from app.modules.products.schemas import (
     ProductUpload,
     ProductWrite,
     StockAdjustIn,
-    StockMovementOut,
     StockMovementPage,
 )
+from app.modules.warehouse import movements
+from app.modules.warehouse.models import StockDocumentLine
 
 router = APIRouter(prefix="/api/v1/products", tags=["products"], responses=ERROR_RESPONSES)
 
 
 async def _can_read(principal: CurrentPrincipal, session: TenantDb) -> Principal:
-    if not (principal.has(Permission.ORDER_READ) or principal.has(Permission.PRODUCT_MANAGE)):
+    if not any(
+        principal.has(p)
+        for p in (Permission.ORDER_READ, Permission.PRODUCT_MANAGE, Permission.INVENTORY_MANAGE)
+    ):
         raise Forbidden("没有执行该操作的权限")
     await require_feature(session, principal.tenant_id, "orders")
     return principal
+
+
+async def _can_write(principal: CurrentPrincipal, session: TenantDb) -> Principal:
+    """维护商品库：成品要 product:manage；材料 product:manage 或 inventory:manage 都可以（在处理
+    函数里按类别再检查）。"""
+    if not (principal.has(Permission.PRODUCT_MANAGE) or principal.has(Permission.INVENTORY_MANAGE)):
+        raise Forbidden("没有执行该操作的权限")
+    await require_feature(session, principal.tenant_id, "orders")
+    return principal
+
+
+def _check_write(principal: Principal, kind: str) -> None:
+    if kind == ProductKind.GOODS and not principal.has(Permission.PRODUCT_MANAGE):
+        raise Forbidden("维护成品需要维护商品库的权限")
 
 
 async def _can_manage(
@@ -87,12 +109,16 @@ async def _can_import(principal: CurrentPrincipal, session: TenantDb) -> Princip
 
 CanRead = Annotated[Principal, Depends(_can_read)]
 CanManage = Annotated[Principal, Depends(_can_manage)]
+CanWrite = Annotated[Principal, Depends(_can_write)]
 CanStock = Annotated[Principal, Depends(_can_stock)]
 CanImport = Annotated[Principal, Depends(_can_import)]
 
 
 def product_out(
-    product: Product, principal: Principal, level: stock.Level = stock.UNTRACKED
+    product: Product,
+    principal: Principal,
+    level: stock.Level = stock.UNTRACKED,
+    materials: int = 0,
 ) -> ProductOut:
     cost = principal.has(Permission.PRODUCT_VIEW_COST)
     return ProductOut(
@@ -109,11 +135,15 @@ def product_out(
         remark=product.remark,
         aliases=list(product.aliases),
         status=product.status,
+        kind=product.kind,
+        unit=product.unit,
+        ready_made=product.ready_made,
         stock=level.stock,
         stock_reserved=level.reserved,
         stock_available=level.available,
         stock_alert=product.stock_alert,
         stock_low=level.low,
+        materials=materials,
         created_at=product.created_at,
         updated_at=product.updated_at,
     )
@@ -122,9 +152,22 @@ def product_out(
 async def product_outs(
     session: TenantDb, products: list[Product], principal: Principal
 ) -> list[ProductOut]:
-    """商品和它们的库存（现有、占用、可用）。"""
-    known = await stock.levels(session, (p.id for p in products))
-    return [product_out(p, principal, known.get(p.id, stock.UNTRACKED)) for p in products]
+    """商品和它们的库存（现有、占用、可用）、配方里的材料数。"""
+    ids = [p.id for p in products]
+    known = await stock.levels(session, ids)
+    boms = dict(
+        (
+            await session.execute(
+                select(ProductMaterial.product_id, func.count())
+                .where(ProductMaterial.product_id.in_(ids))
+                .group_by(ProductMaterial.product_id)
+            )
+        ).all()
+    )
+    return [
+        product_out(p, principal, known.get(p.id, stock.UNTRACKED), int(boms.get(p.id, 0)))
+        for p in products
+    ]
 
 
 async def _one(session: TenantDb, product: Product, principal: Principal) -> ProductOut:
@@ -196,6 +239,9 @@ StockFilter = Annotated[
     Literal["low", "tracked", "untracked"] | None,
     Query(description="库存：low 库存不足、tracked 管理库存的、untracked 不管理库存的"),
 ]
+KindFilter = Annotated[
+    Literal["goods", "material"], Query(description="类别：goods 成品，material 材料")
+]
 
 
 def _filters(q: str | None, category: str | None, status_: str | None) -> ColumnElement[bool]:
@@ -228,11 +274,12 @@ async def list_products(
     category: Category = None,
     status_: StatusFilter = None,
     stock_: Annotated[StockFilter, Query(alias="stock")] = None,
+    kind: KindFilter = "goods",
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> ProductPage:
     reserved = stock.reserved_subquery()
-    conditions = [_filters(q, category, status_)]
+    conditions = [_filters(q, category, status_), Product.kind == kind]
     if stock_ == "low":
         conditions.append(stock.low_condition(reserved))
     elif stock_ == "tracked":
@@ -244,7 +291,9 @@ async def list_products(
     total = int(await session.scalar(select(func.count()).select_from(joined).where(where)) or 0)
     low = int(
         await session.scalar(
-            select(func.count()).select_from(joined).where(stock.low_condition(reserved))
+            select(func.count())
+            .select_from(joined)
+            .where(Product.kind == kind, stock.low_condition(reserved))
         )
         or 0
     )
@@ -254,7 +303,7 @@ async def list_products(
                 select(Product)
                 .select_from(joined)
                 .where(where)
-                .order_by(Product.category, Product.name)
+                .order_by(Product.category, Product.name, Product.id)
                 .limit(limit)
                 .offset(offset)
             )
@@ -273,8 +322,10 @@ async def search_products(
     q: Annotated[str, Query(min_length=1, max_length=200)],
     limit: Annotated[int, Query(ge=1, le=20)] = 8,
     include_off: Annotated[bool, Query(description="包含下架的商品")] = False,
+    kind: KindFilter = "goods",
 ) -> ProductSearchResult:
-    """按客户的说法检索商品（与 AI 使用的检索相同：代码和型号精确匹配、关键词、语义）。"""
+    """按客户的说法检索商品（与 AI 使用的检索相同：代码和型号精确匹配、关键词、语义）。默认只找
+    成品（材料不能下单）。"""
     found = await service.search(
         get_context(request),
         session,
@@ -282,6 +333,7 @@ async def search_products(
         q,
         limit=limit,
         on_shelf=not include_off,
+        kind=ProductKind(kind),
     )
     outs = await product_outs(session, [c.product for c in found], principal)
     return ProductSearchResult(
@@ -292,9 +344,14 @@ async def search_products(
 
 
 @router.get("/categories", response_model=CategoryList)
-async def list_categories(session: TenantDb, _: CanRead) -> CategoryList:
+async def list_categories(
+    session: TenantDb, _: CanRead, kind: KindFilter = "goods"
+) -> CategoryList:
     rows = await session.scalars(
-        select(Product.category).where(Product.category != "").distinct().order_by(Product.category)
+        select(Product.category)
+        .where(Product.category != "", Product.kind == kind)
+        .distinct()
+        .order_by(Product.category)
     )
     return CategoryList(items=list(rows))
 
@@ -325,16 +382,22 @@ async def export_products(
     q: Keyword = None,
     category: Category = None,
     status_: StatusFilter = None,
+    kind: Annotated[
+        Literal["goods", "material"] | None, Query(description="类别；不传时导出全部")
+    ] = None,
 ) -> Response:
     """导出商品库（.xlsx，与模板的列相同，改完可以直接再导入）。有查看成本价的权限时包含成本价，
     并记审计。"""
     cost = principal.has(Permission.PRODUCT_VIEW_COST)
+    where = _filters(q, category, status_)
+    if kind is not None:
+        where = and_(where, Product.kind == kind)
     products = list(
         (
             await session.scalars(
                 select(Product)
-                .where(_filters(q, category, status_))
-                .order_by(Product.category, Product.name)
+                .where(where)
+                .order_by(Product.kind, Product.category, Product.name)
                 .limit(sheet.MAX_ROWS)
             )
         ).all()
@@ -361,11 +424,17 @@ async def export_products(
 
 @router.post("", response_model=ProductOut, status_code=status.HTTP_201_CREATED)
 async def create_product(
-    payload: ProductWrite, session: TenantDb, principal: CanManage
+    payload: ProductWrite, session: TenantDb, principal: CanWrite
 ) -> ProductOut:
+    """新建成品或材料。材料总是管理库存（从 0 开始）。"""
+    _check_write(principal, payload.kind)
     await _check_code(session, payload.code)
-    product = Product(created_by=principal.staff_id, updated_by=principal.staff_id)
+    product = Product(
+        created_by=principal.staff_id, updated_by=principal.staff_id, kind=payload.kind
+    )
     _write(product, payload, principal)
+    if product.kind == ProductKind.MATERIAL:
+        product.stock = Decimal(0)
     service.refresh(product)
     session.add(product)
     await session.commit()
@@ -378,11 +447,23 @@ def _write(product: Product, payload: ProductWrite, principal: Principal) -> Non
         setattr(product, key, getattr(payload, key))
     product.aliases = payload.aliases
     product.status = payload.status
+    product.unit = payload.unit
+    # 材料不销售，没有"现货"。
+    product.ready_made = payload.ready_made and product.kind == ProductKind.GOODS
     if "stock_alert" in payload.model_fields_set:
+        if payload.stock_alert is not None:
+            stock.check_quantity(product, payload.stock_alert, label="库存预警")
         product.stock_alert = payload.stock_alert
     # 成本价：不传、或者没有查看成本价的权限时保持原值。
     if principal.has(Permission.PRODUCT_VIEW_COST) and "cost_price" in payload.model_fields_set:
         product.cost_price = payload.cost_price
+
+
+def _import_rights(principal: Principal) -> dict[str, bool]:
+    """导入时能改什么：成品（维护商品库）、材料（维护商品库或调整库存）、库存（调整库存）。"""
+    goods = principal.has(Permission.PRODUCT_MANAGE)
+    stock_ = principal.has(Permission.INVENTORY_MANAGE)
+    return {"can_stock": stock_, "can_goods": goods, "can_materials": goods or stock_}
 
 
 @router.get("/imports", response_model=ProductImportList)
@@ -424,8 +505,8 @@ async def upload_import(
         data=data,
         staff_id=principal.staff_id,
         stock_mode=payload.stock_mode,
-        can_stock=principal.has(Permission.INVENTORY_MANAGE),
-        can_products=principal.has(Permission.PRODUCT_MANAGE),
+        default_kind=payload.default_kind,
+        **_import_rights(principal),
     )
     await session.commit()
     await session.refresh(record)
@@ -446,8 +527,7 @@ async def confirm_import(
         session,
         record,
         staff_id=principal.staff_id,
-        can_stock=principal.has(Permission.INVENTORY_MANAGE),
-        can_products=principal.has(Permission.PRODUCT_MANAGE),
+        **_import_rights(principal),
     )
     record_audit(
         session,
@@ -571,8 +651,8 @@ async def adjust_stock(
         resource_id=str(product.id),
         detail={
             "mode": payload.mode,
-            "quantity": payload.quantity,
-            "stock": product.stock,
+            "quantity": None if payload.quantity is None else str(payload.quantity),
+            "stock": None if product.stock is None else str(product.stock),
             "note": payload.note,
         },
         ip=client_ip(request),
@@ -590,64 +670,19 @@ async def list_stock_movements(
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> StockMovementPage:
-    """库存记录：每一次变化、变化前后的数量、原因和操作人（订单出库关联订单）。"""
-    from app.modules.orders.models import Order
-
+    """库存记录：每一次变化、变化前后的数量、原因和操作人（关联订单、导入或单据）。"""
     await _get(session, product_id)
     rows, total = await stock.movements(session, product_id, limit=limit, offset=offset)
-    orders = dict(
-        (
-            await session.execute(
-                select(Order.id, Order.no).where(
-                    Order.id.in_({m.order_id for m in rows if m.order_id})
-                )
-            )
-        ).all()
-    )
-    staff = dict(
-        (
-            await session.execute(
-                select(Staff.id, Staff.display_name).where(
-                    Staff.id.in_(
-                        {m.actor_id for m in rows if m.actor_type == "staff" and m.actor_id}
-                    )
-                )
-            )
-        ).all()
-    )
-    return StockMovementPage(items=[_movement_out(m, orders, staff) for m in rows], total=total)
-
-
-def _movement_out(
-    movement: StockMovement, orders: dict[UUID, str], staff: dict[UUID, str]
-) -> StockMovementOut:
-    actor = None
-    if movement.actor_type == "staff" and movement.actor_id:
-        actor = staff.get(movement.actor_id)
-    elif movement.actor_type == "api":
-        actor = "企业系统"
-    return StockMovementOut(
-        id=movement.id,
-        kind=movement.kind,
-        kind_label=stock.KIND_LABELS.get(StockKind(movement.kind), movement.kind),
-        delta=movement.delta,
-        stock_before=movement.stock_before,
-        stock_after=movement.stock_after,
-        order_id=movement.order_id,
-        order_no=orders.get(movement.order_id) if movement.order_id else None,
-        import_id=movement.import_id,
-        note=movement.note,
-        actor_type=movement.actor_type,
-        actor_name=actor,
-        created_at=movement.created_at,
-    )
+    return StockMovementPage(items=await movements.outs(session, rows), total=total)
 
 
 @router.put("/{product_id}", response_model=ProductOut)
 async def update_product(
-    product_id: UUID, payload: ProductWrite, session: TenantDb, principal: CanManage
+    product_id: UUID, payload: ProductWrite, session: TenantDb, principal: CanWrite
 ) -> ProductOut:
+    """修改商品（类别不能修改）。"""
     product = await _get(session, product_id)
+    _check_write(principal, product.kind)
     await _check_code(session, payload.code, exclude=product.id)
     _write(product, payload, principal)
     product.updated_by = principal.staff_id
@@ -658,15 +693,111 @@ async def update_product(
 
 
 @router.delete("/{product_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_product(product_id: UUID, session: TenantDb, _: CanManage) -> None:
-    """删除商品。已有订单使用的商品不能删除，请改为下架。"""
+async def delete_product(product_id: UUID, session: TenantDb, principal: CanWrite) -> None:
+    """删除商品。已有订单或单据使用的商品不能删除，请改为下架（停用）；配方里用到的材料要先从
+    配方里去掉。"""
     from app.modules.orders.models import OrderItem
 
     product = await _get(session, product_id)
+    _check_write(principal, product.kind)
     used = await session.scalar(
         select(OrderItem.id).where(OrderItem.product_id == product.id).limit(1)
     )
     if used is not None:
         raise Conflict("已有订单使用这个商品，不能删除，可以改为下架")
+    if await session.scalar(
+        select(StockDocumentLine.id).where(StockDocumentLine.product_id == product.id).limit(1)
+    ):
+        raise Conflict("已有领料单或入库单使用这个商品，不能删除，可以改为下架（停用）")
+    in_bom = await session.scalar(
+        select(func.count())
+        .select_from(ProductMaterial)
+        .where(ProductMaterial.material_id == product.id)
+    )
+    if in_bom:
+        raise Conflict(f"有 {in_bom} 个成品的配方用到这个材料，请先从配方里去掉")
     await session.execute(delete(Product).where(Product.id == product.id))
     await session.commit()
+
+
+@router.get("/{product_id}/materials", response_model=BomOut)
+async def get_bom(product_id: UUID, session: TenantDb, _: CanRead) -> BomOut:
+    """成品的配方：每一件用多少材料。"""
+    product = await _get(session, product_id)
+    return await _bom_out(session, product)
+
+
+async def _bom_out(session: TenantDb, product: Product) -> BomOut:
+    rows = (
+        await session.execute(
+            select(ProductMaterial, Product)
+            .join(Product, Product.id == ProductMaterial.material_id)
+            .where(ProductMaterial.product_id == product.id)
+            .order_by(ProductMaterial.sort, ProductMaterial.id)
+        )
+    ).all()
+    return BomOut(
+        items=[
+            BomLineOut(
+                material_id=material.id,
+                code=material.code,
+                name=material.name,
+                spec=material.spec,
+                unit=material.unit,
+                quantity=line.quantity,
+                stock=material.stock,
+            )
+            for line, material in rows
+        ]
+    )
+
+
+@router.put("/{product_id}/materials", response_model=BomOut)
+async def put_bom(
+    product_id: UUID, payload: BomIn, request: Request, session: TenantDb, principal: CanManage
+) -> BomOut:
+    """保存成品的配方（整体替换）：开领料单时按订单数量乘配方用量预填。"""
+    product = await _get(session, product_id)
+    if product.kind != ProductKind.GOODS:
+        raise Unprocessable("只有成品有配方")
+    ids = [line.material_id for line in payload.items]
+    if len(set(ids)) != len(ids):
+        raise Unprocessable("同一个材料只能有一行，请合并用量")
+    materials = {m.id: m for m in await session.scalars(select(Product).where(Product.id.in_(ids)))}
+    for line in payload.items:
+        material = materials.get(line.material_id)
+        if material is None:
+            raise Unprocessable("材料不存在")
+        if material.kind != ProductKind.MATERIAL:
+            raise Unprocessable(f"「{material.name}」不是材料")
+        if line.quantity <= 0:
+            raise Unprocessable(f"「{material.name}」的用量要大于 0")
+        stock.check_quantity(material, line.quantity, label="用量")
+    await session.execute(delete(ProductMaterial).where(ProductMaterial.product_id == product.id))
+    for sort, line in enumerate(payload.items):
+        session.add(
+            ProductMaterial(
+                product_id=product.id,
+                material_id=line.material_id,
+                quantity=line.quantity,
+                sort=sort,
+            )
+        )
+    record_audit(
+        session,
+        action="product.bom",
+        actor_type="staff",
+        actor_id=principal.staff_id,
+        tenant_id=principal.tenant_id,
+        resource_type="product",
+        resource_id=str(product.id),
+        detail={
+            "materials": [
+                {"id": str(line.material_id), "quantity": str(line.quantity)}
+                for line in payload.items
+            ]
+        },
+        ip=client_ip(request),
+    )
+    await session.commit()
+    return await _bom_out(session, product)

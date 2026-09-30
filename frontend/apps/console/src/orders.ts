@@ -318,6 +318,11 @@ const EVENT: Record<string, string> = {
   restocked: '登记到货',
   processed: '完成加工',
   reprocess: '订单修改后需要重新加工',
+  requisition: '开领料单',
+  receipt: '开入库单',
+  document_confirmed: '仓管确认',
+  document_rejected: '仓管退回',
+  document_voided: '作废单据',
 }
 
 const NOTICE: Record<string, string> = {
@@ -384,6 +389,20 @@ export function describeOrderEvent(event: OrderEvent, names: Map<string, string>
     case 'item_reopened':
     case 'restocked':
       extra = text(payload.name)
+      break
+    case 'requisition':
+    case 'receipt':
+      extra = text(payload.no)
+      break
+    case 'document_confirmed':
+    case 'document_rejected':
+    case 'document_voided':
+      extra = [
+        `${payload.kind === 'receipt' ? '入库单' : '领料单'} ${text(payload.no)}`,
+        text(payload.reason),
+      ]
+        .filter(Boolean)
+        .join('：')
       break
     case 'shortage':
       action = payload.edited ? '修改缺货' : '登记缺货'

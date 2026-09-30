@@ -5,6 +5,7 @@ import { computed, ref, watch } from 'vue'
 
 import { api } from '../../api'
 import { downloadBlob } from '../../download'
+import { qty } from '../../warehouse'
 
 /**
  * 用 Excel 批量导入商品（设计文档 §25.2）：下载模板 → 上传 → 逐行校验并预览（有问题的行标出原因，
@@ -12,9 +13,13 @@ import { downloadBlob } from '../../download'
  * 留空的列保持原值。导入结果可以下载。
  * 库存（§25.12）：上传前选择"盘点"（表格里的数就是现有库存）或"入库"（加到现有库存上）；只更新
  * 库存时表格可以只有"代码"和"库存"（或"数量"）两列。
+ * 成品和材料（§25.13）：表格的"类别"列留空时按 defaultKind（从仓库的"材料库存"打开时是材料）。
  */
 const open = defineModel<boolean>({ required: true })
-const props = defineProps<{ importId?: string | null }>()
+const props = withDefaults(
+  defineProps<{ importId?: string | null; defaultKind?: 'goods' | 'material' }>(),
+  { importId: null, defaultKind: 'goods' },
+)
 const emit = defineEmits<{ imported: [] }>()
 
 type ImportOut = Schemas['ProductImportOut']
@@ -78,7 +83,12 @@ async function upload(event: Event): Promise<void> {
   }
   uploading.value = true
   const { data, error } = await api.POST('/api/v1/products/imports', {
-    body: { filename: file.name, content_base64: await base64(file), stock_mode: stockMode.value },
+    body: {
+      filename: file.name,
+      content_base64: await base64(file),
+      stock_mode: stockMode.value,
+      default_kind: props.defaultKind,
+    },
   })
   uploading.value = false
   if (!data) {
@@ -131,11 +141,17 @@ async function result(): Promise<void> {
 </script>
 
 <template>
-  <el-dialog v-model="open" title="导入商品" width="860px" append-to-body data-testid="product-import">
+  <el-dialog
+    v-model="open"
+    :title="defaultKind === 'material' ? '导入材料' : '导入商品'"
+    width="min(860px, 96vw)"
+    append-to-body
+    data-testid="product-import"
+  >
     <div v-if="!preview" class="start">
       <ol class="steps">
         <li>
-          下载表格模板，按说明填写（只有"名称"必填，价格列只能填数字，库存列只能填整数）。
+          下载表格模板，按说明填写（只有"名称"必填，价格和库存列只能填数字；成品的库存填整数，材料最多三位小数）。
           <el-button link type="primary" data-testid="product-template" @click="template">下载模板</el-button>
         </li>
         <li>
@@ -152,6 +168,9 @@ async function result(): Promise<void> {
             }}
             留空的商品不修改库存；只更新库存时表格可以只有“代码”和“库存”（或“数量”）两列。
           </div>
+        </li>
+        <li data-testid="import-default-kind">
+          "类别"列留空的新商品按{{ defaultKind === 'material' ? '材料' : '成品' }}导入（材料只用于生产领料，不给 AI、不能下单）。
         </li>
         <li>上传填好的表格（.xlsx 或 .csv，最多 5000 行、10 MB）。</li>
         <li>核对预览：有问题的行会标出原因并跳过；确认后才写入商品库。</li>
@@ -208,7 +227,7 @@ async function result(): Promise<void> {
         <el-table-column label="库存" width="110">
           <template #default="{ row }">
             <span v-if="row.stock_after !== null" data-testid="product-import-stock"
-              >{{ row.stock_before ?? '—' }} → {{ row.stock_after }}</span
+              >{{ qty(row.stock_before) }} → {{ qty(row.stock_after) }}</span
             >
           </template>
         </el-table-column>

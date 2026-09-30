@@ -8,16 +8,20 @@ import ProductDialog from '../components/orders/ProductDialog.vue'
 import ProductImportDialog from '../components/orders/ProductImportDialog.vue'
 import StockDialog from '../components/orders/StockDialog.vue'
 import StockHistory from '../components/orders/StockHistory.vue'
+import BomDialog from '../components/warehouse/BomDialog.vue'
 import { downloadBlob } from '../download'
 import { STOCK_FILTERS, stockDetail, type StockFilter } from '../inventory'
 import { money, type Product } from '../orders'
 import { useAuthStore } from '../stores/auth'
+import { qty } from '../warehouse'
 
 /**
  * 商品库（设计文档 §25.2、§25.9）：商品列表（成本价列按权限显示）、新建和修改、Excel 模板下载与
  * 导入（先预览再确认）、导出（可以改完再导入）、导入记录，以及客户问到但商品库里没有的"商品缺口"。
  * 库存（§25.12）：可用 = 现有 − 已确认、还没发货的订单占用；可以筛选库存不足的商品，调整库存
  * （入库、出库、盘点）并查看库存记录；库存也可以用 Excel 导入（盘点或入库）。
+ * 这里只有成品（§25.13）：现货直接从成品库存发货；其他成品下单后加工，配方（每件用多少材料）在
+ * 这里维护。材料在"仓库"里维护。
  */
 const PAGE_SIZE = 50
 const auth = useAuthStore()
@@ -40,6 +44,7 @@ const filters = reactive({
 const lowStock = ref(0)
 const stocking = reactive({ open: false, product: null as Product | null })
 const history = reactive({ open: false, product: null as Product | null })
+const bom = reactive({ open: false, product: null as Product | null })
 const editing = reactive({ open: false, product: null as Product | null, name: '' })
 const importing = reactive({ open: false, id: null as string | null })
 const imports = ref<Schemas['ProductImportSummary'][]>([])
@@ -162,6 +167,14 @@ function openHistory(product: Product): void {
   Object.assign(history, { open: true, product })
 }
 
+function openBom(product: Product): void {
+  Object.assign(bom, { open: true, product })
+}
+
+function onBomSaved(count: number): void {
+  if (bom.product) bom.product.materials = count
+}
+
 watch(
   () => [filters.category, filters.status, filters.stock],
   () => {
@@ -228,7 +241,12 @@ onMounted(refresh)
           </el-table-column>
           <el-table-column label="商品" min-width="200">
             <template #default="{ row }">
-              <div class="name">{{ row.name }}</div>
+              <div class="name">
+                {{ row.name }}
+                <el-tag v-if="row.ready_made" size="small" type="success" effect="plain" data-testid="product-ready-made"
+                  >现货</el-tag
+                >
+              </div>
               <div class="muted">{{ [row.model, row.spec].filter(Boolean).join(' · ') }}</div>
               <div v-if="row.aliases.length" class="muted">也叫：{{ row.aliases.join('、') }}</div>
             </template>
@@ -254,7 +272,7 @@ onMounted(refresh)
             <template #default="{ row }">
               <template v-if="row.stock !== null">
                 <div data-testid="product-stock">
-                  可用 <b :class="{ low: row.stock_low }">{{ row.stock_available }}</b>
+                  可用 <b :class="{ low: row.stock_low }">{{ qty(row.stock_available) }}</b> {{ row.unit }}
                   <el-tag v-if="row.stock_low" size="small" type="danger" data-testid="product-stock-low"
                     >不足</el-tag
                   >
@@ -267,12 +285,20 @@ onMounted(refresh)
           <el-table-column label="更新" width="150">
             <template #default="{ row }">{{ formatDateTime(row.updated_at) }}</template>
           </el-table-column>
-          <el-table-column label="" :width="manage ? 190 : 110" fixed="right">
+          <el-table-column label="" :width="manage ? 230 : 150" fixed="right">
             <template #default="{ row }">
               <el-button v-if="stockManage" link type="primary" size="small" data-testid="product-adjust-stock" @click="openStock(row)"
                 >库存</el-button
               >
               <el-button link size="small" data-testid="product-stock-history" @click="openHistory(row)">记录</el-button>
+              <el-button
+                v-if="!row.ready_made && (manage || row.materials)"
+                link
+                size="small"
+                data-testid="product-bom"
+                @click="openBom(row)"
+                >配方{{ row.materials ? `(${row.materials})` : '' }}</el-button
+              >
               <el-button v-if="manage" link type="primary" size="small" @click="edit(row)">修改</el-button>
               <el-button v-if="manage" link type="danger" size="small" @click="remove(row)">删除</el-button>
             </template>
@@ -345,6 +371,7 @@ onMounted(refresh)
     <ProductDialog v-model="editing.open" :product="editing.product" :name="editing.name" @saved="refresh" />
     <StockDialog v-model="stocking.open" :product="stocking.product" @saved="load" />
     <StockHistory v-model="history.open" :product="history.product" />
+    <BomDialog v-model="bom.open" :product="bom.product" :editable="manage" @saved="onBomSaved" />
     <ProductImportDialog
       v-model="importing.open"
       :import-id="importing.id"
@@ -395,6 +422,9 @@ onMounted(refresh)
 
 .name {
   font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .muted {

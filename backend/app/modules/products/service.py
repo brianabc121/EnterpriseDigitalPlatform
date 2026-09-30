@@ -24,7 +24,7 @@ from app.db.types import vector_literal
 from app.integrations.llm import LLMUnavailable
 from app.modules.ai import gateway
 from app.modules.kb.text import normalize, terms
-from app.modules.products.models import Product, ProductGap, ProductStatus
+from app.modules.products.models import Product, ProductGap, ProductKind, ProductStatus
 
 logger = logging.getLogger(__name__)
 
@@ -143,12 +143,14 @@ async def search(
     min_score: float = MIN_SCORE,
     public_only: bool = False,
     vector: list[float] | None = None,
+    kind: ProductKind = ProductKind.GOODS,
 ) -> list[Candidate]:
-    """public_only：只加载对客可见的字段（给 AI 用）。vector：调用方已经算好的问题向量。"""
+    """public_only：只加载对客可见的字段（给 AI 用）。vector：调用方已经算好的问题向量。
+    kind：默认只找成品（材料不给 AI，也不能下单；开领料单时找材料）。"""
     query = query.strip()[:200]
     if not query:
         return []
-    base: list[ColumnElement[bool]] = [Product.tenant_id == tenant_id]
+    base: list[ColumnElement[bool]] = [Product.tenant_id == tenant_id, Product.kind == kind]
     if on_shelf:
         base.append(Product.status == ProductStatus.ON)
     options = [public_columns()] if public_only else []
@@ -243,14 +245,18 @@ async def record_gap(session: AsyncSession, tenant_id: uuid.UUID, query: str) ->
 
 
 async def embed_pending(ctx: AppContext, *, limit: int = 500) -> int:
-    """调度任务：为还没有向量的上架商品生成向量（没有配置向量模型时跳过）。"""
+    """调度任务：为还没有向量的上架成品生成向量（没有配置向量模型时跳过；材料不做语义检索）。"""
     if not await ctx.llms.embed_enabled():
         return 0
     async with ctx.db.platform_sessionmaker() as session:
         pending = (
             await session.execute(
                 select(Product.tenant_id, Product.id)
-                .where(Product.embedding.is_(None), Product.status == ProductStatus.ON)
+                .where(
+                    Product.embedding.is_(None),
+                    Product.status == ProductStatus.ON,
+                    Product.kind == ProductKind.GOODS,
+                )
                 .order_by(Product.updated_at)
                 .limit(limit)
             )

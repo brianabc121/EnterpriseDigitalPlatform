@@ -194,7 +194,7 @@ def specs(options: OrderAi) -> dict[str, tuple[str, dict[str, Any]]]:
 
 def describe(product: Product, *, price: bool, availability: str | None = None) -> str:
     """给模型看的一行商品描述（只用对客可见的字段）。availability 是"有现货"或"暂时缺货"
-    （管理库存的商品，§25.12；不给具体数量）。"""
+    （管理库存的现货商品，§25.12、§25.13；不给具体数量）。"""
     details = [
         f"{label} {value}"
         for label, value in (

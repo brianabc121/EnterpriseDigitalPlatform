@@ -7,9 +7,10 @@ import { api, formatDateTime } from '../../api'
 import { changeText, deltaText, type StockMovement } from '../../inventory'
 import type { Product } from '../../orders'
 
-/** 库存记录（设计文档 §25.12）：每一次变化、变化前后的数量、原因和操作人；订单出库关联订单号。 */
+/** 库存记录（设计文档 §25.12）：每一次变化、变化前后的数量、原因和操作人；订单出库关联订单号，
+ * 领料和生产入库关联单据（§25.13）。 */
 const open = defineModel<boolean>({ required: true })
-const props = defineProps<{ product: Product | null }>()
+const props = defineProps<{ product: Pick<Product, 'id' | 'name'> | null }>()
 
 const PAGE_SIZE = 20
 const items = ref<StockMovement[]>([])
@@ -72,8 +73,10 @@ watch(open, (value) => {
       </el-table-column>
       <el-table-column label="说明" min-width="160">
         <template #default="{ row }">
+          <span v-if="row.document_no" data-testid="stock-movement-document">{{ row.document_no }}</span>
+          <span v-if="row.document_no && row.order_no"> · </span>
           <span v-if="row.order_no" data-testid="stock-movement-order">订单 {{ row.order_no }}</span>
-          <span v-else>{{ row.note }}</span>
+          <span v-if="!row.order_no && !row.document_no">{{ row.note }}</span>
         </template>
       </el-table-column>
       <el-table-column label="操作人" width="100">

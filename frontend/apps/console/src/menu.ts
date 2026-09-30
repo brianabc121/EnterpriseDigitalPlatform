@@ -8,6 +8,7 @@ export type MenuIcon =
   | 'order'
   | 'goods'
   | 'production'
+  | 'warehouse'
   | 'user'
   | 'reading'
   | 'ai'
@@ -69,6 +70,14 @@ export const MENU: readonly MenuItem[] = [
     title: '加工',
     icon: 'production',
     permission: 'production:work',
+    feature: 'orders',
+  },
+  {
+    name: 'warehouse',
+    path: '/warehouse',
+    title: '仓库',
+    icon: 'warehouse',
+    permission: 'inventory:manage',
     feature: 'orders',
   },
   {
