@@ -18,29 +18,45 @@ defineProps<{ title: string; testid?: string }>()
   margin-top: 20px;
 }
 
+/* 手机上标题和右侧的按钮放不下时按钮换到下一行。 */
 .head {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 8px 12px;
   margin-bottom: 10px;
 }
 
 h3 {
   margin: 0;
   font-size: 15px;
+  white-space: nowrap;
 }
 
 .extra {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
   font-size: 13px;
+}
+
+.extra :deep(.el-button + .el-button) {
+  margin-left: 0;
 }
 
 :slotted(.tiles) {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
   gap: 12px;
+}
+
+/* 手机上两列，少滚动。 */
+@media (max-width: 480px) {
+  :slotted(.tiles) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
 }
 </style>

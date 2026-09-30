@@ -84,40 +84,30 @@ onMounted(load)
         <el-button data-testid="home-new-receipt" @click="go({ new: 'receipt' })">开入库单</el-button>
         <el-button link type="primary" @click="go({ tab: 'movements' })">库存记录</el-button>
       </template>
-      <el-table
-        v-loading="loading"
-        :data="docs"
-        row-key="id"
-        empty-text="没有待确认的单据"
-        class="docs"
-        data-testid="home-pending-documents"
-        @row-click="openDoc"
-      >
-        <el-table-column label="单号" min-width="150">
-          <template #default="{ row }">
-            <span class="no" data-testid="home-pending-document" :data-no="row.no">{{ row.no }}</span>
-            <el-tag size="small" :type="row.kind === 'requisition' ? 'primary' : 'success'" class="gap">{{
-              KIND_LABEL[row.kind as WarehouseDocument['kind']]
-            }}</el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="明细" min-width="180">
-          <template #default="{ row }">{{ lineSummary(row) }}</template>
-        </el-table-column>
-        <el-table-column label="关联订单" width="150">
-          <template #default="{ row }">{{ row.order_no ?? '—' }}</template>
-        </el-table-column>
-        <el-table-column label="开单" width="200">
-          <template #default="{ row }">{{ row.created_by_name ?? '' }} {{ formatDateTime(row.submitted_at) }}</template>
-        </el-table-column>
-        <el-table-column width="90" align="right">
-          <template #default="{ row }">
-            <el-button link type="primary" :data-testid="`home-open-document-${row.no}`" @click.stop="openDoc(row)"
-              >{{ row.can_confirm ? '去确认' : '查看' }}</el-button
-            >
-          </template>
-        </el-table-column>
-      </el-table>
+      <ul v-loading="loading" class="list" data-testid="home-pending-documents">
+        <li v-if="!docs.length" class="empty" data-testid="home-pending-empty">没有待确认的单据</li>
+        <li
+          v-for="doc in docs"
+          :key="doc.id"
+          class="row"
+          data-testid="home-pending-document"
+          :data-no="doc.no"
+          @click="openDoc(doc)"
+        >
+          <span class="no">{{ doc.no }}</span>
+          <el-tag size="small" :type="doc.kind === 'requisition' ? 'primary' : 'success'">{{
+            KIND_LABEL[doc.kind]
+          }}</el-tag>
+          <span class="lines">{{ lineSummary(doc) }}</span>
+          <span class="muted"
+            >{{ doc.order_no ? `订单 ${doc.order_no} · ` : '' }}{{ doc.created_by_name ?? '' }}
+            {{ formatDateTime(doc.submitted_at) }}</span
+          >
+          <el-button link type="primary" :data-testid="`home-open-document-${doc.no}`" @click.stop="openDoc(doc)">{{
+            doc.can_confirm ? '去确认' : '查看'
+          }}</el-button>
+        </li>
+      </ul>
       <div v-if="total > docs.length" class="more">
         <el-button link type="primary" @click="go({ tab: 'requisition' })">查看全部 {{ total }} 张</el-button>
       </div>
@@ -149,17 +139,54 @@ onMounted(load)
 </template>
 
 <style scoped>
-.docs :deep(.el-table__row) {
+.list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  background: var(--el-bg-color);
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 8px;
+}
+
+.list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--el-border-color-lighter);
+}
+
+.list li:last-child {
+  border-bottom: none;
+}
+
+.row {
   cursor: pointer;
 }
 
+.row:hover {
+  background: var(--el-fill-color-light);
+}
+
+.empty {
+  justify-content: center;
+  color: var(--el-text-color-secondary);
+  font-size: 13px;
+}
+
 .no {
-  font-family: var(--el-font-family);
   font-weight: 500;
 }
 
-.gap {
-  margin-left: 6px;
+.lines {
+  flex: 1;
+  min-width: 120px;
+}
+
+.muted {
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
 }
 
 .more {

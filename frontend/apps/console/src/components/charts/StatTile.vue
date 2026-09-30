@@ -11,8 +11,9 @@ defineProps<{ label: string; value: string; hint?: string; testid?: string }>()
 </template>
 
 <style scoped>
+/* 宽度由外面的网格决定（首页在手机上是两列）。 */
 .stat-tile {
-  min-width: 150px;
+  min-width: 0;
   padding: 14px 16px;
   background: var(--el-bg-color);
   border: 1px solid var(--el-border-color-lighter);

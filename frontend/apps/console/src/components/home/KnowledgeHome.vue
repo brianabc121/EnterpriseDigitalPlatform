@@ -47,8 +47,8 @@ onMounted(load)
           >去审核台</router-link
         >
       </template>
-      <el-empty v-if="!candidates.length" description="没有待审核的知识" :image-size="60" />
-      <ul v-else class="list">
+      <ul class="list">
+        <li v-if="!candidates.length" class="empty">没有待审核的知识</li>
         <li v-for="item in candidates" :key="item.id" data-testid="home-kb-candidate">
           <el-tag size="small" effect="plain">{{ CANDIDATE_KIND[item.kind] ?? item.kind }}</el-tag>
           <span class="title">{{ item.question }}</span>
@@ -59,8 +59,8 @@ onMounted(load)
 
     <HomeSection :title="`快到期的知识${expiringTotal ? `（${expiringTotal}）` : ''}`" testid="home-kb-expiring">
       <template #extra><span class="muted">7 天内到期，到期后自动下线</span></template>
-      <el-empty v-if="!expiring.length" description="没有快到期的知识" :image-size="60" />
-      <ul v-else class="list">
+      <ul class="list">
+        <li v-if="!expiring.length" class="empty">没有快到期的知识</li>
         <li v-for="item in expiring" :key="item.id" data-testid="home-kb-expiring-item">
           <router-link :to="{ path: '/knowledge', query: { item: item.id } }" class="title">{{ item.title }}</router-link>
           <span class="muted">{{ item.valid_to ? `${formatDateTime(item.valid_to)} 到期` : '' }}</span>
@@ -92,6 +92,12 @@ onMounted(load)
   border-bottom: none;
 }
 
+.empty {
+  justify-content: center;
+  color: var(--el-text-color-secondary);
+  font-size: 13px;
+}
+
 .title {
   flex: 1;
   min-width: 0;
@@ -106,6 +112,15 @@ onMounted(load)
 }
 
 a {
+  color: var(--el-color-primary);
   text-decoration: none;
+}
+
+a.title {
+  color: var(--el-text-color-primary);
+}
+
+a.title:hover {
+  color: var(--el-color-primary);
 }
 </style>

@@ -24,7 +24,7 @@ defineProps<{
 .link-tile {
   display: flex;
   flex-direction: column;
-  min-width: 150px;
+  min-width: 0;
   padding: 14px 16px;
   background: var(--el-bg-color);
   border: 1px solid var(--el-border-color-lighter);
