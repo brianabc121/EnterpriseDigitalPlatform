@@ -22,6 +22,7 @@ from app.modules.conversation.router import router as conversation_router
 from app.modules.customer.router import router as customer_router
 from app.modules.files.router import router as files_router
 from app.modules.health.router import router as health_router
+from app.modules.history.router import router as history_router
 from app.modules.iam.router import auth_router
 from app.modules.iam.router import router as iam_router
 from app.modules.integration.open_router import router as open_router
@@ -120,6 +121,7 @@ def create_app(
     app.include_router(orders_router)
     app.include_router(production_router)
     app.include_router(warehouse_router)
+    app.include_router(history_router)
     app.include_router(order_public_router)
     app.include_router(products_router)
     app.include_router(integration_router)

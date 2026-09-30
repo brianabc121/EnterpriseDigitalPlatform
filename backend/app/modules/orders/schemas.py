@@ -185,6 +185,7 @@ class OrderItemOut(BaseModel):
     ready_made: bool = Field(
         default=False, description="现货：直接从成品库存发货，不需要加工（§25.13）"
     )
+    unit: str = Field(default="", description="商品现在的单位（订单行不保存单位）")
     stock_available: Qty | None = Field(
         default=None,
         description="商品的可用库存（§25.12）：只对从库存发货的行（现货，或者订单已加工入库）；"

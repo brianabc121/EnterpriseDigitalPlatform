@@ -2434,6 +2434,53 @@
         "title": "CategoryList",
         "type": "object"
       },
+      "CellChangeOut": {
+        "properties": {
+          "after": {
+            "title": "After",
+            "type": "string"
+          },
+          "before": {
+            "title": "Before",
+            "type": "string"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "before",
+          "after"
+        ],
+        "title": "CellChangeOut",
+        "type": "object"
+      },
+      "ChangesOut": {
+        "properties": {
+          "fields": {
+            "items": {
+              "$ref": "#/components/schemas/FieldChangeOut"
+            },
+            "title": "Fields",
+            "type": "array"
+          },
+          "tables": {
+            "items": {
+              "$ref": "#/components/schemas/TableChangesOut"
+            },
+            "title": "Tables",
+            "type": "array"
+          }
+        },
+        "required": [
+          "fields",
+          "tables"
+        ],
+        "title": "ChangesOut",
+        "type": "object"
+      },
       "ChannelAiOverrides": {
         "description": "这个渠道的 AI 参数（设计文档 §11.2：阈值可以按租户和渠道分别配置），为空表示沿用 AI 设置。",
         "properties": {
@@ -2792,6 +2839,24 @@
           "retention_days"
         ],
         "title": "ClosureStatus",
+        "type": "object"
+      },
+      "ColumnOut": {
+        "properties": {
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "label"
+        ],
+        "title": "ColumnOut",
         "type": "object"
       },
       "CommentRequest": {
@@ -4225,6 +4290,30 @@
         "title": "DeliveryIds",
         "type": "object"
       },
+      "DocOut": {
+        "properties": {
+          "fields": {
+            "items": {
+              "$ref": "#/components/schemas/FieldOut"
+            },
+            "title": "Fields",
+            "type": "array"
+          },
+          "tables": {
+            "items": {
+              "$ref": "#/components/schemas/TableOut"
+            },
+            "title": "Tables",
+            "type": "array"
+          }
+        },
+        "required": [
+          "fields",
+          "tables"
+        ],
+        "title": "DocOut",
+        "type": "object"
+      },
       "DocumentBrief": {
         "properties": {
           "id": {
@@ -5490,6 +5579,57 @@
         "title": "FeatureOut",
         "type": "object"
       },
+      "FieldChangeOut": {
+        "properties": {
+          "after": {
+            "title": "After",
+            "type": "string"
+          },
+          "before": {
+            "title": "Before",
+            "type": "string"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "label",
+          "before",
+          "after"
+        ],
+        "title": "FieldChangeOut",
+        "type": "object"
+      },
+      "FieldOut": {
+        "properties": {
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "label",
+          "value"
+        ],
+        "title": "FieldOut",
+        "type": "object"
+      },
       "FieldValue": {
         "properties": {
           "key": {
@@ -5919,6 +6059,150 @@
           "status"
         ],
         "title": "HealthStatus",
+        "type": "object"
+      },
+      "HistoryFeed": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/HistoryFeedItem"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          }
+        },
+        "required": [
+          "items",
+          "next_cursor"
+        ],
+        "title": "HistoryFeed",
+        "type": "object"
+      },
+      "HistoryFeedItem": {
+        "properties": {
+          "action": {
+            "title": "Action",
+            "type": "string"
+          },
+          "action_label": {
+            "title": "Action Label",
+            "type": "string"
+          },
+          "actor_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actor Id"
+          },
+          "actor_name": {
+            "title": "Actor Name",
+            "type": "string"
+          },
+          "actor_type": {
+            "title": "Actor Type",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "record_id": {
+            "format": "uuid",
+            "title": "Record Id",
+            "type": "string"
+          },
+          "record_type": {
+            "enum": [
+              "order",
+              "requisition",
+              "receipt",
+              "todo",
+              "goods",
+              "material"
+            ],
+            "title": "Record Type",
+            "type": "string"
+          },
+          "seq": {
+            "title": "Seq",
+            "type": "integer"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          },
+          "type_label": {
+            "title": "Type Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "record_type",
+          "type_label",
+          "record_id",
+          "label",
+          "seq",
+          "action",
+          "action_label",
+          "actor_type",
+          "actor_id",
+          "actor_name",
+          "reason",
+          "note",
+          "created_at",
+          "summary"
+        ],
+        "title": "HistoryFeedItem",
         "type": "object"
       },
       "IMCredentials": {
@@ -9974,6 +10258,66 @@
           "quantity"
         ],
         "title": "LineIn",
+        "type": "object"
+      },
+      "LinkableOrder": {
+        "description": "开领料单时可以关联的订单（加工中、还没加工完成）。",
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "items": {
+            "description": "需要加工的商品，例如“铝合金窗 × 2、纱窗 × 1”",
+            "title": "Items",
+            "type": "string"
+          },
+          "no": {
+            "title": "No",
+            "type": "string"
+          },
+          "status_label": {
+            "title": "Status Label",
+            "type": "string"
+          },
+          "worker_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "领取加工的工人",
+            "title": "Worker Name"
+          }
+        },
+        "required": [
+          "id",
+          "no",
+          "status_label",
+          "worker_name",
+          "items"
+        ],
+        "title": "LinkableOrder",
+        "type": "object"
+      },
+      "LinkableOrderList": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/LinkableOrder"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "LinkableOrderList",
         "type": "object"
       },
       "LinkedTodo": {
@@ -14630,6 +14974,12 @@
             "description": "库存不足：已确认的订单按确认先后占用现有库存，占不到的；还没确认的按可用库存",
             "title": "Stock Short",
             "type": "boolean"
+          },
+          "unit": {
+            "default": "",
+            "description": "商品现在的单位（订单行不保存单位）",
+            "title": "Unit",
+            "type": "string"
           },
           "unit_price": {
             "anyOf": [
@@ -19672,6 +20022,64 @@
         "title": "ReceiverOut",
         "type": "object"
       },
+      "RecordHistory": {
+        "properties": {
+          "complete": {
+            "description": "从新建开始都有记录；为 false 表示记录在启用修改历史之前创建，之前的修改没有记录",
+            "title": "Complete",
+            "type": "boolean"
+          },
+          "deleted": {
+            "description": "记录已经删除（最新的版本是删除）",
+            "title": "Deleted",
+            "type": "boolean"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "record_id": {
+            "format": "uuid",
+            "title": "Record Id",
+            "type": "string"
+          },
+          "record_type": {
+            "enum": [
+              "order",
+              "requisition",
+              "receipt",
+              "todo",
+              "goods",
+              "material"
+            ],
+            "title": "Record Type",
+            "type": "string"
+          },
+          "type_label": {
+            "title": "Type Label",
+            "type": "string"
+          },
+          "versions": {
+            "description": "新的在前",
+            "items": {
+              "$ref": "#/components/schemas/VersionOut"
+            },
+            "title": "Versions",
+            "type": "array"
+          }
+        },
+        "required": [
+          "record_type",
+          "type_label",
+          "record_id",
+          "label",
+          "deleted",
+          "complete",
+          "versions"
+        ],
+        "title": "RecordHistory",
+        "type": "object"
+      },
       "RejectReason": {
         "enum": [
           "not_real",
@@ -20518,6 +20926,48 @@
           }
         },
         "title": "RoutingPolicyUpdate",
+        "type": "object"
+      },
+      "RowChangeOut": {
+        "properties": {
+          "cells": {
+            "items": {
+              "$ref": "#/components/schemas/CellChangeOut"
+            },
+            "title": "Cells",
+            "type": "array"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "cells"
+        ],
+        "title": "RowChangeOut",
+        "type": "object"
+      },
+      "RowOut": {
+        "properties": {
+          "cells": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Cells",
+            "type": "object"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "cells"
+        ],
+        "title": "RowOut",
         "type": "object"
       },
       "SendMessageRequest": {
@@ -23326,6 +23776,77 @@
           }
         },
         "title": "SyncRequest",
+        "type": "object"
+      },
+      "TableChangesOut": {
+        "properties": {
+          "added": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Added",
+            "type": "array"
+          },
+          "changed": {
+            "items": {
+              "$ref": "#/components/schemas/RowChangeOut"
+            },
+            "title": "Changed",
+            "type": "array"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "removed": {
+            "items": {
+              "$ref": "#/components/schemas/RowOut"
+            },
+            "title": "Removed",
+            "type": "array"
+          }
+        },
+        "required": [
+          "key",
+          "added",
+          "removed",
+          "changed"
+        ],
+        "title": "TableChangesOut",
+        "type": "object"
+      },
+      "TableOut": {
+        "properties": {
+          "columns": {
+            "items": {
+              "$ref": "#/components/schemas/ColumnOut"
+            },
+            "title": "Columns",
+            "type": "array"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/RowOut"
+            },
+            "title": "Rows",
+            "type": "array"
+          }
+        },
+        "required": [
+          "key",
+          "label",
+          "columns",
+          "rows"
+        ],
+        "title": "TableOut",
         "type": "object"
       },
       "TagOptions": {
@@ -27442,6 +27963,119 @@
           "updated_at"
         ],
         "title": "UsageReport",
+        "type": "object"
+      },
+      "VersionOut": {
+        "properties": {
+          "action": {
+            "title": "Action",
+            "type": "string"
+          },
+          "action_label": {
+            "description": "主要操作的名称，例如新建、修改、确认",
+            "title": "Action Label",
+            "type": "string"
+          },
+          "actions": {
+            "description": "同一次操作里的全部动作",
+            "items": {
+              "type": "string"
+            },
+            "title": "Actions",
+            "type": "array"
+          },
+          "actions_label": {
+            "description": "同一次操作里的全部动作，例如“开单、确认”",
+            "title": "Actions Label",
+            "type": "string"
+          },
+          "actor_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actor Id"
+          },
+          "actor_name": {
+            "title": "Actor Name",
+            "type": "string"
+          },
+          "actor_type": {
+            "title": "Actor Type",
+            "type": "string"
+          },
+          "changes": {
+            "$ref": "#/components/schemas/ChangesOut",
+            "description": "和上一个版本相比的改动（第一个版本为空）"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "document": {
+            "$ref": "#/components/schemas/DocOut"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "seq": {
+            "title": "Seq",
+            "type": "integer"
+          },
+          "summary": {
+            "description": "和上一个版本相比的改动摘要",
+            "title": "Summary",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "seq",
+          "action",
+          "action_label",
+          "actions",
+          "actions_label",
+          "actor_type",
+          "actor_id",
+          "actor_name",
+          "reason",
+          "note",
+          "created_at",
+          "summary",
+          "document",
+          "changes"
+        ],
+        "title": "VersionOut",
         "type": "object"
       },
       "VisitorIdentity": {
@@ -37299,6 +37933,352 @@
         "summary": "Customer Wecom",
         "tags": [
           "wecom"
+        ]
+      }
+    },
+    "/api/v1/history": {
+      "get": {
+        "description": "全部记录的修改历史，新的在前：时间、操作人、类型、单号或名称、操作、改动摘要。",
+        "operationId": "history_feed_api_v1_history_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "type",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "order",
+                    "requisition",
+                    "receipt",
+                    "todo",
+                    "goods",
+                    "material"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Type"
+            }
+          },
+          {
+            "description": "create、delete、change（其他修改）或具体的操作",
+            "in": "query",
+            "name": "action",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 24,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "create、delete、change（其他修改）或具体的操作",
+              "title": "Action"
+            }
+          },
+          {
+            "in": "query",
+            "name": "actor_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Actor Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "start",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Start"
+            }
+          },
+          {
+            "in": "query",
+            "name": "end",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "End"
+            }
+          },
+          {
+            "description": "单号或名称",
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "单号或名称",
+              "title": "Q"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HistoryFeed"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "History Feed",
+        "tags": [
+          "history"
+        ]
+      }
+    },
+    "/api/v1/history/{record_type}/{record_id}": {
+      "get": {
+        "description": "一条记录的全部版本（新的在前），每个版本的完整内容和与上一个版本相比的改动。",
+        "operationId": "record_history_api_v1_history__record_type___record_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "record_type",
+            "required": true,
+            "schema": {
+              "enum": [
+                "order",
+                "requisition",
+                "receipt",
+                "todo",
+                "goods",
+                "material"
+              ],
+              "title": "Record Type",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "record_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Record Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecordHistory"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Record History",
+        "tags": [
+          "history"
         ]
       }
     },
@@ -59368,6 +60348,111 @@
         ]
       }
     },
+    "/api/v1/warehouse/categories": {
+      "get": {
+        "description": "成品或材料的分类（开单时\"批量选择\"按分类筛选）。",
+        "operationId": "list_categories_api_v1_warehouse_categories_get",
+        "parameters": [
+          {
+            "description": "成品或材料",
+            "in": "query",
+            "name": "kind",
+            "required": false,
+            "schema": {
+              "default": "material",
+              "description": "成品或材料",
+              "enum": [
+                "goods",
+                "material"
+              ],
+              "title": "Kind",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CategoryList"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Categories",
+        "tags": [
+          "warehouse"
+        ]
+      }
+    },
     "/api/v1/warehouse/counts": {
       "get": {
         "description": "待确认的单据数和库存不足的数量（菜单和标签页上的数字）。",
@@ -60800,6 +61885,126 @@
           }
         ],
         "summary": "List Movements",
+        "tags": [
+          "warehouse"
+        ]
+      }
+    },
+    "/api/v1/warehouse/orders": {
+      "get": {
+        "description": "开领料单时可以关联的订单：已确认或处理中、有需要加工的商品、还没加工完成；工人只看自己\n领取的（仓库的员工和能指派加工的员工看全部）。",
+        "operationId": "linkable_orders_api_v1_warehouse_orders_get",
+        "parameters": [
+          {
+            "description": "订单号",
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 32,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "订单号",
+              "title": "Q"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 50,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LinkableOrderList"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Linkable Orders",
         "tags": [
           "warehouse"
         ]

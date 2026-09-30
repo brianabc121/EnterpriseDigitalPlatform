@@ -353,6 +353,7 @@ async function settingsSection(page, adminToken) {
   await shot(page, '6-retention')
 
   await menu(page, '操作日志')
+  await page.locator('[data-testid="audit-tab-system"]').click()
   await page.locator('[data-testid="audit-group"]').click()
   await page.locator('.el-select-dropdown__item:visible', { hasText: '客户' }).click()
   await page.waitForTimeout(1000)

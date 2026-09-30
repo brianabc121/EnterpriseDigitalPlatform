@@ -129,6 +129,20 @@ class DocumentDraft(BaseModel):
     )
 
 
+class LinkableOrder(BaseModel):
+    """开领料单时可以关联的订单（加工中、还没加工完成）。"""
+
+    id: UUID
+    no: str
+    status_label: str
+    worker_name: str | None = Field(description="领取加工的工人")
+    items: str = Field(description="需要加工的商品，例如“铝合金窗 × 2、纱窗 × 1”")
+
+
+class LinkableOrderList(BaseModel):
+    items: list[LinkableOrder]
+
+
 class WarehouseCounts(BaseModel):
     pending_requisitions: int = Field(description="待确认的领料单")
     pending_receipts: int = Field(description="待确认的入库单")

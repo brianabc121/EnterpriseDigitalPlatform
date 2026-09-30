@@ -25,7 +25,7 @@ from app.modules.orders.models import Order
 from app.modules.products import stock
 from app.modules.products.models import Product, ProductKind, ProductMaterial, StockKind
 from app.modules.products.models import StockMovement as Movement
-from app.modules.products.schemas import StockMovementPage
+from app.modules.products.schemas import CategoryList, StockMovementPage
 from app.modules.warehouse import documents, movements
 from app.modules.warehouse import settings as warehouse_settings
 from app.modules.warehouse.models import DocumentKind, DocumentStatus
@@ -38,6 +38,8 @@ from app.modules.warehouse.schemas import (
     DocumentPage,
     DocumentStatusValue,
     DocumentUpdate,
+    LinkableOrder,
+    LinkableOrderList,
     ReasonIn,
     StockItemOut,
     StockItemPage,
@@ -185,6 +187,22 @@ def _item_filters(
     if status_:
         conditions.append(Product.status == status_)
     return conditions
+
+
+@router.get("/categories", response_model=CategoryList)
+async def list_categories(
+    session: TenantDb,
+    _: CanWork,
+    kind: Annotated[Literal["goods", "material"], Query(description="成品或材料")] = "material",
+) -> CategoryList:
+    """成品或材料的分类（开单时"批量选择"按分类筛选）。"""
+    rows = await session.scalars(
+        select(Product.category)
+        .where(Product.category != "", Product.kind == kind)
+        .distinct()
+        .order_by(Product.category)
+    )
+    return CategoryList(items=list(rows))
 
 
 @router.get("/items", response_model=StockItemPage)
@@ -340,6 +358,69 @@ async def draft(
     else:
         lines, missing = await documents.receipt_draft(session, order)
     return DocumentDraft(kind=kind, order_id=order.id, lines=lines, missing=missing)
+
+
+@router.get("/orders", response_model=LinkableOrderList)
+async def linkable_orders(
+    session: TenantDb,
+    principal: CanWork,
+    q: Annotated[str | None, Query(max_length=32, description="订单号")] = None,
+    limit: Annotated[int, Query(ge=1, le=50)] = 20,
+) -> LinkableOrderList:
+    """开领料单时可以关联的订单：已确认或处理中、有需要加工的商品、还没加工完成；工人只看自己
+    领取的（仓库的员工和能指派加工的员工看全部）。"""
+    from app.modules.orders import service as order_service
+    from app.modules.orders.models import STATUS_LABELS as ORDER_STATUS
+    from app.modules.orders.models import OrderItem, OrderStatus
+
+    conditions: list[ColumnElement[bool]] = [
+        Order.status.in_((OrderStatus.CONFIRMED, OrderStatus.FULFILLING)),
+        Order.processed_at.is_(None),
+        order_service.needs_production(),
+    ]
+    if not (documents.manages(principal) or principal.has(Permission.PRODUCTION_ASSIGN)):
+        conditions.append(Order.worker_id == principal.staff_id)
+    if q and q.strip():
+        term = q.strip().replace("\\", "\\\\").replace("%", r"\%").replace("_", r"\_")
+        conditions.append(Order.no.ilike(f"%{term}%"))
+    orders = list(
+        (
+            await session.scalars(
+                select(Order).where(*conditions).order_by(Order.created_at.desc()).limit(limit)
+            )
+        ).all()
+    )
+    items: dict[UUID, list[OrderItem]] = {o.id: [] for o in orders}
+    if orders:
+        for item in await session.scalars(
+            select(OrderItem).where(OrderItem.order_id.in_(items)).order_by(OrderItem.sort)
+        ):
+            items[item.order_id].append(item)
+    ready = await order_service.ready_made_ids(
+        session, [i for rows in items.values() for i in rows]
+    )
+    workers = {o.worker_id for o in orders if o.worker_id}
+    names: dict[UUID, str] = {}
+    if workers:
+        rows = await session.execute(
+            select(Staff.id, Staff.display_name).where(Staff.id.in_(workers))
+        )
+        names = {r.id: r.display_name for r in rows}
+    return LinkableOrderList(
+        items=[
+            LinkableOrder(
+                id=o.id,
+                no=o.no,
+                status_label=ORDER_STATUS.get(o.status, o.status),
+                worker_name=names.get(o.worker_id) if o.worker_id else None,
+                items="、".join(
+                    f"{order_service.item_label(i)} × {i.quantity}"
+                    for i in documents.made_items(items[o.id], ready)
+                ),
+            )
+            for o in orders
+        ]
+    )
 
 
 @router.get("/documents", response_model=DocumentPage)

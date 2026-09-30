@@ -14,7 +14,7 @@ import uuid
 from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import and_, func, select, text, update
+from sqlalchemy import and_, delete, func, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.context import AppContext
@@ -35,6 +35,7 @@ from app.modules.customer.ownership import change_owner
 from app.modules.customer.schemas import ErasureResult, PersonalData, PrivacyRequestOut
 from app.modules.customer.service import ensure_visible
 from app.modules.files.service import key_of_url
+from app.modules.history.models import RecordType, RecordVersion
 from app.modules.iam.models import Staff
 from app.modules.iam.principal import Principal
 from app.modules.orders import service as order_service
@@ -413,7 +414,14 @@ async def _erase_orders(
     if not orders:
         return 0
     settings = await order_settings.load(session, tenant_id)
+    ids = [o.id for o in orders]
     if settings.erase_mode == "delete":
+        # 修改历史里的内容也一并删除（§25.14）。
+        await session.execute(
+            delete(RecordVersion).where(
+                RecordVersion.record_type == RecordType.ORDER, RecordVersion.record_id.in_(ids)
+            )
+        )
         for order in orders:
             await session.delete(order)
         await session.flush()
@@ -426,12 +434,19 @@ async def _erase_orders(
         order.confirm_message_id = None
         order.tracking_token = order_service.new_token()
         order.tracking_expires_at = now
-    ids = [o.id for o in orders]
-    # 修改记录里的收货信息（掩码）也一并清除。
+    # 修改记录和修改历史里的收货信息（掩码）也一并清除，修改历史里的客户要求一起清空。
     await session.execute(
         text(
             "UPDATE order_revisions SET snapshot = jsonb_set(snapshot, '{receiver}', '{}'::jsonb)"
             " WHERE order_id = ANY(:ids)"
+        ),
+        {"ids": ids},
+    )
+    await session.execute(
+        text(
+            "UPDATE record_versions SET snapshot = jsonb_set("
+            "jsonb_set(snapshot, '{receiver}', '{}'::jsonb), '{customer_note}', '\"\"'::jsonb)"
+            " WHERE record_type = 'order' AND record_id = ANY(:ids)"
         ),
         {"ids": ids},
     )
@@ -524,6 +539,13 @@ async def erase_customer(
             ),
             {"ids": [str(s) for s in session_ids]},
         )
+    # 待办随客户一起删除，它们的修改历史也删除（§25.14）。
+    await session.execute(
+        delete(RecordVersion).where(
+            RecordVersion.record_type == RecordType.TODO,
+            RecordVersion.record_id.in_(select(Todo.id).where(Todo.customer_id == customer.id)),
+        )
+    )
     await session.delete(customer)
     request = PrivacyRequest(
         id=new_id(),

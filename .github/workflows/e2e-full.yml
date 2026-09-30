@@ -56,7 +56,7 @@ jobs:
           p2-wecom-acceptance g1-wecom-extras g2-commerce-ops g3-compliance g4-routing-collab
           g5-ai-knowledge g6-ops-observability p6-todos-acceptance p6-orders-acceptance
           p6-integration-acceptance p7-production-acceptance p8-inventory-acceptance
-          p9-warehouse-acceptance
+          p9-warehouse-acceptance p10-entry-history-acceptance
       - if: always()
         uses: actions/upload-artifact@v4
         with:

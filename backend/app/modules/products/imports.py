@@ -17,7 +17,9 @@ from typing import Any, Literal
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import Conflict, NotFound, Unprocessable
+from app.modules.history import service as history
 from app.modules.kb.parsers import ParseError
+from app.modules.products import history as product_history
 from app.modules.products import service, sheet, stock
 from app.modules.products.models import (
     ImportStatus,
@@ -258,6 +260,16 @@ async def apply(
             done.update(stock_before=_qty(before), stock_after=_qty(after))
         counts[result] += 1
         results.append(done)
+        # 修改历史（§25.14）：只改了库存的行内容不变，不记版本。
+        history.track(
+            session,
+            product_history.record_type(product),
+            product,
+            action="create" if result == "create" else "import",
+            actor_type="staff",
+            actor_id=staff_id,
+            note=f"导入 {record.file_name} 第 {row.row} 行",
+        )
     record.rows = results
     record.created, record.updated, record.skipped = (
         counts["create"],

@@ -22,7 +22,7 @@ from tests.support import DatabaseUrls
 DENIED = {403, 404}
 REJECTED = {403, 404, 422}
 # 路径参数里不是对象 ID 的值（检查列表是否泄露 ID 时跳过）。
-NOT_IDS = {"version", "userid", "order_version"}
+NOT_IDS = {"version", "userid", "order_version", "record_type"}
 
 # 每个带路径参数的租户接口：(方法, 路径模板, 请求体)。请求体必须合法，才能验证到权限而不是参数校验。
 MATRIX: list[tuple[str, str, dict[str, Any] | None]] = [
@@ -173,6 +173,7 @@ MATRIX: list[tuple[str, str, dict[str, Any] | None]] = [
     ("POST", "/api/v1/warehouse/documents/{document_id}/confirm", None),
     ("POST", "/api/v1/warehouse/documents/{document_id}/reject", {"reason": "越权退回"}),
     ("POST", "/api/v1/warehouse/documents/{document_id}/void", None),
+    ("GET", "/api/v1/history/{record_type}/{record_id}", None),
     ("GET", "/api/v1/products/imports/{import_id}", None),
     ("POST", "/api/v1/products/imports/{import_id}/confirm", None),
     ("POST", "/api/v1/products/imports/{import_id}/cancel", None),
@@ -457,6 +458,9 @@ async def orders(desk: Desk, chat: Any) -> dict[str, str]:
         "order_version": str(confirmed.json()["order"]["version"]),
         "material_id": material.json()["id"],
         "document_id": str(document_id),
+        # 修改历史：用订单的历史（订单是通过接口建的，有版本）。
+        "record_type": "order",
+        "record_id": order.json()["id"],
     }
 
 
@@ -591,6 +595,7 @@ async def snapshot(desk: Desk) -> list[Any]:
         "product_materials": "id, product_id, material_id, quantity",
         "stock_documents": "id, status, note",
         "stock_document_lines": "id, quantity",
+        "record_versions": "id, seq, action",
     }
     rows = []
     for table, columns in tables.items():
@@ -920,6 +925,8 @@ async def test_agents_only_reach_their_own_sessions_and_customers(
         "delivery_id": acme.ids["delivery_id"],
         "material_id": acme.ids["material_id"],
         "document_id": acme.ids["document_id"],
+        "record_type": "order",
+        "record_id": dave_order_id,
     }
     before = await snapshot(desk)
 
