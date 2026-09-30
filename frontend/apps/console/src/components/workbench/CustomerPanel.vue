@@ -11,6 +11,17 @@ const props = defineProps<{ customerId: string }>()
 
 const customer = ref<Schemas['CustomerDetail'] | null>(null)
 const history = ref<Schemas['SessionOut'][]>([])
+const leads = ref<Schemas['LeadDraftOut'][]>([])
+const summaries = ref<Schemas['CustomerSummaryOut'][]>([])
+const deciding = ref<string | null>(null)
+
+const LEAD_FIELDS: [keyof Schemas['LeadFields'], string][] = [
+  ['name', '称呼'],
+  ['company', '公司'],
+  ['phone', '手机号'],
+  ['email', '邮箱'],
+  ['requirement', '需求'],
+]
 const saving = ref(false)
 const newTag = ref('')
 const form = reactive({ displayName: '', notes: '' })
@@ -29,14 +40,17 @@ const CLOSE_REASON: Record<string, string> = {
 }
 
 async function load(): Promise<void> {
-  const [detail, sessions] = await Promise.all([
-    api.GET('/api/v1/customers/{customer_id}', {
-      params: { path: { customer_id: props.customerId } },
-    }),
+  const path = { params: { path: { customer_id: props.customerId } } }
+  const [detail, sessions, drafts, notes] = await Promise.all([
+    api.GET('/api/v1/customers/{customer_id}', path),
     api.GET('/api/v1/sessions', {
       params: { query: { customer_id: props.customerId, limit: 5 } },
     }),
+    api.GET('/api/v1/customers/{customer_id}/lead-drafts', path),
+    api.GET('/api/v1/customers/{customer_id}/summaries', path),
   ])
+  leads.value = drafts.data?.items ?? []
+  summaries.value = notes.data?.items ?? []
   if (!detail.data) {
     ElMessage.error(errorMessage(detail.error))
     return
@@ -80,6 +94,22 @@ async function addTag(): Promise<void> {
 async function removeTag(tag: string): Promise<void> {
   if (!customer.value) return
   await save({ tags: customer.value.tags.filter((t) => t !== tag) })
+}
+
+/** 确认（写入客户档案）或忽略 AI 登记的线索。 */
+async function decideLead(draft: Schemas['LeadDraftOut'], confirm: boolean): Promise<void> {
+  deciding.value = draft.id
+  const path = { params: { path: { draft_id: draft.id } } }
+  const { data, error } = confirm
+    ? await api.POST('/api/v1/customers/lead-drafts/{draft_id}/confirm', path)
+    : await api.POST('/api/v1/customers/lead-drafts/{draft_id}/discard', path)
+  deciding.value = null
+  if (!data) {
+    ElMessage.error(errorMessage(error))
+    return
+  }
+  ElMessage.success(confirm ? '已写入客户档案' : '已忽略')
+  await load()
 }
 
 /** 身份所在渠道的标题：渠道名称，渠道类型与名称不同时附上类型。 */
@@ -152,6 +182,39 @@ onMounted(load)
         </el-form>
       </section>
 
+      <section v-if="leads.some((l) => l.status === 'pending')" class="block" data-testid="lead-drafts">
+        <h3>AI 登记的线索 <span class="muted small">确认后写入客户档案</span></h3>
+        <div v-for="lead in leads.filter((l) => l.status === 'pending')" :key="lead.id" class="lead">
+          <dl>
+            <template v-for="[key, label] in LEAD_FIELDS" :key="key">
+              <template v-if="lead.fields[key]">
+                <dt>{{ label }}</dt>
+                <dd>{{ lead.fields[key] }}</dd>
+              </template>
+            </template>
+          </dl>
+          <div class="lead-actions">
+            <el-button
+              size="small"
+              :disabled="deciding === lead.id"
+              data-testid="lead-discard"
+              @click="decideLead(lead, false)"
+            >
+              忽略
+            </el-button>
+            <el-button
+              type="primary"
+              size="small"
+              :loading="deciding === lead.id"
+              data-testid="lead-confirm"
+              @click="decideLead(lead, true)"
+            >
+              确认写入
+            </el-button>
+          </div>
+        </div>
+      </section>
+
       <section class="block">
         <h3>联系方式</h3>
         <ContactFields :customer="customer" @saved="(c) => (customer = c)" />
@@ -185,6 +248,19 @@ onMounted(load)
         v-if="customer.identities.some((i) => i.channel_type.startsWith('wecom'))"
         :customer-id="customer.id"
       />
+
+      <section v-if="summaries.length" class="block" data-testid="customer-summaries">
+        <h3>会话小结</h3>
+        <div v-for="item in summaries" :key="item.session_id" class="summary">
+          <div class="muted small">
+            {{ item.confirmed_at ? formatDateTime(item.confirmed_at) : '' }}
+            <el-tag v-for="t in item.tags" :key="t" size="small" type="info" class="summary-tag">{{
+              t
+            }}</el-tag>
+          </div>
+          <p>{{ item.summary }}</p>
+        </div>
+      </section>
 
       <section class="block">
         <h3>最近会话</h3>
@@ -264,5 +340,34 @@ dd {
 
 .muted {
   color: var(--el-text-color-secondary);
+}
+
+.small {
+  font-size: 12px;
+  font-weight: normal;
+}
+
+.lead {
+  padding: 6px 8px;
+  margin-bottom: 6px;
+  border-radius: 4px;
+  background: var(--el-color-primary-light-9);
+}
+
+.lead-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.summary p {
+  margin: 2px 0 8px;
+  font-size: 12px;
+  white-space: pre-wrap;
+}
+
+.summary-tag {
+  margin-left: 4px;
 }
 </style>

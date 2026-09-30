@@ -34,6 +34,7 @@ const open = computed({
 const pending = computed(() => detail.value?.status === 'pending')
 const kind = computed(() => detail.value?.kind ?? 'new')
 const creates = computed(() => kind.value === 'new' || kind.value === 'gap')
+const isPhrase = computed(() => kind.value === 'phrase')
 const diff = computed(() =>
   kind.value === 'conflict' && detail.value?.target
     ? diffText(detail.value.target.content, form.answer)
@@ -78,8 +79,8 @@ async function run(request: () => Promise<{ data?: unknown; error?: unknown }>, 
 
 async function approve(): Promise<void> {
   if (!detail.value) return
-  if (creates.value && !form.answer.trim()) {
-    ElMessage.warning('请填写答案')
+  if ((creates.value || isPhrase.value) && !form.answer.trim()) {
+    ElMessage.warning(isPhrase.value ? '请填写话术内容' : '请填写答案')
     return
   }
   const id = detail.value.id
@@ -94,7 +95,7 @@ async function approve(): Promise<void> {
           visibility: creates.value ? (form.agentOnly ? 'agent' : 'public') : null,
         },
       }),
-    kind.value === 'similar' ? '已并入原问答' : '已发布',
+    kind.value === 'similar' ? '已并入原问答' : isPhrase.value ? '已加入共享话术' : '已发布',
   )
 }
 
@@ -159,8 +160,12 @@ async function reject(): Promise<void> {
         />
 
         <el-form label-position="top" :disabled="!pending || !canPublish">
-          <el-form-item label="问题">
-            <el-input v-model="form.question" maxlength="500" data-testid="candidate-question" />
+          <el-form-item :label="isPhrase ? '话术标题' : '问题'">
+            <el-input
+              v-model="form.question"
+              :maxlength="isPhrase ? 64 : 500"
+              data-testid="candidate-question"
+            />
           </el-form-item>
           <div v-if="detail.variants.length > 1" class="variants">
             <span class="muted">客户的其他问法：</span>
@@ -168,7 +173,15 @@ async function reject(): Promise<void> {
               v
             }}</el-tag>
           </div>
-          <el-form-item :label="kind === 'gap' ? '答案（客服当时没有解答，请补充）' : '答案'">
+          <el-form-item
+            :label="
+              kind === 'gap'
+                ? '答案（客服当时没有解答，请补充）'
+                : isPhrase
+                  ? '话术（通过后加入共享快捷话术，所有坐席可用）'
+                  : '答案'
+            "
+          >
             <el-input
               v-model="form.answer"
               type="textarea"
@@ -176,6 +189,9 @@ async function reject(): Promise<void> {
               maxlength="50000"
               data-testid="candidate-answer"
             />
+          </el-form-item>
+          <el-form-item v-if="isPhrase" label="话术分类">
+            <el-input v-model="form.category" maxlength="32" data-testid="candidate-category" />
           </el-form-item>
           <div v-if="creates" class="row">
             <el-form-item label="分类" class="grow">
@@ -200,7 +216,7 @@ async function reject(): Promise<void> {
           </div>
         </template>
 
-        <template v-if="pending && canPublish && detail.similar.length">
+        <template v-if="pending && canPublish && detail.similar.length && !isPhrase">
           <h4>相似的已有知识</h4>
           <div v-for="hit in detail.similar" :key="hit.item_id" class="similar">
             <div class="similar-head">

@@ -25,6 +25,8 @@ export const KB_SOURCE: Record<string, string> = {
   manual: '手工录入',
   import: '批量导入',
   extracted: '对话提炼',
+  document: '文档导入',
+  crawl: '网页抓取',
 }
 
 /** 软信号：命中的信号加权求和，达到阈值转人工（后端 decision.WEIGHTS）。 */

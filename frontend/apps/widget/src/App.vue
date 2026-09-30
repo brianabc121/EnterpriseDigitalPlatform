@@ -12,6 +12,7 @@ import {
   initVisitor,
   leaveMessage,
   rate,
+  rateAnswer,
   requestHuman,
   upload,
   type SessionState,
@@ -34,6 +35,8 @@ const STATE_TEXT: Record<ConnectionState, string> = {
  */
 const SYNC_AFTER_CONNECT_MS = 3000
 const SYNC_INTERVAL_MS = 10000
+/** 智能客服"正在输入"最多显示这么久（分段发送时每段之前都会再提示）。 */
+const TYPING_MS = 8000
 
 const query = new URLSearchParams(location.search)
 const channelKey = query.get('key')
@@ -56,7 +59,10 @@ const leaveForm = ref({ content: '', contact: '', sent: false })
 const csat = ref({ score: 0, comment: '', done: false })
 const visible = ref(!embedded)
 const unread = ref(0)
+const typing = ref(false)
+const votes = ref<Record<string, 1 | -1>>({})
 const timers: ReturnType<typeof setTimeout>[] = []
+let typingTimer: ReturnType<typeof setTimeout> | undefined
 
 const connected = computed(() => state.value === 'connected')
 const canSend = computed(() => connected.value && draft.value.trim().length > 0 && !sending.value)
@@ -141,8 +147,17 @@ im.onState((next) => {
   state.value = next
   if (recovered) void syncFromApi()
 })
+im.onSignal((signal) => {
+  // 平台在智能客服回答前发来"正在输入"（系统用户发到服务群的在线信令）。
+  if (signal.type !== 'typing' || !signal.sendID.endsWith('_sys')) return
+  typing.value = true
+  clearTimeout(typingTimer)
+  typingTimer = setTimeout(() => (typing.value = false), TYPING_MS)
+  void nextTick(() => list.value?.scrollTo({ top: list.value.scrollHeight }))
+})
 im.onMessage((message) => {
   if (message.groupID === session.value?.im.group_id) {
+    if (message.sendID.endsWith('_bot')) typing.value = false
     receive([fromIm(message, session.value.im.user_id)])
     // 系统提示和智能客服的消息往往伴随服务状态变化（开始接待、转人工），刷新一次横幅。
     if (message.sendID.endsWith('_sys') || message.sendID.endsWith('_bot')) void refreshState()
@@ -236,6 +251,21 @@ async function sendFile(event: Event): Promise<void> {
   }
 }
 
+async function vote(m: WidgetMessage, value: 1 | -1): Promise<void> {
+  if (!session.value || !m.serverMsgID || votes.value[m.serverMsgID] === value) return
+  const previous = votes.value[m.serverMsgID]
+  votes.value = { ...votes.value, [m.serverMsgID]: value }
+  try {
+    await rateAnswer(session.value.visitor_token, m.serverMsgID, value)
+  } catch (e) {
+    const next = { ...votes.value }
+    if (previous) next[m.serverMsgID] = previous
+    else delete next[m.serverMsgID]
+    votes.value = next
+    error.value = e instanceof Error ? e.message : '评价失败'
+  }
+}
+
 async function askHuman(): Promise<void> {
   if (!session.value) return
   try {
@@ -289,6 +319,7 @@ onMounted(() => {
 })
 onBeforeUnmount(() => {
   timers.forEach((t) => clearTimeout(t))
+  clearTimeout(typingTimer)
   void im.disconnect()
 })
 </script>
@@ -377,6 +408,30 @@ onBeforeUnmount(() => {
             <small>{{ formatSize(m.attachment.size) }}</small>
           </a>
           <span v-else class="bubble">{{ m.text ?? '[暂不支持显示的消息]' }}</span>
+          <span v-if="m.role === 'bot' && m.serverMsgID" class="votes" data-testid="answer-votes">
+            <button
+              type="button"
+              :class="{ on: votes[m.serverMsgID] === 1 }"
+              aria-label="有用"
+              data-testid="vote-up"
+              @click="vote(m, 1)"
+            >
+              👍
+            </button>
+            <button
+              type="button"
+              :class="{ on: votes[m.serverMsgID] === -1 }"
+              aria-label="没用"
+              data-testid="vote-down"
+              @click="vote(m, -1)"
+            >
+              👎
+            </button>
+          </span>
+        </li>
+        <li v-if="typing" class="message bot typing" data-testid="typing">
+          <span class="sender">{{ session?.widget.title ?? '智能客服' }}</span>
+          <span class="bubble"><i></i><i></i><i></i> 正在输入</span>
         </li>
       </ol>
 

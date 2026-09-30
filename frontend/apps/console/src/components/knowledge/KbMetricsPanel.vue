@@ -99,6 +99,18 @@ onMounted(load)
             <el-table-column prop="count" label="人数" width="70" align="right" />
           </el-table>
         </el-card>
+        <el-card shadow="never">
+          <template #header>访客觉得 AI 回答"没用"的知识</template>
+          <el-table
+            :data="data.visitor_disliked_items"
+            size="small"
+            empty-text="没有差评"
+            data-testid="visitor-disliked"
+          >
+            <el-table-column prop="title" label="知识" min-width="200" />
+            <el-table-column prop="count" label="次数" width="70" align="right" />
+          </el-table>
+        </el-card>
       </div>
     </template>
   </div>

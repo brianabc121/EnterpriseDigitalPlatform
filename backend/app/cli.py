@@ -21,11 +21,14 @@ from app.db.session import Database
 from app.events.bus import Event, EventType
 from app.integrations.storage import ensure_bucket
 from app.main import create_app
+from app.modules.ai.summaries import run_pending as run_session_summaries
 from app.modules.billing.service import generate_invoices, run_invoices, run_lifecycle
 from app.modules.conversation.reconcile import ReconcileReport, reconcile_all
 from app.modules.files.service import storage_config
 from app.modules.kb.extraction import ExtractionReport, run_extraction
+from app.modules.kb.importer import run_imports
 from app.modules.kb.metrics import generate_digest, week_of
+from app.modules.kb.reminders import remind_expiring
 from app.modules.kb.service import reindex_all
 from app.modules.lifecycle.closure import run_purges
 from app.modules.lifecycle.export import run_exports
@@ -126,6 +129,19 @@ async def kb_extract(settings: Settings, code: str | None) -> ExtractionReport:
     ctx = AppContext.create(settings)
     try:
         return await run_extraction(ctx, tenant_code=code)
+    finally:
+        await ctx.aclose()
+
+
+async def kb_jobs(settings: Settings) -> dict[str, int]:
+    """立即执行一轮知识导入、知识到期提醒和会话小结，返回各自处理的数量。"""
+    ctx = AppContext.create(settings)
+    try:
+        return {
+            "imports": await run_imports(ctx),
+            "expiry_reminders": await remind_expiring(ctx),
+            "session_summaries": await run_session_summaries(ctx),
+        }
     finally:
         await ctx.aclose()
 
@@ -303,6 +319,10 @@ def main(argv: list[str] | None = None) -> int:
     extract = commands.add_parser("kb-extract", help="立即从最近结束的会话提炼知识候选")
     extract.add_argument("--tenant", help="租户编码，不填时处理全部租户")
 
+    commands.add_parser(
+        "kb-jobs", help="立即执行知识导入、知识到期提醒和会话小结（平时由调度进程定时执行）"
+    )
+
     digest = commands.add_parser("kb-digest", help="生成知识周报（默认本周）")
     digest.add_argument("--tenant", help="租户编码，不填时处理全部租户")
     digest.add_argument("--week", type=date.fromisoformat, help="这一周中的任意一天 YYYY-MM-DD")
@@ -373,6 +393,9 @@ def main(argv: list[str] | None = None) -> int:
     elif args.command == "kb-extract":
         extracted = asyncio.run(kb_extract(get_settings(), args.tenant))
         print(json.dumps(dataclasses.asdict(extracted), ensure_ascii=False))
+    elif args.command == "kb-jobs":
+        done = asyncio.run(kb_jobs(get_settings()))
+        print(json.dumps(done, ensure_ascii=False))
     elif args.command == "kb-digest":
         digests = asyncio.run(kb_digest(get_settings(), args.tenant, args.week))
         print(json.dumps(digests, ensure_ascii=False))

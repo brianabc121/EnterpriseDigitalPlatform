@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { errorMessage, type Schemas } from '@edp/api-client'
 import { ElMessage } from 'element-plus'
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 
 import { api, formatDateTime } from '../api'
 import ExportDialog from '../components/customers/ExportDialog.vue'
@@ -153,7 +154,23 @@ async function create(): Promise<void> {
   await load()
 }
 
-onMounted(load)
+/** 从站内信打开 /customers?customer=<id>：直接打开客户资料（AI 登记的线索在里面确认）。 */
+const route = useRoute()
+const router = useRouter()
+async function openFromQuery(): Promise<void> {
+  const id = typeof route.query.customer === 'string' ? route.query.customer : ''
+  if (!id) return
+  const { data } = await api.GET('/api/v1/customers/{customer_id}', {
+    params: { path: { customer_id: id } },
+  })
+  if (data) openWith(data, 'profile')
+  await router.replace({ query: {} })
+}
+
+watch(() => route.query.customer, openFromQuery)
+onMounted(async () => {
+  await Promise.all([load(), openFromQuery()])
+})
 </script>
 
 <template>

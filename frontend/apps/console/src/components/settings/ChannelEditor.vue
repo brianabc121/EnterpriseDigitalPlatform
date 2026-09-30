@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { errorMessage, type Schemas } from '@edp/api-client'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { computed, reactive, ref, watch } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 
 import { api, widgetBase } from '../../api'
 
@@ -26,7 +26,19 @@ const form = reactive({
   privacy_notice: '',
   allowed_origins: [] as string[],
   kf_welcome: '',
+  handoff_threshold: null as number | null,
+  relevance_threshold: null as number | null,
+  max_turns: null as number | null,
+  kb_space_ids: [] as string[],
 })
+const spaces = ref<Schemas['KbSpaceOut'][]>([])
+
+async function loadSpaces(): Promise<void> {
+  const { data } = await api.GET('/api/v1/kb/spaces')
+  spaces.value = data?.items ?? []
+}
+
+onMounted(loadSpaces)
 const isWeb = computed(() => props.channel?.type === 'web')
 const isKf = computed(() => props.channel?.type === 'wecom_kf')
 const secret = ref<string | null>(null)
@@ -48,6 +60,10 @@ watch(
       privacy_notice: channel.widget.privacy_notice ?? '',
       allowed_origins: [...(channel.widget.allowed_origins ?? [])],
       kf_welcome: channel.kf?.welcome_message ?? '',
+      handoff_threshold: channel.ai?.handoff_threshold ?? null,
+      relevance_threshold: channel.ai?.relevance_threshold ?? null,
+      max_turns: channel.ai?.max_turns ?? null,
+      kb_space_ids: [...(channel.kb_space_ids ?? [])],
     })
     secret.value = channel.identity_secret
   },
@@ -93,6 +109,12 @@ async function save(): Promise<void> {
       name: form.name,
       status: form.status,
       routing_policy_id: form.routing_policy_id,
+      ai: {
+        handoff_threshold: form.handoff_threshold,
+        relevance_threshold: form.relevance_threshold,
+        max_turns: form.max_turns,
+      },
+      kb_space_ids: form.kb_space_ids,
       ...(isWeb.value
         ? {
             widget: {
@@ -159,6 +181,48 @@ async function rotate(): Promise<void> {
         <el-select v-model="form.routing_policy_id" clearable placeholder="租户默认策略">
           <el-option v-for="p in policies" :key="p.id" :label="p.name" :value="p.id" />
         </el-select>
+      </el-form-item>
+
+      <h4>AI 接待</h4>
+      <p class="hint">不填表示使用"AI 接待"设置里的值。不同渠道的客户群体不同，可以单独调整。</p>
+      <div class="ai-row">
+        <el-form-item label="转人工灵敏度">
+          <el-input-number
+            v-model="form.handoff_threshold"
+            :min="0.1"
+            :max="2"
+            :step="0.1"
+            :precision="1"
+            placeholder="默认"
+            data-testid="channel-handoff"
+          />
+        </el-form-item>
+        <el-form-item label="知识相关度阈值">
+          <el-input-number
+            v-model="form.relevance_threshold"
+            :min="0"
+            :max="1"
+            :step="0.05"
+            :precision="2"
+            placeholder="默认"
+            data-testid="channel-relevance"
+          />
+        </el-form-item>
+        <el-form-item label="最多接待轮数">
+          <el-input-number v-model="form.max_turns" :min="1" :max="50" placeholder="默认" />
+        </el-form-item>
+      </div>
+      <el-form-item label="知识范围">
+        <el-select
+          v-model="form.kb_space_ids"
+          multiple
+          clearable
+          placeholder="全部知识"
+          data-testid="channel-spaces"
+        >
+          <el-option v-for="s in spaces" :key="s.id" :label="s.name" :value="s.id" />
+        </el-select>
+        <p class="hint">只用这些知识空间的知识回答这个渠道的客户（例如售前渠道只用产品知识）</p>
       </el-form-item>
 
       <template v-if="isKf">
@@ -275,6 +339,12 @@ h4:first-child {
   font-size: 12px;
   white-space: pre-wrap;
   word-break: break-all;
+}
+
+.ai-row {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
 }
 
 .secret {

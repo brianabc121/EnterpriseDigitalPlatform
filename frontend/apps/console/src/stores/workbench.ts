@@ -29,6 +29,12 @@ export type AgentStatus = Schemas['AgentStatus']
 type Session = Schemas['SessionOut']
 /** 会话详情（带事件和正在旁听、协助的员工）。 */
 type SessionDetail = Schemas['SessionDetail']
+export interface CopilotAlert {
+  id: string
+  kind: string
+  text: string
+  createdAt: string
+}
 
 /** 心跳间隔；后端超过 90 秒没有心跳就把坐席置为离线。 */
 export const HEARTBEAT_MS = 30_000
@@ -69,6 +75,8 @@ export const useWorkbenchStore = defineStore('workbench', () => {
   const closed = ref<Session[]>([])
   const active = ref<Session | SessionDetail | null>(null)
   const replyWindow = ref<Schemas['ReplyWindowOut'] | null>(null)
+  /** 坐席助手的实时提醒（按会话），打开会话时从接口加载，之后由信令追加。 */
+  const alerts = ref<Record<string, CopilotAlert[]>>({})
   const messages = ref<Record<string, WorkbenchMessage[]>>({})
   const hasMore = ref<Record<string, boolean>>({})
   const unread = ref<Record<string, number>>({})
@@ -253,7 +261,41 @@ export const useWorkbenchStore = defineStore('workbench', () => {
     active.value = session
     replyWindow.value = null
     unread.value = { ...unread.value, [session.id]: 0 }
-    await Promise.all([loadHistory(session.room_id), refreshReplyWindow(), refreshActive()])
+    await Promise.all([
+      loadHistory(session.room_id),
+      refreshReplyWindow(),
+      refreshActive(),
+      loadAlerts(session.id),
+    ])
+  }
+
+  async function loadAlerts(sessionId: string): Promise<void> {
+    const { data } = await api.GET('/api/v1/sessions/{session_id}/alerts', {
+      params: { path: { session_id: sessionId } },
+    })
+    if (!data) return
+    const me = auth.me?.id
+    alerts.value = {
+      ...alerts.value,
+      [sessionId]: data.items
+        .filter((a) => !a.staff_id || a.staff_id === me)
+        .map((a) => ({ id: a.id, kind: a.kind, text: a.text, createdAt: a.created_at })),
+    }
+  }
+
+  function addAlert(signal: ImSignal): void {
+    const sessionId = String(signal.data.session_id ?? '')
+    if (!sessionId) return
+    const alert: CopilotAlert = {
+      id: `live-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      kind: String(signal.data.kind ?? ''),
+      text: String(signal.data.text ?? ''),
+      createdAt: new Date().toISOString(),
+    }
+    alerts.value = { ...alerts.value, [sessionId]: [...(alerts.value[sessionId] ?? []), alert] }
+    if (active.value?.id !== sessionId) {
+      ElNotification({ title: '坐席助手', message: alert.text, type: 'warning' })
+    }
   }
 
   /** 正在旁听、协助这个会话的员工（打开会话后从详情加载）。 */
@@ -484,7 +526,12 @@ export const useWorkbenchStore = defineStore('workbench', () => {
   }
 
   function onSignal(signal: ImSignal): void {
-    if (signal.sendID !== systemUserId) return
+    // "正在输入"是发给访客看的群信令（旁听者也会收到），与会话列表无关。
+    if (signal.sendID !== systemUserId || signal.type === 'typing') return
+    if (signal.type === 'copilot.alert') {
+      addAlert(signal)
+      return
+    }
     if (signal.type === 'session.assigned' && !signal.data.transfer_id) {
       ElNotification({ title: '新会话', message: '有新的客户分配给您', type: 'info' })
     }
@@ -521,6 +568,7 @@ export const useWorkbenchStore = defineStore('workbench', () => {
     active,
     replyWindow,
     refreshReplyWindow,
+    alerts,
     activeMessages,
     hasMore,
     unread,

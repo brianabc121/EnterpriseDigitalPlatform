@@ -114,6 +114,15 @@ export async function rate(
   if (error) throw new Error(errorMessage(error))
 }
 
+/** 评价智能客服的一条回答：1 有用，-1 没用（可以改评价）。 */
+export async function rateAnswer(token: string, serverMsgId: string, value: 1 | -1): Promise<void> {
+  const { error } = await api.POST('/api/v1/visitor/ai-feedback', {
+    params: auth(token),
+    body: { server_msg_id: serverMsgId, value },
+  })
+  if (error) throw new Error(errorMessage(error))
+}
+
 export async function leaveMessage(token: string, content: string, contact: string): Promise<void> {
   const { error } = await api.POST('/api/v1/visitor/tickets', {
     params: auth(token),

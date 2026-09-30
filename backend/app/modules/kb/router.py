@@ -13,11 +13,13 @@ from app.core.deps import client_ip, get_app_settings, get_context
 from app.core.errors import ERROR_RESPONSES
 from app.core.permissions import Permission
 from app.modules.iam.deps import TenantDb, require_permission
-from app.modules.iam.models import Staff
+from app.modules.iam.models import Staff, StaffStatus
 from app.modules.iam.principal import Principal
 from app.modules.kb import distribution, importer, metrics, review, search, service, spaces
 from app.modules.kb.models import KbDigest
 from app.modules.kb.schemas import (
+    KbAudienceOption,
+    KbAudienceOptions,
     KbCandidateApprove,
     KbCandidateDetail,
     KbCandidateMerge,
@@ -55,6 +57,7 @@ from app.modules.kb.schemas import (
     KbVersionList,
     KbVersionOut,
 )
+from app.modules.routing.models import SkillGroup
 from app.modules.wecom.notify import announce_must_read
 
 router = APIRouter(prefix="/api/v1/kb", tags=["knowledge"], responses=ERROR_RESPONSES)
@@ -106,6 +109,21 @@ async def list_items(
 
 
 # ---- 知识空间与分类（设计文档 §12.1） ----
+
+
+@router.get("/audience-options", response_model=KbAudienceOptions)
+async def audience_options(session: TenantDb, _: CanManage) -> KbAudienceOptions:
+    """编辑知识时可以选择的负责人（在职员工）和推送技能组。"""
+    staff = await session.execute(
+        select(Staff.id, Staff.display_name)
+        .where(Staff.status == StaffStatus.ACTIVE)
+        .order_by(Staff.display_name)
+    )
+    groups = await session.execute(select(SkillGroup.id, SkillGroup.name).order_by(SkillGroup.name))
+    return KbAudienceOptions(
+        staff=[KbAudienceOption(id=i, name=n) for i, n in staff],
+        groups=[KbAudienceOption(id=i, name=n) for i, n in groups],
+    )
 
 
 @router.get("/spaces", response_model=KbSpaceList)

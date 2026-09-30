@@ -19,6 +19,7 @@ import { computed, ref, type Component } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import PasswordDialog from '../components/account/PasswordDialog.vue'
+import NotificationBell from '../components/layout/NotificationBell.vue'
 import { visibleMenus, type MenuIcon } from '../menu'
 import { useAuthStore } from '../stores/auth'
 import { useWorkbenchStore } from '../stores/workbench'
@@ -82,7 +83,9 @@ async function logout(): Promise<void> {
     <el-container>
       <el-header class="header">
         <span class="tenant">{{ auth.me?.tenant.name }}</span>
-        <el-dropdown data-testid="user-menu" @command="onCommand">
+        <span class="right">
+          <NotificationBell />
+          <el-dropdown data-testid="user-menu" @command="onCommand">
           <span class="user">
             {{ auth.me?.display_name }}
             <el-icon><ArrowDown /></el-icon>
@@ -93,7 +96,8 @@ async function logout(): Promise<void> {
               <el-dropdown-item command="logout" divided>退出登录</el-dropdown-item>
             </el-dropdown-menu>
           </template>
-        </el-dropdown>
+          </el-dropdown>
+        </span>
       </el-header>
       <el-main>
         <el-alert
@@ -117,6 +121,11 @@ async function logout(): Promise<void> {
 <style scoped>
 .billing-notice {
   margin-bottom: 12px;
+}
+
+.right {
+  display: flex;
+  align-items: center;
 }
 
 .link {

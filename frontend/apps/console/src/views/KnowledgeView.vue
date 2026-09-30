@@ -2,6 +2,7 @@
 import { errorMessage, type Schemas } from '@edp/api-client'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { computed, onMounted, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 
 import { KB_KIND, KB_STATUS, KB_STATUS_TAG, KB_VISIBILITY } from '../ai'
 import { api, formatDateTime } from '../api'
@@ -10,14 +11,20 @@ import KbImportDialog from '../components/knowledge/KbImportDialog.vue'
 import KbItemEditor from '../components/knowledge/KbItemEditor.vue'
 import KbMetricsPanel from '../components/knowledge/KbMetricsPanel.vue'
 import KbSearchPanel from '../components/knowledge/KbSearchPanel.vue'
+import KbSpaceTree, { type Selection } from '../components/knowledge/KbSpaceTree.vue'
 import ReviewDesk from '../components/knowledge/ReviewDesk.vue'
+import { placementLabel, placementPath } from '../knowledge'
 import { useAuthStore } from '../stores/auth'
+import { useKbSpacesStore } from '../stores/kbSpaces'
 
 type Item = Schemas['KbItemOut']
 type Status = 'draft' | 'published' | 'archived'
 
 const PAGE_SIZE = 20
 const auth = useAuthStore()
+const spaces = useKbSpacesStore()
+const route = useRoute()
+const router = useRouter()
 const canManage = computed(() => auth.can('kb:manage'))
 const canPublish = computed(() => auth.can('kb:publish'))
 
@@ -36,6 +43,27 @@ const searchOpen = ref(false)
 const tab = ref('items')
 const pendingCandidates = ref(0)
 const stale = ref(false)
+const mine = ref(false)
+const node = ref('all')
+const selection = ref<Selection>({})
+/** 新建知识时默认放到左侧选中的空间或分类。 */
+const newPlacement = computed(() => {
+  const space = selection.value.space_id
+  if (space) return [space]
+  const category = selection.value.category_id
+  const owner = spaces.spaces.find((s) => s.categories.some((c) => c.id === category))
+  return owner ? placementPath(spaces.spaces, owner.id, category) : []
+})
+
+function select(key: string, value: Selection): void {
+  node.value = key
+  selection.value = value
+  reload()
+}
+
+function placement(item: Item): string {
+  return placementLabel(spaces.spaces, item.space_id, item.category_id) || item.category
+}
 
 async function load(): Promise<void> {
   loading.value = true
@@ -46,6 +74,8 @@ async function load(): Promise<void> {
         kind: kind.value || undefined,
         q: keyword.value.trim() || undefined,
         stale: stale.value || undefined,
+        mine: mine.value || undefined,
+        ...selection.value,
         limit: PAGE_SIZE,
         offset: (page.value - 1) * PAGE_SIZE,
       },
@@ -65,6 +95,11 @@ function reload(): void {
   void load()
 }
 
+function onSaved(): void {
+  void load()
+  void spaces.load()
+}
+
 function create(value: 'faq' | 'doc'): void {
   newKind.value = value
   editing.value = null
@@ -74,6 +109,15 @@ function create(value: 'faq' | 'doc'): void {
 function edit(item: Item): void {
   editing.value = item
   editorOpen.value = true
+}
+
+/** 从站内信等处打开 /knowledge?item=<id>：直接打开这条知识。 */
+async function openFromQuery(): Promise<void> {
+  const id = typeof route.query.item === 'string' ? route.query.item : ''
+  if (!id) return
+  const { data } = await api.GET('/api/v1/kb/items/{item_id}', { params: { path: { item_id: id } } })
+  if (data) edit(data)
+  await router.replace({ query: {} })
 }
 
 async function act(item: Item, action: 'publish' | 'archive'): Promise<void> {
@@ -108,9 +152,10 @@ async function remove(item: Item): Promise<void> {
   await load()
 }
 
-watch([status, kind, stale], reload)
+watch([status, kind, stale, mine], reload)
+watch(() => route.query.item, openFromQuery)
 onMounted(async () => {
-  await load()
+  await Promise.all([load(), spaces.load(), openFromQuery()])
   // 待审核候选数显示在"审核台"页签上。
   if (canManage.value) {
     const { data } = await api.GET('/api/v1/kb/candidates', { params: { query: { limit: 1 } } })
@@ -142,6 +187,14 @@ onMounted(async () => {
 
     <el-tabs v-model="tab" data-testid="kb-tabs">
       <el-tab-pane label="知识条目" name="items">
+        <div class="items-layout">
+        <KbSpaceTree
+          :can-manage="canManage"
+          :selected="node"
+          @select="select"
+          @changed="load"
+        />
+        <div class="items-main">
         <div class="filters">
           <el-radio-group
             v-if="canManage"
@@ -177,6 +230,9 @@ onMounted(async () => {
           <el-checkbox v-if="canManage" v-model="stale" data-testid="kb-stale-filter">
             长期未命中
           </el-checkbox>
+          <el-checkbox v-if="canManage" v-model="mine" data-testid="kb-mine-filter">
+            我负责的
+          </el-checkbox>
         </div>
 
         <el-table
@@ -198,7 +254,11 @@ onMounted(async () => {
               >
             </template>
           </el-table-column>
-          <el-table-column prop="category" label="分类" width="110" />
+          <el-table-column label="空间 / 分类" min-width="140">
+            <template #default="{ row }">
+              <span class="placement">{{ placement(row) }}</span>
+            </template>
+          </el-table-column>
           <el-table-column label="状态" width="90">
             <template #default="{ row }">
               <el-tag size="small" :type="KB_STATUS_TAG[row.status]">
@@ -264,6 +324,8 @@ onMounted(async () => {
             @current-change="load"
           />
         </div>
+        </div>
+        </div>
       </el-tab-pane>
       <el-tab-pane v-if="canManage" name="review" lazy>
         <template #label>
@@ -280,8 +342,14 @@ onMounted(async () => {
       </el-tab-pane>
     </el-tabs>
 
-    <KbItemEditor v-model="editorOpen" :item="editing" :kind="newKind" @saved="load" />
-    <KbImportDialog v-model="importOpen" @imported="reload" />
+    <KbItemEditor
+      v-model="editorOpen"
+      :item="editing"
+      :kind="newKind"
+      :placement="newPlacement"
+      @saved="onSaved"
+    />
+    <KbImportDialog v-model="importOpen" :placement="newPlacement" @imported="onSaved" />
     <el-drawer v-model="searchOpen" title="检索测试" size="480px">
       <p class="muted search-hint">
         按客户的问法检索已发布的知识，查看 AI 和坐席会引用哪些条目、相关度多少。
@@ -295,6 +363,22 @@ onMounted(async () => {
 .actions {
   display: flex;
   gap: 8px;
+}
+
+.items-layout {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.items-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.placement {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
 }
 
 .filters {

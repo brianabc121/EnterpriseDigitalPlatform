@@ -283,8 +283,24 @@ onMounted(load)
           <span class="sub gap">tokens，0 表示未知</span>
         </el-form-item>
         <el-form-item label="价格（分/千 tokens）">
-          输入 <el-input-number v-model="form.priceInput" :min="0" :precision="3" :step="0.1" size="small" />
-          输出 <el-input-number v-model="form.priceOutput" :min="0" :precision="3" :step="0.1" size="small" />
+          输入
+          <el-input-number
+            v-model="form.priceInput"
+            :min="0"
+            :precision="3"
+            :step="0.1"
+            size="small"
+            data-testid="provider-price-input"
+          />
+          输出
+          <el-input-number
+            v-model="form.priceOutput"
+            :min="0"
+            :precision="3"
+            :step="0.1"
+            size="small"
+            data-testid="provider-price-output"
+          />
         </el-form-item>
         <el-form-item label="设为默认"><el-switch v-model="form.isDefault" /></el-form-item>
         <el-form-item label="启用"><el-switch v-model="form.enabled" /></el-form-item>

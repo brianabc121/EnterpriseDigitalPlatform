@@ -281,3 +281,33 @@ async def test_ai_lead_drafts_are_confirmed_by_agents(
         )
     ]
     assert actions == ["customer.lead_confirm", "customer.lead_discard"]
+
+
+async def test_summary_job_is_not_blocked_by_tenants_without_ai(
+    desk: Desk,
+    app: FastAPI,
+    client: httpx.AsyncClient,
+    fake_im: FakeOpenIM,
+    settings: Settings,
+    database_urls: DatabaseUrls,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # 没有 AI 功能的租户先结束了会话；每批只处理一个时，也不能挡住其他租户。
+    other = await Desk(app, client, fake_im, settings, database_urls).open("globex")
+    bob = await other.agent("bob")
+    _, blocked = await _serving(other, bob, "发票怎么开")
+    await other.client.post(f"/api/v1/sessions/{blocked}/close", headers=bob.headers)
+    alice = await desk.agent("alice")
+    _, session_id = await _serving(desk, alice, "我买的耳机有杂音")
+    await desk.client.post(f"/api/v1/sessions/{session_id}/close", headers=alice.headers)
+
+    real = summaries.has_feature
+
+    async def feature(session: Any, tenant_id: uuid.UUID, key: str) -> bool:
+        return tenant_id != other.tenant_id and await real(session, tenant_id, key)
+
+    monkeypatch.setattr(summaries, "has_feature", feature)
+    monkeypatch.setattr(summaries, "BATCH", 1)
+    assert await summaries.run_pending(desk.ctx) == 1
+    assert (await _summary(desk, alice, session_id))["status"] == "draft"
+    assert await summaries.run_pending(desk.ctx) == 0

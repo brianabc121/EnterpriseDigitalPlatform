@@ -19,6 +19,10 @@ const form = reactive({
   sensitive_keywords: [] as string[],
   extraction_enabled: true,
   auto_merge_similar: false,
+  rewrite_enabled: true,
+  answer_cache: true,
+  tools_enabled: false,
+  segment_replies: true,
 })
 
 const quotaUsage = computed(() => {
@@ -40,6 +44,10 @@ function fill(data: Schemas['AiSettingsOut']): void {
     sensitive_keywords: [...data.sensitive_keywords],
     extraction_enabled: data.extraction_enabled,
     auto_merge_similar: data.auto_merge_similar,
+    rewrite_enabled: data.rewrite_enabled,
+    answer_cache: data.answer_cache,
+    tools_enabled: data.tools_enabled,
+    segment_replies: data.segment_replies,
   })
 }
 
@@ -160,11 +168,39 @@ onMounted(load)
         />
         <span class="help">已内置：投诉、退款、赔偿、律师、12315 等</span>
       </el-form-item>
+      <el-divider content-position="left">回答增强</el-divider>
+      <el-form-item label="改写问题">
+        <el-switch v-model="form.rewrite_enabled" data-testid="ai-rewrite" />
+        <span class="help">检索前结合上文补全"它""这个"等指代，一句话问了几件事时拆开分别检索</span>
+      </el-form-item>
+      <el-form-item label="答案缓存">
+        <el-switch v-model="form.answer_cache" data-testid="ai-cache" />
+        <span class="help">
+          意思相同的问题直接用之前的回答，更快也更省；知识、设置或提示词变化后自动失效
+        </span>
+      </el-form-item>
+      <el-form-item label="工具调用">
+        <el-switch
+          v-model="form.tools_enabled"
+          :disabled="!settings.tools_supported && !form.tools_enabled"
+          data-testid="ai-tools"
+        />
+        <span class="help">
+          允许 AI 再次检索知识、查看客户档案（不含联系方式）、登记客户留下的线索（坐席确认后写入档案）、
+          主动转人工、登记留言。
+          <template v-if="!settings.tools_supported">当前使用的模型不支持工具调用。</template>
+        </span>
+      </el-form-item>
+      <el-form-item label="分段发送">
+        <el-switch v-model="form.segment_replies" data-testid="ai-segments" />
+        <span class="help">网页渠道里较长的回答分成几条发送，发送前访客会看到"正在输入"</span>
+      </el-form-item>
       <el-divider content-position="left">知识沉淀</el-divider>
       <el-form-item label="自动提炼">
         <el-switch v-model="form.extraction_enabled" data-testid="ai-extraction" />
         <span class="help">
-          每小时从已结束的会话里提炼问答和没有解答的问题（先脱敏），在"知识库 → 审核台"审核
+          每小时从已结束的会话里提炼问答和没有解答的问题（先脱敏），客户评价满意的会话还会挑选坐席的
+          优秀回复作为话术候选，在"知识库 → 审核台"审核
         </span>
       </el-form-item>
       <el-form-item label="自动合并相似问法">

@@ -5,7 +5,10 @@ import { computed, reactive, ref, watch } from 'vue'
 
 import { KB_KIND, KB_SOURCE, KB_STATUS, KB_STATUS_TAG, KB_VISIBILITY } from '../../ai'
 import { api, formatDateTime } from '../../api'
+import { placementOf, placementOptions, placementPath } from '../../knowledge'
 import { useAuthStore } from '../../stores/auth'
+import { useKbSpacesStore } from '../../stores/kbSpaces'
+import KbItemStats from './KbItemStats.vue'
 import KbReadStats from './KbReadStats.vue'
 import KbVersionsDrawer from './KbVersionsDrawer.vue'
 
@@ -13,7 +16,13 @@ type Item = Schemas['KbItemOut']
 type Kind = 'faq' | 'doc'
 
 /** 知识条目的查看与编辑。item 为空时新建（kind 决定问答还是文档）。 */
-const props = defineProps<{ modelValue: boolean; item: Item | null; kind: Kind }>()
+const props = defineProps<{
+  modelValue: boolean
+  item: Item | null
+  kind: Kind
+  /** 新建时默认放到的空间或分类（知识库左侧当前选中的）。 */
+  placement?: string[]
+}>()
 const emit = defineEmits<{ 'update:modelValue': [value: boolean]; saved: [item: Item] }>()
 
 const auth = useAuthStore()
@@ -21,6 +30,9 @@ const canManage = computed(() => auth.can('kb:manage'))
 const canPublish = computed(() => auth.can('kb:publish'))
 const saving = ref(false)
 const history = ref<Item | null>(null)
+const spaces = useKbSpacesStore()
+const options = ref<Schemas['KbAudienceOptions']>({ staff: [], groups: [] })
+const placements = computed(() => placementOptions(spaces.spaces))
 
 const form = reactive({
   title: '',
@@ -31,6 +43,9 @@ const form = reactive({
   visibility: 'public' as Schemas['KbItemCreate']['visibility'],
   validity: null as [string, string] | null,
   mustRead: false,
+  placement: [] as string[],
+  ownerId: '' as string,
+  groups: [] as string[],
 })
 
 const open = computed({
@@ -57,9 +72,24 @@ watch(
     form.visibility = (item?.visibility ?? 'public') as typeof form.visibility
     form.validity = item?.valid_from && item.valid_to ? [item.valid_from, item.valid_to] : null
     form.mustRead = item?.must_read ?? false
+    form.placement = item
+      ? placementPath(spaces.spaces, item.space_id, item.category_id)
+      : [...(props.placement ?? [])]
+    form.ownerId = item?.owner_id ?? ''
+    form.groups = [...(item?.audience_group_ids ?? [])]
+    if (canManage.value) void loadOptions()
   },
   { immediate: true },
 )
+
+async function loadOptions(): Promise<void> {
+  await spaces.ensure()
+  if (!props.item) form.placement = [...(props.placement ?? [])]
+  else form.placement = placementPath(spaces.spaces, props.item.space_id, props.item.category_id)
+  if (options.value.staff.length) return
+  const { data } = await api.GET('/api/v1/kb/audience-options')
+  if (data) options.value = data
+}
 
 function body(): Schemas['KbItemUpdate'] {
   return {
@@ -72,6 +102,9 @@ function body(): Schemas['KbItemUpdate'] {
     valid_from: form.validity?.[0] ?? null,
     valid_to: form.validity?.[1] ?? null,
     must_read: form.mustRead,
+    ...placementOf(form.placement),
+    owner_id: form.ownerId || null,
+    audience_group_ids: form.groups,
   }
 }
 
@@ -154,8 +187,8 @@ async function save(publish: boolean): Promise<void> {
         />
       </el-form-item>
       <div class="row">
-        <el-form-item label="分类" class="grow">
-          <el-input v-model="form.category" maxlength="64" placeholder="例如：物流、售后" />
+        <el-form-item label="分类标签" class="grow">
+          <el-input v-model="form.category" maxlength="64" placeholder="可不填，建议用下方的知识空间 / 分类" />
         </el-form-item>
         <el-form-item label="可见范围" class="grow">
           <el-select v-model="form.visibility" data-testid="kb-visibility">
@@ -168,9 +201,38 @@ async function save(publish: boolean): Promise<void> {
           </el-select>
         </el-form-item>
       </div>
+      <el-form-item label="知识空间 / 分类">
+        <el-cascader
+          v-model="form.placement"
+          :options="placements"
+          :props="{ checkStrictly: true }"
+          clearable
+          placeholder="不归入空间"
+          class="wide"
+          data-testid="kb-placement"
+        />
+      </el-form-item>
       <el-form-item label="标签">
         <el-input-tag v-model="form.tags" :max="20" placeholder="回车添加" />
       </el-form-item>
+      <div class="row">
+        <el-form-item label="负责人（到期前提醒）" class="grow">
+          <el-select v-model="form.ownerId" clearable filterable placeholder="不设负责人" data-testid="kb-owner">
+            <el-option v-for="s in options.staff" :key="s.id" :label="s.name" :value="s.id" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="推送给（知识动态与必读）" class="grow">
+          <el-select
+            v-model="form.groups"
+            multiple
+            clearable
+            placeholder="全员"
+            data-testid="kb-audience"
+          >
+            <el-option v-for="g in options.groups" :key="g.id" :label="g.name" :value="g.id" />
+          </el-select>
+        </el-form-item>
+      </div>
       <el-form-item label="有效期（不填为长期有效，到期自动下线）">
         <el-date-picker
           v-model="form.validity"
@@ -208,6 +270,10 @@ async function save(publish: boolean): Promise<void> {
         formatDateTime(item.updated_at)
       }}</el-descriptions-item>
     </el-descriptions>
+    <template v-if="item && canManage">
+      <h4 class="section">使用与满意度</h4>
+      <KbItemStats :key="item.id" :item-id="item.id" />
+    </template>
     <el-button
       v-if="item && canManage"
       link
@@ -254,6 +320,10 @@ async function save(publish: boolean): Promise<void> {
 
 .grow {
   flex: 1;
+}
+
+.wide {
+  width: 100%;
 }
 
 .meta {

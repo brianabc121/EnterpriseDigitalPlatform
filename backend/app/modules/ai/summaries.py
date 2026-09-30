@@ -9,6 +9,7 @@ import json
 import logging
 import uuid
 from datetime import UTC, datetime, timedelta
+from typing import Any
 from zoneinfo import ZoneInfo
 
 from sqlalchemy import select
@@ -159,42 +160,63 @@ async def confirm(
     return summary
 
 
+def _pending(now: datetime) -> Any:
+    """最近一天结束、有坐席接待、还没有小结的会话。"""
+    return (
+        select(ChatSession.id)
+        .outerjoin(SessionSummary, SessionSummary.session_id == ChatSession.id)
+        .where(
+            ChatSession.status == SessionStatus.CLOSED,
+            ChatSession.closed_at >= now - WINDOW,
+            ChatSession.assigned_at.is_not(None),
+            SessionSummary.session_id.is_(None),
+        )
+    )
+
+
 async def run_pending(ctx: AppContext, *, now: datetime | None = None) -> int:
-    """调度任务：为最近结束、有坐席接待、还没有小结的会话生成草稿。返回生成的数量。"""
+    """调度任务：为最近结束、有坐席接待、还没有小结的会话生成草稿。返回生成的数量。
+
+    先找出有待处理会话的租户，只处理有 AI 功能、配置了大模型的租户，避免其他租户的会话占满每一批。
+    """
     now = now or datetime.now(UTC)
     async with ctx.db.platform_sessionmaker() as session:
-        rows = (
-            await session.execute(
-                select(ChatSession.tenant_id, ChatSession.id)
-                .outerjoin(SessionSummary, SessionSummary.session_id == ChatSession.id)
-                .where(
-                    ChatSession.status == SessionStatus.CLOSED,
-                    ChatSession.closed_at >= now - WINDOW,
-                    ChatSession.assigned_at.is_not(None),
-                    SessionSummary.session_id.is_(None),
+        tenant_ids = list(
+            (
+                await session.scalars(
+                    select(ChatSession.tenant_id)
+                    .where(ChatSession.id.in_(_pending(now)))
+                    .distinct()
                 )
-                .order_by(ChatSession.closed_at)
-                .limit(BATCH)
-            )
-        ).all()
+            ).all()
+        )
     generated = 0
-    ready: dict[uuid.UUID, bool] = {}
-    for tenant_id, session_id in rows:
-        if tenant_id not in ready:
-            async with ctx.db.tenant_session(tenant_id) as session:
-                ready[tenant_id] = await has_feature(
-                    session, tenant_id, "ai"
-                ) and await ctx.llms.chat_enabled(tenant_id, "session_summary")
-        if not ready[tenant_id]:
-            continue
-        try:
-            await generate(ctx, tenant_id, session_id)
-            generated += 1
-        except Conflict:
-            # 没有客户消息：记一条已丢弃的小结，不再重复处理。
-            await _skip(ctx, tenant_id, session_id)
-        except (ServiceUnavailable, NotFound) as exc:
-            logger.warning("session summary for %s failed: %s", session_id, exc)
+    budget = BATCH
+    for tenant_id in tenant_ids:
+        if budget <= 0:
+            break
+        async with ctx.db.tenant_session(tenant_id) as session:
+            if not await has_feature(session, tenant_id, "ai"):
+                continue
+            if not await ctx.llms.chat_enabled(tenant_id, "session_summary"):
+                continue
+            session_ids = list(
+                (
+                    await session.scalars(
+                        _pending(now).order_by(ChatSession.closed_at).limit(budget)
+                    )
+                ).all()
+            )
+        budget -= len(session_ids)
+        for session_id in session_ids:
+            try:
+                await generate(ctx, tenant_id, session_id)
+                generated += 1
+            except Conflict:
+                # 没有客户消息：记一条已丢弃的小结，不再重复处理。
+                await _skip(ctx, tenant_id, session_id)
+            except (ServiceUnavailable, NotFound) as exc:
+                logger.warning("session summary for %s failed: %s", session_id, exc)
     return generated
 
 

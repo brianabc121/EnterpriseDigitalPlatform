@@ -292,3 +292,15 @@ async def test_knowledge_is_pushed_to_selected_skill_groups(desk: Desk) -> None:
     assert stats.status_code == 200, stats.text
     assert stats.json()["total"] == 1
     assert [r["display_name"] for r in stats.json()["readers"]] == ["Alice"]
+
+
+async def test_audience_options_for_knowledge_managers(desk: Desk) -> None:
+    alice = await desk.agent("alice", online=False)
+    await _post(desk, "/api/v1/skill-groups", {"name": "售后组"})
+    response = await desk.client.get("/api/v1/kb/audience-options", headers=desk.admin)
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert {s["name"] for s in body["staff"]} == {"管理员", "Alice"}
+    assert [g["name"] for g in body["groups"]] == ["售后组"]
+    denied = await desk.client.get("/api/v1/kb/audience-options", headers=alice.headers)
+    assert denied.status_code == 403

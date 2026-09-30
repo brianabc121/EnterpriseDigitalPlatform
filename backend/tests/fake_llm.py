@@ -15,7 +15,8 @@
 - /v1/audio/transcriptions：语音转文字。音频内容里带 "text=..." 时返回这段文字（测试和验收
   发的"语音"里写好要转写的内容），否则返回固定的文字。
 - 可以切换模式模拟故障：down（503）、bad_json（不是 JSON）、promise（回复里带承诺类话术）、
-  handoff（模型要求转人工）。独立运行时用 POST /_control {"mode": "down"} 切换。
+  handoff（模型要求转人工）。独立运行时用 POST /_control {"mode": "down"} 切换；
+  {"tool_plan": [["save_lead_info", {...}]]} 安排接下来的工具调用。
 
 独立运行：uv run python -m tests.fake_llm --port 8900
 """
@@ -335,7 +336,10 @@ class FakeLLM:
             return self.rerank(body)
         if method == "POST" and path.endswith("/_control"):
             self.mode = str(body.get("mode") or "normal")
-            return 200, {"mode": self.mode}
+            # 验收脚本安排接下来的工具调用：[["save_lead_info", {...}], ...]
+            if isinstance(body.get("tool_plan"), list):
+                self.tool_plan = [(str(n), dict(a)) for n, a in body["tool_plan"]]
+            return 200, {"mode": self.mode, "tool_plan": len(self.tool_plan)}
         return 404, {"error": {"message": "not found"}}
 
     def transport(self) -> httpx.MockTransport:

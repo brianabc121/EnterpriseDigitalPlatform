@@ -10,7 +10,7 @@ import CandidateDrawer from './CandidateDrawer.vue'
 /** 审核台（设计 §12.5）：从会话提炼的候选按影响排序；缺口单独筛选即为"知识缺口榜"。 */
 const emit = defineEmits<{ reviewed: []; pending: [count: number] }>()
 
-type Kind = '' | 'new' | 'similar' | 'conflict' | 'gap'
+type Kind = '' | 'new' | 'similar' | 'conflict' | 'gap' | 'phrase'
 type Status = 'pending' | 'approved' | 'merged' | 'rejected'
 
 const PAGE_SIZE = 20

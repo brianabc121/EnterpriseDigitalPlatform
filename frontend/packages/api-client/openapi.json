@@ -4583,6 +4583,50 @@
         "title": "JssdkConfig",
         "type": "object"
       },
+      "KbAudienceOption": {
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "KbAudienceOption",
+        "type": "object"
+      },
+      "KbAudienceOptions": {
+        "description": "编辑知识时可选的负责人（在职员工）和推送技能组。",
+        "properties": {
+          "groups": {
+            "items": {
+              "$ref": "#/components/schemas/KbAudienceOption"
+            },
+            "title": "Groups",
+            "type": "array"
+          },
+          "staff": {
+            "items": {
+              "$ref": "#/components/schemas/KbAudienceOption"
+            },
+            "title": "Staff",
+            "type": "array"
+          }
+        },
+        "required": [
+          "staff",
+          "groups"
+        ],
+        "title": "KbAudienceOptions",
+        "type": "object"
+      },
       "KbCandidateApprove": {
         "description": "通过（可以先编辑）。新问题、缺口新建为问答；相似问法并入原问答；冲突用答案更新原问答。",
         "properties": {
@@ -23000,6 +23044,93 @@
         "summary": "Customer Wecom",
         "tags": [
           "wecom"
+        ]
+      }
+    },
+    "/api/v1/kb/audience-options": {
+      "get": {
+        "description": "编辑知识时可以选择的负责人（在职员工）和推送技能组。",
+        "operationId": "audience_options_api_v1_kb_audience_options_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KbAudienceOptions"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Audience Options",
+        "tags": [
+          "knowledge"
         ]
       }
     },

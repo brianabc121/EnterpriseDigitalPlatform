@@ -41,6 +41,16 @@ export const router = createRouter({
           component: () => import('./views/ProvidersView.vue'),
         },
         {
+          path: 'prompts',
+          name: 'prompts',
+          component: () => import('./views/PromptsView.vue'),
+        },
+        {
+          path: 'llm-usage',
+          name: 'llm-usage',
+          component: () => import('./views/LlmUsageView.vue'),
+        },
+        {
           path: 'content',
           name: 'content',
           component: () => import('./views/ContentPolicyView.vue'),

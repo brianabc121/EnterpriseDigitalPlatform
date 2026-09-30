@@ -2,13 +2,14 @@
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { computed, nextTick, ref, watch } from 'vue'
 
-import { HANDOFF_REASON, WATCHER_ROLE } from '../../labels'
+import { ALERT_KIND, HANDOFF_REASON, WATCHER_ROLE } from '../../labels'
 import { useWorkbenchStore } from '../../stores/workbench'
 import type { ReplyOrigin, WorkbenchMessage } from '../../workbench/messages'
 import MessageContent from '../chat/MessageContent.vue'
 import { IMAGE_TYPES, MAX_FILE_BYTES, MAX_IMAGE_BYTES } from '../../workbench/upload'
 import AssistDialog from './AssistDialog.vue'
 import QuickReplies from './QuickReplies.vue'
+import SessionSummaryCard from './SessionSummaryCard.vue'
 import TransferDialog from './TransferDialog.vue'
 
 const wb = useWorkbenchStore()
@@ -104,6 +105,21 @@ async function cancelTransfer(): Promise<void> {
     ElMessage.error(e instanceof Error ? e.message : String(e))
   }
 }
+// 坐席助手的实时提醒：只显示最近几条、没有点过"知道了"的。
+const dismissed = ref(new Set<string>())
+const sessionAlerts = computed(() =>
+  session.value && session.value.status !== 'closed'
+    ? (wb.alerts[session.value.id] ?? []).filter((a) => !dismissed.value.has(a.id)).slice(-3)
+    : [],
+)
+function dismissAlert(id: string): void {
+  dismissed.value = new Set([...dismissed.value, id])
+}
+// 人工接待过的会话结束后显示小结（接待坐席、主管可以确认写入客户档案）。
+const showSummary = computed(
+  () => !!session.value && session.value.status === 'closed' && !!session.value.assigned_at,
+)
+
 // AI 接待转人工（或 AI 优先却不能接待）时，给坐席看原因和交接摘要。
 const handoffReason = computed(() => {
   const reason = session.value?.handoff_reason
@@ -391,6 +407,21 @@ function insert(text: string, origin: ReplyOrigin = 'quick_reply'): void {
         >
         <p v-if="session.ai_summary">{{ session.ai_summary }}</p>
       </div>
+      <div v-if="sessionAlerts.length" class="alerts" data-testid="copilot-alerts">
+        <div
+          v-for="a in sessionAlerts"
+          :key="a.id"
+          class="alert"
+          :class="a.kind"
+          data-testid="copilot-alert"
+        >
+          <el-tag size="small" :type="a.kind === 'promise' ? 'warning' : 'danger'" effect="plain">
+            {{ ALERT_KIND[a.kind] ?? '提醒' }}
+          </el-tag>
+          <span class="alert-text">{{ a.text }}</span>
+          <el-button link size="small" @click="dismissAlert(a.id)">知道了</el-button>
+        </div>
+      </div>
 
       <div ref="scroller" class="messages" data-testid="chat-messages">
         <div v-if="wb.hasMore[session.room_id]" class="more">
@@ -430,6 +461,7 @@ function insert(text: string, origin: ReplyOrigin = 'quick_reply'): void {
         </div>
       </div>
 
+      <SessionSummaryCard v-if="showSummary" :session-id="session.id" :can-write="canTransfer" />
       <footer v-if="replyable" class="composer">
         <div class="tools">
           <QuickReplies @pick="(text: string) => insert(text, 'quick_reply')" />
@@ -534,6 +566,27 @@ function insert(text: string, origin: ReplyOrigin = 'quick_reply'): void {
 
 .tag {
   margin-left: 8px;
+}
+
+.alerts {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px 16px;
+  border-bottom: 1px solid var(--el-border-color-lighter);
+  background: var(--el-color-warning-light-9);
+}
+
+.alert {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.alert-text {
+  flex: 1;
+  min-width: 0;
 }
 
 .reply-window {

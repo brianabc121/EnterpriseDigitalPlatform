@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest'
 
-import { diffText, formatHours } from './knowledge'
+import {
+  categoryTree,
+  diffText,
+  formatHours,
+  placementLabel,
+  placementOf,
+  placementOptions,
+  placementPath,
+} from './knowledge'
 
 describe('diffText', () => {
   it('marks what changed between two answers', () => {
@@ -46,5 +54,41 @@ describe('formatHours', () => {
     [60, '约 3 天'],
   ])('%s -> %s', (hours, text) => {
     expect(formatHours(hours)).toBe(text)
+  })
+})
+
+describe('knowledge spaces', () => {
+  const spaces = [
+    {
+      id: 's1',
+      name: '售后',
+      categories: [
+        { id: 'c2', parent_id: 'c1', name: '快递', sort: 1 },
+        { id: 'c1', parent_id: null, name: '物流', sort: 2 },
+        { id: 'c3', parent_id: null, name: '退换货', sort: 1 },
+        { id: 'c4', parent_id: 'c2', name: '顺丰', sort: 1 },
+      ],
+    },
+    { id: 's2', name: '售前', categories: [] },
+  ]
+
+  it('builds the category tree in order', () => {
+    const tree = categoryTree(spaces[0]!.categories)
+    expect(tree.map((n) => n.name)).toEqual(['退换货', '物流'])
+    expect(tree[1]!.children[0]!.name).toBe('快递')
+    expect(tree[1]!.children[0]!.children[0]).toMatchObject({ name: '顺丰', depth: 3 })
+  })
+
+  it('converts between placements and cascader paths', () => {
+    expect(placementPath(spaces, 's1', 'c4')).toEqual(['s1', 'c1', 'c2', 'c4'])
+    expect(placementPath(spaces, 's2', null)).toEqual(['s2'])
+    expect(placementPath(spaces, null, null)).toEqual([])
+    expect(placementOf(['s1', 'c1', 'c2'])).toEqual({ space_id: 's1', category_id: 'c2' })
+    expect(placementOf(['s2'])).toEqual({ space_id: 's2', category_id: null })
+    expect(placementOf([])).toEqual({ space_id: null, category_id: null })
+    expect(placementLabel(spaces, 's1', 'c2')).toBe('售后 / 物流 / 快递')
+    const options = placementOptions(spaces)
+    expect(options[0]!.children!.map((o) => o.label)).toEqual(['退换货', '物流'])
+    expect(options[1]!.children).toBeUndefined()
   })
 })

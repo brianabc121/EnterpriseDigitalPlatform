@@ -13,6 +13,8 @@ const MENU = [
   { name: 'invoices', label: '账单' },
   { name: 'channels', label: '渠道授权' },
   { name: 'providers', label: '模型供应商' },
+  { name: 'prompts', label: '提示词' },
+  { name: 'llm-usage', label: '大模型用量' },
   { name: 'content', label: '内容安全' },
   { name: 'health', label: '系统健康' },
   { name: 'audit', label: '审计日志' },

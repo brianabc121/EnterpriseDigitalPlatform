@@ -448,3 +448,15 @@ class KbItemStats(BaseModel):
     csat_count: int = Field(description="其中有满意度评价的会话数")
     csat_avg: float | None = Field(description="这些会话的平均满意度（1–5）")
     zombie: bool = Field(description="发布超过 90 天、90 天内没有被引用（长期未命中）")
+
+
+class KbAudienceOption(BaseModel):
+    id: UUID
+    name: str
+
+
+class KbAudienceOptions(BaseModel):
+    """编辑知识时可选的负责人（在职员工）和推送技能组。"""
+
+    staff: list[KbAudienceOption]
+    groups: list[KbAudienceOption]

@@ -49,6 +49,14 @@ export const SESSION_EVENT: Record<string, string> = {
   watcher_left: '退出旁听/协助',
 }
 
+/** 坐席助手实时提醒的种类（后端 ai/copilot.py）。 */
+export const ALERT_KIND: Record<string, string> = {
+  negative: '客户情绪',
+  escalation: '情绪升级',
+  sensitive_info: '敏感信息',
+  promise: '承诺用语',
+}
+
 /** 转人工原因（AI 接待转人工、访客点"转人工"，或 AI 优先却不能接待时）。 */
 export const HANDOFF_REASON: Record<string, string> = {
   visitor_request: '访客点击转人工',
