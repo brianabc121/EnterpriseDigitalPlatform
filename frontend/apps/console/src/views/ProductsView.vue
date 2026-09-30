@@ -8,6 +8,7 @@ import ProductDialog from '../components/orders/ProductDialog.vue'
 import ProductImportDialog from '../components/orders/ProductImportDialog.vue'
 import StockDialog from '../components/orders/StockDialog.vue'
 import StockHistory from '../components/orders/StockHistory.vue'
+import HistoryDrawer from '../components/history/HistoryDrawer.vue'
 import BomDialog from '../components/warehouse/BomDialog.vue'
 import { downloadBlob } from '../download'
 import { STOCK_FILTERS, stockDetail, type StockFilter } from '../inventory'
@@ -45,6 +46,8 @@ const lowStock = ref(0)
 const stocking = reactive({ open: false, product: null as Product | null })
 const history = reactive({ open: false, product: null as Product | null })
 const bom = reactive({ open: false, product: null as Product | null })
+// 修改历史（§25.14）。
+const versions = reactive({ open: false, id: null as string | null, title: '' })
 const editing = reactive({ open: false, product: null as Product | null, name: '' })
 const importing = reactive({ open: false, id: null as string | null })
 const imports = ref<Schemas['ProductImportSummary'][]>([])
@@ -285,7 +288,7 @@ onMounted(refresh)
           <el-table-column label="更新" width="150">
             <template #default="{ row }">{{ formatDateTime(row.updated_at) }}</template>
           </el-table-column>
-          <el-table-column label="" :width="manage ? 230 : 150" fixed="right">
+          <el-table-column label="" :width="manage ? 270 : 190" fixed="right">
             <template #default="{ row }">
               <el-button v-if="stockManage" link type="primary" size="small" data-testid="product-adjust-stock" @click="openStock(row)"
                 >库存</el-button
@@ -301,6 +304,13 @@ onMounted(refresh)
               >
               <el-button v-if="manage" link type="primary" size="small" @click="edit(row)">修改</el-button>
               <el-button v-if="manage" link type="danger" size="small" @click="remove(row)">删除</el-button>
+              <el-button
+                link
+                size="small"
+                data-testid="product-versions"
+                @click="Object.assign(versions, { open: true, id: row.id, title: `成品 ${row.name}` })"
+                >历史</el-button
+              >
             </template>
           </el-table-column>
         </el-table>
@@ -372,6 +382,7 @@ onMounted(refresh)
     <StockDialog v-model="stocking.open" :product="stocking.product" @saved="load" />
     <StockHistory v-model="history.open" :product="history.product" />
     <BomDialog v-model="bom.open" :product="bom.product" :editable="manage" @saved="onBomSaved" />
+    <HistoryDrawer v-model="versions.open" record-type="goods" :record-id="versions.id" :title="versions.title" />
     <ProductImportDialog
       v-model="importing.open"
       :import-id="importing.id"

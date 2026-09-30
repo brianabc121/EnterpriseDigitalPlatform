@@ -5,6 +5,7 @@ import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import { api, formatDateTime } from '../api'
+import HistoryDrawer from '../components/history/HistoryDrawer.vue'
 import ProductDialog from '../components/orders/ProductDialog.vue'
 import ProductImportDialog from '../components/orders/ProductImportDialog.vue'
 import StockDialog from '../components/orders/StockDialog.vue'
@@ -72,6 +73,8 @@ const moveFilters = reactive({ kind: '' as ItemKind | '', q: '' })
 
 const stocking = reactive({ open: false, item: null as StockItem | null })
 const history = reactive({ open: false, item: null as StockItem | null })
+// 修改历史（§25.14）。
+const versions = reactive({ open: false, id: null as string | null, kind: 'material' as 'material' | 'goods', title: '' })
 const bom = reactive({ open: false, item: null as StockItem | null })
 const editing = reactive({ open: false, product: null as Product | null })
 const importing = ref(false)
@@ -431,7 +434,7 @@ onMounted(async () => {
             >
           </template>
         </el-table-column>
-        <el-table-column label="" :width="tab === 'material' && canMaterial ? 200 : 110" fixed="right">
+        <el-table-column label="" :width="tab === 'material' && canMaterial ? 240 : 150" fixed="right">
           <template #default="{ row }">
             <el-button link type="primary" size="small" data-testid="warehouse-adjust" @click="Object.assign(stocking, { open: true, item: row })"
               >库存</el-button
@@ -445,6 +448,20 @@ onMounted(async () => {
               >
               <el-button link type="danger" size="small" @click="removeMaterial(row)">删除</el-button>
             </template>
+            <el-button
+              link
+              size="small"
+              data-testid="warehouse-versions"
+              @click="
+                Object.assign(versions, {
+                  open: true,
+                  id: row.id,
+                  kind: row.kind,
+                  title: `${row.kind === 'material' ? '材料' : '成品'} ${row.name}`,
+                })
+              "
+              >历史</el-button
+            >
           </template>
         </el-table-column>
       </el-table>
@@ -618,6 +635,7 @@ onMounted(async () => {
 
     <StockDialog v-model="stocking.open" :product="stocking.item" @saved="refresh" />
     <StockHistory v-model="history.open" :product="history.item" />
+    <HistoryDrawer v-model="versions.open" :record-type="versions.kind" :record-id="versions.id" :title="versions.title" />
     <BomDialog v-model="bom.open" :product="bom.item" :editable="canBom" @saved="onBomSaved" />
     <ProductDialog v-model="editing.open" :product="editing.product" kind="material" @saved="refresh" />
     <ProductImportDialog v-model="importing" default-kind="material" @imported="refresh" />

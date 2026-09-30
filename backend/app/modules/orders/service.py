@@ -19,10 +19,14 @@ from app.db.counters import next_number
 from app.modules.customer.models import Customer
 from app.modules.customer.sensitive import mask_phone
 from app.modules.customer.service import visible_to as customer_visible_to
+from app.modules.history import service as history
+from app.modules.history.models import RecordType
 from app.modules.iam.principal import Principal
 from app.modules.integration import outbox as webhook_outbox
+from app.modules.orders import history as order_history
 from app.modules.orders.models import (
     PAYMENT_METHOD_LABELS,
+    REASON_LABELS,
     Order,
     OrderEvent,
     OrderItem,
@@ -521,6 +525,16 @@ def add_revision(
         snapshot=after,
     )
     session.add(revision)
+    history.track(
+        session,
+        RecordType.ORDER,
+        order,
+        action=order_history.REVISION_ACTIONS.get(kind, "update"),
+        actor_type=actor_type,
+        actor_id=actor_id,
+        reason=REASON_LABELS.get(reason) if reason else None,
+        note=note,
+    )
     return revision
 
 
@@ -546,6 +560,17 @@ def event(
     session.add(item)
     # 同一个事务里写入推送事件（企业系统对接，§25.8）。
     webhook_outbox.order_event(session, order, type_, actor_type=actor_type, payload=payload)
+    # 修改历史（§25.14）：改变订单的动态登记一个版本（通知客户等不改变订单的动态不登记）。
+    action = order_history.EVENT_ACTIONS.get(type_)
+    if action is not None:
+        history.track(
+            session,
+            RecordType.ORDER,
+            order,
+            action=action,
+            actor_type=actor_type,
+            actor_id=actor_id,
+        )
     return item
 
 

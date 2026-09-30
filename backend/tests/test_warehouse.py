@@ -636,3 +636,34 @@ async def test_order_edits_void_pending_receipts_and_drafts_skip_received_goods(
         desk, wang.headers, "GET", f"{BASE}/drafts?kind=receipt&order_id={order['id']}"
     )
     assert [(line["name"], line["quantity"]) for line in draft["lines"]] == [("铝合金窗", 1)]
+
+
+async def test_linkable_orders_for_requisitions(desk: Desk) -> None:
+    window = await goods(desk, "WIN-01", "铝合金窗")
+    lamp = await goods(desk, "LAMP-01", "吸顶灯", ready_made=True)
+    frame = await material(desk, "AL-6063", "铝合金型材")
+    await recipe(desk, window["id"], {frame["id"]: 2})
+    await worker(desk, "cang")  # 最早创建的工人担任仓管
+    wang = await worker(desk, "wang")
+    customer_id = await customer(desk)
+    order = await confirmed(desk, customer_id, [(window["id"], 2), (lamp["id"], 1)])
+    other = await confirmed(desk, customer_id, [(lamp["id"], 1)])
+
+    # 仓库的员工看到全部需要加工的订单（只列需要加工的商品）；工人只看自己领取的。
+    listed = await call(desk, desk.admin, "GET", f"{BASE}/orders")
+    assert [(o["no"], o["items"], o["worker_name"]) for o in listed["items"]] == [
+        (order["no"], "铝合金窗 × 2", None)
+    ]
+    assert other["no"] not in {o["no"] for o in listed["items"]}  # 全是现货，不用加工
+    assert (await call(desk, wang.headers, "GET", f"{BASE}/orders"))["items"] == []
+    await call(desk, wang.headers, "POST", f"{PRODUCTION}/orders/{order['id']}/claim")
+    mine = await call(desk, wang.headers, "GET", f"{BASE}/orders?q={order['no'][-4:]}")
+    assert [(o["no"], o["worker_name"]) for o in mine["items"]] == [(order["no"], "Wang")]
+    none = await call(desk, desk.admin, "GET", f"{BASE}/orders?q=NOPE")
+    assert none["items"] == []
+
+    # 在仓库页面给这个订单开领料单：按配方预填。
+    draft = await call(
+        desk, desk.admin, "GET", f"{BASE}/drafts?kind=requisition&order_id={order['id']}"
+    )
+    assert [(line["name"], line["quantity"]) for line in draft["lines"]] == [("铝合金型材", 4)]

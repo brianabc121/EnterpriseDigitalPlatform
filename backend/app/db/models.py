@@ -33,6 +33,7 @@ from app.modules.customer.models import (
     CustomerOwnerHistory,
     CustomerTransferRequest,
 )
+from app.modules.history.models import RecordVersion
 from app.modules.iam.models import RefreshToken, Role, Staff, StaffRole
 from app.modules.integration.models import ApiKey, WebhookDelivery, WebhookEndpoint, WebhookEvent
 from app.modules.kb.models import (
@@ -136,6 +137,7 @@ __all__ = [
     "ProductMaterial",
     "PromptTemplate",
     "QuickReply",
+    "RecordVersion",
     "RefreshToken",
     "Role",
     "Room",

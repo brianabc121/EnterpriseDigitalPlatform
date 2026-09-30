@@ -1365,6 +1365,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * History Feed
+         * @description 全部记录的修改历史，新的在前：时间、操作人、类型、单号或名称、操作、改动摘要。
+         */
+        get: operations["history_feed_api_v1_history_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/history/{record_type}/{record_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Record History
+         * @description 一条记录的全部版本（新的在前），每个版本的完整内容和与上一个版本相比的改动。
+         */
+        get: operations["record_history_api_v1_history__record_type___record_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/kb/audience-options": {
         parameters: {
             query?: never;
@@ -4820,6 +4860,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/warehouse/categories": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Categories
+         * @description 成品或材料的分类（开单时"批量选择"按分类筛选）。
+         */
+        get: operations["list_categories_api_v1_warehouse_categories_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/warehouse/counts": {
         parameters: {
             query?: never;
@@ -5001,6 +5061,27 @@ export interface paths {
          * @description 库存记录：全部商品的每一次库存变化（新的在前）。
          */
         get: operations["list_movements_api_v1_warehouse_movements_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/warehouse/orders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Linkable Orders
+         * @description 开领料单时可以关联的订单：已确认或处理中、有需要加工的商品、还没加工完成；工人只看自己
+         *     领取的（仓库的员工和能指派加工的员工看全部）。
+         */
+        get: operations["linkable_orders_api_v1_warehouse_orders_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -7260,6 +7341,22 @@ export interface components {
             /** Items */
             items: string[];
         };
+        /** CellChangeOut */
+        CellChangeOut: {
+            /** After */
+            after: string;
+            /** Before */
+            before: string;
+            /** Key */
+            key: string;
+        };
+        /** ChangesOut */
+        ChangesOut: {
+            /** Fields */
+            fields: components["schemas"]["FieldChangeOut"][];
+            /** Tables */
+            tables: components["schemas"]["TableChangesOut"][];
+        };
         /**
          * ChannelAiOverrides
          * @description 这个渠道的 AI 参数（设计文档 §11.2：阈值可以按租户和渠道分别配置），为空表示沿用 AI 设置。
@@ -7387,6 +7484,13 @@ export interface components {
              * @description 到这个时间删除全部数据
              */
             scheduled_at: string | null;
+        };
+        /** ColumnOut */
+        ColumnOut: {
+            /** Key */
+            key: string;
+            /** Label */
+            label: string;
         };
         /** CommentRequest */
         CommentRequest: {
@@ -7939,6 +8043,13 @@ export interface components {
             /** Ids */
             ids: string[];
         };
+        /** DocOut */
+        DocOut: {
+            /** Fields */
+            fields: components["schemas"]["FieldOut"][];
+            /** Tables */
+            tables: components["schemas"]["TableOut"][];
+        };
         /** DocumentBrief */
         DocumentBrief: {
             /**
@@ -8447,6 +8558,26 @@ export interface components {
             /** Overridden */
             overridden: boolean;
         };
+        /** FieldChangeOut */
+        FieldChangeOut: {
+            /** After */
+            after: string;
+            /** Before */
+            before: string;
+            /** Key */
+            key: string;
+            /** Label */
+            label: string;
+        };
+        /** FieldOut */
+        FieldOut: {
+            /** Key */
+            key: string;
+            /** Label */
+            label: string;
+            /** Value */
+            value: string;
+        };
         /** FieldValue */
         FieldValue: {
             /** Key */
@@ -8596,6 +8727,58 @@ export interface components {
         HealthStatus: {
             /** Status */
             status: string;
+        };
+        /** HistoryFeed */
+        HistoryFeed: {
+            /** Items */
+            items: components["schemas"]["HistoryFeedItem"][];
+            /** Next Cursor */
+            next_cursor: string | null;
+        };
+        /** HistoryFeedItem */
+        HistoryFeedItem: {
+            /** Action */
+            action: string;
+            /** Action Label */
+            action_label: string;
+            /** Actor Id */
+            actor_id: string | null;
+            /** Actor Name */
+            actor_name: string;
+            /** Actor Type */
+            actor_type: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Label */
+            label: string;
+            /** Note */
+            note: string | null;
+            /** Reason */
+            reason: string | null;
+            /**
+             * Record Id
+             * Format: uuid
+             */
+            record_id: string;
+            /**
+             * Record Type
+             * @enum {string}
+             */
+            record_type: "order" | "requisition" | "receipt" | "todo" | "goods" | "material";
+            /** Seq */
+            seq: number;
+            /** Summary */
+            summary: string;
+            /** Type Label */
+            type_label: string;
         };
         /**
          * IMCredentials
@@ -10287,6 +10470,36 @@ export interface components {
              */
             unit_price?: number | string | null;
         };
+        /**
+         * LinkableOrder
+         * @description 开领料单时可以关联的订单（加工中、还没加工完成）。
+         */
+        LinkableOrder: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Items
+             * @description 需要加工的商品，例如“铝合金窗 × 2、纱窗 × 1”
+             */
+            items: string;
+            /** No */
+            no: string;
+            /** Status Label */
+            status_label: string;
+            /**
+             * Worker Name
+             * @description 领取加工的工人
+             */
+            worker_name: string | null;
+        };
+        /** LinkableOrderList */
+        LinkableOrderList: {
+            /** Items */
+            items: components["schemas"]["LinkableOrder"][];
+        };
         /** LinkedTodo */
         LinkedTodo: {
             /** Assignee Name */
@@ -11945,6 +12158,12 @@ export interface components {
              * @default false
              */
             stock_short: boolean;
+            /**
+             * Unit
+             * @description 商品现在的单位（订单行不保存单位）
+             * @default
+             */
+            unit: string;
             /**
              * Unit Price
              * @description 成交单价；为空表示待定价
@@ -14044,6 +14263,38 @@ export interface components {
                 [key: string]: string;
             };
         };
+        /** RecordHistory */
+        RecordHistory: {
+            /**
+             * Complete
+             * @description 从新建开始都有记录；为 false 表示记录在启用修改历史之前创建，之前的修改没有记录
+             */
+            complete: boolean;
+            /**
+             * Deleted
+             * @description 记录已经删除（最新的版本是删除）
+             */
+            deleted: boolean;
+            /** Label */
+            label: string;
+            /**
+             * Record Id
+             * Format: uuid
+             */
+            record_id: string;
+            /**
+             * Record Type
+             * @enum {string}
+             */
+            record_type: "order" | "requisition" | "receipt" | "todo" | "goods" | "material";
+            /** Type Label */
+            type_label: string;
+            /**
+             * Versions
+             * @description 新的在前
+             */
+            versions: components["schemas"]["VersionOut"][];
+        };
         /**
          * RejectReason
          * @enum {string}
@@ -14404,6 +14655,22 @@ export interface components {
             resume_window_minutes?: number | null;
             /** Urgent First */
             urgent_first?: boolean | null;
+        };
+        /** RowChangeOut */
+        RowChangeOut: {
+            /** Cells */
+            cells: components["schemas"]["CellChangeOut"][];
+            /** Key */
+            key: string;
+        };
+        /** RowOut */
+        RowOut: {
+            /** Cells */
+            cells: {
+                [key: string]: string;
+            };
+            /** Key */
+            key: string;
         };
         /** SendMessageRequest */
         SendMessageRequest: {
@@ -15448,6 +15715,28 @@ export interface components {
         SyncRequest: {
             /** Targets */
             targets?: ("members" | "kf" | "tags" | "contacts" | "groups")[];
+        };
+        /** TableChangesOut */
+        TableChangesOut: {
+            /** Added */
+            added: string[];
+            /** Changed */
+            changed: components["schemas"]["RowChangeOut"][];
+            /** Key */
+            key: string;
+            /** Removed */
+            removed: components["schemas"]["RowOut"][];
+        };
+        /** TableOut */
+        TableOut: {
+            /** Columns */
+            columns: components["schemas"]["ColumnOut"][];
+            /** Key */
+            key: string;
+            /** Label */
+            label: string;
+            /** Rows */
+            rows: components["schemas"]["RowOut"][];
         };
         /** TagOptions */
         TagOptions: {
@@ -16995,6 +17284,56 @@ export interface components {
              * @description 最近一次汇总的时间；每 10 分钟汇总一次
              */
             updated_at: string | null;
+        };
+        /** VersionOut */
+        VersionOut: {
+            /** Action */
+            action: string;
+            /**
+             * Action Label
+             * @description 主要操作的名称，例如新建、修改、确认
+             */
+            action_label: string;
+            /**
+             * Actions
+             * @description 同一次操作里的全部动作
+             */
+            actions: string[];
+            /**
+             * Actions Label
+             * @description 同一次操作里的全部动作，例如“开单、确认”
+             */
+            actions_label: string;
+            /** Actor Id */
+            actor_id: string | null;
+            /** Actor Name */
+            actor_name: string;
+            /** Actor Type */
+            actor_type: string;
+            /** @description 和上一个版本相比的改动（第一个版本为空） */
+            changes: components["schemas"]["ChangesOut"];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            document: components["schemas"]["DocOut"];
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Note */
+            note: string | null;
+            /** Reason */
+            reason: string | null;
+            /** Seq */
+            seq: number;
+            /**
+             * Summary
+             * @description 和上一个版本相比的改动摘要
+             */
+            summary: string;
         };
         /**
          * VisitorIdentity
@@ -24071,6 +24410,168 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CustomerWecom"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    history_feed_api_v1_history_get: {
+        parameters: {
+            query?: {
+                type?: ("order" | "requisition" | "receipt" | "todo" | "goods" | "material") | null;
+                /** @description create、delete、change（其他修改）或具体的操作 */
+                action?: string | null;
+                actor_id?: string | null;
+                start?: string | null;
+                end?: string | null;
+                /** @description 单号或名称 */
+                q?: string | null;
+                cursor?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HistoryFeed"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    record_history_api_v1_history__record_type___record_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                record_type: "order" | "requisition" | "receipt" | "todo" | "goods" | "material";
+                record_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecordHistory"];
                 };
             };
             /** @description Bad Request */
@@ -40355,6 +40856,83 @@ export interface operations {
             };
         };
     };
+    list_categories_api_v1_warehouse_categories_get: {
+        parameters: {
+            query?: {
+                /** @description 成品或材料 */
+                kind?: "goods" | "material";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CategoryList"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     counts_api_v1_warehouse_counts_get: {
         parameters: {
             query?: never;
@@ -41175,6 +41753,84 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["StockMovementPage"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    linkable_orders_api_v1_warehouse_orders_get: {
+        parameters: {
+            query?: {
+                /** @description 订单号 */
+                q?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LinkableOrderList"];
                 };
             };
             /** @description Bad Request */

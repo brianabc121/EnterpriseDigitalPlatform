@@ -48,6 +48,7 @@ from app.modules.orders.schemas import (
 )
 from app.modules.orders.settings import OrderSettings
 from app.modules.products import stock
+from app.modules.products.models import Product
 from app.modules.routing.models import SkillGroup
 from app.modules.todos import sla
 from app.modules.todos.models import Todo, TodoType
@@ -345,6 +346,16 @@ async def detail(
     items = await service.load_items(session, order.id)
     lines = await stock.line_stock(session, [order], items)
     ready = await service.ready_made_ids(session, items)
+    product_ids = {i.product_id for i in items if i.product_id}
+    units: dict[Any, str] = {}
+    if product_ids:
+        units = dict(
+            (
+                await session.execute(
+                    select(Product.id, Product.unit).where(Product.id.in_(product_ids))
+                )
+            ).all()
+        )
     docs = (await documents.for_orders(session, [order.id])).get(order.id, [])
     payments = (
         await session.scalars(
@@ -431,6 +442,7 @@ async def detail(
                 shortage_note=i.shortage_note,
                 restock_date=i.restock_date,
                 ready_made=i.product_id in ready,
+                unit=units.get(i.product_id, "") if i.product_id else "",
                 stock_available=lines.get(i.id, stock.LineStock()).available,
                 stock_short=lines.get(i.id, stock.LineStock()).short,
             )

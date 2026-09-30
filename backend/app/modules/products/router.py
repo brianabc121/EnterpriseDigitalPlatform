@@ -22,8 +22,10 @@ from app.core.permissions import Permission
 from app.core.xlsx import XLSX_MEDIA_TYPE
 from app.modules.audit.service import record_audit
 from app.modules.billing.entitlements import require_feature
+from app.modules.history import service as history
 from app.modules.iam.deps import CurrentPrincipal, TenantDb, require_permission
 from app.modules.iam.principal import Principal
+from app.modules.products import history as product_history
 from app.modules.products import imports, service, sheet, stock
 from app.modules.products.models import (
     ImportStatus,
@@ -437,6 +439,7 @@ async def create_product(
         product.stock = Decimal(0)
     service.refresh(product)
     session.add(product)
+    _track(session, product, "create", principal)
     await session.commit()
     await session.refresh(product)
     return await _one(session, product, principal)
@@ -457,6 +460,18 @@ def _write(product: Product, payload: ProductWrite, principal: Principal) -> Non
     # 成本价：不传、或者没有查看成本价的权限时保持原值。
     if principal.has(Permission.PRODUCT_VIEW_COST) and "cost_price" in payload.model_fields_set:
         product.cost_price = payload.cost_price
+
+
+def _track(session: TenantDb, product: Product, action: str, principal: Principal) -> None:
+    """修改历史（§25.14）。"""
+    history.track(
+        session,
+        product_history.record_type(product),
+        product,
+        action=action,
+        actor_type="staff",
+        actor_id=principal.staff_id,
+    )
 
 
 def _import_rights(principal: Principal) -> dict[str, bool]:
@@ -641,6 +656,7 @@ async def adjust_stock(
         note=payload.note,
         actor=stock.Actor("staff", principal.staff_id),
     )
+    _track(session, product, "stock_setting", principal)
     record_audit(
         session,
         action="product.stock",
@@ -687,6 +703,7 @@ async def update_product(
     _write(product, payload, principal)
     product.updated_by = principal.staff_id
     service.refresh(product)
+    _track(session, product, "update", principal)
     await session.commit()
     await session.refresh(product)
     return await _one(session, product, principal)
@@ -716,6 +733,18 @@ async def delete_product(product_id: UUID, session: TenantDb, principal: CanWrit
     )
     if in_bom:
         raise Conflict(f"有 {in_bom} 个成品的配方用到这个材料，请先从配方里去掉")
+    # 修改历史保存删除前的内容（§25.14）。
+    kind = product_history.record_type(product)
+    before = await history.capture(session, kind, product)
+    history.track(
+        session,
+        kind,
+        product,
+        action="delete",
+        actor_type="staff",
+        actor_id=principal.staff_id,
+        captured=before,
+    )
     await session.execute(delete(Product).where(Product.id == product.id))
     await session.commit()
 
@@ -783,6 +812,7 @@ async def put_bom(
                 sort=sort,
             )
         )
+    _track(session, product, "bom", principal)
     record_audit(
         session,
         action="product.bom",

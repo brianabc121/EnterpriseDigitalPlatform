@@ -26,6 +26,7 @@ from app.core.deps import get_context
 from app.core.errors import ERROR_RESPONSES, NotFound, Unprocessable
 from app.core.ids import new_id
 from app.modules.billing.entitlements import require_feature
+from app.modules.history import service as history
 from app.modules.integration import payloads
 from app.modules.integration.auth import ApiCaller, ApiDb, require_scope
 from app.modules.integration.models import Scope
@@ -43,6 +44,7 @@ from app.modules.integration.schemas import (
 from app.modules.orders import sync as order_sync
 from app.modules.orders.models import Order, OrderStatus
 from app.modules.orders.schemas import OrderStatusValue
+from app.modules.products import history as product_history
 from app.modules.products import service as product_service
 from app.modules.products import stock
 from app.modules.products.models import Product, ProductKind, StockKind
@@ -180,6 +182,14 @@ async def _upsert(
             stock.record(
                 session, product, kind, payload.stock, actor=stock.Actor("api", caller.key_id)
             )
+    # 修改历史（§25.14）：企业系统定时全量同步时内容没变，不记版本。
+    history.track(
+        session,
+        product_history.record_type(product),
+        product,
+        action="create" if created else "sync",
+        actor_type="api",
+    )
     await session.commit()
     await session.refresh(product)
     return product, created

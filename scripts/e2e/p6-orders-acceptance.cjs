@@ -1,4 +1,4 @@
-// P6 订单验收：商品库、AI 下单与价格保护、订单审核与履约、修改记录、订单跟踪页（设计文档 §25）。
+// P6 订单验收：商品库、AI 下单与价格保护、订单审核与履约、修改历史、订单跟踪页（设计文档 §25）。
 //
 // 1. 管理员在"设置 → 订单"把订单号前缀改成 XS；在"商品"里下载 Excel 模板，填好后上传：预览标出
 //    价格填错的行和忘了删的示例行（都跳过），确认后写入商品库；管理员看得到成本价列，导出的表格含
@@ -7,7 +7,7 @@
 //    订单，客户确认后提交审核（编号用新的前缀）。
 // 3. 坐席小售（订单审核按规则交给他）：订单菜单角标、待审核视图、详情里的依据对话和掩码的收货信息；
 //    确认订单（货到付款）并通知客户。坐席看不到成本价，也不能导入商品。
-// 4. 主管改价：必须选择原因，把修改后的内容告知客户（不需要客户再次确认）；修改记录里看到是谁、
+// 4. 主管改价：必须选择原因，把修改后的内容告知客户（不需要客户再次确认）；修改历史里看到是谁、
 //    为什么改的，并对比 AI 生成的版本和最新版本。
 // 5. 小售开始处理、登记发货、登记收款（货到付款）并完成，每一步都通知客户。
 // 6. 访客在 Widget 的"我的订单"里看到已完成，打开跟踪链接（手机尺寸）：进度、商品、金额、收款、
@@ -640,7 +640,7 @@ async function reviewSection(browser, ctx, visitor) {
   return page
 }
 
-// ---- 4. 主管改价，修改记录 ----
+// ---- 4. 主管改价，修改历史 ----
 
 async function priceSection(browser, ctx, visitor) {
   const page = await consoleLogin(browser, 'lead')
@@ -671,33 +671,34 @@ async function priceSection(browser, ctx, visitor) {
   const notice = await visitorGot(visitor, `您的订单 ${ctx.orderNo} 已更新`)
   check('访客收到订单更新的通知（不需要再次确认）', notice)
 
+  // 修改历史（§25.14）：版本列表（新的在前）、改动摘要；和最初的版本（AI 生成）对比。
   await box.locator('[data-testid="order-revisions-open"]').click()
-  const revisions = page.locator('[data-testid="order-revisions"]')
-  await revisions.locator('[data-testid="order-revision"]').first().waitFor()
-  const heads = await revisions.locator('[data-testid="order-revision"]').allInnerTexts()
-  const dialogText = await revisions.innerText()
-  const totalRow = revisions.locator('[data-testid="compare-table"] .el-table__row', {
-    hasText: '合计',
-  })
+  const revisions = page.locator('[data-testid="history-drawer"]')
+  await revisions.locator('[data-testid="history-version"]').first().waitFor()
+  const heads = await revisions.locator('[data-testid="history-version"]').allInnerTexts()
+  const summary = await revisions.locator('[data-testid="history-summary"]').first().innerText()
+  await revisions.locator('[data-testid="history-compare"]').click()
+  await page.locator('.el-select-dropdown__item:visible', { hasText: '最初的版本' }).click()
+  const totalField = revisions.locator('[data-testid="history-field"][data-label="合计"]')
   const compared =
-    (await seen(totalRow.filter({ hasText: '¥2,598.00' }))) &&
-    (await seen(totalRow.filter({ hasText: '¥2,398.00' })))
+    (await seen(totalField.filter({ hasText: '¥2,598.00' }))) &&
+    (await seen(totalField.filter({ hasText: '¥2,398.00' })))
   const detail = await order(ctx.admin, ctx.orderId)
   const last = detail.revisions[detail.revisions.length - 1]
   check(
-    '修改记录：谁、什么原因改的（主管 · 价格调整），单价 1299 → 1199；默认对比 AI 生成的版本和最新版本',
+    '修改历史：谁、什么原因改的（主管 · 价格调整），单价 1299 → 1199；可以和最初 AI 生成的版本对比',
     heads[0].includes('主管') &&
       heads[0].includes('价格调整') &&
       heads.some((h) => h.includes('AI')) &&
-      dialogText.includes('单价 ¥1,299.00 → ¥1,199.00') &&
+      summary.includes('单价 ¥1,299.00 → ¥1,199.00') &&
       compared &&
       last.actor_name === '主管' &&
       last.reason === 'price_adjust' &&
       detail.modified,
-    { heads, last },
+    { heads, summary, last },
   )
   await shot(page, '4-revisions')
-  await revisions.locator('.el-dialog__headerbtn').click()
+  await revisions.locator('.el-drawer__close-btn').click()
   await closeDrawer(page)
   return page
 }

@@ -5,8 +5,11 @@ from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.modules.history import service as history
+from app.modules.history.models import RecordType
 from app.modules.integration import outbox as webhook_outbox
-from app.modules.todos.models import ActorType, Todo, TodoEvent
+from app.modules.todos.history import EVENT_ACTIONS
+from app.modules.todos.models import REJECT_LABELS, ActorType, Todo, TodoEvent
 
 
 def record(
@@ -30,3 +33,18 @@ def record(
     )
     # 同一个事务里写入推送事件（企业系统对接，§25.8）。
     webhook_outbox.todo_event(session, todo, type_, actor_type=actor_type)
+    # 修改历史（§25.14）：改变待办的动态登记一个版本（评论、提醒、通知客户等不登记）。
+    action = EVENT_ACTIONS.get(type_)
+    if action is not None:
+        reason = (payload or {}).get("reason")
+        if type_ == "rejected" and isinstance(reason, str):
+            reason = REJECT_LABELS.get(reason, reason)
+        history.track(
+            session,
+            RecordType.TODO,
+            todo,
+            action=action,
+            actor_type=actor_type,
+            actor_id=actor_id,
+            reason=reason if isinstance(reason, str) else None,
+        )

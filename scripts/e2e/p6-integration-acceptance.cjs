@@ -5,7 +5,7 @@
 // 2. 企业系统用接口密钥同步商品、创建订单（带自己的订单号）：推送 order.created；订单中心看到
 //    来源"企业系统"、企业系统单号。
 // 3. 企业系统回传发货（跳过确认，确认之后以企业系统为准）：推送 order.confirmed 和
-//    order.status_changed；订单详情显示已发货，修改记录的操作人是"企业系统"；跟踪页看到物流。
+//    order.status_changed；订单详情显示已发货，修改历史的操作人是"企业系统"；跟踪页看到物流。
 // 4. 推送失败：接收方返回 500 时进入重试，运营后台"运维 → 企业系统推送"也能看到；测试推送失败后
 //    在推送记录里重发，运营后台重发重试中的推送，接收方恢复后都能送达。
 // 5. 企业系统创建待办（直接进入待办列表）；员工完成后推送 todo.done，带回企业系统的单号。
@@ -343,16 +343,16 @@ async function statusSection(browser, ctx, admin) {
   const status = await seen(drawer.locator('[data-testid="order-status"]', { hasText: '已发货' }))
   const shipping = await drawer.locator('[data-testid="order-shipping"]').innerText()
   await drawer.locator('[data-testid="order-revisions-open"]').click()
-  const revisions = admin.locator('[data-testid="order-revisions"]')
-  await revisions.locator('[data-testid="order-revision"]').first().waitFor()
-  const heads = await revisions.locator('[data-testid="order-revision"]').allInnerTexts()
+  const revisions = admin.locator('[data-testid="history-drawer"]')
+  await revisions.locator('[data-testid="history-version"]').first().waitFor()
+  const heads = await revisions.locator('[data-testid="history-version"]').allInnerTexts()
   check(
-    '订单详情：已发货和物流；修改记录的操作人是"企业系统"',
+    '订单详情：已发货和物流；修改历史的操作人是"企业系统"',
     status && shipping.includes('中通快递 ZT998877') && heads.every((h) => h.includes('企业系统')),
     { shipping, heads },
   )
   await shot(admin, '3-revisions')
-  await revisions.locator('.el-dialog__headerbtn').click()
+  await revisions.locator('.el-drawer__close-btn').click()
   await admin.keyboard.press('Escape')
 
   const tracking = await newPage(browser, 'tracking', { width: 390, height: 844 })

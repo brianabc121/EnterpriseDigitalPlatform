@@ -418,7 +418,7 @@ async function requisitionSection(browser, ctx) {
   )
 
   await card(page, made.no).locator('[data-testid="production-claim"]').click()
-  const editor = page.locator('[data-testid="document-editor"]')
+  const editor = page.locator('[data-testid="document-editor"]:visible')
   await editor.locator('[data-testid="document-line"]').first().waitFor()
   const lines = await editor.locator('[data-testid="document-line"]').evaluateAll((els) =>
     els.map((el) => el.getAttribute('data-name')),
@@ -517,9 +517,9 @@ async function receiptSection(worker, keeper, ctx) {
   const mine = card(worker, made.no)
   await mine.waitFor()
   await mine.locator('[data-testid="production-complete"]').click()
-  const editor = worker.locator('[data-testid="document-editor"]')
+  const editor = worker.locator('[data-testid="document-editor"]:visible')
   await editor.locator('[data-testid="document-line"]').first().waitFor()
-  const title = await editor.locator('.el-dialog__title').innerText()
+  const title = await editor.locator('.sheet-title h3').innerText()
   const lines = await editor.locator('[data-testid="document-line"]').evaluateAll((els) =>
     els.map((el) => el.getAttribute('data-name')),
   )
@@ -568,7 +568,7 @@ async function receiptSection(worker, keeper, ctx) {
   await card(worker, made.no).locator('[data-testid="production-receipt-open"]').click()
   const workerDrawer = worker.locator('[data-testid="document-drawer"]')
   await workerDrawer.locator('[data-testid="document-edit"]').click()
-  const edit = worker.locator('[data-testid="document-editor"]')
+  const edit = worker.locator('[data-testid="document-editor"]:visible')
   await edit.locator('[data-testid="document-line"]').first().waitFor()
   await edit.locator('input[data-testid="document-note"]').fill('已核对：2 樘')
   await edit.locator('[data-testid="document-submit"]').click()

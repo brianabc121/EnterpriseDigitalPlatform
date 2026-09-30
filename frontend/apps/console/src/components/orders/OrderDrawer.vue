@@ -29,13 +29,13 @@ import { lineStockText, shortLines } from '../../inventory'
 import { useAuthStore } from '../../stores/auth'
 import { TODO_STATUS } from '../../todos'
 import { briefText, STATUS_TAG } from '../../warehouse'
+import HistoryDrawer from '../history/HistoryDrawer.vue'
 import SessionDrawer from '../sessions/SessionDrawer.vue'
 import OrderFormDialog from './OrderFormDialog.vue'
-import RevisionsDialog from './RevisionsDialog.vue'
 
 /**
  * 订单详情（设计文档 §25.9）：商品行与金额、收款方式与收款记录、收货信息、依据的对话、动态、
- * 修改记录（任意两个版本对比）、关联的待办和跟踪链接，以及按权限和状态显示的处理操作。
+ * 修改历史（每个版本的内容和改动，任意两个版本对比，§25.14）、关联的待办和跟踪链接，以及按权限和状态显示的处理操作。
  * 加工（§25.11）：每个商品的加工进度和缺货，加工人与加工完成时间；登记到货、指派加工人。
  * 仓库（§25.13）：现货商品直接从成品库存发货；订单的领料单和入库单。
  */
@@ -755,7 +755,7 @@ async function onSaved(): Promise<void> {
           <div class="block-head">
             <h4>动态</h4>
             <el-button link type="primary" size="small" data-testid="order-revisions-open" @click="revisionsOpen = true"
-              >修改记录（{{ detail.revisions.length }} 个版本）</el-button
+              >修改历史</el-button
             >
           </div>
           <el-timeline>
@@ -809,7 +809,13 @@ async function onSaved(): Promise<void> {
     </template>
 
     <OrderFormDialog v-if="detail" v-model="editing" :order="detail" @saved="onSaved" />
-    <RevisionsDialog v-if="detail" v-model="revisionsOpen" :order="detail" />
+    <HistoryDrawer
+      v-if="detail"
+      v-model="revisionsOpen"
+      record-type="order"
+      :record-id="detail.id"
+      :title="`订单 ${detail.no}`"
+    />
 
     <el-dialog v-model="worker.open" title="指派加工人" width="400px" append-to-body data-testid="worker-dialog">
       <el-select v-model="worker.id" clearable placeholder="退回待领取" data-testid="worker-select" class="full">

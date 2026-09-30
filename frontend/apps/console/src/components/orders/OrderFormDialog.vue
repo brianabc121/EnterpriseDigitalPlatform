@@ -1,14 +1,17 @@
 <script setup lang="ts">
 import { errorMessage, type Schemas } from '@edp/api-client'
 import { ElMessage } from 'element-plus'
-import { computed, reactive, ref, watch } from 'vue'
+import { computed, nextTick, reactive, ref, watch } from 'vue'
 
 import { api } from '../../api'
+import { focusField, mergeInto, quantityTotal, today, type PickedItem } from '../../documents'
 import {
   CHANGE_REASONS,
   discountRate,
   formTotals,
   money,
+  ORDER_STATUS,
+  ORDER_STATUS_TAG,
   ordersChanged,
   PAYMENT_METHOD,
   RECEIVER_FIELDS,
@@ -19,14 +22,19 @@ import {
   type Product,
 } from '../../orders'
 import { useAuthStore } from '../../stores/auth'
+import { qty } from '../../warehouse'
+import DocSheet, { type SheetStep } from '../documents/DocSheet.vue'
+import ItemEntry from '../documents/ItemEntry.vue'
 import ProductPicker from './ProductPicker.vue'
 
 /**
- * 新建或修改订单（设计文档 §25.5、§25.9）。
- * - 新建：选择客户（从工作台打开时是当前客户），逐行添加商品；可以直接提交审核或先保存草稿。
- *   AI 预填的内容（prefill）带着依据的消息，员工核对后保存。
- * - 修改：改价、改商品、改数量时必须选择原因；收货信息不填的项保持原值；已确认的订单可以把
- *   修改后的内容告知客户（不需要客户再次确认）。
+ * 新建或修改订单（设计文档 §25.5、§25.9、§25.14）：统一的单据页——单据头（客户、收款方式、期望时间、
+ * 收货信息）、带表头的商品明细（录入行输入名称或代码回车加入、扫码、批量选择；已经有的商品累加数量）、
+ * 金额（商品金额、优惠、应收合计）、备注，以及固定在底部的操作栏（Ctrl+S 保存）。
+ * - 新建：选择客户（从工作台打开时是当前客户）；可以保存草稿或直接提交审核。AI 预填的内容带着依据的
+ *   消息，员工核对后保存。
+ * - 修改：改价、改商品、改数量时必须选择原因；收货信息不填的项保持原值；已确认的订单可以把修改后的
+ *   内容告知客户（不需要客户再次确认）。
  * 单价默认是建议零售价，改价和优惠需要 order:price 权限。
  */
 const open = defineModel<boolean>({ required: true })
@@ -40,6 +48,15 @@ const props = defineProps<{
 }>()
 const emit = defineEmits<{ saved: [order: OrderDetail] }>()
 
+/** 明细的一行：表单里的商品行，加上显示用的代码、单位和可用库存。 */
+interface Line extends FormLine {
+  code: string | null
+  unit: string
+  available: number | null
+}
+
+const FLOW = ['draft', 'pending_review', 'confirmed', 'fulfilling', 'shipped', 'completed']
+
 const auth = useAuthStore()
 const editing = computed(() => !!props.order)
 const canPrice = computed(() => auth.can('order:price'))
@@ -47,8 +64,12 @@ const settings = ref<Schemas['OrderSettings'] | null>(null)
 const saving = ref(false)
 const customers = ref<{ id: string; name: string }[]>([])
 const searching = ref(false)
-const lines = ref<FormLine[]>([])
-const original = ref<FormLine[]>([])
+const lines = ref<Line[]>([])
+const original = ref<Line[]>([])
+type Focusable = { focus: () => void }
+const qtyInputs = ref<(Focusable | null)[]>([])
+const priceInputs = ref<(Focusable | null)[]>([])
+const entry = ref<InstanceType<typeof ItemEntry> | null>(null)
 const form = reactive({
   customerId: '',
   discount: '0',
@@ -57,7 +78,6 @@ const form = reactive({
   expectedAt: '',
   customerNote: '',
   internalNote: '',
-  submit: true,
   reason: '' as ChangeReason | '',
   note: '',
   notify: false,
@@ -89,8 +109,25 @@ const discountChanged = computed(
 )
 const contentChanged = computed(() => editing.value && (itemsChanged.value || discountChanged.value))
 const notifiable = computed(() => ['confirmed', 'fulfilling'].includes(props.order?.status ?? ''))
+const quantitySum = computed(() => quantityTotal(lines.value))
+const orderDate = computed(() => today(props.order ? new Date(props.order.created_at) : new Date()))
+const status = computed(() =>
+  props.order
+    ? { label: ORDER_STATUS[props.order.status] ?? props.order.status, type: ORDER_STATUS_TAG[props.order.status] ?? 'info' }
+    : { label: '新建', type: 'info' as const },
+)
+const steps = computed<SheetStep[]>(() => {
+  const current = props.order?.status
+  if (!current) return []
+  if (current === 'cancelled') return [{ label: '已取消', state: 'error' }]
+  const index = FLOW.indexOf(current)
+  return FLOW.map((s, i) => ({
+    label: ORDER_STATUS[s] ?? s,
+    state: i < index ? 'done' : i === index ? 'current' : 'todo',
+  }))
+})
 
-function fromItem(item: Schemas['OrderItemOut']): FormLine {
+function fromItem(item: Schemas['OrderItemOut']): Line {
   return {
     product_id: item.product_id,
     name: item.name,
@@ -99,10 +136,13 @@ function fromItem(item: Schemas['OrderItemOut']): FormLine {
     quantity: item.quantity,
     list_price: item.list_price,
     unit_price: item.unit_price,
+    code: item.code,
+    unit: item.unit,
+    available: item.stock_available ?? null,
   }
 }
 
-function fromSuggestion(item: Schemas['OrderSuggestionLine']): FormLine {
+function fromSuggestion(item: Schemas['OrderSuggestionLine']): Line {
   return {
     product_id: item.product_id,
     name: item.name,
@@ -111,15 +151,16 @@ function fromSuggestion(item: Schemas['OrderSuggestionLine']): FormLine {
     quantity: item.quantity,
     list_price: item.retail_price,
     unit_price: item.retail_price,
+    code: null,
+    unit: '',
+    available: null,
   }
 }
 
 function reset(): void {
   const order = props.order
   const prefill = props.prefill
-  lines.value = order
-    ? order.items.map(fromItem)
-    : (prefill?.items.map(fromSuggestion) ?? [])
+  lines.value = order ? order.items.map(fromItem) : (prefill?.items.map(fromSuggestion) ?? [])
   original.value = lines.value.map((l) => ({ ...l }))
   Object.assign(form, {
     customerId: order?.customer_id ?? props.customerId ?? '',
@@ -133,7 +174,6 @@ function reset(): void {
     expectedAt: order?.expected_at ?? '',
     customerNote: order?.customer_note ?? prefill?.customer_note ?? '',
     internalNote: order?.internal_note ?? '',
-    submit: true,
     reason: '',
     note: '',
     notify: false,
@@ -162,16 +202,38 @@ async function searchCustomers(q: string): Promise<void> {
   customers.value = (data?.items ?? []).map((c) => ({ id: c.id, name: c.display_name }))
 }
 
-function addProduct(product: Product): void {
-  lines.value.push({
-    product_id: product.id,
-    name: product.name,
-    spec: product.spec,
+/** 明细每一行的数量、单价输入框（录入后跳到数量，回车跳到下一格）。 */
+function inputRef(list: (Focusable | null)[], index: number) {
+  return (el: unknown) => {
+    list[index] = (el as Focusable | null) ?? null
+  }
+}
+
+function focusQty(index: number): void {
+  void nextTick(() => focusField(qtyInputs.value[index]))
+}
+
+/** 录入行或批量选择加入商品：已经有的累加数量，光标跳到这一行的数量。 */
+function addItems(items: PickedItem[]): void {
+  const index = mergeInto(lines.value, items, (l) => l.product_id, (i) => ({
+    product_id: i.id,
+    name: i.name,
+    spec: i.spec,
     raw_text: null,
-    quantity: 1,
-    list_price: product.retail_price,
-    unit_price: product.retail_price,
-  })
+    quantity: i.quantity,
+    list_price: i.price,
+    unit_price: i.price,
+    code: i.code,
+    unit: i.unit,
+    available: i.available,
+  }))
+  if (index >= 0) focusQty(index)
+}
+
+/** 数量里回车：能改价的跳到单价，否则回到录入行。 */
+function afterQty(index: number): void {
+  if (canPrice.value && priceInputs.value[index]) focusField(priceInputs.value[index])
+  else entry.value?.focus()
 }
 
 function addText(): void {
@@ -183,6 +245,9 @@ function addText(): void {
     quantity: 1,
     list_price: null,
     unit_price: null,
+    code: null,
+    unit: '',
+    available: null,
   })
 }
 
@@ -197,6 +262,9 @@ function mapLine(index: number, product: Product): void {
     raw_text: null,
     list_price: product.retail_price,
     unit_price: product.retail_price,
+    code: product.code,
+    unit: product.unit,
+    available: product.stock_available,
   })
 }
 
@@ -252,10 +320,10 @@ function check(): boolean {
   return true
 }
 
-async function save(): Promise<void> {
-  if (!check()) return
+async function save(submit = true): Promise<void> {
+  if (saving.value || !check()) return
   saving.value = true
-  const result = editing.value ? await update() : await create()
+  const result = editing.value ? await update() : await create(submit)
   saving.value = false
   if (!result) return
   ordersChanged()
@@ -263,7 +331,7 @@ async function save(): Promise<void> {
   emit('saved', result)
 }
 
-async function create(): Promise<OrderDetail | null> {
+async function create(submit: boolean): Promise<OrderDetail | null> {
   const { data, error } = await api.POST('/api/v1/orders', {
     body: {
       customer_id: form.customerId,
@@ -277,14 +345,14 @@ async function create(): Promise<OrderDetail | null> {
       internal_note: form.internalNote.trim(),
       evidence_message_ids: form.evidence,
       source: props.source ?? 'staff',
-      submit: form.submit,
+      submit,
     },
   })
   if (!data) {
     ElMessage.error(errorMessage(error))
     return null
   }
-  ElMessage.success(form.submit ? `订单 ${data.no} 已提交审核` : `已保存草稿 ${data.no}`)
+  ElMessage.success(submit ? `订单 ${data.no} 已提交审核` : `已保存草稿 ${data.no}`)
   return data
 }
 
@@ -321,12 +389,14 @@ async function update(): Promise<OrderDetail | null> {
 </script>
 
 <template>
-  <el-dialog
+  <DocSheet
     v-model="open"
-    :title="editing ? `修改订单 ${order?.no}` : '新建订单'"
-    width="820px"
-    append-to-body
-    data-testid="order-form"
+    :title="editing ? '修改订单' : '新建订单'"
+    :no="order?.no ?? null"
+    :status="status"
+    :steps="steps"
+    testid="order-form"
+    @save="save(true)"
   >
     <el-alert
       v-if="prefill"
@@ -336,39 +406,106 @@ async function update(): Promise<OrderDetail | null> {
       class="tip"
       title="AI 已根据对话预填，请核对商品、数量和收货信息后保存。"
     />
-    <el-form label-width="96px">
-      <el-form-item v-if="!editing" label="客户" required>
-        <el-select
-          v-model="form.customerId"
-          filterable
-          remote
-          :remote-method="searchCustomers"
-          :loading="searching"
-          :disabled="!!customerId"
-          placeholder="搜索客户"
-          data-testid="order-customer"
-        >
-          <el-option v-for="c in customers" :key="c.id" :label="c.name" :value="c.id" />
-        </el-select>
-      </el-form-item>
 
-      <el-form-item label="商品" required>
-        <div class="lines">
-          <div
-            v-for="(line, index) in lines"
-            :key="index"
-            class="line"
-            :data-testid="`order-line-${index}`"
+    <section class="doc-section">
+      <div class="doc-section-head"><h4>基本信息</h4></div>
+      <div class="doc-fields">
+        <div class="doc-field">
+          <label class="required">客户</label>
+          <span v-if="editing" class="value">{{ order?.customer_name ?? '—' }}</span>
+          <el-select
+            v-else
+            v-model="form.customerId"
+            filterable
+            remote
+            :remote-method="searchCustomers"
+            :loading="searching"
+            :disabled="!!customerId"
+            placeholder="搜索客户"
+            data-testid="order-customer"
           >
-            <div class="what">
+            <el-option v-for="c in customers" :key="c.id" :label="c.name" :value="c.id" />
+          </el-select>
+        </div>
+        <div class="doc-field">
+          <label>下单日期</label>
+          <span class="value">{{ orderDate }}</span>
+        </div>
+        <div class="doc-field">
+          <label>收款方式</label>
+          <el-select
+            v-model="form.paymentMethod"
+            clearable
+            placeholder="确认订单时最终确定"
+            data-testid="order-payment-method"
+          >
+            <el-option v-for="[value, label] in methods" :key="value" :label="label" :value="value" />
+          </el-select>
+        </div>
+        <div v-for="[field, label] in RECEIVER_FIELDS" :key="field" class="doc-field" :class="{ wide: field === 'address' }">
+          <label>{{ label }}</label>
+          <el-input
+            v-model="form.receiver[field]"
+            :maxlength="field === 'address' ? 200 : 32"
+            :placeholder="editing ? `${order?.receiver[field] ?? '未填写'}（不填保持不变）` : ''"
+            :data-testid="`receiver-${field}`"
+          />
+        </div>
+        <div class="doc-field">
+          <label>期望时间</label>
+          <el-date-picker
+            v-model="form.expectedAt"
+            type="datetime"
+            value-format="YYYY-MM-DDTHH:mm:ssZ"
+            placeholder="客户期望的送货或服务时间"
+          />
+        </div>
+      </div>
+      <p v-if="order?.payment_hint" class="doc-muted hint">客户提到的付款方式：{{ PAYMENT_METHOD[order.payment_hint] }}</p>
+    </section>
+
+    <section class="doc-section">
+      <div class="doc-section-head">
+        <h4>商品明细</h4>
+        <el-button size="small" data-testid="order-add-text" @click="addText">添加未匹配的商品</el-button>
+      </div>
+      <table class="doc-grid" data-testid="order-lines">
+        <colgroup>
+          <col class="c-seq" />
+          <col />
+          <col class="c-unit" />
+          <col class="c-num" />
+          <col class="c-qty" />
+          <col class="c-money" />
+          <col class="c-price" />
+          <col class="c-money" />
+          <col class="c-ops" />
+        </colgroup>
+        <thead>
+          <tr>
+            <th class="seq">#</th>
+            <th>商品</th>
+            <th>单位</th>
+            <th class="num">可用库存</th>
+            <th>数量</th>
+            <th class="num">建议零售价</th>
+            <th>单价</th>
+            <th class="num">金额</th>
+            <th class="ops"></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="(line, index) in lines" :key="index" :data-testid="`order-line-${index}`">
+            <td class="seq">{{ index + 1 }}</td>
+            <td class="main">
               <template v-if="line.product_id">
-                <span class="name">{{ line.name }}</span>
-                <span v-if="line.spec" class="muted">{{ line.spec }}</span>
-                <span v-if="line.list_price" class="muted">建议零售价 {{ money(line.list_price) }}</span>
+                <div class="item-name">{{ line.name }}</div>
+                <div class="item-sub">{{ [line.code, line.spec].filter(Boolean).join(' · ') }}</div>
               </template>
-              <template v-else>
+              <div v-else class="unmatched">
                 <el-input
                   v-model="line.raw_text"
+                  size="small"
                   placeholder="客户说的商品（没有匹配商品库）"
                   maxlength="200"
                   :data-testid="`order-line-text-${index}`"
@@ -378,200 +515,224 @@ async function update(): Promise<OrderDetail | null> {
                   :testid="`order-line-map-${index}`"
                   @pick="(p) => mapLine(index, p)"
                 />
-              </template>
-            </div>
-            <el-input-number
-              v-model="line.quantity"
-              :min="1"
-              :max="settings?.max_quantity ?? 100000"
-              size="small"
-              class="qty"
-              :data-testid="`order-qty-${index}`"
-            />
-            <el-input
-              v-model="line.unit_price"
-              :disabled="!canPrice"
-              placeholder="待定价"
-              size="small"
-              class="price"
-              :data-testid="`order-price-${index}`"
-            >
-              <template #prefix>¥</template>
-            </el-input>
-            <span class="amount">{{ lineAmount(line) }}</span>
-            <el-button link type="danger" size="small" @click="lines.splice(index, 1)">删除</el-button>
-          </div>
-          <div class="add">
-            <ProductPicker testid="order-add-product" @pick="addProduct" />
-            <el-button size="small" data-testid="order-add-text" @click="addText">
-              添加未匹配的商品
-            </el-button>
-          </div>
-          <p v-if="!canPrice" class="muted">单价按建议零售价；改价和优惠需要有改价权限的同事处理。</p>
-        </div>
-      </el-form-item>
+              </div>
+            </td>
+            <td data-label="单位">{{ line.unit || '—' }}</td>
+            <td class="num" data-label="可用">
+              <span :class="{ warn: line.available !== null && line.available < line.quantity }">{{
+                line.available === null ? '—' : qty(line.available)
+              }}</span>
+            </td>
+            <td data-label="数量">
+              <el-input-number
+                :ref="inputRef(qtyInputs, index)"
+                v-model="line.quantity"
+                :min="1"
+                :max="settings?.max_quantity ?? 100000"
+                size="small"
+                controls-position="right"
+                :data-testid="`order-qty-${index}`"
+                @keydown.enter.prevent="afterQty(index)"
+              />
+            </td>
+            <td class="num" data-label="建议零售价">{{ money(line.list_price) }}</td>
+            <td data-label="单价">
+              <el-input
+                :ref="inputRef(priceInputs, index)"
+                v-model="line.unit_price"
+                :disabled="!canPrice"
+                placeholder="待定价"
+                size="small"
+                class="price-input"
+                :data-testid="`order-price-${index}`"
+                @keydown.enter.prevent="entry?.focus()"
+              >
+                <template #prefix>¥</template>
+              </el-input>
+            </td>
+            <td class="num" data-label="金额">{{ lineAmount(line) }}</td>
+            <td class="ops">
+              <el-button link type="danger" size="small" :data-testid="`order-line-remove-${index}`" @click="lines.splice(index, 1)"
+                >删除</el-button
+              >
+            </td>
+          </tr>
+          <tr class="entry">
+            <td class="seq">+</td>
+            <td colspan="8">
+              <ItemEntry ref="entry" source="sales" testid="order-add-product" @add="addItems" />
+            </td>
+          </tr>
+        </tbody>
+        <tfoot>
+          <tr>
+            <td class="seq"></td>
+            <td>合计</td>
+            <td colspan="2" data-testid="order-line-count">共 {{ lines.length }} 项</td>
+            <td>{{ quantitySum }}</td>
+            <td colspan="2"></td>
+            <td class="num">{{ money(totals.items) }}</td>
+            <td></td>
+          </tr>
+        </tfoot>
+      </table>
+      <p v-if="!canPrice" class="doc-muted hint">单价按建议零售价；改价和优惠需要有改价权限的同事处理。</p>
+    </section>
 
-      <el-form-item label="优惠">
-        <el-input
-          v-model="form.discount"
-          :disabled="!canPrice"
-          class="discount"
-          data-testid="order-discount"
-        >
+    <section class="doc-section money">
+      <div class="doc-totals">
+        <span class="label">商品金额</span>
+        <span>{{ money(totals.items) }}</span>
+        <span class="label">优惠</span>
+        <el-input v-model="form.discount" :disabled="!canPrice" size="small" class="discount" data-testid="order-discount">
           <template #prefix>¥</template>
         </el-input>
-        <span class="totals">
-          商品 {{ money(totals.items) }}，合计 <b data-testid="order-total">{{ money(totals.total) }}</b>
-          <el-tag v-if="totals.pending" size="small" type="warning">有待定价的商品</el-tag>
+        <template v-if="rate > 0">
+          <span class="label">优惠率</span>
+          <span>{{ rate.toFixed(1) }}%</span>
+        </template>
+        <span class="label">应收合计</span>
+        <span class="grand">
+          <span data-testid="order-total">{{ money(totals.total) }}</span>
+          <el-tag v-if="totals.pending" size="small" type="warning" class="pending">有待定价的商品</el-tag>
         </span>
-        <p v-if="overLimit" class="warn">
-          优惠 {{ rate.toFixed(1) }}% 超过上限 {{ settings?.discount_limit }}%，需要有审批权限的主管修改。
-        </p>
-      </el-form-item>
+      </div>
+      <p v-if="overLimit" class="warn">
+        优惠 {{ rate.toFixed(1) }}% 超过上限 {{ settings?.discount_limit }}%，需要有审批权限的主管修改。
+      </p>
+    </section>
 
-      <el-form-item v-for="[field, label] in RECEIVER_FIELDS" :key="field" :label="label">
-        <el-input
-          v-model="form.receiver[field]"
-          :maxlength="field === 'address' ? 200 : 32"
-          :placeholder="editing ? `${order?.receiver[field] ?? '未填写'}（不填保持不变）` : ''"
-          :data-testid="`receiver-${field}`"
-        />
-      </el-form-item>
-
-      <el-form-item label="收款方式">
-        <el-select
-          v-model="form.paymentMethod"
-          clearable
-          placeholder="客户选择的方式（确认订单时最终确定）"
-          data-testid="order-payment-method"
-        >
-          <el-option v-for="[value, label] in methods" :key="value" :label="label" :value="value" />
-        </el-select>
-        <span v-if="order?.payment_hint" class="muted hint"
-          >客户提到：{{ PAYMENT_METHOD[order.payment_hint] }}</span
-        >
-      </el-form-item>
-      <el-form-item label="期望时间">
-        <el-date-picker v-model="form.expectedAt" type="datetime" value-format="YYYY-MM-DDTHH:mm:ssZ" />
-      </el-form-item>
-      <el-form-item label="客户要求">
+    <section class="doc-section">
+      <div class="doc-section-head"><h4>备注</h4></div>
+      <div class="notes">
         <el-input
           v-model="form.customerNote"
           type="textarea"
           :rows="2"
           maxlength="1000"
-          placeholder="客户可见，例如送货时间"
+          placeholder="客户要求（客户可见），例如送货时间"
+          data-testid="order-customer-note"
         />
-      </el-form-item>
-      <el-form-item label="内部备注">
-        <el-input v-model="form.internalNote" type="textarea" :rows="2" maxlength="2000" />
-      </el-form-item>
+        <el-input
+          v-model="form.internalNote"
+          type="textarea"
+          :rows="2"
+          maxlength="2000"
+          placeholder="内部备注（客户看不到）"
+          data-testid="order-internal-note"
+        />
+      </div>
+    </section>
 
+    <section v-if="contentChanged || (editing && notifiable)" class="doc-section change">
+      <div class="doc-section-head"><h4>修改说明</h4></div>
       <template v-if="contentChanged">
-        <el-form-item label="修改原因" required>
+        <div class="reason">
+          <span class="label required">修改原因</span>
           <el-radio-group v-model="form.reason" data-testid="order-reason">
-            <el-radio v-for="[value, label] in CHANGE_REASONS" :key="value" :value="value">{{
-              label
-            }}</el-radio>
+            <el-radio v-for="[value, label] in CHANGE_REASONS" :key="value" :value="value">{{ label }}</el-radio>
           </el-radio-group>
-        </el-form-item>
-        <el-form-item label="说明">
-          <el-input v-model="form.note" maxlength="500" placeholder="可以不填" />
-        </el-form-item>
+        </div>
+        <el-input v-model="form.note" maxlength="500" placeholder="说明（可以不填）" class="note" />
       </template>
-      <el-form-item v-if="editing && notifiable" label="">
-        <el-checkbox v-model="form.notify" data-testid="order-notify"
-          >把修改后的内容告知客户（不需要客户再次确认）</el-checkbox
-        >
-      </el-form-item>
-      <el-form-item v-if="!editing" label="">
-        <el-checkbox v-model="form.submit" data-testid="order-submit-toggle">直接提交审核</el-checkbox>
-      </el-form-item>
-    </el-form>
+      <el-checkbox v-if="editing && notifiable" v-model="form.notify" data-testid="order-notify"
+        >把修改后的内容告知客户（不需要客户再次确认）</el-checkbox
+      >
+    </section>
+
     <template #footer>
-      <el-button @click="open = false">取消</el-button>
-      <el-button type="primary" :loading="saving" data-testid="order-save" @click="save">
-        {{ editing ? '保存' : form.submit ? '提交审核' : '保存草稿' }}
-      </el-button>
+      <span class="doc-foot-summary">
+        共 {{ lines.length }} 项 · 应收合计 <b>{{ money(totals.total) }}</b>
+      </span>
+      <div class="doc-foot-buttons">
+        <el-button @click="open = false">取消</el-button>
+        <template v-if="editing">
+          <el-button type="primary" :loading="saving" data-testid="order-save" @click="save(true)">保存</el-button>
+        </template>
+        <template v-else>
+          <el-button :disabled="saving" data-testid="order-save-draft" @click="save(false)">保存草稿</el-button>
+          <el-button type="primary" :loading="saving" data-testid="order-save" @click="save(true)"
+            >提交审核</el-button
+          >
+        </template>
+      </div>
     </template>
-  </el-dialog>
+  </DocSheet>
 </template>
 
 <style scoped>
 .tip {
-  margin-bottom: 12px;
-}
-
-.lines {
-  width: 100%;
-}
-
-.line {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 8px;
-}
-
-.what {
-  flex: 1;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
-}
-
-.what .el-input,
-.what .el-select {
-  flex: 1;
-  min-width: 160px;
-}
-
-.name {
-  font-weight: 500;
-}
-
-.qty {
-  width: 110px;
-}
-
-.price {
-  width: 120px;
-}
-
-.amount {
-  width: 96px;
-  text-align: right;
-}
-
-.add {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
-
-.discount {
-  width: 140px;
-}
-
-.totals {
-  margin-left: 12px;
-}
-
-.muted {
-  color: var(--el-text-color-secondary);
-  font-size: 12px;
+  margin-bottom: 16px;
 }
 
 .hint {
+  margin: 8px 0 0;
+}
+
+.unmatched {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.unmatched > * {
+  flex: 1 1 180px;
+}
+
+.money .discount {
+  width: 140px;
+}
+
+.pending {
   margin-left: 8px;
+  vertical-align: middle;
 }
 
 .warn {
-  margin: 4px 0 0;
-  width: 100%;
+  margin: 8px 0 0;
   color: var(--el-color-warning);
   font-size: 12px;
+  text-align: right;
+}
+
+.notes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.change {
+  padding: 12px;
+  border-radius: 6px;
+  background: var(--el-color-warning-light-9);
+}
+
+.reason {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin-bottom: 8px;
+}
+
+.label {
+  color: var(--el-text-color-secondary);
+  font-size: 13px;
+}
+
+.label.required::before {
+  content: '*';
+  margin-right: 2px;
+  color: var(--el-color-danger);
+}
+
+.note {
+  margin-bottom: 8px;
+}
+
+@media (max-width: 640px) {
+  .notes {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

@@ -19,6 +19,7 @@ import {
   type Todo,
   type TodoDetail,
 } from '../../todos'
+import HistoryDrawer from '../history/HistoryDrawer.vue'
 import SessionDrawer from '../sessions/SessionDrawer.vue'
 import ConfirmDialog from './ConfirmDialog.vue'
 
@@ -39,6 +40,8 @@ const comment = reactive({ text: '', mentions: [] as string[] })
 const note = ref('')
 
 const confirmOpen = ref(false)
+// 修改历史（§25.14）。
+const historyOpen = ref(false)
 const reject = reactive({ open: false, reason: 'not_real' as Schemas['RejectReason'], note: '' })
 const merge = reactive({ open: false, targetId: '', candidates: [] as Todo[] })
 const done = reactive({ open: false, result: '', notify: true, notice: '' })
@@ -308,6 +311,9 @@ async function reveal(): Promise<void> {
           >
           <el-tag v-if="due === 'overdue'" type="danger">已逾期</el-tag>
           <el-tag v-if="detail.nudge_count" type="warning">客户催促 {{ detail.nudge_count }} 次</el-tag>
+          <el-button link type="primary" size="small" class="history" data-testid="todo-history" @click="historyOpen = true"
+            >修改历史</el-button
+          >
         </div>
         <h3 class="title" data-testid="todo-title-text">{{ detail.title }}</h3>
         <p v-if="detail.detail" class="text">{{ detail.detail }}</p>
@@ -628,6 +634,13 @@ async function reveal(): Promise<void> {
     </el-dialog>
 
     <SessionDrawer :session-id="viewing" :staff-names="names" @close="viewing = null" />
+    <HistoryDrawer
+      v-if="detail"
+      v-model="historyOpen"
+      record-type="todo"
+      :record-id="detail.id"
+      :title="`待办 ${detail.no}`"
+    />
   </el-drawer>
 </template>
 
@@ -639,7 +652,12 @@ async function reveal(): Promise<void> {
 .head {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 6px;
+}
+
+.head .history {
+  margin-left: auto;
 }
 
 .title {

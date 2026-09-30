@@ -4,6 +4,9 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { computed, reactive, ref, watch } from 'vue'
 
 import { api, formatDateTime } from '../../api'
+import { quantityTotal } from '../../documents'
+import { documentHtml, printHtml } from '../../print'
+import { useAuthStore } from '../../stores/auth'
 import {
   KIND_LABEL,
   qty,
@@ -11,26 +14,62 @@ import {
   stockAfterDocument,
   type WarehouseDocument,
 } from '../../warehouse'
+import DocSheet, { type SheetStep } from '../documents/DocSheet.vue'
+import HistoryDrawer from '../history/HistoryDrawer.vue'
 import DocumentEditor from './DocumentEditor.vue'
 
 /**
- * 领料单、入库单的详情（设计文档 §25.13）：仓管确认（可以按实际数量修改，领料时库存不够也可以
- * 确认，库存变成负数）或退回（写明原因）；开单人可以修改后重新提交，或者作废还没生效的单据。
+ * 领料单、入库单的详情（设计文档 §25.13、§25.14）：和开单同样的版式，只读。仓管确认时直接在表格的
+ * "实际数量"里修改（领料时库存不够也可以确认，库存变成负数），或者退回（写明原因）；开单人可以修改
+ * 后重新提交，或者作废还没生效的单据。可以查看修改历史、打印。
  */
 const open = defineModel<boolean>({ required: true })
 const props = defineProps<{ documentId: string | null }>()
 const emit = defineEmits<{ changed: [document: WarehouseDocument] }>()
 
+const auth = useAuthStore()
 const doc = ref<WarehouseDocument | null>(null)
 const loading = ref(false)
 const acting = ref(false)
 const quantities = reactive<Record<string, number>>({})
 const editing = ref(false)
+const history = ref(false)
 
 // 仓管按实际数量修改过的行（材料最多三位小数，提交时四舍五入）。
 const adjusted = computed(() =>
   (doc.value?.lines ?? []).filter((line) => rounded(line.id) !== line.quantity),
 )
+const verb = computed(() => (doc.value?.kind === 'requisition' ? '领用' : '入库'))
+const quantitySum = computed(() =>
+  quantityTotal((doc.value?.lines ?? []).map((l) => ({ quantity: quantities[l.id] ?? l.quantity, unit: l.unit }))),
+)
+const steps = computed<SheetStep[]>(() => {
+  const d = doc.value
+  if (!d) return []
+  const opened: SheetStep = {
+    label: '开单',
+    state: 'done',
+    note: `${d.created_by_name ?? ''} ${formatDateTime(d.submitted_at)}`.trim(),
+  }
+  if (d.status === 'confirmed') {
+    return [
+      opened,
+      {
+        label: '仓管确认',
+        state: 'done',
+        note: `${d.confirmed_by_name ?? ''} ${d.confirmed_at ? formatDateTime(d.confirmed_at) : ''}`,
+      },
+      { label: '已生效', state: 'done' },
+    ]
+  }
+  if (d.status === 'rejected') {
+    return [opened, { label: '已退回', state: 'error', note: d.reject_reason ?? '' }, { label: '修改后重新提交', state: 'todo' }]
+  }
+  if (d.status === 'voided') {
+    return [opened, { label: '已作废', state: 'error', note: d.void_reason ?? '' }]
+  }
+  return [opened, { label: '仓管确认', state: 'current', note: '等待确认' }, { label: '已生效', state: 'todo' }]
+})
 
 function rounded(id: string): number {
   return Math.round((quantities[id] ?? 0) * 1000) / 1000
@@ -69,7 +108,7 @@ function changed(data: WarehouseDocument): void {
 
 async function confirm(): Promise<void> {
   const current = doc.value
-  if (!current) return
+  if (!current || acting.value) return
   const lines = adjusted.value.map((line) => ({ id: line.id, quantity: rounded(line.id) }))
   const short =
     current.kind === 'requisition'
@@ -159,45 +198,70 @@ async function voidDocument(): Promise<void> {
 function edited(data: unknown): void {
   changed(data as WarehouseDocument)
 }
+
+function print(): void {
+  if (!doc.value) return
+  if (!printHtml(documentHtml(doc.value, auth.me?.tenant.name ?? ''))) {
+    ElMessage.warning('浏览器拦截了打印窗口，请允许弹出窗口后再试')
+  }
+}
 </script>
 
 <template>
-  <el-drawer
+  <DocSheet
     v-model="open"
-    :title="doc ? `${KIND_LABEL[doc.kind]} ${doc.no}` : '单据'"
-    size="min(760px, 100%)"
-    append-to-body
-    data-testid="document-drawer"
+    :title="doc ? KIND_LABEL[doc.kind] : '单据'"
+    :no="doc?.no ?? ''"
+    :status="doc ? { label: doc.status_label, type: STATUS_TAG[doc.status] } : null"
+    :steps="steps"
+    :loading="loading"
+    testid="document-drawer"
+    status-testid="document-status"
+    @save="doc?.can_confirm && confirm()"
   >
-    <div v-loading="loading">
-      <template v-if="doc">
-        <div class="head">
-          <el-tag :type="STATUS_TAG[doc.status]" data-testid="document-status">{{ doc.status_label }}</el-tag>
-          <span v-if="doc.order_no" class="muted" data-testid="document-order">订单 {{ doc.order_no }}</span>
-          <span v-else class="muted">不关联订单</span>
+    <template #actions>
+      <el-button v-if="doc" size="small" data-testid="document-history" @click="history = true">历史</el-button>
+      <el-button v-if="doc" size="small" data-testid="document-print" @click="print">打印</el-button>
+    </template>
+    <template v-if="doc">
+      <section class="doc-section">
+        <div class="doc-section-head"><h4>基本信息</h4></div>
+        <div class="doc-fields">
+          <div class="doc-field">
+            <label>关联订单</label>
+            <span class="value" data-testid="document-order">{{ doc.order_no ?? '不关联订单' }}</span>
+          </div>
+          <div class="doc-field">
+            <label>开单人</label>
+            <span class="value">{{ doc.created_by_name ?? '—' }}</span>
+          </div>
+          <div class="doc-field">
+            <label>开单时间</label>
+            <span class="value">{{ formatDateTime(doc.submitted_at) }}</span>
+          </div>
+          <div v-if="doc.confirmed_at" class="doc-field">
+            <label>确认人</label>
+            <span class="value">{{ doc.confirmed_by_name ?? '—' }} {{ formatDateTime(doc.confirmed_at) }}</span>
+          </div>
+          <div v-if="doc.status === 'rejected'" class="doc-field wide">
+            <label>退回原因</label>
+            <span class="value danger" data-testid="document-reject-reason"
+              >{{ doc.rejected_by_name ?? '' }}：{{ doc.reject_reason }}</span
+            >
+          </div>
+          <div v-if="doc.status === 'voided'" class="doc-field wide">
+            <label>作废</label>
+            <span class="value">{{ doc.voided_by_name ?? '系统' }} {{ doc.void_reason ?? '' }}</span>
+          </div>
+          <div v-if="doc.note" class="doc-field full">
+            <label>备注</label>
+            <span class="value">{{ doc.note }}</span>
+          </div>
         </div>
-        <dl class="meta">
-          <dt>开单</dt>
-          <dd>{{ doc.created_by_name ?? '—' }} {{ formatDateTime(doc.submitted_at) }}</dd>
-          <template v-if="doc.confirmed_at">
-            <dt>确认</dt>
-            <dd>{{ doc.confirmed_by_name ?? '—' }} {{ formatDateTime(doc.confirmed_at) }}</dd>
-          </template>
-          <template v-if="doc.status === 'rejected'">
-            <dt>退回</dt>
-            <dd class="danger" data-testid="document-reject-reason">
-              {{ doc.rejected_by_name ?? '' }}：{{ doc.reject_reason }}
-            </dd>
-          </template>
-          <template v-if="doc.status === 'voided'">
-            <dt>作废</dt>
-            <dd>{{ doc.voided_by_name ?? '系统' }} {{ doc.void_reason ?? '' }}</dd>
-          </template>
-          <template v-if="doc.note">
-            <dt>备注</dt>
-            <dd>{{ doc.note }}</dd>
-          </template>
-        </dl>
+      </section>
+
+      <section class="doc-section">
+        <div class="doc-section-head"><h4>明细</h4></div>
         <el-alert
           v-if="doc.short.length"
           type="warning"
@@ -207,150 +271,126 @@ function edited(data: unknown): void {
           data-testid="document-short"
           :title="`库存不够：${doc.short.join('、')}。可以照常确认，确认后库存会是负数，请及时补货或盘点。`"
         />
-        <div class="lines" data-testid="document-detail-lines">
-          <div v-for="row in doc.lines" :key="row.id" class="line">
-            <div class="line-main">
-              <div>
-                <span data-testid="document-detail-line" :data-name="row.name">{{ row.name }}</span>
-                <span v-if="row.spec" class="muted"> {{ row.spec }}</span>
-              </div>
-              <div class="muted">
-                <template v-if="row.planned !== null">建议 {{ qty(row.planned) }} · </template>
+        <table class="doc-grid" data-testid="document-detail-lines">
+          <colgroup>
+            <col class="c-seq" />
+            <col />
+            <col class="c-unit" />
+            <col class="c-num" />
+            <col class="c-qty" />
+            <col class="c-change" />
+          </colgroup>
+          <thead>
+            <tr>
+              <th class="seq">#</th>
+              <th>{{ doc.kind === 'requisition' ? '材料' : '成品' }}</th>
+              <th>单位</th>
+              <th class="num">建议数量</th>
+              <th>{{ doc.can_confirm ? `实际${verb}` : '数量' }}</th>
+              <th class="num">库存变化</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="(row, index) in doc.lines" :key="row.id" class="line">
+              <td class="seq">{{ index + 1 }}</td>
+              <td class="main">
+                <div class="item-name" data-testid="document-detail-line" :data-name="row.name">{{ row.name }}</div>
+                <div class="item-sub">{{ [row.code, row.spec].filter(Boolean).join(' · ') }}</div>
+              </td>
+              <td data-label="单位">{{ row.unit || '—' }}</td>
+              <td class="num" data-label="建议">{{ row.planned === null ? '—' : qty(row.planned) }}</td>
+              <td :data-label="doc.can_confirm ? `实际${verb}` : '数量'">
+                <el-input-number
+                  v-if="doc.can_confirm"
+                  v-model="quantities[row.id]"
+                  :min="0"
+                  :max="100000000"
+                  :precision="doc.kind === 'receipt' ? 0 : undefined"
+                  size="small"
+                  controls-position="right"
+                  data-testid="document-confirm-quantity"
+                />
+                <b v-else data-testid="document-detail-quantity">{{ qty(row.quantity) }}</b>
+              </td>
+              <td class="num" data-label="库存">
                 <span v-if="doc.status === 'confirmed'" data-testid="document-detail-stock"
                   >{{ qty(row.stock_before) }} → {{ qty(row.stock_after) }}</span
                 >
                 <template v-else-if="doc.status === 'pending' || doc.status === 'rejected'">
-                  现有 {{ qty(row.stock) }}
+                  {{ qty(row.stock) }}
                   <span
                     :class="{
-                      minus:
+                      warn:
                         doc.kind === 'requisition' &&
                         stockAfterDocument(doc.kind, row.stock, quantities[row.id] ?? row.quantity) < 0,
                     }"
                     >→ {{ qty(stockAfterDocument(doc.kind, row.stock, quantities[row.id] ?? row.quantity)) }}</span
                   >
                 </template>
-              </div>
-            </div>
-            <div class="line-qty">
-              <el-input-number
-                v-if="doc.can_confirm"
-                v-model="quantities[row.id]"
-                :min="0"
-                :max="100000000"
-                :precision="doc.kind === 'receipt' ? 0 : undefined"
-                size="small"
-                controls-position="right"
-                class="qty"
-                data-testid="document-confirm-quantity"
-              />
-              <b v-else data-testid="document-detail-quantity">{{ qty(row.quantity) }}</b>
-              <span class="unit">{{ row.unit }}</span>
-            </div>
-          </div>
-        </div>
-        <p v-if="doc.can_confirm" class="muted">按实际交接的数量修改后再确认；为 0 的行不领（不入库）。</p>
-      </template>
-    </div>
-    <template v-if="doc" #footer>
-      <el-button v-if="doc.can_void" :disabled="acting" data-testid="document-void" @click="voidDocument"
-        >作废</el-button
-      >
-      <el-button v-if="doc.can_edit && !doc.can_confirm" :disabled="acting" data-testid="document-edit" @click="editing = true"
-        >修改后重新提交</el-button
-      >
-      <el-button v-if="doc.can_confirm" type="danger" plain :disabled="acting" data-testid="document-reject" @click="reject"
-        >退回</el-button
-      >
-      <el-button v-if="doc.can_confirm" type="primary" :loading="acting" data-testid="document-confirm" @click="confirm"
-        >确认{{ doc.kind === 'requisition' ? '领料' : '入库' }}</el-button
-      >
+                <template v-else>—</template>
+              </td>
+            </tr>
+          </tbody>
+          <tfoot>
+            <tr>
+              <td class="seq"></td>
+              <td>合计</td>
+              <td colspan="2">共 {{ doc.lines.length }} 项</td>
+              <td>{{ quantitySum }}</td>
+              <td></td>
+            </tr>
+          </tfoot>
+        </table>
+        <p v-if="doc.can_confirm" class="doc-muted hint">按实际交接的数量修改后再确认；为 0 的行不领（不入库）。</p>
+      </section>
     </template>
-    <DocumentEditor
-      v-if="doc"
-      v-model="editing"
-      :kind="doc.kind"
-      mode="edit"
-      :order-id="doc.order_id"
-      :order-no="doc.order_no"
-      :document="doc"
-      @saved="edited"
-    />
-  </el-drawer>
+    <template v-if="doc" #footer>
+      <span class="doc-foot-summary">共 {{ doc.lines.length }} 项</span>
+      <div class="doc-foot-buttons">
+        <el-button v-if="doc.can_void" :disabled="acting" data-testid="document-void" @click="voidDocument"
+          >作废</el-button
+        >
+        <el-button v-if="doc.can_edit && !doc.can_confirm" :disabled="acting" data-testid="document-edit" @click="editing = true"
+          >修改后重新提交</el-button
+        >
+        <el-button v-if="doc.can_confirm" type="danger" plain :disabled="acting" data-testid="document-reject" @click="reject"
+          >退回</el-button
+        >
+        <el-button v-if="doc.can_confirm" type="primary" :loading="acting" data-testid="document-confirm" @click="confirm"
+          >确认{{ doc.kind === 'requisition' ? '领料' : '入库' }}</el-button
+        >
+      </div>
+    </template>
+  </DocSheet>
+  <DocumentEditor
+    v-if="doc"
+    v-model="editing"
+    :kind="doc.kind"
+    mode="edit"
+    :order-id="doc.order_id"
+    :order-no="doc.order_no"
+    :document="doc"
+    @saved="edited"
+  />
+  <HistoryDrawer
+    v-if="doc"
+    v-model="history"
+    :record-type="doc.kind"
+    :record-id="doc.id"
+    :title="`${doc.kind_label} ${doc.no}`"
+  />
 </template>
 
 <style scoped>
-.head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.meta {
-  display: grid;
-  grid-template-columns: 56px 1fr;
-  gap: 4px 8px;
-  margin: 12px 0;
-  font-size: 13px;
-}
-
-.meta dt {
-  color: var(--el-text-color-secondary);
-}
-
-.meta dd {
-  margin: 0;
-}
-
 .tip {
   margin-bottom: 12px;
 }
 
-.lines {
-  border-top: 1px solid var(--el-border-color-lighter);
+.hint {
+  margin: 8px 0 0;
 }
 
-.line {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px 12px;
-  padding: 8px 0;
-  border-bottom: 1px solid var(--el-border-color-lighter);
-}
-
-.line-main {
-  flex: 1;
-  min-width: 160px;
-}
-
-.line-qty {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.qty {
-  width: 120px;
-}
-
-.unit {
-  min-width: 42px;
-  color: var(--el-text-color-secondary);
-  font-size: 12px;
-}
-
-.minus,
 .danger {
   color: var(--el-color-danger);
-}
-
-.minus {
-  font-weight: 600;
-}
-
-.muted {
-  color: var(--el-text-color-secondary);
-  font-size: 12px;
 }
 </style>

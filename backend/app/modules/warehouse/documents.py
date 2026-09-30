@@ -15,13 +15,14 @@ from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
 
-from sqlalchemy import ColumnElement, delete, func, or_, select, true, update
+from sqlalchemy import ColumnElement, delete, func, or_, select, true
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.context import AppContext
 from app.core.errors import Conflict, Forbidden, NotFound, Unprocessable
 from app.core.permissions import Permission
 from app.db.counters import next_number
+from app.modules.history import service as history
 from app.modules.iam.models import Staff
 from app.modules.iam.principal import Principal
 from app.modules.notifications import service as notifications
@@ -32,6 +33,7 @@ from app.modules.products.models import Product, ProductKind, ProductMaterial, S
 from app.modules.todos import assign as todo_assign
 from app.modules.todos import sla
 from app.modules.todos.models import ActorType, Todo
+from app.modules.warehouse import history as document_history
 from app.modules.warehouse import settings as warehouse_settings
 from app.modules.warehouse.models import (
     KIND_LABELS,
@@ -192,6 +194,7 @@ async def open_document(
     await session.flush()
     _add_lines(session, document, lines)
     await session.flush()
+    _track(session, document, "create", me)
     if order is not None:
         order_service.event(
             session,
@@ -303,6 +306,7 @@ async def resubmit(
     document.submitted_at = now
     document.rejected_by = document.rejected_at = document.reject_reason = None
     await session.flush()
+    _track(session, document, "update", principal.staff_id)
     todo = await _submitted(ctx, session, principal, document, order, now)
     await session.commit()
     await _dispatch(ctx, document, todo)
@@ -382,6 +386,7 @@ async def reject(
         now,
         reason,
     )
+    _track(session, document, "reject", principal.staff_id, reason=reason)
     if order is not None:
         order_service.event(
             session,
@@ -414,7 +419,7 @@ async def void(
     if not (document.created_by == principal.staff_id or is_keeper(principal)):
         raise Forbidden("只有开单人或仓管可以作废单据")
     now = order_service.utcnow()
-    _mark_void(document, principal.staff_id, now, reason.strip() or None)
+    _mark_void(session, document, principal.staff_id, now, reason.strip() or None)
     if order is not None:
         order_service.event(
             session,
@@ -431,11 +436,36 @@ async def void(
     return document
 
 
+def _track(
+    session: AsyncSession,
+    document: StockDocument,
+    action: str,
+    staff_id: uuid.UUID | None,
+    *,
+    reason: str | None = None,
+) -> None:
+    """修改历史（§25.14）；没有员工时是系统操作（例如订单取消时作废）。"""
+    history.track(
+        session,
+        document_history.record_type(document),
+        document,
+        action=action,
+        actor_type=STAFF if staff_id else ActorType.SYSTEM,
+        actor_id=staff_id,
+        reason=reason,
+    )
+
+
 def _mark_void(
-    document: StockDocument, staff_id: uuid.UUID | None, now: datetime, reason: str | None
+    session: AsyncSession,
+    document: StockDocument,
+    staff_id: uuid.UUID | None,
+    now: datetime,
+    reason: str | None,
 ) -> None:
     document.status = DocumentStatus.VOIDED.value
     document.voided_by, document.voided_at, document.void_reason = staff_id, now, reason
+    _track(session, document, "void", staff_id, reason=reason)
 
 
 async def void_for_order(
@@ -454,7 +484,7 @@ async def void_for_order(
     )
     now = order_service.utcnow()
     for document in rows:
-        _mark_void(document, staff_id, now, reason)
+        _mark_void(session, document, staff_id, now, reason)
     return len(rows)
 
 
@@ -492,6 +522,7 @@ async def _apply(
         line.stock_before, line.stock_after = before, after
     document.status = DocumentStatus.CONFIRMED.value
     document.confirmed_by, document.confirmed_at = me, now
+    _track(session, document, "confirm", me)
     if document.created_by != me:
         _notify_creator(session, principal, document, f"{label} {document.no} 仓管已确认")
     if order is None:
@@ -932,17 +963,16 @@ async def void_open_receipts(
     session: AsyncSession, order: Order, *, staff_id: uuid.UUID | None, reason: str
 ) -> None:
     """订单回到加工中时（例如修改了商品），作废它还没生效的入库单。"""
-    await session.execute(
-        update(StockDocument)
+    rows = await session.scalars(
+        select(StockDocument)
         .where(
             StockDocument.order_id == order.id,
             StockDocument.kind == DocumentKind.RECEIPT,
             StockDocument.status.in_(OPEN),
         )
-        .values(
-            status=DocumentStatus.VOIDED.value,
-            voided_by=staff_id,
-            voided_at=order_service.utcnow(),
-            void_reason=reason,
-        )
+        .order_by(StockDocument.id)
+        .with_for_update()
     )
+    now = order_service.utcnow()
+    for document in rows.all():
+        _mark_void(session, document, staff_id, now, reason)
