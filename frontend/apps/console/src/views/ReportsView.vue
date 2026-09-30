@@ -5,9 +5,12 @@ import { computed, onMounted, ref, watch } from 'vue'
 
 import { api } from '../api'
 import StatTile from '../components/charts/StatTile.vue'
+import OrderReport from '../components/reports/OrderReport.vue'
+import TodoReport from '../components/reports/TodoReport.vue'
 import TrendChart, { type TrendPoint } from '../components/charts/TrendChart.vue'
 import { formatDuration } from '../labels'
 import { browserTimeZone, dayLabels, lastDays, percent } from '../reports'
+import { useAuthStore } from '../stores/auth'
 
 const PRESETS = [
   { days: 7, label: '近 7 天' },
@@ -21,6 +24,11 @@ const STATUS: Record<string, string> = {
   offline: '离线',
 }
 
+const auth = useAuthStore()
+// 待办、订单报表按套餐开放（设计文档 §24.10、§25.10）。
+const tab = ref<'service' | 'todos' | 'orders'>('service')
+const showTodos = computed(() => auth.me?.features?.todos !== false)
+const showOrders = computed(() => auth.me?.features?.orders !== false)
 const preset = ref<number | null>(7)
 const range = ref<[string, string]>(lastDays(7))
 const overview = ref<Schemas['Overview'] | null>(null)
@@ -94,7 +102,17 @@ const csat = (avg: number | null | undefined, count: number) =>
       </div>
     </div>
 
-    <div :class="{ refreshing: loading && overview }">
+    <el-tabs v-model="tab" data-testid="report-tabs">
+      <el-tab-pane label="服务" name="service" />
+      <el-tab-pane v-if="showTodos" label="待办" name="todos" lazy>
+        <TodoReport :range="range" :tz="tz" />
+      </el-tab-pane>
+      <el-tab-pane v-if="showOrders" label="订单" name="orders" lazy>
+        <OrderReport :range="range" :tz="tz" />
+      </el-tab-pane>
+    </el-tabs>
+
+    <div v-show="tab === 'service'" :class="{ refreshing: loading && overview }">
       <div v-if="totals" class="tiles" data-testid="report-tiles">
         <StatTile
           label="会话"

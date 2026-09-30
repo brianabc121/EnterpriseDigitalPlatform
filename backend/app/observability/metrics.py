@@ -95,6 +95,11 @@ QUEUE_WAIT = Histogram(
     "edp_queue_wait_seconds", "从排队到分配给坐席的等待时间", ["tenant"], buckets=_WAIT
 )
 QUEUE_TIMEOUTS = Counter("edp_queue_timeouts", "排队超时转为留言的会话", ["tenant"])
+PRICE_GUARD = Counter(
+    "edp_ai_price_guard",
+    "AI 价格保护：套价识别（price_probe）与回复拦截（reply_blocked）",
+    ["tenant", "kind"],
+)
 
 # ---- 企业微信 ----
 WECOM_API_ERRORS = Counter(

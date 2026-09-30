@@ -27,6 +27,7 @@ from app.modules.ai.summaries import run_pending as run_session_summaries
 from app.modules.billing.service import generate_invoices, run_invoices, run_lifecycle
 from app.modules.conversation.reconcile import ReconcileReport, reconcile_all
 from app.modules.files.service import storage_config
+from app.modules.integration.delivery import run as run_webhooks
 from app.modules.kb.extraction import ExtractionReport, run_extraction
 from app.modules.kb.importer import run_imports
 from app.modules.kb.metrics import generate_digest, week_of
@@ -156,6 +157,15 @@ async def order_jobs(settings: Settings) -> dict[str, Any]:
             "followups": await run_order_followups(ctx),
             "embedded": await embed_products(ctx),
         }
+    finally:
+        await ctx.aclose()
+
+
+async def webhook_jobs(settings: Settings) -> dict[str, int]:
+    """立即分发新的推送事件并投递到期的推送（平时由调度进程每 10 秒执行）。"""
+    ctx = AppContext.create(settings)
+    try:
+        return await run_webhooks(ctx)
     finally:
         await ctx.aclose()
 
@@ -378,6 +388,9 @@ def main(argv: list[str] | None = None) -> int:
         "order-jobs",
         help="立即为到期未收清的暂欠订单生成催收待办，并为新商品生成向量（平时由调度进程定时执行）",
     )
+    commands.add_parser(
+        "webhook-jobs", help="立即分发新的推送事件并投递到期的推送（向企业系统推送订单和待办）"
+    )
 
     digest = commands.add_parser("kb-digest", help="生成知识周报（默认本周）")
     digest.add_argument("--tenant", help="租户编码，不填时处理全部租户")
@@ -460,6 +473,8 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps(asyncio.run(todo_jobs(get_settings())), ensure_ascii=False))
     elif args.command == "order-jobs":
         print(json.dumps(asyncio.run(order_jobs(get_settings())), ensure_ascii=False))
+    elif args.command == "webhook-jobs":
+        print(json.dumps(asyncio.run(webhook_jobs(get_settings())), ensure_ascii=False))
     elif args.command == "kb-digest":
         digests = asyncio.run(kb_digest(get_settings(), args.tenant, args.week))
         print(json.dumps(digests, ensure_ascii=False))

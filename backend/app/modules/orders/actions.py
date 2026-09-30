@@ -19,6 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.context import AppContext
 from app.core.dates import today
 from app.core.errors import Conflict, Forbidden, NotFound, Unprocessable
+from app.core.ids import new_id
 from app.core.permissions import Permission
 from app.modules.audit.service import record_audit
 from app.modules.conversation import notices, outbox
@@ -112,7 +113,13 @@ def _prices_changed(before: list[Any], after: list[Any]) -> bool:
 
 
 async def _notice(
-    session: AsyncSession, order: Order, text: str, *, actor_id: uuid.UUID | None, now: datetime
+    session: AsyncSession,
+    order: Order,
+    text: str,
+    *,
+    actor_id: uuid.UUID | None,
+    now: datetime,
+    actor_type: str | None = None,
 ) -> tuple[OrderNotice, uuid.UUID | None]:
     """按渠道通知客户，结果记入订单动态（由调用方提交并刷新发件箱）。"""
     sent = await notices.send(
@@ -122,7 +129,7 @@ async def _notice(
         session,
         order,
         "customer_notified",
-        actor_type=STAFF if actor_id else ActorType.SYSTEM,
+        actor_type=actor_type or (STAFF if actor_id else ActorType.SYSTEM),
         actor_id=actor_id,
         payload={
             "status": sent.status,
@@ -174,7 +181,7 @@ async def create(
     now = service.utcnow()
     me = principal.staff_id
     order = Order(
-        id=uuid.uuid4(),
+        id=new_id(),
         tenant_id=principal.tenant_id,
         no=await service.next_no(session, principal.tenant_id, settings, now),
         status=OrderStatus.DRAFT,
@@ -596,7 +603,7 @@ async def start(
         and _net_paid(order) < order.deposit_amount
     ):
         raise Unprocessable("还没有收到定金，不能开始处理")
-    if method == PaymentMethod.CREDIT and order.credit_approved_by is None:
+    if method == PaymentMethod.CREDIT and order.credit_approved_at is None:
         raise Unprocessable("暂欠需要主管同意后才能开始处理")
     now = service.utcnow()
 
@@ -791,7 +798,7 @@ async def add_payment(
     payments = await service.load_payments(session, order.id)
     before = service.snapshot(order, items, payments)
     payment = OrderPayment(
-        id=uuid.uuid4(),
+        id=new_id(),
         tenant_id=order.tenant_id,
         order_id=order.id,
         kind=payload.kind,

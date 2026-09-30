@@ -4,6 +4,47 @@
  */
 
 export interface paths {
+    "/api/v1/admin/api-keys": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Api Keys */
+        get: operations["list_api_keys_api_v1_admin_api_keys_get"];
+        put?: never;
+        /**
+         * Create Api Key
+         * @description 创建接口密钥：完整的密钥只在这次返回，平台只保存哈希。
+         */
+        post: operations["create_api_key_api_v1_admin_api_keys_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/api-keys/{key_id}/revoke": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Revoke Api Key
+         * @description 撤销后立即失效（不能恢复，需要时重新创建）。
+         */
+        post: operations["revoke_api_key_api_v1_admin_api_keys__key_id__revoke_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/integrations/wecom": {
         parameters: {
             query?: never;
@@ -286,6 +327,145 @@ export interface paths {
         post?: never;
         /** Delete Type */
         delete: operations["delete_type_api_v1_admin_todo_types__type_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/webhook-deliveries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Deliveries
+         * @description 推送记录（新的在前）。retrying：失败后等待重试的。
+         */
+        get: operations["list_deliveries_api_v1_admin_webhook_deliveries_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/webhook-deliveries/{delivery_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Delivery */
+        get: operations["get_delivery_api_v1_admin_webhook_deliveries__delivery_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/webhook-deliveries/{delivery_id}/resend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Resend Delivery
+         * @description 重发（内容和推送记录 ID 不变）：调度进程稍后投递。
+         */
+        post: operations["resend_delivery_api_v1_admin_webhook_deliveries__delivery_id__resend_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/webhooks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Webhooks */
+        get: operations["list_webhooks_api_v1_admin_webhooks_get"];
+        put?: never;
+        /**
+         * Create Webhook
+         * @description 新建推送地址：生成签名密钥（只在这次返回）。生产环境只能是公网 https 地址。
+         */
+        post: operations["create_webhook_api_v1_admin_webhooks_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/webhooks/{endpoint_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Update Webhook */
+        put: operations["update_webhook_api_v1_admin_webhooks__endpoint_id__put"];
+        post?: never;
+        /**
+         * Delete Webhook
+         * @description 删除推送地址（连同它的推送记录）。
+         */
+        delete: operations["delete_webhook_api_v1_admin_webhooks__endpoint_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/webhooks/{endpoint_id}/rotate-secret": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Rotate Webhook Secret
+         * @description 更换签名密钥：新密钥立即生效（只在这次返回），接收方需要同步更换。
+         */
+        post: operations["rotate_webhook_secret_api_v1_admin_webhooks__endpoint_id__rotate_secret_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/webhooks/{endpoint_id}/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Test Webhook
+         * @description 立即发一条测试推送（ping），返回对方的响应。
+         */
+        post: operations["test_webhook_api_v1_admin_webhooks__endpoint_id__test_post"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -2605,6 +2785,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/reports/orders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Orders Report
+         * @description 订单：AI 下单、业务、收款、安全和当前积压（数据范围与订单中心一致）。
+         */
+        get: operations["orders_report_api_v1_reports_orders_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/reports/overview": {
         parameters: {
             query?: never;
@@ -2637,6 +2837,26 @@ export interface paths {
          * @description 首页实时数据：排队、接待中、坐席状态、今日会话与满意度，以及我的接待情况。
          */
         get: operations["realtime_api_v1_reports_realtime_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reports/todos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Todos Report
+         * @description 待办：数量、时效、AI 生成的质量和每日趋势（数据范围与待办中心一致）。
+         */
+        get: operations["todos_report_api_v1_reports_todos_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -4432,6 +4652,128 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/open/v1/orders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Orders
+         * @description 按更新时间（从早到晚）增量同步订单；AI 采集中的草稿不返回。建议每次从上次同步到的时间
+         *     往前多取一分钟，按订单号去重。
+         */
+        get: operations["list_orders_open_v1_orders_get"];
+        put?: never;
+        /**
+         * Create Order
+         * @description 创建订单：进入平台审核，或作为企业系统已确认的订单记录。同一个 external_no 重复创建时
+         *     返回已有的订单（200）。
+         */
+        post: operations["create_order_open_v1_orders_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/open/v1/orders/{ref}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Order */
+        get: operations["get_order_open_v1_orders__ref__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/open/v1/orders/{ref}/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Update Order Status
+         * @description 回传状态、物流、收款和企业系统订单号。确认之后的状态以企业系统为准：可以跳过中间状态，
+         *     不能回退；按设置里的模板通知客户。同一个流水号的收款只登记一次。
+         */
+        post: operations["update_order_status_open_v1_orders__ref__status_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/open/v1/products/{code}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Upsert Product
+         * @description 按代码同步商品：代码不存在时新建（需要名称，返回 201）；已存在时只修改传了的字段。
+         */
+        put: operations["upsert_product_open_v1_products__code__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/open/v1/todos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create Todo
+         * @description 创建待办：直接进入待办列表，按类型的规则分派。同一个 external_ref 重复创建时返回已有的
+         *     待办（200）。
+         */
+        post: operations["create_todo_open_v1_todos_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/open/v1/todos/{ref}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Todo */
+        get: operations["get_todo_open_v1_todos__ref__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/platform/v1/audit-logs": {
         parameters: {
             query?: never;
@@ -4850,6 +5192,46 @@ export interface paths {
          * @description 失败的操作重新排队（重试次数清零），待执行的立即执行；在线信令不能重试。
          */
         post: operations["retry_im_ops_platform_v1_ops_im_ops_retry_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platform/v1/ops/webhook-deliveries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Platform Deliveries
+         * @description 进入死信（或正在重试）的推送，新的在前。
+         */
+        get: operations["platform_deliveries_platform_v1_ops_webhook_deliveries_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platform/v1/ops/webhook-deliveries/resend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Platform Resend
+         * @description 重发选中的推送（问题修复后）。
+         */
+        post: operations["platform_resend_platform_v1_ops_webhook_deliveries_resend_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -5789,6 +6171,85 @@ export interface components {
             /** Question */
             question: string;
         };
+        /** ApiKeyCreate */
+        ApiKeyCreate: {
+            /**
+             * Name
+             * @description 用途，例如：ERP 订单同步
+             */
+            name: string;
+            /**
+             * Scopes
+             * @description 权限范围
+             */
+            scopes: ("products:write" | "orders:read" | "orders:write" | "todos:write")[];
+        };
+        /** ApiKeyCreated */
+        ApiKeyCreated: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Created By Name */
+            created_by_name: string | null;
+            /**
+             * Display
+             * @description edp_<前缀>_••••（完整密钥只在创建时显示一次）
+             */
+            display: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Key
+             * @description 完整的密钥：只显示这一次，请妥善保存
+             */
+            key: string;
+            /** Last Used At */
+            last_used_at: string | null;
+            /** Name */
+            name: string;
+            /** Revoked At */
+            revoked_at: string | null;
+            /** Scopes */
+            scopes: string[];
+        };
+        /** ApiKeyList */
+        ApiKeyList: {
+            /** Items */
+            items: components["schemas"]["ApiKeyOut"][];
+        };
+        /** ApiKeyOut */
+        ApiKeyOut: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Created By Name */
+            created_by_name: string | null;
+            /**
+             * Display
+             * @description edp_<前缀>_••••（完整密钥只在创建时显示一次）
+             */
+            display: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Last Used At */
+            last_used_at: string | null;
+            /** Name */
+            name: string;
+            /** Revoked At */
+            revoked_at: string | null;
+            /** Scopes */
+            scopes: string[];
+        };
         /** AssignRequest */
         AssignRequest: {
             /** Assignee Id */
@@ -6176,6 +6637,17 @@ export interface components {
             id: string;
             /** Name */
             name: string;
+        };
+        /** Bucket */
+        Bucket: {
+            /** Amount */
+            amount?: string | null;
+            /** Count */
+            count: number;
+            /** Key */
+            key: string;
+            /** Label */
+            label: string;
         };
         /** CallbackUrls */
         CallbackUrls: {
@@ -6834,6 +7306,11 @@ export interface components {
             tenant_id?: string | null;
             /** Type */
             type: string;
+        };
+        /** DeliveryIds */
+        DeliveryIds: {
+            /** Ids */
+            ids: string[];
         };
         /** DoneRequest */
         DoneRequest: {
@@ -9467,6 +9944,444 @@ export interface components {
              */
             status: "sent" | "manual" | "unreachable";
         };
+        /** OpenCustomerIn */
+        OpenCustomerIn: {
+            /** Name */
+            name: string;
+            /**
+             * Phone
+             * @description 按手机号找到已有的客户
+             */
+            phone?: string | null;
+        };
+        /** OpenCustomerRef */
+        OpenCustomerRef: {
+            /** Id */
+            id: string | null;
+            /** Name */
+            name: string | null;
+        };
+        /** OpenLineIn */
+        OpenLineIn: {
+            /**
+             * Code
+             * @description 商品代码（对应商品库）
+             */
+            code?: string | null;
+            /**
+             * Name
+             * @description 商品库里没有的商品：商品说明（由员工对应）
+             */
+            name?: string | null;
+            /** Quantity */
+            quantity: number;
+            /**
+             * Unit Price
+             * @description 不传时按建议零售价
+             */
+            unit_price?: number | string | null;
+        };
+        /**
+         * OpenOrder
+         * @description 订单（开放接口与事件推送共用）。收货信息为明文，只给有 orders:read 权限的密钥。
+         */
+        OpenOrder: {
+            /** Cancel Reason */
+            cancel_reason: string | null;
+            /** Cancelled At */
+            cancelled_at: string | null;
+            /** Completed At */
+            completed_at: string | null;
+            /** Confirmed At */
+            confirmed_at: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Credit Due Date */
+            credit_due_date: string | null;
+            customer: components["schemas"]["OpenCustomerRef"];
+            /** Customer Note */
+            customer_note: string;
+            /** Deposit Amount */
+            deposit_amount: string | null;
+            /** Discount */
+            discount: string;
+            /** Expected At */
+            expected_at: string | null;
+            /** External No */
+            external_no: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Items */
+            items: components["schemas"]["OpenOrderItem"][];
+            /** Items Amount */
+            items_amount: string;
+            /** No */
+            no: string;
+            /** Outstanding */
+            outstanding: string;
+            /** Paid Amount */
+            paid_amount: string;
+            /** Payment Method */
+            payment_method: ("online" | "cod" | "deposit" | "credit") | null;
+            /** Payment Status */
+            payment_status: string;
+            /** Payments */
+            payments: components["schemas"]["OpenPayment"][];
+            receiver: components["schemas"]["OpenReceiver"];
+            /** Refunded Amount */
+            refunded_amount: string;
+            /** Shipped At */
+            shipped_at: string | null;
+            /** Shipping Company */
+            shipping_company: string | null;
+            /** Source */
+            source: string;
+            /** Started At */
+            started_at: string | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "draft" | "pending_review" | "confirmed" | "fulfilling" | "shipped" | "completed" | "cancelled";
+            /** Submitted At */
+            submitted_at: string | null;
+            /** Total */
+            total: string;
+            /** Tracking No */
+            tracking_no: string | null;
+            /** Tracking Url */
+            tracking_url: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Version */
+            version: number;
+        };
+        /** OpenOrderCreate */
+        OpenOrderCreate: {
+            /** Credit Due Date */
+            credit_due_date?: string | null;
+            /** @description 没有 customer_id 时：按手机号找到客户，找不到时新建 */
+            customer?: components["schemas"]["OpenCustomerIn"] | null;
+            /** Customer Id */
+            customer_id?: string | null;
+            /**
+             * Customer Note
+             * @default
+             */
+            customer_note: string;
+            /** Deposit Amount */
+            deposit_amount?: number | string | null;
+            /**
+             * Discount
+             * @default 0
+             */
+            discount: number | string;
+            /** Expected At */
+            expected_at?: string | null;
+            /**
+             * External No
+             * @description 企业系统的订单号：重复创建时返回已有的订单
+             */
+            external_no?: string | null;
+            /**
+             * Internal Note
+             * @default
+             */
+            internal_note: string;
+            /** Items */
+            items: components["schemas"]["OpenLineIn"][];
+            /**
+             * Notify Customer
+             * @description 确认时把确认信息发给客户
+             * @default false
+             */
+            notify_customer: boolean;
+            /** Payment Method */
+            payment_method?: ("online" | "cod" | "deposit" | "credit") | null;
+            receiver?: components["schemas"]["OpenReceiver"];
+            /**
+             * Status
+             * @description pending_review：进入平台审核；confirmed：企业系统已确认（需要收款方式）
+             * @default pending_review
+             * @enum {string}
+             */
+            status: "pending_review" | "confirmed";
+        };
+        /** OpenOrderItem */
+        OpenOrderItem: {
+            /** Amount */
+            amount: string;
+            /** Code */
+            code: string | null;
+            /** List Price */
+            list_price: string | null;
+            /** Model */
+            model: string;
+            /** Name */
+            name: string;
+            /** Quantity */
+            quantity: number;
+            /**
+             * Raw Text
+             * @description 没有对应到商品库的商品行：客户的原话
+             */
+            raw_text: string | null;
+            /** Spec */
+            spec: string;
+            /**
+             * Unit Price
+             * @description 为空表示待定价
+             */
+            unit_price: string | null;
+        };
+        /** OpenOrderPage */
+        OpenOrderPage: {
+            /** Items */
+            items: components["schemas"]["OpenOrder"][];
+            /**
+             * Next Cursor
+             * @description 还有更多时，下一页请求带上 cursor
+             */
+            next_cursor: string | null;
+        };
+        /** OpenOrderResult */
+        OpenOrderResult: {
+            notice?: components["schemas"]["OrderNotice"] | null;
+            order: components["schemas"]["OpenOrder"];
+        };
+        /** OpenPayment */
+        OpenPayment: {
+            /** Amount */
+            amount: string;
+            /** Channel */
+            channel: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "payment" | "refund";
+            /**
+             * Paid At
+             * Format: date-time
+             */
+            paid_at: string;
+            /** Recorded By Type */
+            recorded_by_type: string;
+            /** Reference No */
+            reference_no: string | null;
+            /** Voided */
+            voided: boolean;
+        };
+        /** OpenPaymentIn */
+        OpenPaymentIn: {
+            /** Amount */
+            amount: number | string;
+            /**
+             * Channel
+             * @default bank
+             * @enum {string}
+             */
+            channel: "wechat" | "alipay" | "bank" | "cash" | "other";
+            /**
+             * Kind
+             * @default payment
+             * @enum {string}
+             */
+            kind: "payment" | "refund";
+            /** Note */
+            note?: string | null;
+            /** Paid At */
+            paid_at?: string | null;
+            /**
+             * Reference No
+             * @description 流水号：同一个流水号只登记一次
+             */
+            reference_no?: string | null;
+        };
+        /**
+         * OpenProductIn
+         * @description 按代码同步商品：代码不存在时新建（需要名称）；已存在时只修改传了的字段。
+         */
+        OpenProductIn: {
+            /** Aliases */
+            aliases?: string[] | null;
+            /** Category */
+            category?: string | null;
+            /** Cost Price */
+            cost_price?: number | string | null;
+            /** Image Url */
+            image_url?: string | null;
+            /** Model */
+            model?: string | null;
+            /** Name */
+            name?: string | null;
+            /** Remark */
+            remark?: string | null;
+            /** Retail Price */
+            retail_price?: number | string | null;
+            /** Spec */
+            spec?: string | null;
+            /** Status */
+            status?: ("on" | "off") | null;
+        };
+        /** OpenProductOut */
+        OpenProductOut: {
+            /** Aliases */
+            aliases: string[];
+            /** Category */
+            category: string;
+            /** Code */
+            code: string;
+            /** Cost Price */
+            cost_price: string | null;
+            /**
+             * Created
+             * @description 这次请求新建了商品
+             */
+            created: boolean;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Image Url */
+            image_url: string | null;
+            /** Model */
+            model: string;
+            /** Name */
+            name: string;
+            /** Remark */
+            remark: string;
+            /** Retail Price */
+            retail_price: string | null;
+            /** Spec */
+            spec: string;
+            /** Status */
+            status: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** OpenReceiver */
+        OpenReceiver: {
+            /** Address */
+            address?: string | null;
+            /** Name */
+            name?: string | null;
+            /** Phone */
+            phone?: string | null;
+        };
+        /**
+         * OpenStatusUpdate
+         * @description 企业系统回传：确认之后的状态以企业系统为准（2026-09-30 确认）。可以跳过中间状态，
+         *     不能回退；已完成、已取消的订单只能登记收款和退款。
+         */
+        OpenStatusUpdate: {
+            /** Cancel Reason */
+            cancel_reason?: string | null;
+            /** Credit Due Date */
+            credit_due_date?: string | null;
+            /** Deposit Amount */
+            deposit_amount?: number | string | null;
+            /** External No */
+            external_no?: string | null;
+            /**
+             * Notify Customer
+             * @description 按订单设置里的模板通知客户
+             * @default true
+             */
+            notify_customer: boolean;
+            /** Payment Method */
+            payment_method?: ("online" | "cod" | "deposit" | "credit") | null;
+            /** Payments */
+            payments?: components["schemas"]["OpenPaymentIn"][];
+            /** Shipping Company */
+            shipping_company?: string | null;
+            /** Status */
+            status?: ("confirmed" | "fulfilling" | "shipped" | "completed" | "cancelled") | null;
+            /** Tracking No */
+            tracking_no?: string | null;
+        };
+        /** OpenTodo */
+        OpenTodo: {
+            /** Assignee Name */
+            assignee_name: string | null;
+            /** Closed At */
+            closed_at: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Customer Id */
+            customer_id: string | null;
+            /** Due At */
+            due_at: string | null;
+            /** External Ref */
+            external_ref: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** No */
+            no: string;
+            /** Order No */
+            order_no: string | null;
+            /** Result */
+            result: string | null;
+            /** Status */
+            status: string;
+            /** Title */
+            title: string;
+            /** Type */
+            type: string;
+        };
+        /** OpenTodoCreate */
+        OpenTodoCreate: {
+            /** Customer Id */
+            customer_id?: string | null;
+            /**
+             * Detail
+             * @default
+             */
+            detail: string;
+            /** Due At */
+            due_at?: string | null;
+            /**
+             * External Ref
+             * @description 企业系统的单号：重复创建时返回已有的待办
+             */
+            external_ref?: string | null;
+            /** Fields */
+            fields?: {
+                [key: string]: string;
+            };
+            /**
+             * Order No
+             * @description 关联的订单：平台订单号或企业系统的订单号
+             */
+            order_no?: string | null;
+            priority?: components["schemas"]["Priority"] | null;
+            /** Title */
+            title: string;
+            /**
+             * Type
+             * @description 待办类型的代码，例如 callback
+             */
+            type: string;
+        };
         /** OpsResult */
         OpsResult: {
             /** Done */
@@ -9476,6 +10391,36 @@ export interface components {
              * @description 已经不存在或不能处理的条目
              */
             skipped: number;
+        };
+        /** OrderAiStats */
+        OrderAiStats: {
+            /**
+             * Approval Rate
+             * @description 已处理的 AI 订单中确认的比例（%）
+             */
+            approval_rate: number | null;
+            /**
+             * Completed Rate
+             * @description AI 订单最终完成的比例（%）
+             */
+            completed_rate: number | null;
+            /**
+             * Intent Sessions
+             * @description AI 采集过订单的会话
+             */
+            intent_sessions: number;
+            /**
+             * Modified Rate
+             * @description AI 订单被员工修改过的比例（%）
+             */
+            modified_rate: number | null;
+            /** Modify Reasons */
+            modify_reasons: components["schemas"]["Bucket"][];
+            /**
+             * Submitted
+             * @description AI 提交审核的订单
+             */
+            submitted: number;
         };
         /** OrderAllowed */
         OrderAllowed: {
@@ -9508,6 +10453,39 @@ export interface components {
             assignee_id?: string | null;
             /** Skill Group Id */
             skill_group_id?: string | null;
+        };
+        /** OrderBusiness */
+        OrderBusiness: {
+            /**
+             * Amount
+             * @description 未取消订单的合计金额
+             */
+            amount: string;
+            /**
+             * Avg Review Minutes
+             * @description 提交到确认的平均时长
+             */
+            avg_review_minutes: number | null;
+            /** By Agent */
+            by_agent: components["schemas"]["Bucket"][];
+            /** By Channel */
+            by_channel: components["schemas"]["Bucket"][];
+            /** By Source */
+            by_source: components["schemas"]["Bucket"][];
+            /** Cancel Reasons */
+            cancel_reasons: components["schemas"]["Bucket"][];
+            /** Orders */
+            orders: number;
+            /**
+             * Product Gaps
+             * @description 客户问到、商品库里没有的商品前 10
+             */
+            product_gaps: components["schemas"]["Bucket"][];
+            /**
+             * Top Products
+             * @description 销量前 10 的商品（count 为数量）
+             */
+            top_products: components["schemas"]["Bucket"][];
         };
         /** OrderCancelRequest */
         OrderCancelRequest: {
@@ -9911,6 +10889,13 @@ export interface components {
              */
             status: "sent" | "manual" | "unreachable";
         };
+        /** OrderNow */
+        OrderNow: {
+            /** Oldest Pending Minutes */
+            oldest_pending_minutes: number | null;
+            /** Pending Review */
+            pending_review: number;
+        };
         /** OrderOut */
         OrderOut: {
             /** Ai Error */
@@ -10051,6 +11036,41 @@ export interface components {
             /** Voided By Name */
             voided_by_name: string | null;
         };
+        /** OrderPayments */
+        OrderPayments: {
+            /** By Method */
+            by_method: components["schemas"]["Bucket"][];
+            /** Overdue Orders */
+            overdue_orders: number;
+            /**
+             * Overdue Receivable
+             * @description 暂欠逾期未收的金额
+             */
+            overdue_receivable: string;
+            /**
+             * Receivable
+             * @description 已确认订单中未收的金额
+             */
+            receivable: string;
+        };
+        /** OrderReport */
+        OrderReport: {
+            ai: components["schemas"]["OrderAiStats"];
+            business: components["schemas"]["OrderBusiness"];
+            /**
+             * End
+             * Format: date
+             */
+            end: string;
+            now: components["schemas"]["OrderNow"];
+            payments: components["schemas"]["OrderPayments"];
+            security: components["schemas"]["OrderSecurity"];
+            /**
+             * Start
+             * Format: date
+             */
+            start: string;
+        };
         /** OrderResult */
         OrderResult: {
             notice?: components["schemas"]["OrderNotice"] | null;
@@ -10121,6 +11141,19 @@ export interface components {
             reason: ("customer_request" | "ai_error" | "price_adjust" | "substitution" | "other") | null;
             /** Version */
             version: number;
+        };
+        /** OrderSecurity */
+        OrderSecurity: {
+            /**
+             * Price Probes
+             * @description 套价识别次数
+             */
+            price_probes: number;
+            /**
+             * Replies Blocked
+             * @description 回复拦截次数
+             */
+            replies_blocked: number;
         };
         /** OrderSettings */
         OrderSettings: {
@@ -10633,7 +11666,7 @@ export interface components {
          * Permission
          * @enum {string}
          */
-        Permission: "dashboard:view" | "workbench:use" | "customer:read" | "customer:read_all" | "customer:create" | "customer:assign" | "customer:view_sensitive" | "customer:export" | "customer:manage" | "session:read_all" | "session:read_team" | "session:transfer" | "session:transfer_any" | "session:monitor" | "routing:manage" | "staff:read" | "staff:manage" | "quick_reply:manage" | "kb:read" | "kb:manage" | "kb:publish" | "report:view" | "settings:manage" | "broadcast:manage" | "tenant:manage" | "audit:read" | "todo:read" | "todo:handle" | "todo:assign" | "todo:config" | "todo:export" | "order:read" | "order:create" | "order:review" | "order:price" | "order:payment" | "order:credit" | "order:export" | "order:config" | "product:manage" | "product:view_cost";
+        Permission: "dashboard:view" | "workbench:use" | "customer:read" | "customer:read_all" | "customer:create" | "customer:assign" | "customer:view_sensitive" | "customer:export" | "customer:manage" | "session:read_all" | "session:read_team" | "session:transfer" | "session:transfer_any" | "session:monitor" | "routing:manage" | "staff:read" | "staff:manage" | "quick_reply:manage" | "kb:read" | "kb:manage" | "kb:publish" | "report:view" | "settings:manage" | "broadcast:manage" | "tenant:manage" | "audit:read" | "todo:read" | "todo:handle" | "todo:assign" | "todo:config" | "todo:export" | "order:read" | "order:create" | "order:review" | "order:price" | "order:payment" | "order:credit" | "order:export" | "order:config" | "product:manage" | "product:view_cost" | "integration:manage";
         /** PermissionInfo */
         PermissionInfo: {
             code: components["schemas"]["Permission"];
@@ -10930,6 +11963,62 @@ export interface components {
         PlatformClosureRequest: {
             /** Reason */
             reason: string;
+        };
+        /** PlatformDelivery */
+        PlatformDelivery: {
+            /** Attempts */
+            attempts: number;
+            /**
+             * Body
+             * @description 推送的内容（只在查看单条时返回）
+             */
+            body?: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Delivered At */
+            delivered_at: string | null;
+            /**
+             * Endpoint Id
+             * Format: uuid
+             */
+            endpoint_id: string;
+            /** Endpoint Name */
+            endpoint_name?: string | null;
+            /** Event */
+            event: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Last Error */
+            last_error: string | null;
+            /** Last Status */
+            last_status: number | null;
+            /** Next Attempt At */
+            next_attempt_at: string | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "pending" | "succeeded" | "dead";
+            /** Tenant Code */
+            tenant_code: string | null;
+            /**
+             * Tenant Id
+             * Format: uuid
+             */
+            tenant_id: string;
+            /** Url */
+            url: string | null;
+        };
+        /** PlatformDeliveryList */
+        PlatformDeliveryList: {
+            /** Items */
+            items: components["schemas"]["PlatformDelivery"][];
         };
         /** PlatformLoginRequest */
         PlatformLoginRequest: {
@@ -11618,6 +12707,11 @@ export interface components {
             due_at: string;
             /** Reason */
             reason: string;
+        };
+        /** ResendResult */
+        ResendResult: {
+            /** Done */
+            done: number;
         };
         /**
          * RetentionPolicy
@@ -13220,6 +14314,27 @@ export interface components {
                 [key: string]: number;
             };
         };
+        /** TodoAiQuality */
+        TodoAiQuality: {
+            /** Ai Created */
+            ai_created: number;
+            /** Cancelled After Confirm */
+            cancelled_after_confirm: number;
+            /**
+             * Confirmed Direct
+             * @description 直接确认
+             */
+            confirmed_direct: number;
+            /**
+             * Confirmed Modified
+             * @description 修改后确认
+             */
+            confirmed_modified: number;
+            /** Reject Reasons */
+            reject_reasons: components["schemas"]["Bucket"][];
+            /** Rejected */
+            rejected: number;
+        };
         /**
          * TodoAllowed
          * @description 当前员工能对这条待办做的操作（前端据此显示按钮）。
@@ -13301,6 +14416,18 @@ export interface components {
              * Format: uuid
              */
             type_id: string;
+        };
+        /** TodoDaily */
+        TodoDaily: {
+            /** Created */
+            created: number;
+            /**
+             * Day
+             * Format: date
+             */
+            day: string;
+            /** Done */
+            done: number;
         };
         /** TodoDetail */
         TodoDetail: {
@@ -13591,6 +14718,28 @@ export interface components {
             /** Total */
             total: number;
         };
+        /** TodoReport */
+        TodoReport: {
+            ai: components["schemas"]["TodoAiQuality"];
+            /** By Source */
+            by_source: components["schemas"]["Bucket"][];
+            /** By Type */
+            by_type: components["schemas"]["Bucket"][];
+            /** Daily */
+            daily: components["schemas"]["TodoDaily"][];
+            /**
+             * End
+             * Format: date
+             */
+            end: string;
+            /**
+             * Start
+             * Format: date
+             */
+            start: string;
+            timeliness: components["schemas"]["TodoTimeliness"];
+            totals: components["schemas"]["TodoTotals"];
+        };
         /** TodoSettings */
         TodoSettings: {
             /**
@@ -13678,6 +14827,51 @@ export interface components {
             type_id: string;
             /** Type Name */
             type_name: string;
+        };
+        /** TodoTimeliness */
+        TodoTimeliness: {
+            /**
+             * Avg Confirm Minutes
+             * @description AI 生成到确认的平均时长
+             */
+            avg_confirm_minutes: number | null;
+            /** Avg First Response Minutes */
+            avg_first_response_minutes: number | null;
+            /** Avg Resolve Minutes */
+            avg_resolve_minutes: number | null;
+            /**
+             * On Time Rate
+             * @description 有截止时间的已完成待办中按时完成的比例（%）
+             */
+            on_time_rate: number | null;
+        };
+        /** TodoTotals */
+        TodoTotals: {
+            /** Cancelled */
+            cancelled: number;
+            /** Created */
+            created: number;
+            /** Done */
+            done: number;
+            /** Oldest Unclaimed Minutes */
+            oldest_unclaimed_minutes: number | null;
+            /**
+             * Overdue Now
+             * @description 当前已逾期未完成
+             */
+            overdue_now: number;
+            /**
+             * Pending Now
+             * @description 当前待确认
+             */
+            pending_now: number;
+            /** Rejected */
+            rejected: number;
+            /**
+             * Unclaimed Now
+             * @description 当前待认领
+             */
+            unclaimed_now: number;
         };
         /** TodoTypeList */
         TodoTypeList: {
@@ -14447,6 +15641,176 @@ export interface components {
              */
             staff_id: string;
         };
+        /** WebhookDeliveryOut */
+        WebhookDeliveryOut: {
+            /** Attempts */
+            attempts: number;
+            /**
+             * Body
+             * @description 推送的内容（只在查看单条时返回）
+             */
+            body?: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Delivered At */
+            delivered_at: string | null;
+            /**
+             * Endpoint Id
+             * Format: uuid
+             */
+            endpoint_id: string;
+            /** Endpoint Name */
+            endpoint_name?: string | null;
+            /** Event */
+            event: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Last Error */
+            last_error: string | null;
+            /** Last Status */
+            last_status: number | null;
+            /** Next Attempt At */
+            next_attempt_at: string | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "pending" | "succeeded" | "dead";
+        };
+        /** WebhookDeliveryPage */
+        WebhookDeliveryPage: {
+            /** Items */
+            items: components["schemas"]["WebhookDeliveryOut"][];
+            /** Total */
+            total: number;
+        };
+        /** WebhookEndpointCreated */
+        WebhookEndpointCreated: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Dead
+             * @description 多次失败后放弃（死信）的数量
+             */
+            dead: number;
+            /** Enabled */
+            enabled: boolean;
+            /** Events */
+            events: string[];
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Last Failure At */
+            last_failure_at: string | null;
+            /** Last Success At */
+            last_success_at: string | null;
+            /** Name */
+            name: string;
+            /**
+             * Pending
+             * @description 等待推送或重试中的数量
+             */
+            pending: number;
+            /**
+             * Secret
+             * @description 签名密钥：只显示这一次，用来校验推送的签名
+             */
+            secret: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Url */
+            url: string;
+        };
+        /** WebhookEndpointList */
+        WebhookEndpointList: {
+            /** Items */
+            items: components["schemas"]["WebhookEndpointOut"][];
+        };
+        /** WebhookEndpointOut */
+        WebhookEndpointOut: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Dead
+             * @description 多次失败后放弃（死信）的数量
+             */
+            dead: number;
+            /** Enabled */
+            enabled: boolean;
+            /** Events */
+            events: string[];
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Last Failure At */
+            last_failure_at: string | null;
+            /** Last Success At */
+            last_success_at: string | null;
+            /** Name */
+            name: string;
+            /**
+             * Pending
+             * @description 等待推送或重试中的数量
+             */
+            pending: number;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Url */
+            url: string;
+        };
+        /** WebhookEndpointWrite */
+        WebhookEndpointWrite: {
+            /**
+             * Enabled
+             * @default true
+             */
+            enabled: boolean;
+            /**
+             * Events
+             * @description 订阅的事件
+             */
+            events: ("order.created" | "order.updated" | "order.confirmed" | "order.status_changed" | "order.cancelled" | "order.payment" | "todo.done")[];
+            /** Name */
+            name: string;
+            /**
+             * Url
+             * @description 接收推送的地址（生产环境只能是公网 https）
+             */
+            url: string;
+        };
+        /** WebhookTestResult */
+        WebhookTestResult: {
+            /** Duration Ms */
+            duration_ms: number;
+            /** Error */
+            error: string | null;
+            /** Ok */
+            ok: boolean;
+            /** Status */
+            status: number | null;
+        };
         /** WecomBinding */
         WecomBinding: {
             /**
@@ -14687,6 +16051,234 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    list_api_keys_api_v1_admin_api_keys_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiKeyList"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    create_api_key_api_v1_admin_api_keys_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ApiKeyCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiKeyCreated"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    revoke_api_key_api_v1_admin_api_keys__key_id__revoke_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiKeyOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     wecom_status_api_v1_admin_integrations_wecom_get: {
         parameters: {
             query?: never;
@@ -16148,6 +17740,695 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    list_deliveries_api_v1_admin_webhook_deliveries_get: {
+        parameters: {
+            query?: {
+                endpoint_id?: string | null;
+                status?: ("pending" | "succeeded" | "dead" | "retrying") | null;
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebhookDeliveryPage"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_delivery_api_v1_admin_webhook_deliveries__delivery_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                delivery_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebhookDeliveryOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    resend_delivery_api_v1_admin_webhook_deliveries__delivery_id__resend_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                delivery_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebhookDeliveryOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    list_webhooks_api_v1_admin_webhooks_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebhookEndpointList"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    create_webhook_api_v1_admin_webhooks_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WebhookEndpointWrite"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebhookEndpointCreated"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    update_webhook_api_v1_admin_webhooks__endpoint_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                endpoint_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WebhookEndpointWrite"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebhookEndpointOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    delete_webhook_api_v1_admin_webhooks__endpoint_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                endpoint_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    rotate_webhook_secret_api_v1_admin_webhooks__endpoint_id__rotate_secret_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                endpoint_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebhookEndpointCreated"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    test_webhook_api_v1_admin_webhooks__endpoint_id__test_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                endpoint_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebhookTestResult"];
+                };
             };
             /** @description Bad Request */
             400: {
@@ -27021,6 +29302,87 @@ export interface operations {
             };
         };
     };
+    orders_report_api_v1_reports_orders_get: {
+        parameters: {
+            query?: {
+                /** @description 开始日期（含），默认最近 7 天 */
+                start?: string | null;
+                /** @description 结束日期（含），默认今天 */
+                end?: string | null;
+                /** @description 划分日期的时区，默认 Asia/Shanghai */
+                tz?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrderReport"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     overview_api_v1_reports_overview_get: {
         parameters: {
             query?: {
@@ -27118,6 +29480,87 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Realtime"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    todos_report_api_v1_reports_todos_get: {
+        parameters: {
+            query?: {
+                /** @description 开始日期（含），默认最近 7 天 */
+                start?: string | null;
+                /** @description 结束日期（含），默认今天 */
+                end?: string | null;
+                /** @description 划分日期的时区，默认 Asia/Shanghai */
+                tz?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TodoReport"];
                 };
             };
             /** @description Bad Request */
@@ -35560,6 +38003,559 @@ export interface operations {
             };
         };
     };
+    list_orders_open_v1_orders_get: {
+        parameters: {
+            query?: {
+                /** @description 只返回这个时间之后有更新的订单（含） */
+                updated_since?: string | null;
+                status?: ("draft" | "pending_review" | "confirmed" | "fulfilling" | "shipped" | "completed" | "cancelled") | null;
+                /** @description 上一页的 next_cursor */
+                cursor?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OpenOrderPage"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    create_order_open_v1_orders_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OpenOrderCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OpenOrderResult"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_order_open_v1_orders__ref__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 平台单号或企业系统的单号 */
+                ref: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OpenOrder"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    update_order_status_open_v1_orders__ref__status_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 平台单号或企业系统的单号 */
+                ref: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OpenStatusUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OpenOrderResult"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    upsert_product_open_v1_products__code__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 商品代码 */
+                code: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OpenProductIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OpenProductOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    create_todo_open_v1_todos_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OpenTodoCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OpenTodo"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_todo_open_v1_todos__ref__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 平台单号或企业系统的单号 */
+                ref: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OpenTodo"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     platform_audit_logs_platform_v1_audit_logs_get: {
         parameters: {
             query?: {
@@ -37361,6 +40357,162 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["OpsResult"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    platform_deliveries_platform_v1_ops_webhook_deliveries_get: {
+        parameters: {
+            query?: {
+                tenant_id?: string | null;
+                status?: "dead" | "retrying";
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformDeliveryList"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    platform_resend_platform_v1_ops_webhook_deliveries_resend_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeliveryIds"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResendResult"];
                 };
             };
             /** @description Bad Request */

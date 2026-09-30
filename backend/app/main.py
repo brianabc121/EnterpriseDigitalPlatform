@@ -24,6 +24,9 @@ from app.modules.files.router import router as files_router
 from app.modules.health.router import router as health_router
 from app.modules.iam.router import auth_router
 from app.modules.iam.router import router as iam_router
+from app.modules.integration.open_router import router as open_router
+from app.modules.integration.router import platform_router as platform_integration_router
+from app.modules.integration.router import router as integration_router
 from app.modules.kb.router import router as kb_router
 from app.modules.lifecycle.router import platform_router as platform_lifecycle_router
 from app.modules.lifecycle.router import public_router as signup_router
@@ -115,6 +118,8 @@ def create_app(
     app.include_router(orders_router)
     app.include_router(order_public_router)
     app.include_router(products_router)
+    app.include_router(integration_router)
+    app.include_router(open_router)
     app.include_router(routing_router)
     app.include_router(quick_reply_router)
     app.include_router(kb_router)
@@ -138,4 +143,5 @@ def create_app(
     app.include_router(platform_lifecycle_router)
     app.include_router(platform_ops_router)
     app.include_router(platform_security_router)
+    app.include_router(platform_integration_router)
     return app

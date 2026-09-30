@@ -1,5 +1,6 @@
 # 平台告警规则（设计文档 §19.3）：排队超时、LLM 错误率升高、回调积压、对账差异过大、
-# 企业微信凭证失效、租户用量异常，以及服务、发件箱、死信和调度任务。
+# 企业微信凭证失效、租户用量异常，服务、发件箱、死信和调度任务，以及待办与订单的积压和
+# 向企业系统推送失败。
 #
 # 指标由各进程在 EDP_METRICS_PORT 上导出（backend/app/observability/metrics.py）；排队、坐席、
 # 发件箱、事件积压等状态类指标只由持有调度租约的调度进程导出（state.py）。
@@ -276,3 +277,38 @@ groups:
         annotations:
           summary: "调度任务 {{ $labels.task }} 长时间没有成功执行"
           description: "上次成功是 {{ $value | humanizeDuration }} 前。"
+
+  - name: edp-todos-orders
+    rules:
+      - alert: EdpTodoPendingBacklog
+        expr: max by (tenant) (edp_todos_pending) > 50
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: "租户 {{ $labels.tenant }} 有 {{ $value }} 条待确认的待办"
+          description: "AI 生成的待办长时间没有人确认：检查确认人是否在线、待办类型的分派规则是否正确。"
+      - alert: EdpTodoOverdueBacklog
+        expr: max by (tenant) (edp_todos_overdue) > 20
+        for: 1h
+        labels:
+          severity: warning
+        annotations:
+          summary: "租户 {{ $labels.tenant }} 有 {{ $value }} 条待办已逾期"
+          description: "逾期待办持续积压，提醒租户主管处理或调整时限。"
+      - alert: EdpOrderReviewBacklog
+        expr: max by (tenant) (edp_orders_pending_review_oldest_seconds) > 7200
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "租户 {{ $labels.tenant }} 有订单等待审核超过 {{ $value | humanizeDuration }}"
+          description: "订单提交后长时间没有审核：检查订单审核待办的处理人是否在线。"
+      - alert: EdpWebhookDeliveriesDead
+        expr: max by (tenant) (edp_webhook_deliveries{state="dead"}) > 0
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "租户 {{ $labels.tenant }} 有 {{ $value }} 条向企业系统的推送已停止重试"
+          description: "推送地址多次失败：在「设置 → 企业系统对接」或运营后台「运维 → 企业系统推送」查看原因并重发。"

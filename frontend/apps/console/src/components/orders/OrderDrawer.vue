@@ -37,6 +37,9 @@ const props = withDefaults(defineProps<{ orderId: string | null; size?: string }
 })
 const emit = defineEmits<{ close: []; changed: [] }>()
 
+// AI 和企业系统创建的订单没有员工作为创建人。
+const CREATOR: Record<string, string> = { ai: 'AI', api: '企业系统' }
+
 const auth = useAuthStore()
 const router = useRouter()
 const detail = ref<OrderDetail | null>(null)
@@ -568,7 +571,7 @@ async function onSaved(): Promise<void> {
             <dt>下单</dt>
             <dd>
               {{ formatDateTime(detail.created_at) }}
-              <span class="muted">{{ detail.created_by_type === 'ai' ? 'AI' : (detail.created_by_name ?? '') }}</span>
+              <span class="muted">{{ CREATOR[detail.created_by_type] ?? detail.created_by_name ?? '' }}</span>
             </dd>
             <template v-if="detail.confirmed_at">
               <dt>确认</dt>

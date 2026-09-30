@@ -34,6 +34,7 @@ from app.modules.customer.models import (
     CustomerTransferRequest,
 )
 from app.modules.iam.models import RefreshToken, Role, Staff, StaffRole
+from app.modules.integration.models import ApiKey, WebhookDelivery, WebhookEndpoint, WebhookEvent
 from app.modules.kb.models import (
     KbCandidate,
     KbCategory,
@@ -85,6 +86,7 @@ __all__ = [
     "AiSessionState",
     "AiSettings",
     "AiSuggestion",
+    "ApiKey",
     "AuditLog",
     "ChannelAccount",
     "ChatSession",
@@ -151,6 +153,9 @@ __all__ = [
     "TodoExtraction",
     "TodoType",
     "UsageDaily",
+    "WebhookDelivery",
+    "WebhookEndpoint",
+    "WebhookEvent",
     "WecomBroadcast",
     "WecomBroadcastResult",
     "WecomContactFollow",

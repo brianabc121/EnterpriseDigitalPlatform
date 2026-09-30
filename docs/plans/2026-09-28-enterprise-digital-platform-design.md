@@ -1322,20 +1322,24 @@ sequenceDiagram
 | | `wecom_contacts` / `wecom_follow_users` | 外部联系人及其添加人（客户联系同步） |
 | | `wecom_group_chats` / `wecom_group_members` | 客户群及成员，关联客户档案 |
 | | `wecom_zone_results`（可选） | chat_id, type(summary/sentiment/qa_candidates), payload(jsonb) |
-| 待办（v0.3） | `todo_types` | code, name, ai_hint（给 AI 的说明和示例）, fields(jsonb 字段定义), assign_rule(jsonb), priority, sla_response_minutes, sla_resolve_minutes, calendar, reminders(jsonb), escalation(jsonb), ai_mode(off/confirm/auto), handoff, promise_text, done_template, enabled |
-| | `todos` | no, type_id, title, detail, fields(jsonb，敏感字段加密), customer_id, session_id, order_id, source(ai_chat/ai_summary/copilot/sidebar/zone/rule/staff/api), confidence, evidence_message_ids, priority, status, assignee_id, skill_group_id, due_at, first_response_at, closed_at, result, nudge_count, dedupe_key, created_by_type, created_by |
-| | `todo_events` | todo_id, type(created/confirmed/assigned/claimed/status_changed/commented/reminded/escalated/customer_notified/merged/reopened), actor_type(ai/staff/system/api), actor_id, payload(jsonb) |
-| 订单（v0.3） | `products` | name, code（租户内唯一）, model, spec, category, image_url, cost_price（仅有权限可见，不进入 AI）, retail_price, remarks, aliases, status, embedding, external_id |
-| | `product_imports` | 上传的文件、状态、逐行校验结果、新增/更新/跳过的数量 |
-| | `orders` | order_no, customer_id, session_id, source(ai/staff/api), status, assignee_id, skill_group_id, subtotal, discount, shipping_fee, total, currency, receiver_enc（收货人、电话、地址，加密）, expected_at, invoice(jsonb), remarks, internal_note, payment_method(online/cod/deposit/credit), deposit_amount, credit_due_at, paid_amount, payment_status, logistics(jsonb), confirm_message_id, evidence_message_ids, tracking_token_hash, tracking_expires_at, external_ref, sync_status, version, confirmed_by, confirmed_at, cancel_reason |
-| | `order_items` | order_id, product_id（未匹配时为空）, 代码、型号、名称和规格的快照, quantity, unit_price, discount, amount, cost_price 快照（仅有权限可见）, customer_text（客户原话）, match_source(code/keyword/vector/manual) |
-| | `order_payments` | order_id, kind(payment/refund), amount, channel(wechat/alipay/bank/cash/other), paid_at, reference, voucher_file_id, recorded_by, voided_at, void_reason |
-| | `order_versions` | order_id, version, snapshot(jsonb), diff(jsonb), reason_code, reason_note, actor_type, actor_id（只追加，不修改） |
-| | `order_events` | order_id, type(created/submitted/confirmed/started/shipped/completed/cancelled/customer_notified/synced/tracking_regenerated), actor_type, actor_id, payload(jsonb) |
-| | `order_settings` | 编号前缀、必填项、启用的收款方式和定金规则、发货环节、AI 告知建议零售价、AI 下单、折扣上限、分派规则、通知模板、跟踪链接有效期 |
-| | `ai_safety_events` | session_id, message_id, kind(cost_probe/reply_blocked), detail(jsonb) |
-| 开放接口（v0.3） | `api_keys` | name, key_hash, scopes(products:write/orders:read/orders:write/todos:write), last_used_at, revoked_at |
-| | `webhook_endpoints` / `webhook_deliveries` | 推送地址、签名密钥（加密）、订阅的事件；每次推送的状态、重试次数、下次重试时间 |
+| 待办（v0.3） | `todo_types` | code, name, ai_hint（给 AI 的说明）, examples, fields(jsonb 字段定义), assign_rule(jsonb), priority, sla_response_minutes, sla_resolve_minutes / sla_resolve_days, remind_before_minutes, escalate_after_minutes, ai_enabled, handoff, notify_supervisor, promise_text, done_template, preset, enabled |
+| | `todos` | no, type_id, title, detail, fields(jsonb，敏感字段加密), customer_id, session_id, order_id, source(ai_chat/ai_summary/zone/copilot/sidebar/staff/visitor/rule/api), confidence, evidence_message_ids, priority, status(pending/open/in_progress/waiting/done/cancelled/rejected), assignee_id, skill_group_id, due_at, respond_due_at, first_response_at, confirmed_at, closed_at, result, reject_reason, nudge_count, dedupe_key, external_ref（企业系统的单号，租户内唯一，同一个单号重复创建返回原待办）, created_by_type, created_by |
+| | `todo_events` | todo_id, type(created/confirmed/rejected/assigned/claimed/started/waiting/resumed/commented/reminded/escalated/customer_notified/merged/done/cancelled/reopened…), actor_type(ai/staff/system/api/visitor), actor_id, payload(jsonb) |
+| | `todo_extractions` | session_id, status, created, skipped（会话结束后的解析，每个会话一次） |
+| 订单（v0.3） | `products` | code（租户内唯一）, name, model, spec, category, image_url, cost_price（仅有权限可见，不进入 AI）, retail_price, remark, aliases, status, terms（检索词）, embedding |
+| | `product_imports` | 上传的文件、状态、逐行校验结果（rows）、新增/更新/跳过的数量，确认人 |
+| | `product_gaps` | term, sample, count, first_seen_at, last_seen_at, resolved_at（客户问到、商品库里没有的商品） |
+| | `orders` | no, status(draft/pending_review/confirmed/fulfilling/shipped/completed/cancelled), source(ai_chat/copilot/sidebar/staff/api), customer_id, session_id, assignee_id, skill_group_id, receiver(jsonb：收货人、电话、地址逐项加密并带掩码), payment_method(online/cod/deposit/credit), deposit_amount, credit_due_date, credit_approved_by, payment_status, items_amount, discount, total, paid_amount, refunded_amount, expected_at, shipping_company, tracking_no, submitted_at, confirmed_at, confirmed_by, shipped_at, completed_at, cancelled_at, cancel_reason, tracking_token, tracking_expires_at, external_no（企业系统的单号，租户内唯一）, version, modified, ai_error, confirm_message_id, evidence_message_ids, customer_note, internal_note, created_by_type(ai/staff/api), review_todo_id, collection_todo_id |
+| | `order_items` | order_id, product_id（未匹配时为空）, 代码、名称、型号、规格和图片的快照, raw_text（客户原话）, quantity, list_price（建议零售价快照）, unit_price, cost_price 快照（仅有权限可见）, amount |
+| | `order_payments` | order_id, kind(payment/refund), amount, channel(wechat/alipay/bank/cash/other), paid_at, reference_no（企业系统回传时按它去重）, proof_url, note, recorded_by_type, recorded_by, voided_at, void_reason |
+| | `order_revisions` | order_id, version, kind(created/edit/status/payment), actor_type(ai/staff/system/api), actor_id, reason(customer_request/ai_error/price_adjust/substitution/other), note, changes(jsonb), snapshot(jsonb)（只追加，不修改） |
+| | `order_events` | order_id, type(submitted/api_created/updated/confirmed/started/shipped/completed/cancelled/paid/refunded/payment_voided/customer_notified/link_regenerated/collection_due…), actor_type, actor_id, payload(jsonb), public（客户在跟踪页能看到的动态） |
+| | `tenant_settings.orders`（jsonb） | 编号前缀、必填信息、启用的收款方式和定金尾款规则、发货环节、AI 告知建议零售价、AI 下单与每日上限、草稿跟进、数量与优惠上限、跟踪链接保留天数 |
+| | `ai_security_events` | kind(price_probe/reply_blocked), session_id, customer_id, detail(jsonb) |
+| 开放接口（v0.3） | `api_keys` | name, prefix（`edp_<prefix>_…` 里用于查找和显示的部分，唯一）, key_hash（SHA-256，完整密钥只在创建时显示一次）, scopes(products:write/orders:read/orders:write/todos:write), last_used_at, revoked_at |
+| | `webhook_endpoints` | name, url, secret_enc（签名密钥，租户数据密钥加密）, events（订阅的事件）, enabled |
+| | `webhook_events` | event, resource_type, resource_id, data(jsonb), actor_type, dispatched_at（与业务变更同一事务写入的推送发件箱，分发后保留 7 天） |
+| | `webhook_deliveries` | endpoint_id, event_id, event, body（按分发时的内容固定，重发不变）, status(pending/succeeded/dead), attempts, next_attempt_at, last_status, last_error, delivered_at |
 | 审计 | `audit_logs` | actor_type(platform/staff), actor_id, action, resource_type, resource_id, detail(jsonb), ip |
 
 ---
@@ -1362,25 +1366,35 @@ GET    /api/v1/admin/integrations/wecom             # 企业微信授权状态�
 GET    /api/v1/reports/*
 
 # 员工端 · 待办与订单（v0.3）
-GET    /api/v1/todos?view=mine|pool|assigned|all&status=&type=
-POST   /api/v1/todos                                # 新建
+GET    /api/v1/todos?view=pending|mine|pool|assigned|all&status=&type_id=&due=     GET /todos/counts    # 列表与菜单角标
+POST   /api/v1/todos                                # 新建（员工新建的直接进入列表）
 GET    /api/v1/todos/{id}      PATCH /todos/{id}
-POST   /api/v1/todos/{id}/confirm | discard | claim | start | wait | done | cancel | reopen | assign | comments | notify
+POST   /api/v1/todos/{id}/confirm | discard | claim | start | wait | resume | done | cancel | reopen | assign | reschedule | merge | comments | notify | reveal
+POST   /api/v1/todos/batch                          # 批量确认、驳回、分派
 POST   /api/v1/todos/extract                        # 从选中的消息或粘贴的文字预填（不落库）
-CRUD   /api/v1/admin/todo-types
-GET    /api/v1/orders?view=all|review|receivable|modified&status=&source=&assignee=&customer=
+POST   /api/v1/todos/export                         # 导出（再次输入密码）
+GET    /api/v1/todo-types      CRUD /api/v1/admin/todo-types      GET|PUT /api/v1/admin/todo-settings
+GET    /api/v1/orders?view=all|pending_review|processing|receivable|modified&status=&source=&assignee_id=&customer_id=     GET /orders/counts
 POST   /api/v1/orders          GET /orders/{id}     PATCH /orders/{id}    # PATCH 带版本号和修改原因
-POST   /api/v1/orders/{id}/submit | confirm | start | ship | complete | cancel | notify
+POST   /api/v1/orders/{id}/submit | confirm | start | ship | complete | cancel | assign | notify | reveal
 POST   /api/v1/orders/{id}/payments       POST /orders/{id}/payments/{pid}/void    # 收款、退款记录
-GET    /api/v1/orders/{id}/versions                 # 修改记录与版本对比
+GET    /api/v1/orders/{id}/revisions  |  /orders/{id}/revisions/{version}          # 修改记录与版本对比
 POST   /api/v1/orders/{id}/tracking-link            # 重新生成跟踪链接
 POST   /api/v1/orders/extract                       # 从选中的消息或粘贴的文字预填（不落库）
-CRUD   /api/v1/products        GET /products/search?q=     GET /products/template    # Excel 模板
+POST   /api/v1/orders/export                        # 导出（再次输入密码）
+CRUD   /api/v1/products        GET /products/search?q=  |  /products/categories  |  /products/export
+GET    /api/v1/products/template                    # Excel 模板
 POST   /api/v1/products/imports                     # 上传并预览（逐行校验）
-POST   /api/v1/products/imports/{id}/commit         # 确认导入
-GET    /api/v1/products/gaps                        # 商品缺口
+POST   /api/v1/products/imports/{id}/confirm | cancel      GET /products/imports/{id}/result
+GET    /api/v1/products/gaps   POST /products/gaps/{id}/resolve    # 商品缺口
+GET    /api/v1/orders/settings                      # 员工端需要的订单设置（收款方式等）
 GET    /api/v1/admin/order-settings   PUT /admin/order-settings
-CRUD   /api/v1/admin/api-keys  |  /admin/webhooks
+GET    /api/v1/reports/todos  |  /reports/orders    # 待办、订单报表
+# 企业系统对接（管理员，integration:manage）
+GET    /api/v1/admin/api-keys  POST /admin/api-keys  POST /admin/api-keys/{id}/revoke    # 完整密钥只在创建时返回
+CRUD   /api/v1/admin/webhooks  POST /admin/webhooks/{id}/rotate-secret | test           # 签名密钥只在创建、更换时返回
+GET    /api/v1/admin/webhook-deliveries?status=pending|retrying|succeeded|dead  |  /admin/webhook-deliveries/{id}
+POST   /api/v1/admin/webhook-deliveries/{id}/resend
 
 # 企业微信侧边栏（企业微信免登 → 平台会话）
 GET    /api/v1/sidebar/context?externalUserId=|chatId=   # 当前客户或群的档案
@@ -1395,19 +1409,23 @@ POST   /api/v1/visitor/rating  |  /visitor/leave-message
 POST   /api/v1/visitor/uploads                      # 预签名上传
 GET    /api/v1/visitor/orders                       # Widget"我的订单"
 GET    /api/v1/visitor/progress                     # 服务进度：自己的待办（可选，默认关闭）
-GET    /api/v1/public/order-tracking/{token}        # 订单跟踪页（无需登录，只读，限流）
+GET    /api/v1/public/orders/{token}                # 订单跟踪页（无需登录，只读，限流）
 
 # 运营后台（平台账号，独立鉴权）
 CRUD   /platform/v1/tenants  |  /platform/v1/plans
 GET    /platform/v1/usage  |  /platform/v1/health
+GET    /platform/v1/ops/webhook-deliveries?status=dead|retrying    POST /platform/v1/ops/webhook-deliveries/resend
 
-# 开放接口（租户的接口密钥，按权限范围授权，v0.3）
-PUT    /open/v1/products/{sku_code}                 # 同步商品、价格和库存状态
-GET    /open/v1/orders?updated_since=  |  /open/v1/orders/{order_no}
-POST   /open/v1/orders                              # 企业系统创建订单
-POST   /open/v1/orders/{order_no}/status            # 回传状态、物流和收款
-POST   /open/v1/todos                               # 企业系统创建待办
-# 平台推送给企业系统（出站，HMAC 签名）：order.created / order.confirmed / order.cancelled / order.status_changed / todo.done
+# 开放接口（Authorization: Bearer edp_<prefix>_<密钥>，按权限范围授权；每个密钥每分钟 600 次，另计入租户的接口限额）
+PUT    /open/v1/products/{code}                     # 同步商品、价格和上下架（products:write）
+GET    /open/v1/orders?updated_since=&cursor=       # 按更新时间增量拉取（orders:read，含明文收货信息）
+GET    /open/v1/orders/{ref}                        # ref 是平台订单号或企业系统单号
+POST   /open/v1/orders                              # 企业系统创建订单（orders:write；带 external_no 时幂等）
+POST   /open/v1/orders/{ref}/status                 # 回传状态、物流和收款（只能前进；收款按 reference_no 去重）
+POST   /open/v1/todos          GET /open/v1/todos/{ref}    # 企业系统创建待办（todos:write；带 external_ref 时幂等）
+# 平台推送给企业系统（出站）：order.created / order.updated / order.confirmed / order.status_changed / order.cancelled /
+# order.payment / todo.done，测试推送为 ping。请求头 X-EDP-Event、X-EDP-Delivery（重发不变，用于去重）、
+# X-EDP-Signature: t=<时间戳>,v1=<HMAC-SHA256(签名密钥, "时间戳.正文")>；失败按 1m/5m/15m/1h/3h/6h 重试，共 7 次
 
 # Webhook（仅内网可达或验签）
 POST   /hooks/openim/{command}                      # afterSendGroupMsg、beforeCreateGroup、用户上下线

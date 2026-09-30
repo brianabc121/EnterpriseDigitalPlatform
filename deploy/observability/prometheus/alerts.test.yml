@@ -134,3 +134,40 @@ tests:
             exp_annotations:
               summary: "5 条消息落进了默认分区"
               description: "没有对应月份的分区；建好分区时会自动搬走，持续存在说明发送时间异常或分区任务失败。"
+
+  # 订单等待审核超过 2 小时。
+  - interval: 1m
+    input_series:
+      - series: 'edp_orders_pending_review_oldest_seconds{tenant="t1", job="edp-scheduler", instance="s1"}'
+        values: "7000 7300+60x20"
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: EdpOrderReviewBacklog
+        exp_alerts: []
+      - eval_time: 15m
+        alertname: EdpOrderReviewBacklog
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              tenant: t1
+            exp_annotations:
+              summary: "租户 t1 有订单等待审核超过 2h 15m 40s"
+              description: "订单提交后长时间没有审核：检查订单审核待办的处理人是否在线。"
+
+  # 向企业系统的推送进入死信。
+  - interval: 1m
+    input_series:
+      - series: 'edp_webhook_deliveries{tenant="t1", state="dead", job="edp-scheduler", instance="s1"}'
+        values: "0 0 1+0x15"
+      - series: 'edp_webhook_deliveries{tenant="t1", state="retrying", job="edp-scheduler", instance="s1"}'
+        values: "3+0x17"
+    alert_rule_test:
+      - eval_time: 15m
+        alertname: EdpWebhookDeliveriesDead
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              tenant: t1
+            exp_annotations:
+              summary: "租户 t1 有 1 条向企业系统的推送已停止重试"
+              description: "推送地址多次失败：在「设置 → 企业系统对接」或运营后台「运维 → 企业系统推送」查看原因并重发。"

@@ -21,6 +21,7 @@ from app.modules.ai import copilot
 from app.modules.ai.models import AiSecurityEvent, SecurityEventKind
 from app.modules.conversation import outbox
 from app.modules.conversation.models import ChatSession
+from app.observability import metrics
 
 FIXED_REPLY = "商品价格以建议零售价为准，如需优惠请联系客服。"
 # 同一会话第几次套价时提醒坐席。
@@ -152,6 +153,7 @@ async def record(
         )
     )
     await session.flush()
+    metrics.PRICE_GUARD.labels(metrics.tenant_label(tenant_id), kind.value).inc()
     if session_id is None:
         return 1
     count = await session.scalar(

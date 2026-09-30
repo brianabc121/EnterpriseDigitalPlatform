@@ -19,6 +19,7 @@ from sqlalchemy.orm import load_only
 from sqlalchemy.types import Float, Text
 
 from app.context import AppContext
+from app.core.ids import new_id
 from app.db.types import vector_literal
 from app.integrations.llm import LLMUnavailable
 from app.modules.ai import gateway
@@ -226,7 +227,7 @@ async def record_gap(session: AsyncSession, tenant_id: uuid.UUID, query: str) ->
         return
     now = datetime.now(UTC)
     statement = insert(ProductGap).values(
-        id=uuid.uuid4(), tenant_id=tenant_id, term=term, sample=query.strip()[:500]
+        id=new_id(), tenant_id=tenant_id, term=term, sample=query.strip()[:500]
     )
     await session.execute(
         statement.on_conflict_do_update(

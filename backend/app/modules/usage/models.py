@@ -23,6 +23,8 @@ class Metric(StrEnum):
     AI_HANDOFFS = "ai_handoffs"  # AI 接待中转人工的次数
     LLM_TOKENS = "llm_tokens"  # 大模型调用消耗的 tokens（输入加输出）
     LLM_COST = "llm_cost"  # 按供应商价格估算的大模型费用（分）
+    AI_TODOS = "ai_todos"  # AI 生成的待办（接待中登记、会话后解析、专区候选）
+    AI_ORDERS = "ai_orders"  # AI 采集后提交审核的订单
     SEATS = "seats"  # 启用的员工账号（快照）
     CHANNELS = "channels"  # 启用的接入渠道（快照）
 
@@ -44,6 +46,8 @@ METRIC_LABELS: dict[Metric, tuple[str, str]] = {
     Metric.AI_HANDOFFS: ("AI 转人工", "次"),
     Metric.LLM_TOKENS: ("大模型 tokens", "个"),
     Metric.LLM_COST: ("大模型费用（估算）", "分"),
+    Metric.AI_TODOS: ("AI 生成的待办", "个"),
+    Metric.AI_ORDERS: ("AI 提交的订单", "个"),
     Metric.SEATS: ("员工账号", "个"),
     Metric.CHANNELS: ("接入渠道", "个"),
 }

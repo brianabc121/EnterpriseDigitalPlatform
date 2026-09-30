@@ -46,6 +46,7 @@ class Permission(StrEnum):
     ORDER_CONFIG = "order:config"  # 订单设置
     PRODUCT_MANAGE = "product:manage"  # 维护商品库（新建、编辑、Excel 导入）
     PRODUCT_VIEW_COST = "product:view_cost"  # 查看和导出成本价
+    INTEGRATION_MANAGE = "integration:manage"  # 企业系统对接：接口密钥与事件推送
 
 
 ALL_PERMISSIONS = frozenset(Permission)
@@ -92,6 +93,7 @@ PERMISSION_INFO: dict[Permission, tuple[str, str]] = {
     Permission.STAFF_MANAGE: ("管理员工和角色", "管理"),
     Permission.SETTINGS_MANAGE: ("渠道、AI 和企业设置", "管理"),
     Permission.AUDIT_READ: ("查看操作日志", "管理"),
+    Permission.INTEGRATION_MANAGE: ("企业系统对接：接口密钥和事件推送", "管理"),
     Permission.TENANT_MANAGE: ("数据导出、注销和运维授权", "管理"),
 }
 

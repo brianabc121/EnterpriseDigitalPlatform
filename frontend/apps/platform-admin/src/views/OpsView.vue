@@ -6,11 +6,15 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { api, formatDateTime } from '../api'
 import { EVENT_TYPE, IM_OP_TYPE } from '../labels'
 
-/** 运维：处理失败进入死信的事件、IM 发件箱里最终失败或积压的操作（设计文档 §19.3）。 */
+/**
+ * 运维：处理失败进入死信的事件、IM 发件箱里最终失败或积压的操作（设计文档 §19.3），以及
+ * 向企业系统推送失败的订单、待办事件（§25.8）。
+ */
 type DeadLetter = Schemas['DeadLetterOut']
 type ImOp = Schemas['ImOpOut']
+type Push = Schemas['PlatformDelivery']
 
-const tab = ref<'dead' | 'outbox'>('dead')
+const tab = ref<'dead' | 'outbox' | 'pushes'>('dead')
 const tenants = ref<Schemas['TenantOut'][]>([])
 
 // ---- 死信 ----
@@ -124,6 +128,40 @@ async function actOps(action: 'retry' | 'discard', rows: ImOp[]): Promise<void> 
   await loadOps()
 }
 
+// ---- 向企业系统的推送 ----
+const pushes = ref<Push[]>([])
+const pushLoading = ref(false)
+const pushSelected = ref<Push[]>([])
+const pushFilters = reactive({ status: 'dead' as 'dead' | 'retrying', tenantId: '' })
+
+async function loadPushes(): Promise<void> {
+  pushLoading.value = true
+  const { data, error } = await api.GET('/platform/v1/ops/webhook-deliveries', {
+    params: {
+      query: { status: pushFilters.status, tenant_id: pushFilters.tenantId || undefined, limit: 100 },
+    },
+  })
+  pushLoading.value = false
+  if (!data) {
+    ElMessage.error(errorMessage(error))
+    return
+  }
+  pushes.value = data.items
+}
+
+async function resendPushes(rows: Push[]): Promise<void> {
+  if (!rows.length) return
+  const { data, error } = await api.POST('/platform/v1/ops/webhook-deliveries/resend', {
+    body: { ids: rows.map((r) => r.id) },
+  })
+  if (!data) {
+    ElMessage.error(errorMessage(error))
+    return
+  }
+  ElMessage.success(`已安排重发 ${data.done} 条，调度进程稍后推送`)
+  await loadPushes()
+}
+
 const retryableSelected = computed(() => opsSelected.value.filter((r) => r.retryable))
 const pendingSelected = computed(() => opsSelected.value.filter((r) => r.status === 'pending'))
 
@@ -135,7 +173,7 @@ function detailText(detail: Record<string, unknown>): string {
 onMounted(async () => {
   const list = await api.GET('/platform/v1/tenants')
   tenants.value = list.data?.items ?? []
-  await Promise.all([loadDead(), loadOps()])
+  await Promise.all([loadDead(), loadOps(), loadPushes()])
 })
 </script>
 
@@ -277,6 +315,57 @@ onMounted(async () => {
           <el-button v-if="opsNext" :loading="opsLoading" @click="loadOps(true)">加载更多</el-button>
         </div>
       </el-tab-pane>
+      <el-tab-pane label="企业系统推送" name="pushes">
+        <div class="toolbar">
+          <div class="filters">
+            <el-radio-group v-model="pushFilters.status" data-testid="push-status" @change="loadPushes()">
+              <el-radio-button value="dead">已停止重试</el-radio-button>
+              <el-radio-button value="retrying">重试中</el-radio-button>
+            </el-radio-group>
+            <el-select v-model="pushFilters.tenantId" placeholder="全部租户" clearable filterable @change="loadPushes()">
+              <el-option v-for="t in tenants" :key="t.id" :label="`${t.name}（${t.code}）`" :value="t.id" />
+            </el-select>
+          </div>
+          <el-button
+            type="primary"
+            :disabled="!pushSelected.length"
+            data-testid="push-resend"
+            @click="resendPushes(pushSelected)"
+            >重发</el-button
+          >
+        </div>
+        <el-table
+          v-loading="pushLoading"
+          :data="pushes"
+          row-key="id"
+          data-testid="push-table"
+          empty-text="没有推送失败的记录"
+          @selection-change="(rows: Push[]) => (pushSelected = rows)"
+        >
+          <el-table-column type="selection" width="40" />
+          <el-table-column label="事件" width="210">
+            <template #default="{ row }">
+              <span class="mono">{{ row.event }}</span>
+              <div class="sub">{{ formatDateTime(row.created_at) }}</div>
+            </template>
+          </el-table-column>
+          <el-table-column label="租户" width="110">
+            <template #default="{ row }">{{ row.tenant_code ?? '-' }}</template>
+          </el-table-column>
+          <el-table-column label="推送地址" min-width="200">
+            <template #default="{ row }">
+              {{ row.endpoint_name }}
+              <div class="sub mono">{{ row.url }}</div>
+            </template>
+          </el-table-column>
+          <el-table-column label="次数" width="70" prop="attempts" />
+          <el-table-column label="错误" min-width="220">
+            <template #default="{ row }">
+              <code class="detail">{{ row.last_error }}</code>
+            </template>
+          </el-table-column>
+        </el-table>
+      </el-tab-pane>
     </el-tabs>
   </div>
 </template>
@@ -310,8 +399,13 @@ onMounted(async () => {
 
 .filters {
   display: flex;
+  align-items: center;
   gap: 8px;
   flex-wrap: wrap;
+}
+
+.filters .el-select {
+  width: 220px;
 }
 
 .detail {

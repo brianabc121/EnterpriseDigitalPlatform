@@ -214,6 +214,8 @@ class Todo(IdMixin, TimestampMixin, TenantMixin, Base):
     progress_note: Mapped[str | None] = mapped_column(Text)
     nudge_count: Mapped[int] = mapped_column(server_default="0")
     dedupe_key: Mapped[str | None] = mapped_column(String(64))
+    # 企业系统通过开放接口创建时它自己的单号（推送"待办完成"时带回）。
+    external_ref: Mapped[str | None] = mapped_column(String(64))
     created_by_type: Mapped[str] = mapped_column(String(8))
     created_by: Mapped[uuid.UUID | None]
     notify_reason: Mapped[str | None] = mapped_column(String(12))

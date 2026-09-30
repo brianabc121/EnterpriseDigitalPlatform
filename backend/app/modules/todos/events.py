@@ -5,6 +5,7 @@ from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.modules.integration import outbox as webhook_outbox
 from app.modules.todos.models import ActorType, Todo, TodoEvent
 
 
@@ -27,3 +28,5 @@ def record(
             payload=payload or {},
         )
     )
+    # 同一个事务里写入推送事件（企业系统对接，§25.8）。
+    webhook_outbox.todo_event(session, todo, type_, actor_type=actor_type)

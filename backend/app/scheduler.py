@@ -19,6 +19,9 @@
 - 删除注销保留期已到的租户数据（每小时）；
 - 待办：发送提醒、待确认再提醒、到期提醒、逾期提醒与升级（每 15 秒）；每个工作日上班后发送
   今日待办汇总（每 5 分钟检查）；解析最近结束的人工会话，生成待确认的待办（每分钟）；
+- 订单：暂欠逾期生成催收待办（每 10 分钟）；AI 采集的草稿超时生成跟进待办（每 5 分钟）；
+- 向企业系统推送订单和待办的变化：分发新事件、投递到期的推送（每 10 秒），删除过期的发件箱
+  记录（每小时）；
 - 读取排队、坐席、发件箱、事件积压等状态类指标（每 15 秒，见 app/observability/state.py）；
 - 建好本月和之后 3 个月的消息分区（每小时，见 app/db/partitions.py）。
 
@@ -49,6 +52,8 @@ from app.modules.ai.summaries import run_pending as run_session_summaries
 from app.modules.billing.service import run_invoices, run_lifecycle
 from app.modules.conversation.outbox import dispatch_due
 from app.modules.conversation.reconcile import reconcile_all
+from app.modules.integration.delivery import purge_events as purge_webhook_events
+from app.modules.integration.delivery import run as run_webhooks
 from app.modules.kb.extraction import run_extraction
 from app.modules.kb.importer import run_imports
 from app.modules.kb.metrics import run_digests
@@ -119,6 +124,8 @@ JOBS = (
     Job("order-collections", 600, run_order_collections),
     Job("order-draft-followups", 300, run_order_followups),
     Job("product-embed", 60, embed_products),
+    Job("webhooks", 10, run_webhooks),
+    Job("webhook-events-purge", 3600, purge_webhook_events),
     Job("metrics-state", state.INTERVAL_SECONDS, state.refresh),
     Job("partitions", 3600, ensure_partitions),
 )

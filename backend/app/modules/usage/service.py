@@ -25,7 +25,9 @@ from app.modules.channels.models import ChannelAccount, ChannelStatus
 from app.modules.conversation.models import ChatSession, Message, SenderType, SessionEvent
 from app.modules.customer.models import Customer
 from app.modules.iam.models import Staff, StaffStatus
+from app.modules.orders.models import Order
 from app.modules.tenancy.models import Tenant
+from app.modules.todos.models import AI_SOURCES, Todo
 from app.modules.usage.models import (
     MAX_METRICS,
     METRIC_LABELS,
@@ -134,6 +136,14 @@ async def compute(
     )
     values[Metric.LLM_COST] = await count(
         select(func.round(func.coalesce(func.sum(LlmCall.cost), 0))).where(*in_calls)
+    )
+
+    # AI 生成的待办和 AI 提交的订单（设计文档 §7.3、§24.8、§25.7）。
+    values[Metric.AI_TODOS] = await count(
+        created(Todo.created_at, Todo.tenant_id).where(Todo.source.in_(AI_SOURCES))
+    )
+    values[Metric.AI_ORDERS] = await count(
+        created(Order.submitted_at, Order.tenant_id).where(Order.created_by_type == "ai")
     )
 
     if snapshots:

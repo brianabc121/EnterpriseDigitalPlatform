@@ -155,6 +155,17 @@ MATRIX: list[tuple[str, str, dict[str, Any] | None]] = [
     ("POST", "/api/v1/products/imports/{import_id}/cancel", None),
     ("GET", "/api/v1/products/imports/{import_id}/result", None),
     ("POST", "/api/v1/products/gaps/{gap_id}/resolve", None),
+    ("POST", "/api/v1/admin/api-keys/{key_id}/revoke", None),
+    (
+        "PUT",
+        "/api/v1/admin/webhooks/{endpoint_id}",
+        {"name": "越权修改", "url": "http://erp.example/x", "events": ["order.created"]},
+    ),
+    ("DELETE", "/api/v1/admin/webhooks/{endpoint_id}", None),
+    ("POST", "/api/v1/admin/webhooks/{endpoint_id}/rotate-secret", None),
+    ("POST", "/api/v1/admin/webhooks/{endpoint_id}/test", None),
+    ("GET", "/api/v1/admin/webhook-deliveries/{delivery_id}", None),
+    ("POST", "/api/v1/admin/webhook-deliveries/{delivery_id}/resend", None),
 ]
 # 凭随机令牌访问的公开接口（订单跟踪页）：令牌本身就是访问凭证，不属于租户内的越权检查，
 # 令牌的有效期和失效见 test_orders.py。
@@ -362,7 +373,30 @@ async def orders(desk: Desk, chat: Any) -> dict[str, str]:
         uuid.uuid4(),
         desk.tenant_id,
     )
+    # 企业系统对接：接口密钥、推送地址和一条推送记录（测试推送）。
+    key = await client.post(
+        "/api/v1/admin/api-keys",
+        headers=desk.admin,
+        json={"name": "ERP", "scopes": ["orders:read"]},
+    )
+    assert key.status_code == 201, key.text
+    endpoint = await client.post(
+        "/api/v1/admin/webhooks",
+        headers=desk.admin,
+        json={"name": "ERP", "url": "http://erp.example/hooks", "events": ["order.created"]},
+    )
+    assert endpoint.status_code == 201, endpoint.text
+    ping = await client.post(
+        f"/api/v1/admin/webhooks/{endpoint.json()['id']}/test", headers=desk.admin
+    )
+    assert ping.status_code == 200, ping.text
+    [delivery] = await desk.sql(
+        "SELECT id FROM webhook_deliveries WHERE tenant_id = $1", desk.tenant_id
+    )
     return {
+        "key_id": key.json()["id"],
+        "endpoint_id": endpoint.json()["id"],
+        "delivery_id": str(delivery["id"]),
         "product_id": product.json()["id"],
         "order_id": order.json()["id"],
         "payment_id": paid.json()["payments"][0]["id"],
@@ -490,6 +524,9 @@ async def snapshot(desk: Desk) -> list[Any]:
         "orders": "id, status, version, total, assignee_id, customer_note, tracking_token",
         "order_items": "id, product_id, quantity, unit_price",
         "order_payments": "id, voided_at",
+        "api_keys": "id, name, revoked_at",
+        "webhook_endpoints": "id, name, url, secret_enc, enabled, events",
+        "webhook_deliveries": "id, status, attempts",
     }
     rows = []
     for table, columns in tables.items():
@@ -807,6 +844,9 @@ async def test_agents_only_reach_their_own_sessions_and_customers(
         "product_id": acme.ids["product_id"],
         "import_id": acme.ids["import_id"],
         "gap_id": acme.ids["gap_id"],
+        "key_id": acme.ids["key_id"],
+        "endpoint_id": acme.ids["endpoint_id"],
+        "delivery_id": acme.ids["delivery_id"],
     }
     before = await snapshot(desk)
 

@@ -34,6 +34,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.context import AppContext
 from app.core.dates import day_bounds, today
 from app.core.errors import Unprocessable
+from app.core.ids import new_id
 from app.modules.ai import price_guard
 from app.modules.billing.entitlements import has_feature
 from app.modules.conversation.models import ChatSession, Message, SenderType
@@ -646,7 +647,7 @@ async def save(
             if not lines:
                 return Saved("请先确定客户要买的商品和数量，再保存订单。", collecting=True)
             order = Order(
-                id=uuid.uuid4(),
+                id=new_id(),
                 tenant_id=tenant_id,
                 no="",
                 status=OrderStatus.DRAFT,

@@ -20,6 +20,7 @@ from app.modules.customer.models import Customer
 from app.modules.customer.sensitive import mask_phone
 from app.modules.customer.service import visible_to as customer_visible_to
 from app.modules.iam.principal import Principal
+from app.modules.integration import outbox as webhook_outbox
 from app.modules.orders.models import (
     PAYMENT_METHOD_LABELS,
     Order,
@@ -535,6 +536,8 @@ def event(
         public=public,
     )
     session.add(item)
+    # 同一个事务里写入推送事件（企业系统对接，§25.8）。
+    webhook_outbox.order_event(session, order, type_, actor_type=actor_type, payload=payload)
     return item
 
 

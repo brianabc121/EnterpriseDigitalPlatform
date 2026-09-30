@@ -5,6 +5,7 @@ import AgentsTab from '../components/settings/AgentsTab.vue'
 import BillingTab from '../components/settings/BillingTab.vue'
 import ChannelsTab from '../components/settings/ChannelsTab.vue'
 import DataTab from '../components/settings/DataTab.vue'
+import IntegrationTab from '../components/settings/IntegrationTab.vue'
 import RetentionTab from '../components/settings/RetentionTab.vue'
 import RoutingPoliciesTab from '../components/settings/RoutingPoliciesTab.vue'
 import SkillGroupsTab from '../components/settings/SkillGroupsTab.vue'
@@ -18,6 +19,7 @@ const auth = useAuthStore()
 const canRoute = computed(() => auth.can('routing:manage'))
 const canManageTenant = computed(() => auth.can('tenant:manage'))
 const canConfigTodos = computed(() => auth.can('todo:config'))
+const canIntegrate = computed(() => auth.can('integration:manage'))
 const canConfigOrders = computed(
   () => auth.can('order:config') && auth.me?.features?.orders !== false,
 )
@@ -47,6 +49,9 @@ const tab = ref('channels')
       </el-tab-pane>
       <el-tab-pane v-if="canConfigOrders" label="订单" name="orders" lazy>
         <OrderSettingsTab />
+      </el-tab-pane>
+      <el-tab-pane v-if="canIntegrate" label="企业系统对接" name="integration" lazy>
+        <IntegrationTab />
       </el-tab-pane>
       <el-tab-pane label="用量" name="usage" lazy>
         <UsageTab />
