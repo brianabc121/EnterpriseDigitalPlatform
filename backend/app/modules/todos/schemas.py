@@ -235,6 +235,21 @@ class RevealOut(BaseModel):
     fields: list[FieldValue]
 
 
+class TodoExportRequest(BaseModel):
+    """导出待办：筛选条件与待办中心相同。"""
+
+    password: str = Field(
+        min_length=1, max_length=128, description="当前登录员工的密码（二次确认）"
+    )
+    view: View = "all"
+    status: TodoStatus | None = None
+    type_id: uuid.UUID | None = None
+    priority: Priority | None = None
+    source: TodoSource | None = None
+    due: DueFilter | None = None
+    q: str | None = Field(default=None, max_length=64)
+
+
 class ExtractRequest(BaseModel):
     """从选中的消息或粘贴的文字预填待办（不保存）。"""
 

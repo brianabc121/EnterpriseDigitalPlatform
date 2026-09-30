@@ -389,3 +389,14 @@ body,
   font-size: 12px;
   margin-top: 4px;
 }
+
+.order-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.order-meta a {
+  flex-shrink: 0;
+  color: var(--primary);
+}

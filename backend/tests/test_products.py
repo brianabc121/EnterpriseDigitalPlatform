@@ -275,3 +275,61 @@ async def test_bad_files_and_product_gaps(desk: Desk) -> None:
     assert resolved.status_code == 204
     gaps = (await desk.client.get("/api/v1/products/gaps", headers=desk.admin)).json()["items"]
     assert [g["term"] for g in gaps] == ["扫地机器人"]
+
+
+async def test_export_round_trips_and_includes_cost_only_with_permission(desk: Desk) -> None:
+    await create_product(
+        desk,
+        code="LOCK-X1",
+        name="智能门锁 X1",
+        spec="黑色",
+        retail_price="1299",
+        cost_price="800",
+        aliases=["指纹锁"],
+    )
+    await create_product(desk, name="门铃 D1", retail_price="199", status="off")
+
+    exported = await desk.client.get("/api/v1/products/export", headers=desk.admin)
+    assert exported.status_code == 200, exported.text
+    rows = parse_sheet("products.xlsx", exported.content)
+    assert rows[0] == HEADER
+    by_name = {r[0]: r for r in rows[1:]}
+    assert by_name["智能门锁 X1"][6:9] == ["800.00", "1299.00", "指纹锁"]
+    assert by_name["门铃 D1"][-1] == "下架"
+    [audit] = await desk.sql("SELECT detail FROM audit_logs WHERE action = 'product.export'")
+    assert '"cost": true' in audit["detail"]
+    # 只导出上架的；筛选条件与列表相同。
+    on_shelf = await desk.client.get(
+        "/api/v1/products/export", headers=desk.admin, params={"status": "on"}
+    )
+    assert [r[0] for r in parse_sheet("on.xlsx", on_shelf.content)[1:]] == ["智能门锁 X1"]
+
+    # 改完直接再导入：按代码更新。
+    rows[1 if rows[1][0] == "智能门锁 X1" else 2][7] = "1199"
+    upload = base64.b64encode(
+        write_workbook([Sheet("商品", [Column(t) for t in rows[0]], rows=rows[1:])])
+    ).decode()
+    preview = await desk.client.post(
+        "/api/v1/products/imports",
+        headers=desk.admin,
+        json={"filename": "商品.xlsx", "content_base64": upload},
+    )
+    assert (preview.json()["will_create"], preview.json()["will_update"]) == (0, 2)
+
+    # 没有查看成本价的权限（维护商品库的自定义角色）：导出里没有成本价列，也不记审计。
+    role = await desk.client.post(
+        "/api/v1/roles",
+        headers=desk.admin,
+        json={"code": "catalog", "name": "商品管理员", "permissions": ["product:manage"]},
+    )
+    assert role.status_code == 201, role.text
+    dan = await desk.agent("dan", roles=["catalog"], online=False)
+    plain = await desk.client.get("/api/v1/products/export", headers=dan.headers)
+    header = parse_sheet("plain.xlsx", plain.content)[0]
+    assert "成本价" not in header and "建议零售价" in header
+    # 管理员导出了两次（都含成本价），这次不含成本价，不记审计。
+    assert len(await desk.sql("SELECT id FROM audit_logs WHERE action = 'product.export'")) == 2
+    agent = await desk.agent("eve", online=False)
+    assert (
+        await desk.client.get("/api/v1/products/export", headers=agent.headers)
+    ).status_code == 403

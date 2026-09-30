@@ -10,6 +10,7 @@ import RoutingPoliciesTab from '../components/settings/RoutingPoliciesTab.vue'
 import SkillGroupsTab from '../components/settings/SkillGroupsTab.vue'
 import SupportTab from '../components/settings/SupportTab.vue'
 import UsageTab from '../components/settings/UsageTab.vue'
+import OrderSettingsTab from '../components/orders/OrderSettingsTab.vue'
 import TodoTypesTab from '../components/todos/TodoTypesTab.vue'
 import { useAuthStore } from '../stores/auth'
 
@@ -17,6 +18,9 @@ const auth = useAuthStore()
 const canRoute = computed(() => auth.can('routing:manage'))
 const canManageTenant = computed(() => auth.can('tenant:manage'))
 const canConfigTodos = computed(() => auth.can('todo:config'))
+const canConfigOrders = computed(
+  () => auth.can('order:config') && auth.me?.features?.orders !== false,
+)
 const tab = ref('channels')
 </script>
 
@@ -40,6 +44,9 @@ const tab = ref('channels')
       </el-tab-pane>
       <el-tab-pane v-if="canConfigTodos" label="待办" name="todos" lazy>
         <TodoTypesTab />
+      </el-tab-pane>
+      <el-tab-pane v-if="canConfigOrders" label="订单" name="orders" lazy>
+        <OrderSettingsTab />
       </el-tab-pane>
       <el-tab-pane label="用量" name="usage" lazy>
         <UsageTab />

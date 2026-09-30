@@ -132,18 +132,12 @@ async def _check_code(session: TenantDb, code: str | None, exclude: UUID | None 
         raise Conflict(f"代码 {code} 已被其他商品使用")
 
 
-@router.get("", response_model=ProductPage)
-async def list_products(
-    session: TenantDb,
-    principal: CanRead,
-    q: Annotated[
-        str | None, Query(max_length=100, description="名称、代码、型号、规格、别名")
-    ] = None,
-    category: Annotated[str | None, Query(max_length=128, description="分类（含下级分类）")] = None,
-    status_: Annotated[str | None, Query(alias="status", pattern="^(on|off)$")] = None,
-    limit: Annotated[int, Query(ge=1, le=200)] = 50,
-    offset: Annotated[int, Query(ge=0)] = 0,
-) -> ProductPage:
+Keyword = Annotated[str | None, Query(max_length=100, description="名称、代码、型号、规格、别名")]
+Category = Annotated[str | None, Query(max_length=128, description="分类（含下级分类）")]
+StatusFilter = Annotated[str | None, Query(alias="status", pattern="^(on|off)$")]
+
+
+def _filters(q: str | None, category: str | None, status_: str | None) -> ColumnElement[bool]:
     conditions: list[ColumnElement[bool]] = []
     if q and q.strip():
         like = f"%{q.strip()}%"
@@ -162,7 +156,20 @@ async def list_products(
         )
     if status_:
         conditions.append(Product.status == status_)
-    where = and_(*conditions) if conditions else and_(True)
+    return and_(*conditions) if conditions else and_(True)
+
+
+@router.get("", response_model=ProductPage)
+async def list_products(
+    session: TenantDb,
+    principal: CanRead,
+    q: Keyword = None,
+    category: Category = None,
+    status_: StatusFilter = None,
+    limit: Annotated[int, Query(ge=1, le=200)] = 50,
+    offset: Annotated[int, Query(ge=0)] = 0,
+) -> ProductPage:
+    where = _filters(q, category, status_)
     total = int(await session.scalar(select(func.count()).select_from(Product).where(where)) or 0)
     rows = await session.scalars(
         select(Product)
@@ -219,6 +226,52 @@ async def download_template(_: CanManage) -> Response:
         sheet.template(),
         media_type=XLSX_MEDIA_TYPE,
         headers={"Content-Disposition": "attachment; filename*=UTF-8''product-template.xlsx"},
+    )
+
+
+@router.get(
+    "/export",
+    response_class=Response,
+    responses={200: {"content": {XLSX_MEDIA_TYPE: {}}, "description": "商品表格"}},
+)
+async def export_products(
+    request: Request,
+    session: TenantDb,
+    principal: CanManage,
+    q: Keyword = None,
+    category: Category = None,
+    status_: StatusFilter = None,
+) -> Response:
+    """导出商品库（.xlsx，与模板的列相同，改完可以直接再导入）。有查看成本价的权限时包含成本价，
+    并记审计。"""
+    cost = principal.has(Permission.PRODUCT_VIEW_COST)
+    products = list(
+        (
+            await session.scalars(
+                select(Product)
+                .where(_filters(q, category, status_))
+                .order_by(Product.category, Product.name)
+                .limit(sheet.MAX_ROWS)
+            )
+        ).all()
+    )
+    if cost:
+        record_audit(
+            session,
+            action="product.export",
+            actor_type="staff",
+            actor_id=principal.staff_id,
+            tenant_id=principal.tenant_id,
+            resource_type="product",
+            detail={"rows": len(products), "cost": True, "q": q, "category": category},
+            ip=client_ip(request),
+        )
+        await session.commit()
+    name = f"products-{datetime.now(UTC):%Y%m%d}.xlsx"
+    return Response(
+        sheet.export_workbook(products, cost=cost),
+        media_type=XLSX_MEDIA_TYPE,
+        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{name}"},
     )
 
 

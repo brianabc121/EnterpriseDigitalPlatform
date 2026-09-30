@@ -1903,6 +1903,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/orders/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Export Orders
+         * @description 导出数据范围内、符合筛选条件的订单（CSV）。需要再次输入密码；没有查看敏感信息的权限时，
+         *     收货信息导出掩码；有查看成本价的权限时另外导出成本合计。
+         */
+        post: operations["export_orders_api_v1_orders_export_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/orders/extract": {
         parameters: {
             query?: never;
@@ -2282,6 +2303,27 @@ export interface paths {
         };
         /** List Categories */
         get: operations["list_categories_api_v1_products_categories_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/products/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Export Products
+         * @description 导出商品库（.xlsx，与模板的列相同，改完可以直接再导入）。有查看成本价的权限时包含成本价，
+         *     并记审计。
+         */
+        get: operations["export_products_api_v1_products_export_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3542,6 +3584,27 @@ export interface paths {
         get: operations["counts_api_v1_todos_counts_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/todos/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Export Todos
+         * @description 导出数据范围内、符合筛选条件的待办（CSV）。需要再次输入密码；没有查看敏感信息的权限时，
+         *     敏感字段导出掩码。
+         */
+        post: operations["export_todos_api_v1_todos_export_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -9745,6 +9808,33 @@ export interface components {
             /** Type */
             type: string;
         };
+        /**
+         * OrderExportRequest
+         * @description 导出订单：筛选条件与订单中心相同。
+         */
+        OrderExportRequest: {
+            /** Created From */
+            created_from?: string | null;
+            /** Created To */
+            created_to?: string | null;
+            /**
+             * Password
+             * @description 当前登录员工的密码（二次确认）
+             */
+            password: string;
+            /** Q */
+            q?: string | null;
+            /** Source */
+            source?: ("ai_chat" | "copilot" | "sidebar" | "staff" | "api") | null;
+            /** Status */
+            status?: ("draft" | "pending_review" | "confirmed" | "fulfilling" | "shipped" | "completed" | "cancelled") | null;
+            /**
+             * View
+             * @default all
+             * @enum {string}
+             */
+            view: "all" | "pending_review" | "processing" | "receivable" | "modified";
+        };
         /** OrderExtractRequest */
         OrderExtractRequest: {
             /**
@@ -10197,6 +10287,11 @@ export interface components {
         };
         /** OrderTracking */
         OrderTracking: {
+            /**
+             * Contact Url
+             * @description 「联系客服」：企业官网客服的地址（下单的网页渠道，或者企业的网页渠道）
+             */
+            contact_url?: string | null;
             /**
              * Created At
              * Format: date-time
@@ -13341,6 +13436,32 @@ export interface components {
             /** Type */
             type: string;
         };
+        /**
+         * TodoExportRequest
+         * @description 导出待办：筛选条件与待办中心相同。
+         */
+        TodoExportRequest: {
+            /** Due */
+            due?: ("overdue" | "today" | "soon") | null;
+            /**
+             * Password
+             * @description 当前登录员工的密码（二次确认）
+             */
+            password: string;
+            priority?: components["schemas"]["Priority"] | null;
+            /** Q */
+            q?: string | null;
+            source?: components["schemas"]["TodoSource"] | null;
+            status?: components["schemas"]["TodoStatus"] | null;
+            /** Type Id */
+            type_id?: string | null;
+            /**
+             * View
+             * @default all
+             * @enum {string}
+             */
+            view: "pending" | "mine" | "pool" | "assigned" | "all";
+        };
         /** TodoFieldSpec */
         TodoFieldSpec: {
             /** Key */
@@ -14241,6 +14362,11 @@ export interface components {
         };
         /** VisitorOrderList */
         VisitorOrderList: {
+            /**
+             * Enabled
+             * @description 企业开通了订单功能（没有开通时 Widget 不显示“我的订单”）
+             */
+            enabled: boolean;
             /** Items */
             items: components["schemas"]["VisitorOrder"][];
         };
@@ -23571,6 +23697,84 @@ export interface operations {
             };
         };
     };
+    export_orders_api_v1_orders_export_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OrderExportRequest"];
+            };
+        };
+        responses: {
+            /** @description CSV 文件 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": unknown;
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     extract_order_api_v1_orders_extract_post: {
         parameters: {
             query?: never;
@@ -25227,6 +25431,86 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CategoryList"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    export_products_api_v1_products_export_get: {
+        parameters: {
+            query?: {
+                /** @description 名称、代码、型号、规格、别名 */
+                q?: string | null;
+                /** @description 分类（含下级分类） */
+                category?: string | null;
+                status?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 商品表格 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": unknown;
                 };
             };
             /** @description Bad Request */
@@ -31685,6 +31969,84 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TodoCounts"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    export_todos_api_v1_todos_export_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TodoExportRequest"];
+            };
+        };
+        responses: {
+            /** @description CSV 文件 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": unknown;
                 };
             };
             /** @description Bad Request */

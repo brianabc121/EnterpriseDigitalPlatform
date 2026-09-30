@@ -1,24 +1,29 @@
 """订单接口（设计文档 §25.5、§25.9）。查看订单需要 order:read，数据范围与客户一致。"""
 
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, Request, status
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.context import AppContext
-from app.core.deps import client_ip, get_context
+from app.core.deps import client_ip, get_context, get_rate_limiter
 from app.core.errors import ERROR_RESPONSES, NotFound
 from app.core.permissions import Permission
+from app.core.ratelimit import PASSWORD_CHECK, RateLimiter
+from app.modules.audit.service import record_audit
 from app.modules.billing.entitlements import require_feature
+from app.modules.customer.export import confirm_password
 from app.modules.iam.deps import TenantDb, require_permission
 from app.modules.iam.models import Staff
 from app.modules.iam.principal import Principal
 from app.modules.orders import actions, extract, queries, service
+from app.modules.orders import export as order_export
 from app.modules.orders import settings as order_settings
 from app.modules.orders.models import Order, OrderRevision
 from app.modules.orders.schemas import (
@@ -30,6 +35,7 @@ from app.modules.orders.schemas import (
     OrderCounts,
     OrderCreate,
     OrderDetail,
+    OrderExportRequest,
     OrderExtractRequest,
     OrderNotice,
     OrderPage,
@@ -71,6 +77,8 @@ CanReveal = Annotated[
     Depends(_feature(Permission.ORDER_READ, Permission.CUSTOMER_VIEW_SENSITIVE)),
 ]
 CanConfig = Annotated[Principal, Depends(_feature(Permission.ORDER_CONFIG))]
+CanExport = Annotated[Principal, Depends(_feature(Permission.ORDER_READ, Permission.ORDER_EXPORT))]
+Limiter = Annotated[RateLimiter, Depends(get_rate_limiter)]
 
 
 class OrderResult(BaseModel):
@@ -154,6 +162,61 @@ async def create_order(
     """员工新建订单（草稿或直接提交审核）。单价不传时按建议零售价；改价需要 order:price。"""
     order = await actions.create(ctx, session, principal, payload)
     return await _detail(ctx, session, principal, order)
+
+
+@router.post(
+    "/orders/export",
+    response_class=StreamingResponse,
+    responses={200: {"content": {"text/csv": {}}, "description": "CSV 文件"}},
+)
+async def export_orders(
+    payload: OrderExportRequest,
+    request: Request,
+    ctx: Context,
+    session: TenantDb,
+    principal: CanExport,
+    limiter: Limiter,
+) -> StreamingResponse:
+    """导出数据范围内、符合筛选条件的订单（CSV）。需要再次输入密码；没有查看敏感信息的权限时，
+    收货信息导出掩码；有查看成本价的权限时另外导出成本合计。"""
+    await limiter.check(PASSWORD_CHECK, str(principal.staff_id))
+    await confirm_password(session, principal, payload.password)
+    where = queries.conditions(
+        principal,
+        view=payload.view,
+        status=payload.status,
+        source=payload.source,
+        q=payload.q,
+        created_from=payload.created_from,
+        created_to=payload.created_to,
+    )
+    plaintext = principal.has(Permission.CUSTOMER_VIEW_SENSITIVE)
+    cost = principal.has(Permission.PRODUCT_VIEW_COST)
+    total = await order_export.count(session, where)
+    record_audit(
+        session,
+        action="order.export",
+        actor_type="staff",
+        actor_id=principal.staff_id,
+        tenant_id=principal.tenant_id,
+        resource_type="order",
+        detail={
+            "rows": total,
+            "plaintext": plaintext,
+            "cost": cost,
+            "view": payload.view,
+            "status": payload.status,
+            "q": payload.q,
+        },
+        ip=client_ip(request),
+    )
+    await session.commit()
+    name = f"orders-{date.today():%Y%m%d}.csv"
+    return StreamingResponse(
+        order_export.rows(ctx, principal, where, plaintext=plaintext, cost=cost),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{name}"'},
+    )
 
 
 @router.post("/orders/extract", response_model=OrderSuggestion)

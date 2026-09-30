@@ -1,6 +1,8 @@
 """待办（设计文档 §24）：AI 登记与待确认、员工新建与处理、分派、时限提醒与升级、去重合并、
 进度查询、会话后解析与 AI 预填、敏感字段、数据范围、类型设置、访客端的服务进度。"""
 
+import csv
+import io
 import json
 import uuid
 from datetime import UTC, datetime, timedelta
@@ -13,6 +15,7 @@ from fastapi import FastAPI
 from app.core.config import Settings
 from app.modules.todos import extract, notify
 from tests.desk import Agent, Desk, Visitor
+from tests.factories import ADMIN_PASSWORD, STAFF_PASSWORD
 from tests.fake_llm import FakeLLM
 from tests.fake_openim import FakeOpenIM
 from tests.support import DatabaseUrls
@@ -845,3 +848,59 @@ async def test_pending_reminder_and_daily_digest(desk: Desk) -> None:
         alice.staff_id,
     )
     assert body["body"] == "待确认 1 条，今日到期 0 条，已逾期 0 条，待认领 0 条"
+
+
+async def test_export_masks_sensitive_fields_without_permission(desk: Desk) -> None:
+    alice = await desk.agent("alice", online=False)
+    lead = await desk.agent("lead", roles=["supervisor"], online=False)
+    kinds = await types(desk)
+    customer = await desk.client.post(
+        "/api/v1/customers", headers=desk.admin, json={"display_name": "王先生"}
+    )
+    created = await desk.client.post(
+        "/api/v1/todos",
+        headers=desk.admin,
+        json={
+            "type_id": kinds["visit"]["id"],
+            "title": "上门安装",
+            "customer_id": customer.json()["id"],
+            "assignee_id": str(lead.staff_id),
+            "fields": {"address": "上海市浦东新区世纪大道 100 号", "phone": "13900002222"},
+        },
+    )
+    assert created.status_code == 201, created.text
+
+    def rows(text: str) -> list[dict[str, str]]:
+        header, *body = csv.reader(io.StringIO(text.lstrip("\ufeff")))
+        return [dict(zip(header, row, strict=True)) for row in body]
+
+    # 坐席默认没有导出权限；密码不对不能导出。
+    body = {"password": STAFF_PASSWORD}
+    assert (
+        await desk.client.post("/api/v1/todos/export", headers=alice.headers, json=body)
+    ).status_code == 403
+    wrong = await desk.client.post(
+        "/api/v1/todos/export", headers=lead.headers, json={"password": "wrong"}
+    )
+    assert wrong.status_code == 422
+    # 主管（没有查看敏感信息的权限）：敏感字段导出掩码。
+    masked = await desk.client.post("/api/v1/todos/export", headers=lead.headers, json=body)
+    assert masked.status_code == 200, masked.text
+    [row] = rows(masked.text)
+    assert (row["类型"], row["标题"], row["状态"], row["处理人"]) == (
+        "预约上门",
+        "上门安装",
+        "待处理",
+        "Lead",
+    )
+    assert row["字段"] == "上门地址：上海市浦东新****；联系电话：139****2222"
+    # 管理员：明文。
+    full = await desk.client.post(
+        "/api/v1/todos/export", headers=desk.admin, json={"password": ADMIN_PASSWORD}
+    )
+    [row] = rows(full.text)
+    assert row["字段"] == "上门地址：上海市浦东新区世纪大道 100 号；联系电话：13900002222"
+    audits = await desk.sql(
+        "SELECT detail FROM audit_logs WHERE action = 'todo.export' ORDER BY created_at"
+    )
+    assert [json.loads(a["detail"])["plaintext"] for a in audits] == [False, True]

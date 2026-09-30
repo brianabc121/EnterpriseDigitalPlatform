@@ -12,6 +12,10 @@ const AGENT: Permission[] = [
   'kb:read',
   'todo:read',
   'todo:handle',
+  'order:read',
+  'order:create',
+  'order:review',
+  'order:payment',
 ]
 const KNOWLEDGE_MANAGER: Permission[] = ['dashboard:view', 'kb:read', 'kb:manage', 'kb:publish']
 
@@ -30,6 +34,8 @@ describe('visibleMenus', () => {
       'workbench',
       'sessions',
       'todos',
+      'orders',
+      'products',
       'customers',
       'knowledge',
     ])
@@ -46,6 +52,8 @@ describe('visibleMenus', () => {
     expect(names({ broadcast: false })).not.toContain('broadcasts')
     expect(names({ broadcast: true })).toContain('broadcasts')
     expect(names({})).toContain('broadcasts')
+    expect(names({ orders: false })).not.toContain('orders')
+    expect(names({ orders: false })).not.toContain('products')
   })
 })
 

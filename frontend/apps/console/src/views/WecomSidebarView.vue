@@ -6,6 +6,7 @@ import { useRoute, useRouter } from 'vue-router'
 
 import { api, formatDateTime } from '../api'
 import KbSearchPanel from '../components/knowledge/KbSearchPanel.vue'
+import CustomerOrders from '../components/orders/CustomerOrders.vue'
 import CustomerTodos from '../components/todos/CustomerTodos.vue'
 import QuickReplies from '../components/workbench/QuickReplies.vue'
 import { useAuthStore } from '../stores/auth'
@@ -350,6 +351,20 @@ function goLogin(): void {
           :customer-id="customer.id"
           :customer-name="customer.display_name"
           source="sidebar"
+        />
+      </section>
+
+      <section
+        v-if="customer && auth.can('order:read') && auth.me?.features?.orders !== false"
+        class="card"
+        data-testid="sidebar-orders"
+      >
+        <h4>订单</h4>
+        <CustomerOrders
+          :customer-id="customer.id"
+          :customer-name="customer.display_name"
+          source="sidebar"
+          @insert="(text: string) => use(text, 'manual')"
         />
       </section>
 

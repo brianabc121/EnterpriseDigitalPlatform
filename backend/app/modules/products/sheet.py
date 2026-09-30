@@ -127,6 +127,42 @@ def template() -> bytes:
     return write_workbook([Sheet("商品", columns, rows=[[EXAMPLE[k] for k in KEYS]]), guide])
 
 
+def export_workbook(products: list[Any], *, cost: bool) -> bytes:
+    """导出商品库（与模板的列相同，改完可以直接再导入）。没有查看成本价的权限时不含成本价列
+    （再导入时成本价保持原值）。"""
+    columns = [c for c in COLUMNS if cost or c.key != "cost_price"]
+
+    def value(product: Any, key: str) -> Cell:
+        if key in ("cost_price", "retail_price"):
+            price = getattr(product, key)
+            return f"{price:.2f}" if price is not None else ""
+        if key == "aliases":
+            return "、".join(product.aliases or [])
+        if key == "status":
+            return "上架" if product.status == "on" else "下架"
+        raw = getattr(product, key)
+        return "" if raw is None else str(raw)
+
+    return write_workbook(
+        [
+            Sheet(
+                "商品",
+                [
+                    Column(
+                        title=f"{c.title}*" if c.required else c.title,
+                        width=c.width,
+                        prompt=(f"{c.title}（{'必填' if c.required else '选填'}）", c.hint),
+                        decimal_error="价格只能填不小于 0 的数字" if c.money else None,
+                    )
+                    for c in columns
+                ],
+                rows=[[value(p, c.key) for c in columns] for p in products],
+                validate_rows=max(len(products) + 100, 1000),
+            )
+        ]
+    )
+
+
 def _header_key(title: str) -> str | None:
     cleaned = re.sub(r"[\s*＊]|（必填）|\(必填\)|（选填）|\(选填\)", "", title).lower()
     for column in COLUMNS:

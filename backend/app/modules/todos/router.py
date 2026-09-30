@@ -1,17 +1,23 @@
 """待办接口（设计文档 §16）：待办中心、待确认、处理操作、AI 预填、待办类型与待办设置。"""
 
+from datetime import date
 from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, Request, Response, status
+from fastapi.responses import StreamingResponse
 
 from app.context import AppContext
-from app.core.deps import client_ip, get_context
+from app.core.deps import client_ip, get_context, get_rate_limiter
 from app.core.errors import ERROR_RESPONSES, Forbidden
 from app.core.permissions import Permission
+from app.core.ratelimit import PASSWORD_CHECK, RateLimiter
+from app.modules.audit.service import record_audit
+from app.modules.customer.export import confirm_password
 from app.modules.iam.deps import TenantDb, require_permission
 from app.modules.iam.principal import Principal
 from app.modules.todos import actions, admin, extract, queries
+from app.modules.todos import export as todo_export
 from app.modules.todos.models import Priority, TodoSource, TodoStatus
 from app.modules.todos.schemas import (
     AssigneeOptions,
@@ -35,6 +41,7 @@ from app.modules.todos.schemas import (
     TodoCounts,
     TodoCreate,
     TodoDetail,
+    TodoExportRequest,
     TodoOut,
     TodoPage,
     TodoTypeList,
@@ -49,6 +56,10 @@ router = APIRouter(prefix="/api/v1", tags=["todos"], responses=ERROR_RESPONSES)
 
 CanRead = Annotated[Principal, Depends(require_permission(Permission.TODO_READ))]
 CanConfig = Annotated[Principal, Depends(require_permission(Permission.TODO_CONFIG))]
+CanExport = Annotated[
+    Principal, Depends(require_permission(Permission.TODO_READ, Permission.TODO_EXPORT))
+]
+Limiter = Annotated[RateLimiter, Depends(get_rate_limiter)]
 Context = Annotated[AppContext, Depends(get_context)]
 
 
@@ -115,6 +126,55 @@ async def create_todo(
     _handle(principal)
     todo = await actions.create(ctx, session, principal, payload)
     return await queries.out(session, todo)
+
+
+@router.post(
+    "/todos/export",
+    response_class=StreamingResponse,
+    responses={200: {"content": {"text/csv": {}}, "description": "CSV 文件"}},
+)
+async def export_todos(
+    payload: TodoExportRequest,
+    request: Request,
+    ctx: Context,
+    session: TenantDb,
+    principal: CanExport,
+    limiter: Limiter,
+) -> StreamingResponse:
+    """导出数据范围内、符合筛选条件的待办（CSV）。需要再次输入密码；没有查看敏感信息的权限时，
+    敏感字段导出掩码。"""
+    await limiter.check(PASSWORD_CHECK, str(principal.staff_id))
+    await confirm_password(session, principal, payload.password)
+    where = await queries.conditions(
+        session,
+        principal,
+        view=payload.view,
+        status=payload.status,
+        type_id=payload.type_id,
+        priority=payload.priority,
+        source=payload.source,
+        due=payload.due,
+        q=payload.q,
+    )
+    plaintext = principal.has(Permission.CUSTOMER_VIEW_SENSITIVE)
+    total = await todo_export.count(session, where)
+    record_audit(
+        session,
+        action="todo.export",
+        actor_type="staff",
+        actor_id=principal.staff_id,
+        tenant_id=principal.tenant_id,
+        resource_type="todo",
+        detail={"rows": total, "plaintext": plaintext, "view": payload.view, "q": payload.q},
+        ip=client_ip(request),
+    )
+    await session.commit()
+    name = f"todos-{date.today():%Y%m%d}.csv"
+    return StreamingResponse(
+        todo_export.rows(ctx, principal, where, plaintext=plaintext),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{name}"'},
+    )
 
 
 @router.post("/todos/extract", response_model=ExtractResult)

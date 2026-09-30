@@ -345,6 +345,14 @@ async function reveal(): Promise<void> {
               >
               <span v-else>—</span>
             </dd>
+            <template v-if="detail.order_id">
+              <dt>关联订单</dt>
+              <dd>
+                <router-link :to="`/orders?id=${detail.order_id}`" data-testid="todo-order-link"
+                  >查看订单</router-link
+                >
+              </dd>
+            </template>
             <dt>来源</dt>
             <dd>
               {{ TODO_SOURCE[detail.source] ?? detail.source }}
@@ -643,6 +651,10 @@ async function reveal(): Promise<void> {
   white-space: pre-wrap;
   word-break: break-word;
   margin: 4px 0;
+}
+
+.line {
+  font-size: 13px;
 }
 
 .block {

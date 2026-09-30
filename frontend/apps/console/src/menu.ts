@@ -5,6 +5,8 @@ export type MenuIcon =
   | 'chat'
   | 'history'
   | 'ticket'
+  | 'order'
+  | 'goods'
   | 'user'
   | 'reading'
   | 'ai'
@@ -44,6 +46,22 @@ export const MENU: readonly MenuItem[] = [
     permission: 'workbench:use',
   },
   { name: 'todos', path: '/todos', title: '待办', icon: 'ticket', permission: 'todo:read' },
+  {
+    name: 'orders',
+    path: '/orders',
+    title: '订单',
+    icon: 'order',
+    permission: 'order:read',
+    feature: 'orders',
+  },
+  {
+    name: 'products',
+    path: '/products',
+    title: '商品',
+    icon: 'goods',
+    permission: 'order:read',
+    feature: 'orders',
+  },
   {
     name: 'customers',
     path: '/customers',

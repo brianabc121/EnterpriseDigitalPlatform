@@ -124,6 +124,20 @@ class NoticeRequest(BaseModel):
     text: str = Field(min_length=1, max_length=1000)
 
 
+class OrderExportRequest(BaseModel):
+    """导出订单：筛选条件与订单中心相同。"""
+
+    password: str = Field(
+        min_length=1, max_length=128, description="当前登录员工的密码（二次确认）"
+    )
+    view: View = "all"
+    status: OrderStatusValue | None = None
+    source: OrderSourceValue | None = None
+    q: str | None = Field(default=None, max_length=64)
+    created_from: datetime | None = None
+    created_to: datetime | None = None
+
+
 class OrderAssignRequest(BaseModel):
     assignee_id: UUID | None = None
     skill_group_id: UUID | None = None
@@ -397,6 +411,10 @@ class OrderTracking(BaseModel):
     customer_note: str
     events: list[TrackingEvent]
     created_at: datetime
+    contact_url: str | None = Field(
+        default=None,
+        description="「联系客服」：企业官网客服的地址（下单的网页渠道，或者企业的网页渠道）",
+    )
 
 
 class VisitorOrder(BaseModel):
@@ -410,4 +428,5 @@ class VisitorOrder(BaseModel):
 
 
 class VisitorOrderList(BaseModel):
+    enabled: bool = Field(description="企业开通了订单功能（没有开通时 Widget 不显示“我的订单”）")
     items: list[VisitorOrder]

@@ -11149,6 +11149,109 @@
         "title": "OrderEventOut",
         "type": "object"
       },
+      "OrderExportRequest": {
+        "description": "导出订单：筛选条件与订单中心相同。",
+        "properties": {
+          "created_from": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created From"
+          },
+          "created_to": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created To"
+          },
+          "password": {
+            "description": "当前登录员工的密码（二次确认）",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Password",
+            "type": "string"
+          },
+          "q": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Q"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "enum": [
+                  "ai_chat",
+                  "copilot",
+                  "sidebar",
+                  "staff",
+                  "api"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "enum": [
+                  "draft",
+                  "pending_review",
+                  "confirmed",
+                  "fulfilling",
+                  "shipped",
+                  "completed",
+                  "cancelled"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "view": {
+            "default": "all",
+            "enum": [
+              "all",
+              "pending_review",
+              "processing",
+              "receivable",
+              "modified"
+            ],
+            "title": "View",
+            "type": "string"
+          }
+        },
+        "required": [
+          "password"
+        ],
+        "title": "OrderExportRequest",
+        "type": "object"
+      },
       "OrderExtractRequest": {
         "properties": {
           "message_ids": {
@@ -12302,6 +12405,18 @@
       },
       "OrderTracking": {
         "properties": {
+          "contact_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "「联系客服」：企业官网客服的地址（下单的网页渠道，或者企业的网页渠道）",
+            "title": "Contact Url"
+          },
           "created_at": {
             "format": "date-time",
             "title": "Created At",
@@ -20322,6 +20437,105 @@
         "title": "TodoEventOut",
         "type": "object"
       },
+      "TodoExportRequest": {
+        "description": "导出待办：筛选条件与待办中心相同。",
+        "properties": {
+          "due": {
+            "anyOf": [
+              {
+                "enum": [
+                  "overdue",
+                  "today",
+                  "soon"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Due"
+          },
+          "password": {
+            "description": "当前登录员工的密码（二次确认）",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Password",
+            "type": "string"
+          },
+          "priority": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Priority"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "q": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Q"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TodoSource"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TodoStatus"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "type_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Type Id"
+          },
+          "view": {
+            "default": "all",
+            "enum": [
+              "pending",
+              "mine",
+              "pool",
+              "assigned",
+              "all"
+            ],
+            "title": "View",
+            "type": "string"
+          }
+        },
+        "required": [
+          "password"
+        ],
+        "title": "TodoExportRequest",
+        "type": "object"
+      },
       "TodoFieldSpec": {
         "properties": {
           "key": {
@@ -22653,6 +22867,11 @@
       },
       "VisitorOrderList": {
         "properties": {
+          "enabled": {
+            "description": "企业开通了订单功能（没有开通时 Widget 不显示“我的订单”）",
+            "title": "Enabled",
+            "type": "boolean"
+          },
           "items": {
             "items": {
               "$ref": "#/components/schemas/VisitorOrder"
@@ -22662,6 +22881,7 @@
           }
         },
         "required": [
+          "enabled",
           "items"
         ],
         "title": "VisitorOrderList",
@@ -35321,6 +35541,99 @@
         ]
       }
     },
+    "/api/v1/orders/export": {
+      "post": {
+        "description": "导出数据范围内、符合筛选条件的订单（CSV）。需要再次输入密码；没有查看敏感信息的权限时，\n收货信息导出掩码；有查看成本价的权限时另外导出成本合计。",
+        "operationId": "export_orders_api_v1_orders_export_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OrderExportRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "text/csv": {}
+            },
+            "description": "CSV 文件"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Export Orders",
+        "tags": [
+          "orders"
+        ]
+      }
+    },
     "/api/v1/orders/extract": {
       "post": {
         "description": "AI 预填订单：从选中的消息（或最近的对话）、粘贴的客户的话里整理商品、收货信息和付款方式，\n商品对应到商品库（只有对客可见的字段和建议零售价）。不保存，员工核对后新建订单。",
@@ -37619,6 +37932,146 @@
           }
         ],
         "summary": "List Categories",
+        "tags": [
+          "products"
+        ]
+      }
+    },
+    "/api/v1/products/export": {
+      "get": {
+        "description": "导出商品库（.xlsx，与模板的列相同，改完可以直接再导入）。有查看成本价的权限时包含成本价，\n并记审计。",
+        "operationId": "export_products_api_v1_products_export_get",
+        "parameters": [
+          {
+            "description": "名称、代码、型号、规格、别名",
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 100,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "名称、代码、型号、规格、别名",
+              "title": "Q"
+            }
+          },
+          {
+            "description": "分类（含下级分类）",
+            "in": "query",
+            "name": "category",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 128,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "分类（含下级分类）",
+              "title": "Category"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "pattern": "^(on|off)$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {}
+            },
+            "description": "商品表格"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Export Products",
         "tags": [
           "products"
         ]
@@ -46152,6 +46605,99 @@
           }
         ],
         "summary": "Counts",
+        "tags": [
+          "todos"
+        ]
+      }
+    },
+    "/api/v1/todos/export": {
+      "post": {
+        "description": "导出数据范围内、符合筛选条件的待办（CSV）。需要再次输入密码；没有查看敏感信息的权限时，\n敏感字段导出掩码。",
+        "operationId": "export_todos_api_v1_todos_export_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TodoExportRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "text/csv": {}
+            },
+            "description": "CSV 文件"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Export Todos",
         "tags": [
           "todos"
         ]

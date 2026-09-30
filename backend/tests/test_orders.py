@@ -1,6 +1,8 @@
 """订单（设计文档 §25.4–§25.7）：新建与审核、改价留痕与版本、收款方式与收款、发货与完成、
 取消与退款、暂欠与催收、跟踪链接与"我的订单"、收货信息、数据范围、客户的个人信息请求。"""
 
+import csv
+import io
 import json
 import uuid
 from datetime import UTC, date, datetime, timedelta
@@ -13,6 +15,7 @@ from fastapi import FastAPI
 from app.core.config import Settings
 from app.modules.orders import jobs
 from tests.desk import Agent, Desk, Visitor
+from tests.factories import ADMIN_PASSWORD, STAFF_PASSWORD
 from tests.fake_openim import FakeOpenIM
 from tests.support import DatabaseUrls
 
@@ -256,11 +259,15 @@ async def test_review_price_change_revisions_and_cash_on_delivery(desk: Desk) ->
         "订单已确认",
     ]
     assert (await desk.client.get("/api/v1/public/orders/" + "x" * 32)).status_code == 404
+    # "联系客服"：下单时所在的网页渠道。
+    [web] = await desk.sql("SELECT public_key FROM channel_accounts WHERE type = 'web'")
+    assert page["contact_url"].endswith(f"/?key={web['public_key']}")
 
     # Widget 的"我的订单"。
     mine = await desk.client.get(
         "/api/v1/visitor/orders", headers={"X-Visitor-Token": visitor.visitor_token}
     )
+    assert mine.json()["enabled"] is True
     [item] = mine.json()["items"]
     assert (item["no"], item["status_label"]) == (order["no"], "已完成")
     assert item["tracking_url"].endswith(token)
@@ -503,3 +510,73 @@ async def test_cancel_refund_link_reveal_scope_and_erasure(desk: Desk) -> None:
     assert (row["receiver"], row["customer_id"], str(row["total"])) == ("{}", None, "1299.00")
     assert row["with_receiver"] == 0
     assert (await desk.client.get(f"/api/v1/public/orders/{new}")).status_code == 404
+
+
+def csv_rows(text: str) -> list[list[str]]:
+    return list(csv.reader(io.StringIO(text.lstrip("\ufeff"))))
+
+
+async def test_export_needs_the_password_masks_receivers_and_cost_by_permission(
+    desk: Desk,
+) -> None:
+    products = await catalog(desk)
+    customer_id = await customer(desk)
+    order = await new_order(
+        desk, desk.admin, customer_id, [{"product_id": products["LOCK-X1"], "quantity": 2}]
+    )
+    role = await desk.client.post(
+        "/api/v1/roles",
+        headers=desk.admin,
+        json={
+            "code": "exporter",
+            "name": "导出员",
+            "permissions": ["order:read", "order:export", "customer:read_all"],
+        },
+    )
+    assert role.status_code == 201, role.text
+    carol = await desk.agent("carol", roles=["exporter"], online=False)
+    alice = await desk.agent("alice", online=False)
+    body = {"password": STAFF_PASSWORD, "view": "pending_review"}
+
+    # 坐席默认没有导出权限；密码不对不能导出。
+    denied = await desk.client.post("/api/v1/orders/export", headers=alice.headers, json=body)
+    assert denied.status_code == 403
+    wrong = await desk.client.post(
+        "/api/v1/orders/export", headers=carol.headers, json={**body, "password": "wrong"}
+    )
+    assert wrong.status_code == 422
+
+    # 没有查看敏感信息、成本价的权限：收货信息是掩码，没有成本合计。
+    masked = await desk.client.post("/api/v1/orders/export", headers=carol.headers, json=body)
+    assert masked.status_code == 200, masked.text
+    assert masked.headers["content-type"].startswith("text/csv")
+    header, row = csv_rows(masked.text)
+    assert "成本合计" not in header
+    values = dict(zip(header, row, strict=True))
+    assert (values["订单号"], values["状态"], values["合计"]) == (order["no"], "待审核", "2598.00")
+    assert (values["收货人"], values["联系电话"]) == ("王**", "138****1111")
+
+    # 管理员：收货信息明文，另有成本合计（成本价 800 × 2）。
+    full = await desk.client.post(
+        "/api/v1/orders/export", headers=desk.admin, json={**body, "password": ADMIN_PASSWORD}
+    )
+    header, row = csv_rows(full.text)
+    values = dict(zip(header, row, strict=True))
+    assert (values["收货人"], values["联系电话"], values["成本合计"]) == (
+        "王先生",
+        "13800001111",
+        "1600.00",
+    )
+    audits = await desk.sql(
+        "SELECT detail FROM audit_logs WHERE action = 'order.export' ORDER BY created_at"
+    )
+    assert [
+        (json.loads(a["detail"])["plaintext"], json.loads(a["detail"])["cost"]) for a in audits
+    ] == [(False, False), (True, True)]
+    # 筛选条件与订单中心相同：没有符合的订单时只有表头。
+    empty = await desk.client.post(
+        "/api/v1/orders/export",
+        headers=desk.admin,
+        json={"password": ADMIN_PASSWORD, "view": "receivable"},
+    )
+    assert len(csv_rows(empty.text)) == 1

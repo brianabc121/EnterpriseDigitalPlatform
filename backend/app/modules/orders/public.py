@@ -13,10 +13,12 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.context import AppContext
+from app.core.config import Settings
 from app.core.deps import client_ip, get_context, get_rate_limiter
 from app.core.errors import ERROR_RESPONSES, NotFound
 from app.core.ratelimit import Limit, RateLimiter
-from app.modules.channels.models import ChannelAccount, ChannelType
+from app.modules.billing.entitlements import has_feature
+from app.modules.channels.models import ChannelAccount, ChannelStatus, ChannelType
 from app.modules.conversation.models import ChatSession, Room
 from app.modules.customer.models import CustomerIdentity
 from app.modules.orders import service
@@ -101,7 +103,34 @@ def _steps(order: Order, shipping: bool) -> list[TrackingStep]:
     ]
 
 
-async def build(session: AsyncSession, order: Order) -> OrderTracking:
+async def contact_url(session: AsyncSession, app_settings: Settings, order: Order) -> str | None:
+    """「联系客服」：下单时的网页渠道；不是在网页下的单时用企业第一个启用的网页渠道。"""
+    channel_id = (
+        await session.scalar(
+            select(ChatSession.channel_account_id).where(ChatSession.id == order.session_id)
+        )
+        if order.session_id
+        else None
+    )
+    channel = await session.get(ChannelAccount, channel_id) if channel_id else None
+    if channel is None or channel.type != ChannelType.WEB or channel.status != ChannelStatus.ACTIVE:
+        channel = await session.scalar(
+            select(ChannelAccount)
+            .where(
+                ChannelAccount.type == ChannelType.WEB,
+                ChannelAccount.status == ChannelStatus.ACTIVE,
+            )
+            .order_by(ChannelAccount.created_at)
+            .limit(1)
+        )
+    if channel is None:
+        return None
+    return f"{app_settings.widget_public_url.rstrip('/')}/?key={channel.public_key}"
+
+
+async def build(
+    session: AsyncSession, order: Order, app_settings: Settings | None = None
+) -> OrderTracking:
     settings = await order_settings.load(session, order.tenant_id)
     items = await service.load_items(session, order.id)
     events = (
@@ -142,6 +171,9 @@ async def build(session: AsyncSession, order: Order) -> OrderTracking:
             TrackingEvent(type=e.type, text=_event_text(e), created_at=e.created_at) for e in events
         ],
         created_at=order.created_at,
+        contact_url=(
+            await contact_url(session, app_settings, order) if app_settings is not None else None
+        ),
     )
 
 
@@ -174,7 +206,7 @@ async def track_order(
             or not service.tracking_active(order, datetime.now(UTC))
         ):
             raise NotFound(EXPIRED)
-        return await build(session, order)
+        return await build(session, order, ctx.settings)
 
 
 # ---- Widget"我的订单" ----
@@ -206,9 +238,11 @@ async def anonymous_room(session: AsyncSession, identity_id: uuid.UUID) -> tuple
 
 async def visitor_orders(ctx: AppContext, visitor: VisitorContext) -> VisitorOrderList:
     session = visitor.session
+    if not await has_feature(session, visitor.claims.tenant_id, "orders"):
+        return VisitorOrderList(enabled=False, items=[])
     room, anonymous = await anonymous_room(session, visitor.claims.identity_id)
     if room.customer_id is None:
-        return VisitorOrderList(items=[])
+        return VisitorOrderList(enabled=True, items=[])
     rows = (
         await session.scalars(
             select(Order)
@@ -236,4 +270,4 @@ async def visitor_orders(ctx: AppContext, visitor: VisitorContext) -> VisitorOrd
                 created_at=order.created_at,
             )
         )
-    return VisitorOrderList(items=result)
+    return VisitorOrderList(enabled=True, items=result)

@@ -108,6 +108,50 @@ def _due(due: DueFilter, now: datetime, tz: Any) -> ColumnElement[bool]:
     return and_(active, Todo.due_at >= start, Todo.due_at < start + timedelta(days=1))
 
 
+async def conditions(
+    session: AsyncSession,
+    principal: Principal,
+    *,
+    view: View = "all",
+    status: TodoStatus | None = None,
+    type_id: uuid.UUID | None = None,
+    priority: Priority | None = None,
+    source: str | None = None,
+    customer_id: uuid.UUID | None = None,
+    session_id: uuid.UUID | None = None,
+    assignee_id: uuid.UUID | None = None,
+    due: DueFilter | None = None,
+    q: str | None = None,
+    now: datetime | None = None,
+) -> ColumnElement[bool]:
+    """待办中心的筛选条件（数据范围内），列表和导出共用。"""
+    now = now or utcnow()
+    where: list[ColumnElement[bool]] = [visible_to(principal)]
+    condition = _view(principal, view)
+    if condition is not None:
+        where.append(condition)
+    if status is not None:
+        where.append(Todo.status == status)
+    elif view == "all":
+        where.append(Todo.status != TodoStatus.PENDING)
+    for column, value in (
+        (Todo.type_id, type_id),
+        (Todo.priority, priority),
+        (Todo.source, source),
+        (Todo.customer_id, customer_id),
+        (Todo.session_id, session_id),
+        (Todo.assignee_id, assignee_id),
+    ):
+        if value is not None:
+            where.append(column == value)
+    if due is not None:
+        where.append(_due(due, now, await _tz(session)))
+    if q:
+        pattern = f"%{q.strip()}%"
+        where.append(or_(Todo.no.ilike(pattern), Todo.title.ilike(pattern)))
+    return and_(*where)
+
+
 async def list_todos(
     session: AsyncSession,
     principal: Principal,
@@ -127,29 +171,23 @@ async def list_todos(
     now: datetime | None = None,
 ) -> TodoPage:
     now = now or utcnow()
-    query: Select[Todo] = select(Todo).where(visible_to(principal))
-    condition = _view(principal, view)
-    if condition is not None:
-        query = query.where(condition)
-    if status is not None:
-        query = query.where(Todo.status == status)
-    elif view == "all":
-        query = query.where(Todo.status != TodoStatus.PENDING)
-    for column, value in (
-        (Todo.type_id, type_id),
-        (Todo.priority, priority),
-        (Todo.source, source),
-        (Todo.customer_id, customer_id),
-        (Todo.session_id, session_id),
-        (Todo.assignee_id, assignee_id),
-    ):
-        if value is not None:
-            query = query.where(column == value)
-    if due is not None:
-        query = query.where(_due(due, now, await _tz(session)))
-    if q:
-        pattern = f"%{q.strip()}%"
-        query = query.where(or_(Todo.no.ilike(pattern), Todo.title.ilike(pattern)))
+    query: Select[Todo] = select(Todo).where(
+        await conditions(
+            session,
+            principal,
+            view=view,
+            status=status,
+            type_id=type_id,
+            priority=priority,
+            source=source,
+            customer_id=customer_id,
+            session_id=session_id,
+            assignee_id=assignee_id,
+            due=due,
+            q=q,
+            now=now,
+        )
+    )
     total = await session.scalar(select(func.count()).select_from(query.subquery()))
     if view in ("mine", "pool"):
         order: list[Any] = [Todo.due_at.asc().nulls_last(), _priority_rank().desc()]

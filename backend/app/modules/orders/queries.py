@@ -73,8 +73,7 @@ def _view(view: View) -> ColumnElement[bool] | None:
     return None
 
 
-async def list_orders(
-    session: AsyncSession,
+def conditions(
     principal: Principal,
     *,
     view: View = "all",
@@ -88,9 +87,8 @@ async def list_orders(
     created_to: datetime | None = None,
     min_total: Decimal | None = None,
     max_total: Decimal | None = None,
-    limit: int = 20,
-    offset: int = 0,
-) -> OrderPage:
+) -> ColumnElement[bool]:
+    """订单中心的筛选条件（数据范围内），列表和导出共用。"""
     conditions: list[ColumnElement[bool]] = [service.visible_to(principal)]
     by_view = _view(view)
     if by_view is not None:
@@ -122,7 +120,41 @@ async def list_orders(
         conditions.append(Order.total >= min_total)
     if max_total is not None:
         conditions.append(Order.total <= max_total)
-    where = and_(*conditions)
+    return and_(*conditions)
+
+
+async def list_orders(
+    session: AsyncSession,
+    principal: Principal,
+    *,
+    view: View = "all",
+    status: str | None = None,
+    source: str | None = None,
+    assignee_id: uuid.UUID | None = None,
+    customer_id: uuid.UUID | None = None,
+    session_id: uuid.UUID | None = None,
+    q: str | None = None,
+    created_from: datetime | None = None,
+    created_to: datetime | None = None,
+    min_total: Decimal | None = None,
+    max_total: Decimal | None = None,
+    limit: int = 20,
+    offset: int = 0,
+) -> OrderPage:
+    where = conditions(
+        principal,
+        view=view,
+        status=status,
+        source=source,
+        assignee_id=assignee_id,
+        customer_id=customer_id,
+        session_id=session_id,
+        q=q,
+        created_from=created_from,
+        created_to=created_to,
+        min_total=min_total,
+        max_total=max_total,
+    )
     total = int(await session.scalar(select(func.count()).select_from(Order).where(where)) or 0)
     ordering: list[Any] = (
         [Order.credit_due_date.asc().nulls_last(), Order.created_at]

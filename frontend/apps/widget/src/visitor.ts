@@ -172,3 +172,22 @@ export function imageSize(file: File): Promise<{ width: number; height: number }
     img.src = url
   })
 }
+
+export type MyOrders = Schemas['VisitorOrderList']
+export type Tracking = Schemas['OrderTracking']
+
+/** 我的订单（企业开通了订单功能才有内容）。 */
+export async function fetchMyOrders(token: string): Promise<MyOrders> {
+  const { data, error } = await api.GET('/api/v1/visitor/orders', { params: auth(token) })
+  if (!data) throw new Error(errorMessage(error))
+  return data
+}
+
+/** 订单跟踪页的数据：凭跟踪链接里的令牌查看，不需要登录。 */
+export async function fetchTracking(token: string): Promise<Tracking> {
+  const { data, error } = await api.GET('/api/v1/public/orders/{token}', {
+    params: { path: { token } },
+  })
+  if (!data) throw new Error(errorMessage(error, '订单链接已失效，请联系客服'))
+  return data
+}

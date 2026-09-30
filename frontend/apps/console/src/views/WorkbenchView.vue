@@ -7,6 +7,7 @@ import KbFeedPanel from '../components/knowledge/KbFeedPanel.vue'
 import KbSearchPanel from '../components/knowledge/KbSearchPanel.vue'
 import ChatPanel from '../components/workbench/ChatPanel.vue'
 import CustomerPanel from '../components/workbench/CustomerPanel.vue'
+import CustomerOrders from '../components/orders/CustomerOrders.vue'
 import CustomerTodos from '../components/todos/CustomerTodos.vue'
 import IncomingTransfer from '../components/workbench/IncomingTransfer.vue'
 import { WATCHER_ROLE } from '../labels'
@@ -19,7 +20,8 @@ type ListTab = 'mine' | 'queued' | 'ongoing' | 'closed'
 const wb = useWorkbenchStore()
 const auth = useAuthStore()
 const tab = ref<ListTab>('mine')
-const sideTab = ref<'customer' | 'todos' | 'knowledge' | 'feed'>('customer')
+const sideTab = ref<'customer' | 'todos' | 'orders' | 'knowledge' | 'feed'>('customer')
+const canOrders = computed(() => auth.can('order:read') && auth.me?.features?.orders !== false)
 /** 待确认的必读知识数（显示在"动态"页签上）。 */
 const unreadKnowledge = ref(0)
 
@@ -187,6 +189,9 @@ onMounted(() => void wb.start())
         <el-tab-pane v-if="auth.can('todo:read')" name="todos">
           <template #label><span data-testid="todos-tab">待办</span></template>
         </el-tab-pane>
+        <el-tab-pane v-if="canOrders" name="orders">
+          <template #label><span data-testid="orders-tab">订单</span></template>
+        </el-tab-pane>
         <el-tab-pane v-if="auth.can('kb:read')" label="知识库" name="knowledge" />
         <el-tab-pane v-if="auth.can('kb:read')" name="feed">
           <template #label>
@@ -217,6 +222,19 @@ onMounted(() => void wb.start())
           source="copilot"
         />
         <div v-else class="side-body placeholder">选择会话后显示客户的待办</div>
+      </template>
+      <template v-if="sideTab === 'orders'">
+        <CustomerOrders
+          v-if="wb.active"
+          :key="wb.active.id"
+          class="side-body todos"
+          :customer-id="wb.active.customer_id"
+          :customer-name="wb.active.customer_display_name"
+          :session-id="wb.active.id"
+          source="copilot"
+          @insert="wb.insertIntoComposer"
+        />
+        <div v-else class="side-body placeholder">选择会话后显示客户的订单</div>
       </template>
       <KbSearchPanel
         v-if="auth.can('kb:read')"

@@ -5,6 +5,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import KbSearchPanel from '../components/knowledge/KbSearchPanel.vue'
+import CustomerOrders from '../components/orders/CustomerOrders.vue'
 import CustomerTodos from '../components/todos/CustomerTodos.vue'
 import MyTodos from '../components/todos/MyTodos.vue'
 import ChatPanel from '../components/workbench/ChatPanel.vue'
@@ -24,7 +25,8 @@ const auth = useAuthStore()
 const route = useRoute()
 const router = useRouter()
 const tab = ref<'mine' | 'queued' | 'todos'>('mine')
-const drawer = ref<'customer' | 'knowledge' | 'todos' | null>(null)
+const drawer = ref<'customer' | 'knowledge' | 'todos' | 'orders' | null>(null)
+const DRAWER_TITLE = { customer: '客户资料', todos: '客户的待办', orders: '客户的订单', knowledge: '知识检索' }
 
 const SESSION_LABEL: Record<string, string> = {
   queued: '排队中',
@@ -154,6 +156,15 @@ onMounted(async () => {
             待办
           </el-button>
           <el-button
+            v-if="auth.can('order:read') && auth.me?.features?.orders !== false"
+            link
+            type="primary"
+            data-testid="mobile-orders"
+            @click="drawer = 'orders'"
+          >
+            订单
+          </el-button>
+          <el-button
             v-if="auth.can('kb:read')"
             link
             type="primary"
@@ -171,7 +182,7 @@ onMounted(async () => {
       :model-value="drawer !== null"
       direction="btt"
       size="80%"
-      :title="drawer === 'customer' ? '客户资料' : drawer === 'todos' ? '客户的待办' : '知识检索'"
+      :title="drawer ? DRAWER_TITLE[drawer] : ''"
       @close="drawer = null"
     >
       <CustomerPanel
@@ -186,6 +197,15 @@ onMounted(async () => {
         :customer-name="wb.active.customer_display_name"
         :session-id="wb.active.id"
         source="copilot"
+      />
+      <CustomerOrders
+        v-if="drawer === 'orders' && wb.active"
+        :key="wb.active.id"
+        :customer-id="wb.active.customer_id"
+        :customer-name="wb.active.customer_display_name"
+        :session-id="wb.active.id"
+        source="copilot"
+        @insert="insertKnowledge"
       />
       <KbSearchPanel v-if="drawer === 'knowledge'" insertable @insert="insertKnowledge" />
     </el-drawer>

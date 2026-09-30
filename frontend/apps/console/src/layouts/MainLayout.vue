@@ -7,11 +7,13 @@ import {
   Connection,
   DataLine,
   Document,
+  Goods,
   HomeFilled,
   MagicStick,
   Promotion,
   Reading,
   Setting,
+  ShoppingCart,
   Tickets,
   User,
 } from '@element-plus/icons-vue'
@@ -22,6 +24,7 @@ import { api } from '../api'
 import PasswordDialog from '../components/account/PasswordDialog.vue'
 import NotificationBell from '../components/layout/NotificationBell.vue'
 import { visibleMenus, type MenuIcon } from '../menu'
+import { ORDERS_CHANGED } from '../orders'
 import { TODOS_CHANGED } from '../todos'
 import { useAuthStore } from '../stores/auth'
 import { useWorkbenchStore } from '../stores/workbench'
@@ -35,6 +38,8 @@ const icons: Record<MenuIcon, Component> = {
   chat: ChatDotRound,
   history: Clock,
   ticket: Tickets,
+  order: ShoppingCart,
+  goods: Goods,
   user: User,
   reading: Reading,
   ai: MagicStick,
@@ -70,16 +75,34 @@ function onTodosChanged(): void {
   void loadTodoBadge()
 }
 
+// 订单菜单的角标：待审核的订单（有审核权限时），与待办一起刷新；订单有变化时立即刷新。
+const orderBadge = ref(0)
+
+async function loadOrderBadge(): Promise<void> {
+  if (!auth.can('order:review') || auth.me?.features?.orders === false) return
+  const { data } = await api.GET('/api/v1/orders/counts')
+  if (data) orderBadge.value = data.pending_review
+}
+
+function onOrdersChanged(): void {
+  void loadOrderBadge()
+}
+
 onMounted(() => {
   void loadTodoBadge()
+  void loadOrderBadge()
   todoTimer = setInterval(() => {
-    if (document.visibilityState === 'visible') void loadTodoBadge()
+    if (document.visibilityState !== 'visible') return
+    void loadTodoBadge()
+    void loadOrderBadge()
   }, TODO_POLL_MS)
   window.addEventListener(TODOS_CHANGED, onTodosChanged)
+  window.addEventListener(ORDERS_CHANGED, onOrdersChanged)
 })
 onBeforeUnmount(() => {
   clearInterval(todoTimer)
   window.removeEventListener(TODOS_CHANGED, onTodosChanged)
+  window.removeEventListener(ORDERS_CHANGED, onOrdersChanged)
 })
 
 async function onCommand(command: string): Promise<void> {
@@ -112,6 +135,14 @@ async function logout(): Promise<void> {
             :max="99"
             class="menu-badge"
             data-testid="todo-badge"
+          />
+          <el-badge
+            v-if="item.name === 'orders' && orderBadge"
+            :value="orderBadge"
+            :max="99"
+            type="warning"
+            class="menu-badge"
+            data-testid="order-badge"
           />
         </el-menu-item>
       </el-menu>

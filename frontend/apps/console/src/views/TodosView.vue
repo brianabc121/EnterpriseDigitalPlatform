@@ -5,6 +5,7 @@ import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import { api, formatDateTime } from '../api'
+import PasswordExportDialog from '../components/shared/PasswordExportDialog.vue'
 import TodoDrawer from '../components/todos/TodoDrawer.vue'
 import TodoFormDialog from '../components/todos/TodoFormDialog.vue'
 import { useAuthStore } from '../stores/auth'
@@ -54,6 +55,24 @@ const filters = reactive({
 })
 
 const canCreate = computed(() => auth.can('todo:handle') || auth.can('todo:assign'))
+const canExport = computed(() => auth.can('todo:export'))
+const exporting = ref(false)
+
+function exporter(password: string) {
+  return api.POST('/api/v1/todos/export', {
+    body: {
+      password,
+      view: view.value,
+      status: statusFilter.value ? filters.status || null : null,
+      type_id: filters.typeId || null,
+      priority: filters.priority || null,
+      source: filters.source || null,
+      due: filters.due || null,
+      q: filters.q.trim() || null,
+    },
+    parseAs: 'blob',
+  })
+}
 const pending = computed(() => view.value === 'pending')
 const statusFilter = computed(() => view.value === 'all' || view.value === 'assigned')
 
@@ -170,9 +189,12 @@ onMounted(async () => {
   <div>
     <div class="page-header">
       <h2>待办</h2>
-      <el-button v-if="canCreate" type="primary" data-testid="new-todo" @click="creating = true"
-        >新建待办</el-button
-      >
+      <span>
+        <el-button v-if="canExport" data-testid="todos-export" @click="exporting = true">导出</el-button>
+        <el-button v-if="canCreate" type="primary" data-testid="new-todo" @click="creating = true"
+          >新建待办</el-button
+        >
+      </span>
     </div>
 
     <el-tabs v-model="view" data-testid="todo-views">
@@ -338,6 +360,15 @@ onMounted(async () => {
 
     <TodoDrawer :todo-id="openId" @close="close" @changed="refresh" />
     <TodoFormDialog v-model="creating" @created="refresh" />
+    <PasswordExportDialog
+      v-model="exporting"
+      title="导出待办"
+      :hint="`导出当前视图和筛选条件下的待办（CSV）。敏感字段${
+        auth.can('customer:view_sensitive') ? '导出完整内容' : '导出掩码'
+      }；导出操作会记入操作日志。`"
+      :filename="`todos-${new Date().toISOString().slice(0, 10)}.csv`"
+      :exporter="exporter"
+    />
   </div>
 </template>
 

@@ -4,10 +4,12 @@ import { MessageBody, type MessageView } from '@edp/ui'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 
 import { fromApi, fromIm, mergeMessages, senderLabel, type WidgetMessage } from './chat'
+import { money, shortTime } from './orders'
 import {
   cancelQueue,
   embedOrigin,
   fetchMessages,
+  fetchMyOrders,
   fetchProgress,
   fetchState,
   imageSize,
@@ -17,6 +19,7 @@ import {
   rateAnswer,
   requestHuman,
   upload,
+  type MyOrders,
   type ProgressList,
   type SessionState,
   type VisitorSession,
@@ -57,9 +60,11 @@ const error = ref<string | null>(channelKey ? null : '缺少渠道参数 key')
 const list = ref<HTMLElement | null>(null)
 const fileInput = ref<HTMLInputElement | null>(null)
 const noticeRead = ref(false)
-const panel = ref<'chat' | 'leave' | 'progress'>('chat')
+const panel = ref<'chat' | 'leave' | 'progress' | 'orders'>('chat')
 // 服务进度（设计文档 §24.9）：企业开启后显示访客自己登记的事项。
 const progress = ref<ProgressList | null>(null)
+// 我的订单（设计文档 §25.6）：企业开通订单功能后显示这位访客的订单和跟踪链接。
+const myOrders = ref<MyOrders | null>(null)
 const leaveForm = ref({ content: '', contact: '', sent: false })
 const csat = ref({ score: 0, comment: '', done: false })
 const visible = ref(!embedded)
@@ -198,7 +203,7 @@ async function start(key: string): Promise<void> {
       wsAddr: login.ws_url,
       platformID: login.platform_id,
     })
-    await Promise.all([syncFromApi(), refreshState(), loadProgress()])
+    await Promise.all([syncFromApi(), refreshState(), loadProgress(), loadOrders()])
     timers.push(setTimeout(() => void syncFromApi(), SYNC_AFTER_CONNECT_MS))
     timers.push(
       setInterval(() => {
@@ -225,6 +230,20 @@ async function loadProgress(): Promise<void> {
 function showProgress(): void {
   panel.value = panel.value === 'progress' ? 'chat' : 'progress'
   if (panel.value === 'progress') void loadProgress()
+}
+
+async function loadOrders(): Promise<void> {
+  if (!session.value) return
+  try {
+    myOrders.value = await fetchMyOrders(session.value.visitor_token)
+  } catch {
+    myOrders.value = null
+  }
+}
+
+function showOrders(): void {
+  panel.value = 'orders'
+  void loadOrders()
 }
 
 async function send(): Promise<void> {
@@ -363,6 +382,15 @@ onBeforeUnmount(() => {
           @click="showProgress"
         >
           服务进度
+        </button>
+        <button
+          v-if="myOrders?.enabled && panel === 'chat'"
+          type="button"
+          class="link"
+          data-testid="my-orders-tab"
+          @click="showOrders"
+        >
+          我的订单
         </button>
         <button
           type="button"
@@ -521,6 +549,28 @@ onBeforeUnmount(() => {
           预计 {{ new Date(item.due_at).toLocaleString('zh-CN', { hour12: false }) }} 前完成
         </div>
         <div v-if="item.progress_note" class="progress-meta">{{ item.progress_note }}</div>
+      </div>
+    </div>
+
+    <div v-else-if="panel === 'orders'" class="progress" data-testid="my-orders">
+      <p v-if="!myOrders?.items.length" class="empty">您还没有订单。</p>
+      <div v-for="order in myOrders?.items ?? []" :key="order.no" class="progress-item" data-testid="my-order">
+        <div class="progress-head">
+          <span class="progress-title">订单 {{ order.no }}</span>
+          <span class="progress-status">{{ order.status_label }}</span>
+        </div>
+        <div class="progress-meta">{{ order.summary }}</div>
+        <div class="progress-meta order-meta">
+          <span>合计 {{ money(order.total) }} · {{ shortTime(order.created_at) }}</span>
+          <a
+            v-if="order.tracking_url"
+            :href="order.tracking_url"
+            target="_blank"
+            rel="noopener"
+            data-testid="my-order-track"
+            >查看进度</a
+          >
+        </div>
       </div>
     </div>
 
