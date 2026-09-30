@@ -1,0 +1,88 @@
+# 对外入口（域名按环境替换，见 overlays/production）。前端和它调用的 API 同源：
+# 控制台、运营后台的刷新令牌 Cookie 只对同源请求生效，访客 Widget 也用同源的 /api/v1/visitor。
+# 企业微信回调走 api 域名的 /hooks/wecom；OpenIM 回调（/hooks/openim）只在集群内访问，这里不转发。
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: edp
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: 25m
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "60"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - console.example.com
+        - admin.example.com
+        - widget.example.com
+        - api.example.com
+      secretName: edp-tls
+  rules:
+    - host: console.example.com
+      http:
+        paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: edp-api
+                port:
+                  name: http
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: edp-console
+                port:
+                  name: http
+    - host: admin.example.com
+      http:
+        paths:
+          - path: /platform
+            pathType: Prefix
+            backend:
+              service:
+                name: edp-api
+                port:
+                  name: http
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: edp-platform-admin
+                port:
+                  name: http
+    - host: widget.example.com
+      http:
+        paths:
+          - path: /api/v1/visitor
+            pathType: Prefix
+            backend:
+              service:
+                name: edp-api
+                port:
+                  name: http
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: edp-widget
+                port:
+                  name: http
+    - host: api.example.com
+      http:
+        paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: edp-api
+                port:
+                  name: http
+          - path: /hooks/wecom
+            pathType: Prefix
+            backend:
+              service:
+                name: edp-api
+                port:
+                  name: http

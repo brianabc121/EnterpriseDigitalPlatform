@@ -1,0 +1,39 @@
+# 生产环境示例：复制后按实际情况修改镜像地址、域名和对外地址。
+#   首次部署：kubectl apply -k deploy/k8s/overlays/production
+#            kubectl apply -k deploy/k8s/overlays/production/migrate（等待完成）
+#   升级：先迁移（删除上一次的 Job 后再应用 migrate），再应用本目录。
+# 密钥：kubectl -n edp create secret generic edp-secrets --from-env-file=secrets.env
+#       （字段见 ../../secrets.example.env）。
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: edp
+
+resources:
+  - namespace.yaml
+  - ../../base
+
+components:
+  - ../../components/monitoring
+  - ../../components/network-policy
+
+images:
+  - name: edp-backend
+    newName: registry.example.com/edp/backend
+    newTag: "1.0.0"
+  - name: edp-console
+    newName: registry.example.com/edp/console
+    newTag: "1.0.0"
+  - name: edp-platform-admin
+    newName: registry.example.com/edp/platform-admin
+    newTag: "1.0.0"
+  - name: edp-widget
+    newName: registry.example.com/edp/widget
+    newTag: "1.0.0"
+
+patches:
+  - path: config.yaml
+  - path: ingress.yaml
+    target:
+      kind: Ingress
+      name: edp

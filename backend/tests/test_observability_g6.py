@@ -304,3 +304,13 @@ async def test_alerts_and_dashboard_only_use_exported_metrics(desk: Desk) -> Non
         "EdpWecomAuthCancelled",
         "EdpTenantMessageSpike",
     } <= names
+
+
+def test_k8s_prometheus_rule_matches_the_alert_rules() -> None:
+    """deploy/k8s 的 PrometheusRule 与告警规则文件保持一致。"""
+    rules = yaml.safe_load((REPO / "deploy/observability/prometheus/alerts.yml").read_text())
+    crd = yaml.safe_load(
+        (REPO / "deploy/k8s/components/monitoring/prometheus-rule.yaml").read_text()
+    )
+    assert crd["kind"] == "PrometheusRule"
+    assert crd["spec"]["groups"] == rules["groups"]

@@ -1,0 +1,18 @@
+# 平台在 K8s 上的基础清单（设计文档 §19.2）：API、实时消费、调度三个后端进程和三个前端应用。
+# PostgreSQL（云数据库，主从 + PITR）、Redis、对象存储和 OpenIM（官方部署方案）不在这里。
+# 使用方式见 overlays/production。
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+labels:
+  - pairs:
+      app.kubernetes.io/part-of: edp
+    includeSelectors: false
+
+resources:
+  - config.yaml
+  - api.yaml
+  - worker.yaml
+  - scheduler.yaml
+  - frontends.yaml
+  - ingress.yaml

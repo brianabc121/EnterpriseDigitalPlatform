@@ -1,0 +1,54 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: edp-migrate
+  labels:
+    app.kubernetes.io/name: edp-migrate
+    app.kubernetes.io/component: migrate
+spec:
+  backoffLimit: 2
+  activeDeadlineSeconds: 1800
+  ttlSecondsAfterFinished: 86400
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: edp-migrate
+    spec:
+      restartPolicy: Never
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: migrate
+          image: edp-backend
+          # 迁移用数据库所有者账号（EDP_DATABASE_URL_OWNER，在 edp-secrets 里）。
+          command: ["alembic", "upgrade", "head"]
+          envFrom:
+            - secretRef:
+                name: edp-secrets
+          env:
+            - name: EDP_LOG_FORMAT
+              value: text
+            # 生产配置的校验要求（其余配置迁移用不到）。
+            - name: EDP_COOKIE_SECURE
+              value: "true"
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              memory: 512Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}

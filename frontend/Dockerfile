@@ -21,10 +21,9 @@ ARG APP=console
 COPY deploy/nginx.conf /etc/nginx/conf.d/default.conf
 COPY deploy/40-edp-config.sh /docker-entrypoint.d/40-edp-config.sh
 COPY --from=build /src/apps/${APP}/dist /usr/share/nginx/html
-# 以非 root 用户运行：日志写到标准输出，pid、缓存和运行时配置都在 /tmp 或 /var/cache/nginx，
-# 根文件系统可以只读（K8s 里给这两个目录挂 emptyDir）。
+# 以非 root 用户运行：日志写到标准输出，pid、临时文件和运行时配置都在 /tmp，
+# 根文件系统可以只读（K8s 里给 /tmp 挂 emptyDir）。
 RUN sed -i 's#^pid .*#pid /tmp/nginx.pid;#' /etc/nginx/nginx.conf \
-    && sed -i 's#^user .*##' /etc/nginx/nginx.conf \
-    && chown -R nginx:nginx /var/cache/nginx
+    && sed -i 's#^user .*##' /etc/nginx/nginx.conf
 USER nginx
 EXPOSE 8080

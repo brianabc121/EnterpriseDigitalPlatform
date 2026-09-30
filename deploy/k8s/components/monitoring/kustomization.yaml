@@ -1,0 +1,8 @@
+# Prometheus Operator：抓取三个后端进程的指标（抓取任务名 edp-api、edp-worker、edp-scheduler，
+# 告警规则按这个名字判断进程是否在运行），加载告警规则。
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+
+resources:
+  - service-monitors.yaml
+  - prometheus-rule.yaml

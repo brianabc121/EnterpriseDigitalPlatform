@@ -1,0 +1,29 @@
+# 不含密钥的配置。密钥放在 Secret edp-secrets（见 ../secrets.example.env），由运维单独创建，
+# 或者用 External Secrets 从 KMS / Vault 同步（设计文档 §18）。
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: edp-config
+data:
+  EDP_ENV: prod
+  EDP_LOG_FORMAT: json
+  EDP_METRICS_PORT: "9464"
+  # OpenTelemetry Collector 的 OTLP/HTTP 地址；为空时不上报链路。
+  EDP_OTEL_ENDPOINT: ""
+  EDP_OTEL_SAMPLE_RATIO: "0.2"
+  EDP_COOKIE_SECURE: "true"
+  EDP_USAGE_TIMEZONE: Asia/Shanghai
+  # 对外地址（按环境修改）。
+  EDP_PUBLIC_API_URL: https://api.example.com
+  EDP_CONSOLE_PUBLIC_URL: https://console.example.com
+  EDP_WIDGET_PUBLIC_URL: https://widget.example.com
+  EDP_CORS_ORIGINS: '["https://console.example.com","https://admin.example.com","https://widget.example.com"]'
+  # OpenIM：集群内的 REST 地址，以及浏览器访问的公开地址。
+  EDP_OPENIM_API_URL: http://openim-api.openim:10002
+  EDP_OPENIM_PUBLIC_API_URL: https://im.example.com/api
+  EDP_OPENIM_PUBLIC_WS_URL: wss://im.example.com/msg_gateway
+  # S3 兼容对象存储。
+  EDP_STORAGE_ENDPOINT: https://oss.example.com
+  EDP_STORAGE_PUBLIC_ENDPOINT: https://oss.example.com
+  EDP_STORAGE_BUCKET: edp-files
+  EDP_STORAGE_REGION: cn-shanghai

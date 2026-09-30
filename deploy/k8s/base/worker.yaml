@@ -1,0 +1,109 @@
+# 实时消费进程：事件分区按租约分配给实例（同一分区同时只有一个消费者），AI 待回复会话按行领取，
+# 多个实例互为备份并分担 AI 回复。
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: edp-worker
+  labels:
+    app.kubernetes.io/name: edp-worker
+    app.kubernetes.io/component: worker
+spec:
+  # 副本数由 HPA 管理（不在这里写死，重新部署时不会被覆盖）。
+  revisionHistoryLimit: 5
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: edp-worker
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: edp-worker
+        app.kubernetes.io/component: worker
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      # 收到 SIGTERM 后处理完手上的事件再退出；租约 15 秒过期，其他实例接手。
+      terminationGracePeriodSeconds: 45
+      containers:
+        - name: worker
+          image: edp-backend
+          command: ["python", "-m", "app.worker"]
+          ports:
+            - name: metrics
+              containerPort: 9464
+          envFrom:
+            - configMapRef:
+                name: edp-config
+            - secretRef:
+                name: edp-secrets
+          livenessProbe:
+            httpGet:
+              path: /metrics
+              port: metrics
+            initialDelaySeconds: 15
+            periodSeconds: 30
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              memory: 1Gi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: edp-worker
+  labels:
+    app.kubernetes.io/name: edp-worker
+spec:
+  clusterIP: None
+  selector:
+    app.kubernetes.io/name: edp-worker
+  ports:
+    - name: metrics
+      port: 9464
+      targetPort: metrics
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: edp-worker
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: edp-worker
+  minReplicas: 2
+  maxReplicas: 6
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: edp-worker
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: edp-worker

@@ -1,0 +1,7 @@
+# 网络策略（需要支持 NetworkPolicy 的网络插件）：平台的 Pod 只接受 Ingress 控制器、OpenIM 回调
+# 和 Prometheus 抓取的流量。命名空间名称按集群实际情况修改。
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+
+resources:
+  - policies.yaml

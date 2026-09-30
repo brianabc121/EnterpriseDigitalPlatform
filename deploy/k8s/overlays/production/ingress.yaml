@@ -1,0 +1,23 @@
+# 域名替换（JSON Patch）。
+- op: replace
+  path: /spec/tls/0/hosts
+  value:
+    - console.edp.example.com
+    - admin.edp.example.com
+    - widget.edp.example.com
+    - api.edp.example.com
+- op: replace
+  path: /spec/rules/0/host
+  value: console.edp.example.com
+- op: replace
+  path: /spec/rules/1/host
+  value: admin.edp.example.com
+- op: replace
+  path: /spec/rules/2/host
+  value: widget.edp.example.com
+- op: replace
+  path: /spec/rules/3/host
+  value: api.edp.example.com
+- op: add
+  path: /metadata/annotations/cert-manager.io~1cluster-issuer
+  value: letsencrypt

@@ -1,0 +1,228 @@
+# 三个前端应用：nginx 提供静态文件（8080 端口），API 请求由 Ingress 按路径转发给 edp-api。
+# 控制台（员工工作台与租户管理）
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: edp-console
+  labels:
+    app.kubernetes.io/name: edp-console
+    app.kubernetes.io/component: frontend
+spec:
+  replicas: 2
+  revisionHistoryLimit: 5
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: edp-console
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: edp-console
+        app.kubernetes.io/component: frontend
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 101
+        runAsGroup: 101
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: web
+          image: edp-console
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            - name: EDP_WIDGET_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: edp-config
+                  key: EDP_WIDGET_PUBLIC_URL
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 30
+          resources:
+            requests:
+              cpu: 20m
+              memory: 32Mi
+            limits:
+              memory: 128Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: edp-console
+  labels:
+    app.kubernetes.io/name: edp-console
+spec:
+  selector:
+    app.kubernetes.io/name: edp-console
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+---
+# 运营后台
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: edp-platform-admin
+  labels:
+    app.kubernetes.io/name: edp-platform-admin
+    app.kubernetes.io/component: frontend
+spec:
+  replicas: 2
+  revisionHistoryLimit: 5
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: edp-platform-admin
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: edp-platform-admin
+        app.kubernetes.io/component: frontend
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 101
+        runAsGroup: 101
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: web
+          image: edp-platform-admin
+          ports:
+            - name: http
+              containerPort: 8080
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 30
+          resources:
+            requests:
+              cpu: 20m
+              memory: 32Mi
+            limits:
+              memory: 128Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: edp-platform-admin
+  labels:
+    app.kubernetes.io/name: edp-platform-admin
+spec:
+  selector:
+    app.kubernetes.io/name: edp-platform-admin
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+---
+# 访客 Widget（嵌入客户网站的 iframe）
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: edp-widget
+  labels:
+    app.kubernetes.io/name: edp-widget
+    app.kubernetes.io/component: frontend
+spec:
+  replicas: 2
+  revisionHistoryLimit: 5
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: edp-widget
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: edp-widget
+        app.kubernetes.io/component: frontend
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 101
+        runAsGroup: 101
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: web
+          image: edp-widget
+          ports:
+            - name: http
+              containerPort: 8080
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 30
+          resources:
+            requests:
+              cpu: 20m
+              memory: 32Mi
+            limits:
+              memory: 128Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: edp-widget
+  labels:
+    app.kubernetes.io/name: edp-widget
+spec:
+  selector:
+    app.kubernetes.io/name: edp-widget
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
