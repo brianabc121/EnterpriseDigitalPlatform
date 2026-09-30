@@ -1485,7 +1485,9 @@ M1-1 至 M1-8 全部完成，验收标准已满足：
     `Cache-Control: no-store`。会话过期返回 428（页面重新握手后重试一次），密文、重放、时间不对返回 400，要求加密
     而没加密返回 426，请求体超过 64 MB 返回 413。
   - 范围：`/api/`、`/platform/` 下的接口，握手、文件链接和企业微信安装回调除外；`/open/v1`、回调、OpenIM 的
-    WebSocket 和对象存储不在范围内（设计文档 §25.15.1）。
+    WebSocket 和对象存储不在范围内（设计文档 §25.15.1）。三个前端都要能访问握手 `/api/v1/transport`：Ingress 在
+    运营后台和 Widget 的域名上转发这个路径，运营后台的开发服务器也代理它（最初只代理 `/platform`，运营后台无法登录，
+    P0 验收在 CI 里失败后补上）。
   - 配置：`EDP_TRANSPORT_ENCRYPTION`（生产环境默认 `required`，其他环境 `optional`）、`EDP_TRANSPORT_SIGNING_KEY`
     （生产环境必须配置，`app.cli transport-keygen` 生成）；前端的公钥来自运行时配置（`/config.js`，容器启动时由
     `EDP_TRANSPORT_PUBLIC_KEY` 写入）、构建时的 `VITE_TRANSPORT_PUBLIC_KEY` 或 `/api/v1/transport/key`。浏览器不支持

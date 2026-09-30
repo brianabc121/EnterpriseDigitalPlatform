@@ -322,7 +322,8 @@ OpenIM 的镜像名都可以用环境变量替换（见 `deploy/compose/openim/d
   `components/monitoring`（ServiceMonitor、与 `alerts.yml` 一致的 PrometheusRule）和 `components/network-policy`
   可选；`overlays/production` 是生产环境示例（镜像地址、域名、链路上报地址）。先按
   `deploy/k8s/secrets.example.env` 创建 Secret `edp-secrets`（包括接口传输加密的签名私钥，对应的公钥填在
-  `base/config.yaml` 的 `EDP_TRANSPORT_PUBLIC_KEY`，三个前端启动时写入运行时配置），每次发布前执行迁移 Job
+  `base/config.yaml` 的 `EDP_TRANSPORT_PUBLIC_KEY`，三个前端启动时写入运行时配置；Ingress 在运营后台和 Widget 的
+  域名上也把握手 `/api/v1/transport` 转给 API），每次发布前执行迁移 Job
   （`kubectl apply -k deploy/k8s/overlays/production/migrate`，等待完成），再 `kubectl apply -k deploy/k8s/overlays/production`。
 - **数据库账号**：迁移用表的所有者账号（`EDP_DATABASE_URL_OWNER`，不需要是超级用户），`vector` 扩展由数据库管理员
   预先安装；应用和平台分别用 `edp_app`、`edp_platform`（见 `deploy/compose/postgres/init/01-roles.sql`）。
