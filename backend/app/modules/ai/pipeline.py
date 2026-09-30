@@ -1,6 +1,10 @@
 """AI 回复流水线（设计文档 §11.1）：前置规则 → 问题改写 → 知识检索（混合检索、重排）→ 语义缓存 →
 大模型生成（可调用工具）→ 后置护栏 → 转人工决策。
 
+租户开通了订单功能时（设计文档 §25.2）：前置规则之后识别套价（固定话术答复，不调用大模型），
+检索时一并查商品（只有对客可见的字段，作为【商品信息】），后置护栏之后检查回复里有没有内部价格
+口径或成本价金额（拦截并改用固定话术）；连续两次找不到客户要的商品时转人工。
+
 线上接待（responder.py）、管理后台的"试一试"和评测共用这一套逻辑。流水线不发消息，只返回判定
 结果；调用大模型的记账由 gateway 完成。工具里只有登记线索和留言会写库（试一试时不写）。
 """
@@ -14,11 +18,12 @@ from typing import Any
 
 from app.context import AppContext
 from app.integrations.llm import ChatResult, LLMUnavailable
-from app.modules.ai import answer_cache, decision, gateway, pii, prompts, reasons
+from app.modules.ai import answer_cache, decision, gateway, pii, price_guard, prompts, reasons
 from app.modules.ai.models import AiSettings
 from app.modules.ai.prompts import Passage, Turn
 from app.modules.ai.tools import ToolBox, specs
 from app.modules.kb.search import Hit, search
+from app.modules.orders import ai as order_ai
 from app.modules.platform.content import ai_words
 from app.modules.todos import ai as todo_ai
 
@@ -58,8 +63,10 @@ class Context:
     repeats: int = 0
     turns: int = 0
     guard_failures: int = 0
-    # 这一轮客户消息的 ID（AI 登记待办时作为依据）。
+    # 这一轮客户消息的 ID（AI 登记待办、提交订单时作为依据）。
     message_ids: list[uuid.UUID] = field(default_factory=list)
+    # 之前连续几次没找到客户要的商品。
+    product_misses: int = 0
 
 
 @dataclass
@@ -77,8 +84,10 @@ class Outcome:
     intent: str | None = None
     # 模型调用 request_human_handoff 时给出的交接摘要（不再单独生成摘要）。
     summary: str | None = None
-    # 正在向客户追问待办的必填信息：这一轮不计入 AI 接待轮次（设计文档 §24.4）。
+    # 正在向客户追问待办或订单的信息：这一轮不计入 AI 接待轮次（设计文档 §24.4、§25.3）。
     collecting: bool = False
+    # 更新后的"连续没找到商品"次数；为空时不变。
+    product_misses: int | None = None
 
     @property
     def used_items(self) -> list[uuid.UUID]:
@@ -245,6 +254,29 @@ async def evaluate(
     if trigger:
         return Outcome(action="handoff", reason=trigger, repeats=context.repeats)
 
+    # 套价（设计文档 §25.2）：固定话术答复，不交给模型自由发挥。
+    orders = await order_ai.config(ctx, tenant_id)
+    probe = price_guard.probe(question) if orders is not None else None
+    if probe is not None:
+        if scene == "reply" and session_id is not None:
+            await price_guard.record_probe(
+                ctx,
+                tenant_id,
+                session_id=session_id,
+                customer_id=customer_id,
+                question=question,
+                category=probe,
+                message_id=context.message_ids[-1] if context.message_ids else None,
+            )
+        return Outcome(
+            action="reply",
+            reason="price_probe",
+            reply=price_guard.FIXED_REPLY,
+            guard="price_probe",
+            signals={"probe": probe},
+            repeats=context.repeats,
+        )
+
     masked_question, mapping = pii.mask(question)
     history = [Turn(t.role, pii.mask(t.text, mapping)[0]) for t in context.history]
     queries = await rewrite_queries(
@@ -256,6 +288,13 @@ async def evaluate(
     passages = [_passage(h) for h in hits]
     best = max((h.score for h in hits), default=0.0)
     extra: dict[str, Any] = {"rewritten": queries} if rewritten else {}
+    # 商品库里相关的商品（只有对客可见的字段）。
+    products = (
+        await order_ai.candidates(ctx, tenant_id, queries, price=orders.price, vector=vector)
+        if orders is not None
+        else []
+    )
+    best = max([best, *(p.score for p in products)])
 
     # 语义缓存：独立、不含个人信息的问题直接用之前的回答（仍然计算软信号）。
     cacheable = (
@@ -266,6 +305,8 @@ async def evaluate(
         and not mapping
         # 限定了知识空间的渠道不共用缓存（缓存的回答可能来自别的空间）。
         and not channel.space_ids
+        # 涉及商品和价格的回答不进缓存（价格会变）。
+        and not products
     )
     if cacheable:
         assert vector is not None
@@ -308,6 +349,7 @@ async def evaluate(
         and scene in ("reply", "test")
         and await ctx.llms.tools_supported(tenant_id, scene)
     )
+    order_tools = orders if use_tools else None
     toolbox = ToolBox(
         ctx=ctx,
         tenant_id=tenant_id,
@@ -317,6 +359,10 @@ async def evaluate(
         space_ids=channel.space_ids or None,
         todo_types=await todo_ai.ai_types(ctx, tenant_id) if use_tools else [],
         evidence_ids=list(context.message_ids),
+        orders=order_tools,
+        question=question,
+        product_misses=context.product_misses,
+        involved={p.product_id for p in products},
     )
     messages: list[dict[str, Any]] = list(
         prompts.reply_messages(
@@ -329,6 +375,12 @@ async def evaluate(
             intents=intents,
             template=prompt.content,
             tools=use_tools,
+            products=[p.line for p in products],
+            rules=(
+                prompts.order_rules(tools=use_tools, ordering=orders.ordering, price=orders.price)
+                if orders is not None
+                else None
+            ),
         )
     )
     try:
@@ -341,7 +393,11 @@ async def evaluate(
                 scene=scene,
                 json_mode=True,
                 session_id=session_id,
-                tools=specs(toolbox.todo_types) if use_tools and round_ < MAX_TOOL_ROUNDS else None,
+                tools=(
+                    specs(toolbox.todo_types, order_tools)
+                    if use_tools and round_ < MAX_TOOL_ROUNDS
+                    else None
+                ),
                 prompt_version=prompt.version,
             )
             if not result.tool_calls or result.message is None:
@@ -355,7 +411,12 @@ async def evaluate(
         assert result is not None
     except LLMUnavailable as exc:
         logger.warning("AI reply unavailable for tenant %s: %s", tenant_id, exc)
-        return Outcome(action="handoff", reason="ai_unavailable", knowledge=_knowledge(passages))
+        return Outcome(
+            action="handoff",
+            reason="ai_unavailable",
+            knowledge=_knowledge(passages),
+            product_misses=toolbox.product_misses,
+        )
 
     known = {p.item_id for p in passages}
     passages += [p for p in toolbox.passages if p.item_id not in known]
@@ -376,6 +437,18 @@ async def evaluate(
             },
             knowledge=knowledge,
             summary=request["summary"] or None,
+            product_misses=toolbox.product_misses,
+        )
+    if toolbox.product_misses >= order_ai.MISSES_TO_HANDOFF:
+        # 连续两次找不到客户要的商品：转人工（已采集的订单信息在草稿里，坐席接着处理）。
+        wanted = "、".join(dict.fromkeys(toolbox.missed)) or question[:100]
+        return Outcome(
+            action="handoff",
+            reason="product_not_found",
+            signals={**extra, "missed": toolbox.missed},
+            knowledge=knowledge,
+            summary=f"客户要的商品在商品库里没有找到：{wanted}",
+            product_misses=0,
         )
 
     parsed = parse_reply(result.content)
@@ -399,6 +472,7 @@ async def evaluate(
                 signals=extra,
                 knowledge=knowledge,
                 guard_failures=failures,
+                product_misses=toolbox.product_misses,
             )
         return Outcome(
             action="reply",
@@ -409,6 +483,41 @@ async def evaluate(
             knowledge=[{**k, "used": False} for k in knowledge],
             repeats=context.repeats,
             guard_failures=failures,
+            product_misses=toolbox.product_misses,
+        )
+    # 回复检查（设计文档 §25.2 第 3 条）：内部价格口径、成本价金额 → 拦截，改用固定话术。
+    blocked = (
+        await order_ai.price_check(
+            ctx,
+            tenant_id,
+            parsed["reply"],
+            product_ids=toolbox.involved,
+            session_id=session_id if scene == "reply" else None,
+        )
+        if orders is not None
+        else None
+    )
+    if blocked is not None:
+        if scene == "reply":
+            await price_guard.record_block(
+                ctx,
+                tenant_id,
+                session_id=session_id,
+                customer_id=customer_id,
+                reason=blocked,
+                question=question,
+            )
+        return Outcome(
+            action="reply",
+            reason="reply_blocked",
+            reply=price_guard.FIXED_REPLY,
+            guard=f"price_{blocked}",
+            signals=extra,
+            knowledge=[{**k, "used": False} for k in knowledge],
+            repeats=context.repeats,
+            guard_failures=context.guard_failures,
+            collecting=toolbox.collecting,
+            product_misses=toolbox.product_misses,
         )
 
     intent = parsed["intent"] if intents and parsed["intent"] in intents else None
@@ -420,8 +529,16 @@ async def evaluate(
             signals={**extra, "model_reason": parsed["reason"]},
             knowledge=knowledge,
             intent=intent,
+            product_misses=toolbox.product_misses,
         )
 
+    # 正在采集订单信息（这个会话有 AI 的订单草稿）的追问不计入 AI 接待轮次。
+    collecting = toolbox.collecting or (
+        orders is not None
+        and orders.ordering
+        and toolbox.session_id is not None
+        and await order_ai.collecting(ctx, tenant_id, toolbox.session_id)
+    )
     found, repeats = decision.signals(
         question,
         best_relevance=best,
@@ -429,7 +546,7 @@ async def evaluate(
         confidence=parsed["confidence"],
         previous_question=context.previous_question,
         repeats=context.repeats,
-        turns=context.turns + (0 if toolbox.collecting else 1),
+        turns=context.turns + (0 if collecting else 1),
         max_turns=max_turns,
     )
     signal_values = {**found.active(), **found.details, **extra}
@@ -442,6 +559,7 @@ async def evaluate(
             knowledge=knowledge,
             repeats=repeats,
             intent=intent,
+            product_misses=toolbox.product_misses,
         )
     if (
         cacheable
@@ -468,7 +586,8 @@ async def evaluate(
         knowledge=knowledge,
         repeats=repeats,
         intent=intent,
-        collecting=toolbox.collecting,
+        collecting=collecting,
+        product_misses=toolbox.product_misses,
     )
 
 

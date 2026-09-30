@@ -374,7 +374,7 @@
                 "type": "null"
               }
             ],
-            "description": "未通过的护栏：empty、too_long、promise、sensitive、bad_output",
+            "description": "未通过的护栏：empty、too_long、promise、sensitive、bad_output；价格保护：price_probe（套价）、price_internal_term（内部价格口径）、price_cost_amount（成本价金额）",
             "title": "Guard"
           },
           "id": {
@@ -402,7 +402,7 @@
                 "type": "null"
               }
             ],
-            "description": "转人工原因：customer_request、sensitive、vip、model_request、score、guardrail、ai_unavailable、quota；回复时为空，guardrail_retry 表示回复未通过护栏、改发兜底话术",
+            "description": "转人工原因：customer_request、sensitive、vip、model_request、score、guardrail、ai_unavailable、quota、product_not_found（连续两次找不到客户要的商品）；回复时为空，guardrail_retry 表示回复未通过护栏、改发兜底话术，price_probe 表示识别到套价、reply_blocked 表示回复出现内部价格信息，都改用固定话术",
             "title": "Reason"
           },
           "reply": {
@@ -488,7 +488,7 @@
                 "type": "null"
               }
             ],
-            "description": "未通过的护栏：empty、too_long、promise、sensitive、bad_output",
+            "description": "未通过的护栏：empty、too_long、promise、sensitive、bad_output；价格保护：price_probe（套价）、price_internal_term（内部价格口径）、price_cost_amount（成本价金额）",
             "title": "Guard"
           },
           "knowledge": {
@@ -507,7 +507,7 @@
                 "type": "null"
               }
             ],
-            "description": "转人工原因：customer_request、sensitive、vip、model_request、score、guardrail、ai_unavailable、quota；回复时为空，guardrail_retry 表示回复未通过护栏、改发兜底话术",
+            "description": "转人工原因：customer_request、sensitive、vip、model_request、score、guardrail、ai_unavailable、quota、product_not_found（连续两次找不到客户要的商品）；回复时为空，guardrail_retry 表示回复未通过护栏、改发兜底话术，price_probe 表示识别到套价、reply_blocked 表示回复出现内部价格信息，都改用固定话术",
             "title": "Reason"
           },
           "reply": {
@@ -3961,6 +3961,18 @@
             "description": "期望回复且给出了关键词时判断；否则为空",
             "title": "Answer Correct"
           },
+          "cost_leak": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "回复里出现了商品的成本价（开通了订单功能时检查；应当始终为 false）",
+            "title": "Cost Leak"
+          },
           "expect_handoff": {
             "title": "Expect Handoff",
             "type": "boolean"
@@ -4006,6 +4018,28 @@
           "answer_correct"
         ],
         "title": "EvalCaseResult",
+        "type": "object"
+      },
+      "EvalCaseSet": {
+        "description": "内置的评测集（如套价话术），可以直接用来评测。",
+        "properties": {
+          "cases": {
+            "items": {
+              "$ref": "#/components/schemas/EvalCase"
+            },
+            "title": "Cases",
+            "type": "array"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "cases"
+        ],
+        "title": "EvalCaseSet",
         "type": "object"
       },
       "EvalRequest": {
@@ -4058,6 +4092,18 @@
           "cases": {
             "title": "Cases",
             "type": "integer"
+          },
+          "cost_leaks": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "回复里出现了成本价的样例数（设计文档 §25.2 要求为 0）",
+            "title": "Cost Leaks"
           },
           "created_at": {
             "format": "date-time",
@@ -11103,6 +11149,48 @@
         "title": "OrderEventOut",
         "type": "object"
       },
+      "OrderExtractRequest": {
+        "properties": {
+          "message_ids": {
+            "description": "选中的消息；不选时用最近的 30 条",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 50,
+            "title": "Message Ids",
+            "type": "array"
+          },
+          "session_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "从这个会话的消息里整理",
+            "title": "Session Id"
+          },
+          "text": {
+            "anyOf": [
+              {
+                "maxLength": 4000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "粘贴的客户的话（企业微信侧边栏）",
+            "title": "Text"
+          }
+        },
+        "title": "OrderExtractRequest",
+        "type": "object"
+      },
       "OrderItemOut": {
         "properties": {
           "amount": {
@@ -11979,6 +12067,20 @@
             "title": "Discount Limit",
             "type": "integer"
           },
+          "draft_followup": {
+            "default": false,
+            "description": "客户中途离开、AI 采集的订单草稿没有提交时，生成一条「跟进未完成的订单」待办",
+            "title": "Draft Followup",
+            "type": "boolean"
+          },
+          "draft_followup_minutes": {
+            "default": 60,
+            "description": "草稿多久没有更新算作客户已离开（分钟）",
+            "maximum": 1440.0,
+            "minimum": 10.0,
+            "title": "Draft Followup Minutes",
+            "type": "integer"
+          },
           "erase_mode": {
             "default": "anonymize",
             "description": "客户申请删除个人信息时：anonymize 清空订单里的个人信息（保留商品、金额和收款用于统计）；delete 整单删除",
@@ -12068,6 +12170,134 @@
           }
         },
         "title": "OrderSettings",
+        "type": "object"
+      },
+      "OrderSuggestion": {
+        "properties": {
+          "customer_note": {
+            "title": "Customer Note",
+            "type": "string"
+          },
+          "evidence_message_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Evidence Message Ids",
+            "type": "array"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/OrderSuggestionLine"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "payment_hint": {
+            "anyOf": [
+              {
+                "enum": [
+                  "online",
+                  "cod",
+                  "deposit",
+                  "credit"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Payment Hint"
+          },
+          "receiver": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "客户提到的收货信息（明文，保存时加密）",
+            "title": "Receiver",
+            "type": "object"
+          }
+        },
+        "required": [
+          "items",
+          "receiver",
+          "payment_hint",
+          "customer_note",
+          "evidence_message_ids"
+        ],
+        "title": "OrderSuggestion",
+        "type": "object"
+      },
+      "OrderSuggestionLine": {
+        "properties": {
+          "candidates": {
+            "description": "检索到的候选商品（最多 3 个）",
+            "items": {
+              "$ref": "#/components/schemas/ProductChoice"
+            },
+            "title": "Candidates",
+            "type": "array"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "product_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "明确对应到的商品；为空时从候选里选，或保留原话",
+            "title": "Product Id"
+          },
+          "quantity": {
+            "title": "Quantity",
+            "type": "integer"
+          },
+          "raw_text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "客户对商品的说法（没有明确对应到商品时）",
+            "title": "Raw Text"
+          },
+          "retail_price": {
+            "anyOf": [
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retail Price"
+          },
+          "spec": {
+            "title": "Spec",
+            "type": "string"
+          }
+        },
+        "required": [
+          "product_id",
+          "name",
+          "spec",
+          "quantity",
+          "retail_price",
+          "raw_text"
+        ],
+        "title": "OrderSuggestionLine",
         "type": "object"
       },
       "OrderTracking": {
@@ -13942,6 +14172,78 @@
           "score"
         ],
         "title": "ProductCandidate",
+        "type": "object"
+      },
+      "ProductChoice": {
+        "description": "AI 预填时的候选商品（只有对客可见的字段和建议零售价，不带成本价）。",
+        "properties": {
+          "code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Code"
+          },
+          "image_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Image Url"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "product_id": {
+            "format": "uuid",
+            "title": "Product Id",
+            "type": "string"
+          },
+          "retail_price": {
+            "anyOf": [
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retail Price"
+          },
+          "score": {
+            "title": "Score",
+            "type": "number"
+          },
+          "spec": {
+            "title": "Spec",
+            "type": "string"
+          }
+        },
+        "required": [
+          "product_id",
+          "code",
+          "name",
+          "model",
+          "spec",
+          "image_url",
+          "retail_price",
+          "score"
+        ],
+        "title": "ProductChoice",
         "type": "object"
       },
       "ProductGapList": {
@@ -25489,6 +25791,93 @@
         ]
       }
     },
+    "/api/v1/ai/evaluation-sets/price-probe": {
+      "get": {
+        "description": "内置的套价评测集（直接问、换说法、角色扮演、提示词注入、分步推算），要求成本价零泄露\n（设计文档 §25.2）。",
+        "operationId": "price_probe_set_api_v1_ai_evaluation_sets_price_probe_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EvalCaseSet"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Price Probe Set",
+        "tags": [
+          "ai"
+        ]
+      }
+    },
     "/api/v1/ai/evaluations": {
       "get": {
         "operationId": "list_evaluations_api_v1_ai_evaluations_get",
@@ -34927,6 +35316,103 @@
           }
         ],
         "summary": "Order Counts",
+        "tags": [
+          "orders"
+        ]
+      }
+    },
+    "/api/v1/orders/extract": {
+      "post": {
+        "description": "AI 预填订单：从选中的消息（或最近的对话）、粘贴的客户的话里整理商品、收货信息和付款方式，\n商品对应到商品库（只有对客可见的字段和建议零售价）。不保存，员工核对后新建订单。",
+        "operationId": "extract_order_api_v1_orders_extract_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OrderExtractRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrderSuggestion"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Extract Order",
         "tags": [
           "orders"
         ]

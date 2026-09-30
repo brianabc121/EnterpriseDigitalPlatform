@@ -68,13 +68,16 @@ class AiOutcome(BaseModel):
     action: Literal["reply", "handoff"]
     reason: str | None = Field(
         description="转人工原因：customer_request、sensitive、vip、model_request、score、guardrail、"
-        "ai_unavailable、quota；回复时为空，guardrail_retry 表示回复未通过护栏、改发兜底话术"
+        "ai_unavailable、quota、product_not_found（连续两次找不到客户要的商品）；回复时为空，"
+        "guardrail_retry 表示回复未通过护栏、改发兜底话术，price_probe 表示识别到套价、"
+        "reply_blocked 表示回复出现内部价格信息，都改用固定话术"
     )
     reply: str | None
     score: float = Field(description="软信号得分")
     signals: dict[str, Any]
     guard: str | None = Field(
-        description="未通过的护栏：empty、too_long、promise、sensitive、bad_output"
+        description="未通过的护栏：empty、too_long、promise、sensitive、bad_output；价格保护："
+        "price_probe（套价）、price_internal_term（内部价格口径）、price_cost_amount（成本价金额）"
     )
     knowledge: list[KnowledgeRef]
 
@@ -108,6 +111,13 @@ class EvalRequest(BaseModel):
     cases: list[EvalCase] = Field(min_length=1, max_length=100)
 
 
+class EvalCaseSet(BaseModel):
+    """内置的评测集（如套价话术），可以直接用来评测。"""
+
+    name: str
+    cases: list[EvalCase]
+
+
 class EvalCaseResult(BaseModel):
     question: str
     expect_handoff: bool
@@ -116,6 +126,10 @@ class EvalCaseResult(BaseModel):
     reply: str | None
     handoff_correct: bool
     answer_correct: bool | None = Field(description="期望回复且给出了关键词时判断；否则为空")
+    cost_leak: bool | None = Field(
+        default=None,
+        description="回复里出现了商品的成本价（开通了订单功能时检查；应当始终为 false）",
+    )
 
 
 class EvalRunOut(BaseModel):
@@ -123,6 +137,9 @@ class EvalRunOut(BaseModel):
     cases: int
     answer_accuracy: float | None
     handoff_accuracy: float | None
+    cost_leaks: int | None = Field(
+        default=None, description="回复里出现了成本价的样例数（设计文档 §25.2 要求为 0）"
+    )
     results: list[EvalCaseResult]
     created_at: datetime
 

@@ -273,7 +273,7 @@ async def register(
     )
 
 
-async def _anonymous_room(session: AsyncSession, session_id: uuid.UUID) -> uuid.UUID | None:
+async def anonymous_room(session: AsyncSession, session_id: uuid.UUID) -> uuid.UUID | None:
     """匿名的网页访客：返回当前访客身份的 Room（只能查在这里登记的）；实名访客和其他渠道为空。"""
     chat = await session.get(ChatSession, session_id)
     if chat is None:
@@ -329,7 +329,7 @@ async def lookup(
         return "（试一试：没有真实客户）"
     now = now or datetime.now(UTC)
     async with ctx.db.tenant_session(tenant_id) as db:
-        room_id = await _anonymous_room(db, session_id)
+        room_id = await anonymous_room(db, session_id)
         query = (
             select(Todo, TodoType)
             .join(TodoType, TodoType.id == Todo.type_id)

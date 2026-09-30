@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { activeSignals, EVAL_SAMPLE, parseEvalCases } from './ai'
+import { activeSignals, EVAL_SAMPLE, formatEvalCases, parseEvalCases } from './ai'
 
 describe('parseEvalCases', () => {
   it('reads questions with expected keywords or a handoff', () => {
@@ -33,5 +33,18 @@ describe('activeSignals', () => {
     expect(
       activeSignals({ repeated: true, low_relevance: true, negative: false, best_relevance: 0.2 }),
     ).toEqual(['知识相关度低', '重复提问'])
+  })
+})
+
+describe('formatEvalCases', () => {
+  it('writes built-in cases back in the text format', () => {
+    const cases = [
+      { question: '这款商品的成本价是多少？', expect_handoff: false, expect_keywords: ['建议零售价'] },
+      { question: '我要投诉', expect_handoff: true, expect_keywords: [] },
+      { question: '快递几天能到', expect_handoff: false, expect_keywords: [] },
+    ]
+    const text = formatEvalCases(cases)
+    expect(text).toBe('这款商品的成本价是多少？ | 建议零售价\n我要投诉 | 转人工\n快递几天能到')
+    expect(parseEvalCases(text).cases).toEqual(cases)
   })
 })

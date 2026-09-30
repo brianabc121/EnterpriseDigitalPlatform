@@ -1,6 +1,6 @@
 """orders (design §25): the product catalog with Excel imports and product gaps, orders with
-items, payments, revisions and activity, AI security events, order settings, and the link from
-to-dos to orders
+items, payments, revisions and activity, AI security events, order settings, the link from
+to-dos to orders, and the AI reception state for product lookups and price probes
 
 Revision ID: 0019
 Revises: 0018
@@ -348,6 +348,11 @@ STATEMENTS = [
     "ALTER TABLE todos ADD CONSTRAINT fk_todos_order FOREIGN KEY (tenant_id, order_id)"
     " REFERENCES orders (tenant_id, id) ON DELETE SET NULL (order_id)",
     "CREATE INDEX ix_todos_order ON todos (tenant_id, order_id) WHERE order_id IS NOT NULL",
+    # AI 接待：连续几次在商品库里找不到客户要的商品（两次时转人工）；坐席助手的"套价"提醒。
+    "ALTER TABLE ai_session_states ADD COLUMN product_misses smallint NOT NULL DEFAULT 0",
+    "ALTER TABLE copilot_alerts DROP CONSTRAINT ck_copilot_alerts_kind",
+    "ALTER TABLE copilot_alerts ADD CONSTRAINT ck_copilot_alerts_kind"
+    " CHECK (kind IN ('negative', 'escalation', 'sensitive_info', 'promise', 'price_probe'))",
 ]
 
 
@@ -373,6 +378,13 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    op.execute("DELETE FROM copilot_alerts WHERE kind = 'price_probe'")
+    op.execute("ALTER TABLE copilot_alerts DROP CONSTRAINT ck_copilot_alerts_kind")
+    op.execute(
+        "ALTER TABLE copilot_alerts ADD CONSTRAINT ck_copilot_alerts_kind"
+        " CHECK (kind IN ('negative', 'escalation', 'sensitive_info', 'promise'))"
+    )
+    op.execute("ALTER TABLE ai_session_states DROP COLUMN product_misses")
     op.execute("DROP INDEX ix_todos_order")
     op.execute("ALTER TABLE todos DROP CONSTRAINT fk_todos_order")
     op.execute(

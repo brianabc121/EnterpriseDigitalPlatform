@@ -35,6 +35,7 @@ from app.modules.kb.service import reindex_all
 from app.modules.lifecycle.closure import run_purges
 from app.modules.lifecycle.export import run_exports
 from app.modules.orders.jobs import run_collections as run_order_collections
+from app.modules.orders.jobs import run_draft_followups as run_order_followups
 from app.modules.products.service import embed_pending as embed_products
 from app.modules.security.keys import TenantKeyring
 from app.modules.security.retention import run_retention
@@ -146,11 +147,13 @@ async def todo_jobs(settings: Settings) -> dict[str, Any]:
 
 
 async def order_jobs(settings: Settings) -> dict[str, Any]:
-    """立即为到期未收清的暂欠订单生成催收待办，并为新商品生成向量（平时由调度进程定时执行）。"""
+    """立即为到期未收清的暂欠订单生成催收待办、为客户中途离开的 AI 订单草稿生成跟进待办，
+    并为新商品生成向量（平时由调度进程定时执行）。"""
     ctx = AppContext.create(settings)
     try:
         return {
             "collections": await run_order_collections(ctx),
+            "followups": await run_order_followups(ctx),
             "embedded": await embed_products(ctx),
         }
     finally:

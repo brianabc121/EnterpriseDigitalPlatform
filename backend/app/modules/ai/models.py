@@ -72,6 +72,8 @@ class AiSessionState(TenantMixin, Base):
     repeats: Mapped[int] = mapped_column(server_default="0")
     last_question: Mapped[str | None] = mapped_column(Text)
     answered_until: Mapped[datetime | None]
+    # 连续几次在商品库里找不到客户要的商品（设计文档 §25.3：两次时转人工）。
+    product_misses: Mapped[int] = mapped_column(SmallInteger, server_default="0")
     updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
 
 
@@ -188,6 +190,7 @@ class AlertKind(StrEnum):
     ESCALATION = "escalation"  # 情绪持续升级
     SENSITIVE_INFO = "sensitive_info"  # 客户发来身份证号、银行卡号等敏感信息
     PROMISE = "promise"  # 坐席使用了承诺类话术
+    PRICE_PROBE = "price_probe"  # 客户在同一会话里多次套问成本价、底价（设计文档 §25.2）
 
 
 class CopilotAlert(IdMixin, TenantMixin, Base):

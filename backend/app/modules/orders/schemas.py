@@ -310,22 +310,39 @@ class ReceiverOut(BaseModel):
     receiver: dict[str, str]
 
 
+class ProductChoice(BaseModel):
+    """AI 预填时的候选商品（只有对客可见的字段和建议零售价，不带成本价）。"""
+
+    product_id: UUID
+    code: str | None
+    name: str
+    model: str
+    spec: str
+    image_url: str | None
+    retail_price: Money | None
+    score: float
+
+
 class OrderSuggestionLine(BaseModel):
-    product_id: UUID | None
+    product_id: UUID | None = Field(description="明确对应到的商品；为空时从候选里选，或保留原话")
     name: str
     spec: str
     quantity: int
     retail_price: Money | None
-    raw_text: str | None
-    candidates: list[dict[str, Any]] = Field(
-        default_factory=list, description="没有唯一匹配时的候选商品"
+    raw_text: str | None = Field(description="客户对商品的说法（没有明确对应到商品时）")
+    candidates: list[ProductChoice] = Field(
+        default_factory=list, description="检索到的候选商品（最多 3 个）"
     )
 
 
 class OrderExtractRequest(BaseModel):
-    session_id: UUID | None = None
-    message_ids: list[UUID] = Field(default_factory=list, max_length=50)
-    text: str | None = Field(default=None, max_length=4000)
+    session_id: UUID | None = Field(default=None, description="从这个会话的消息里整理")
+    message_ids: list[UUID] = Field(
+        default_factory=list, max_length=50, description="选中的消息；不选时用最近的 30 条"
+    )
+    text: str | None = Field(
+        default=None, max_length=4000, description="粘贴的客户的话（企业微信侧边栏）"
+    )
 
 
 class OrderSuggestion(BaseModel):

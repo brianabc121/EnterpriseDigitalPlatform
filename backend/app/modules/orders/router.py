@@ -18,7 +18,7 @@ from app.modules.billing.entitlements import require_feature
 from app.modules.iam.deps import TenantDb, require_permission
 from app.modules.iam.models import Staff
 from app.modules.iam.principal import Principal
-from app.modules.orders import actions, queries, service
+from app.modules.orders import actions, extract, queries, service
 from app.modules.orders import settings as order_settings
 from app.modules.orders.models import Order, OrderRevision
 from app.modules.orders.schemas import (
@@ -30,12 +30,14 @@ from app.modules.orders.schemas import (
     OrderCounts,
     OrderCreate,
     OrderDetail,
+    OrderExtractRequest,
     OrderNotice,
     OrderPage,
     OrderRevisionDetail,
     OrderRevisionList,
     OrderSourceValue,
     OrderStatusValue,
+    OrderSuggestion,
     OrderUpdate,
     PaymentIn,
     ReceiverOut,
@@ -152,6 +154,15 @@ async def create_order(
     """员工新建订单（草稿或直接提交审核）。单价不传时按建议零售价；改价需要 order:price。"""
     order = await actions.create(ctx, session, principal, payload)
     return await _detail(ctx, session, principal, order)
+
+
+@router.post("/orders/extract", response_model=OrderSuggestion)
+async def extract_order(
+    payload: OrderExtractRequest, ctx: Context, session: TenantDb, principal: CanCreate
+) -> OrderSuggestion:
+    """AI 预填订单：从选中的消息（或最近的对话）、粘贴的客户的话里整理商品、收货信息和付款方式，
+    商品对应到商品库（只有对客可见的字段和建议零售价）。不保存，员工核对后新建订单。"""
+    return await extract.prefill(ctx, session, principal, payload)
 
 
 @router.get("/orders/{order_id}", response_model=OrderDetail)

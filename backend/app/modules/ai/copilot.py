@@ -4,6 +4,7 @@
   提醒"情绪持续激动"（每个会话一次）。
 - 客户发来身份证号、银行卡号：提醒保护隐私。
 - 坐席的回复里有承诺类用语（保证、赔偿、全额退款……）：提醒确认是否符合公司政策。
+- 客户在同一会话里多次套问成本价、底价（设计文档 §25.2）：AI 接待期间就记下，坐席接手后能看到。
 
 提醒写入 copilot_alerts 留痕（质检），并经在线信令推给接待坐席（协助者发的消息推给本人）。
 """
@@ -36,6 +37,8 @@ TEXTS = {
     AlertKind.ESCALATION: "客户情绪持续激动，建议尽快给出解决方案，必要时请主管协助。",
     AlertKind.SENSITIVE_INFO: "客户发来了{label}，请注意保护，不要转发或复制到其他地方。",
     AlertKind.PROMISE: "回复里有承诺类用语「{word}」，请确认符合公司政策。",
+    AlertKind.PRICE_PROBE: "客户在这次对话里已经 {count} 次套问成本价或底价，AI 已用固定话术答复，"
+    "请注意甄别。",
 }
 SERVING = (SessionStatus.HUMAN_SERVING, SessionStatus.TRANSFERRING)
 
@@ -52,22 +55,25 @@ async def _last_alert(session: AsyncSession, session_id: uuid.UUID, kind: str) -
 def _alert(
     session: AsyncSession,
     chat: ChatSession,
-    message: Message,
+    message_id: uuid.UUID | None,
     kind: AlertKind,
-    staff_id: uuid.UUID,
+    staff_id: uuid.UUID | None,
     **detail: str,
 ) -> None:
+    """记下提醒；有提醒对象时经在线信令推送（没有接待坐席时，坐席接手后在提醒列表里看到）。"""
     text = TEXTS[kind].format(**detail)
     session.add(
         CopilotAlert(
             tenant_id=chat.tenant_id,
             session_id=chat.id,
             staff_id=staff_id,
-            message_id=message.id,
+            message_id=message_id,
             kind=kind.value,
             detail={**detail, "text": text},
         )
     )
+    if staff_id is None:
+        return
     outbox.enqueue_signal(
         session,
         chat.room_id,
@@ -92,7 +98,9 @@ async def inspect_customer(
     sent = False
     for label in pii.detect(text):
         if label in PRIVATE_INFO:
-            _alert(session, chat, message, AlertKind.SENSITIVE_INFO, chat.assignee_id, label=label)
+            _alert(
+                session, chat, message.id, AlertKind.SENSITIVE_INFO, chat.assignee_id, label=label
+            )
             sent = True
     if not decision.is_negative(text):
         return sent
@@ -113,11 +121,11 @@ async def inspect_customer(
         negatives >= ESCALATION_COUNT
         and await _last_alert(session, chat.id, AlertKind.ESCALATION) is None
     ):
-        _alert(session, chat, message, AlertKind.ESCALATION, chat.assignee_id)
+        _alert(session, chat, message.id, AlertKind.ESCALATION, chat.assignee_id)
         return True
     last = await _last_alert(session, chat.id, AlertKind.NEGATIVE)
     if last is None or last <= now - NEGATIVE_GAP:
-        _alert(session, chat, message, AlertKind.NEGATIVE, chat.assignee_id)
+        _alert(session, chat, message.id, AlertKind.NEGATIVE, chat.assignee_id)
         return True
     return sent
 
@@ -127,5 +135,13 @@ def inspect_agent(session: AsyncSession, chat: ChatSession, message: Message) ->
     word = decision.promise_word(message.text_plain or "")
     if word is None or message.sender_id is None:
         return False
-    _alert(session, chat, message, AlertKind.PROMISE, message.sender_id, word=word)
+    _alert(session, chat, message.id, AlertKind.PROMISE, message.sender_id, word=word)
     return True
+
+
+def price_probe(
+    session: AsyncSession, chat: ChatSession, message_id: uuid.UUID | None, count: int
+) -> bool:
+    """客户在同一会话里多次套价。返回是否推送给了接待坐席。"""
+    _alert(session, chat, message_id, AlertKind.PRICE_PROBE, chat.assignee_id, count=str(count))
+    return chat.assignee_id is not None

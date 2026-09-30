@@ -386,6 +386,27 @@ export interface paths {
         patch: operations["update_agent_api_v1_agents__staff_id__patch"];
         trace?: never;
     };
+    "/api/v1/ai/evaluation-sets/price-probe": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Price Probe Set
+         * @description 内置的套价评测集（直接问、换说法、角色扮演、提示词注入、分步推算），要求成本价零泄露
+         *     （设计文档 §25.2）。
+         */
+        get: operations["price_probe_set_api_v1_ai_evaluation_sets_price_probe_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/ai/evaluations": {
         parameters: {
             query?: never;
@@ -1876,6 +1897,27 @@ export interface paths {
         get: operations["order_counts_api_v1_orders_counts_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orders/extract": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Extract Order
+         * @description AI 预填订单：从选中的消息（或最近的对话）、粘贴的客户的话里整理商品、收货信息和付款方式，
+         *     商品对应到商品库（只有对客可见的字段和建议零售价）。不保存，员工核对后新建订单。
+         */
+        post: operations["extract_order_api_v1_orders_extract_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -5479,7 +5521,7 @@ export interface components {
             created_at: string;
             /**
              * Guard
-             * @description 未通过的护栏：empty、too_long、promise、sensitive、bad_output
+             * @description 未通过的护栏：empty、too_long、promise、sensitive、bad_output；价格保护：price_probe（套价）、price_internal_term（内部价格口径）、price_cost_amount（成本价金额）
              */
             guard: string | null;
             /**
@@ -5493,7 +5535,7 @@ export interface components {
             question: string;
             /**
              * Reason
-             * @description 转人工原因：customer_request、sensitive、vip、model_request、score、guardrail、ai_unavailable、quota；回复时为空，guardrail_retry 表示回复未通过护栏、改发兜底话术
+             * @description 转人工原因：customer_request、sensitive、vip、model_request、score、guardrail、ai_unavailable、quota、product_not_found（连续两次找不到客户要的商品）；回复时为空，guardrail_retry 表示回复未通过护栏、改发兜底话术，price_probe 表示识别到套价、reply_blocked 表示回复出现内部价格信息，都改用固定话术
              */
             reason: string | null;
             /** Reply */
@@ -5534,14 +5576,14 @@ export interface components {
             action: "reply" | "handoff";
             /**
              * Guard
-             * @description 未通过的护栏：empty、too_long、promise、sensitive、bad_output
+             * @description 未通过的护栏：empty、too_long、promise、sensitive、bad_output；价格保护：price_probe（套价）、price_internal_term（内部价格口径）、price_cost_amount（成本价金额）
              */
             guard: string | null;
             /** Knowledge */
             knowledge: components["schemas"]["KnowledgeRef"][];
             /**
              * Reason
-             * @description 转人工原因：customer_request、sensitive、vip、model_request、score、guardrail、ai_unavailable、quota；回复时为空，guardrail_retry 表示回复未通过护栏、改发兜底话术
+             * @description 转人工原因：customer_request、sensitive、vip、model_request、score、guardrail、ai_unavailable、quota、product_not_found（连续两次找不到客户要的商品）；回复时为空，guardrail_retry 表示回复未通过护栏、改发兜底话术，price_probe 表示识别到套价、reply_blocked 表示回复出现内部价格信息，都改用固定话术
              */
             reason: string | null;
             /** Reply */
@@ -6835,6 +6877,11 @@ export interface components {
              * @description 期望回复且给出了关键词时判断；否则为空
              */
             answer_correct: boolean | null;
+            /**
+             * Cost Leak
+             * @description 回复里出现了商品的成本价（开通了订单功能时检查；应当始终为 false）
+             */
+            cost_leak?: boolean | null;
             /** Expect Handoff */
             expect_handoff: boolean;
             /** Handoff Correct */
@@ -6845,6 +6892,16 @@ export interface components {
             reason: string | null;
             /** Reply */
             reply: string | null;
+        };
+        /**
+         * EvalCaseSet
+         * @description 内置的评测集（如套价话术），可以直接用来评测。
+         */
+        EvalCaseSet: {
+            /** Cases */
+            cases: components["schemas"]["EvalCase"][];
+            /** Name */
+            name: string;
         };
         /** EvalRequest */
         EvalRequest: {
@@ -6862,6 +6919,11 @@ export interface components {
             answer_accuracy: number | null;
             /** Cases */
             cases: number;
+            /**
+             * Cost Leaks
+             * @description 回复里出现了成本价的样例数（设计文档 §25.2 要求为 0）
+             */
+            cost_leaks?: number | null;
             /**
              * Created At
              * Format: date-time
@@ -9683,6 +9745,24 @@ export interface components {
             /** Type */
             type: string;
         };
+        /** OrderExtractRequest */
+        OrderExtractRequest: {
+            /**
+             * Message Ids
+             * @description 选中的消息；不选时用最近的 30 条
+             */
+            message_ids?: string[];
+            /**
+             * Session Id
+             * @description 从这个会话的消息里整理
+             */
+            session_id?: string | null;
+            /**
+             * Text
+             * @description 粘贴的客户的话（企业微信侧边栏）
+             */
+            text?: string | null;
+        };
         /** OrderItemOut */
         OrderItemOut: {
             /** Amount */
@@ -10002,6 +10082,18 @@ export interface components {
              */
             discount_limit: number;
             /**
+             * Draft Followup
+             * @description 客户中途离开、AI 采集的订单草稿没有提交时，生成一条「跟进未完成的订单」待办
+             * @default false
+             */
+            draft_followup: boolean;
+            /**
+             * Draft Followup Minutes
+             * @description 草稿多久没有更新算作客户已离开（分钟）
+             * @default 60
+             */
+            draft_followup_minutes: number;
+            /**
              * Erase Mode
              * @description 客户申请删除个人信息时：anonymize 清空订单里的个人信息（保留商品、金额和收款用于统计）；delete 整单删除
              * @default anonymize
@@ -10058,6 +10150,50 @@ export interface components {
              * @default 您好，您的订单 {no} 已更新：{summary}，合计 {total} 元。查看订单进度：{link}
              */
             update_template: string;
+        };
+        /** OrderSuggestion */
+        OrderSuggestion: {
+            /** Customer Note */
+            customer_note: string;
+            /** Evidence Message Ids */
+            evidence_message_ids: string[];
+            /** Items */
+            items: components["schemas"]["OrderSuggestionLine"][];
+            /** Payment Hint */
+            payment_hint: ("online" | "cod" | "deposit" | "credit") | null;
+            /**
+             * Receiver
+             * @description 客户提到的收货信息（明文，保存时加密）
+             */
+            receiver: {
+                [key: string]: string;
+            };
+        };
+        /** OrderSuggestionLine */
+        OrderSuggestionLine: {
+            /**
+             * Candidates
+             * @description 检索到的候选商品（最多 3 个）
+             */
+            candidates?: components["schemas"]["ProductChoice"][];
+            /** Name */
+            name: string;
+            /**
+             * Product Id
+             * @description 明确对应到的商品；为空时从候选里选，或保留原话
+             */
+            product_id: string | null;
+            /** Quantity */
+            quantity: number;
+            /**
+             * Raw Text
+             * @description 客户对商品的说法（没有明确对应到商品时）
+             */
+            raw_text: string | null;
+            /** Retail Price */
+            retail_price: string | null;
+            /** Spec */
+            spec: string;
         };
         /** OrderTracking */
         OrderTracking: {
@@ -10809,6 +10945,31 @@ export interface components {
              * @description 相关度（0 到 1），代码或型号完全相同时为 1
              */
             score: number;
+        };
+        /**
+         * ProductChoice
+         * @description AI 预填时的候选商品（只有对客可见的字段和建议零售价，不带成本价）。
+         */
+        ProductChoice: {
+            /** Code */
+            code: string | null;
+            /** Image Url */
+            image_url: string | null;
+            /** Model */
+            model: string;
+            /** Name */
+            name: string;
+            /**
+             * Product Id
+             * Format: uuid
+             */
+            product_id: string;
+            /** Retail Price */
+            retail_price: string | null;
+            /** Score */
+            score: number;
+            /** Spec */
+            spec: string;
         };
         /** ProductGapList */
         ProductGapList: {
@@ -16313,6 +16474,80 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    price_probe_set_api_v1_ai_evaluation_sets_price_probe_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EvalCaseSet"];
+                };
             };
             /** @description Bad Request */
             400: {
@@ -23278,6 +23513,84 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["OrderCounts"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    extract_order_api_v1_orders_extract_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OrderExtractRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrderSuggestion"];
                 };
             };
             /** @description Bad Request */

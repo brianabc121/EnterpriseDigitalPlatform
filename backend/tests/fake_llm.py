@@ -2,19 +2,22 @@
 
 - /v1/embeddings：按词项（中文二元组）哈希到 1024 维再归一化，意思相近的问题向量相近。
 - /v1/chat/completions：按系统提示第一行的任务名作答：
-  - 在线客服回复：取【参考资料】第一条的答案作为回复（有资料时把握 0.9）；待办工具返回了答复话术、
-    缺少的信息或查到的进度时，照着答复；
+  - 在线客服回复：取【参考资料】第一条的答案作为回复（有资料时把握 0.9），没有资料时用【商品信息】
+    的第一条；待办、订单工具返回了答复话术、缺少的信息、要复述的订单、查到的商品或进度时，照着答复；
+    商品库里没有找到时如实告诉客户（不转人工）；
     没有资料时回复无法回答并请求转人工。请求带了工具且 tool_plan 里有安排时，先返回工具调用，
     拿到工具结果后再回复（工具查到的资料也可以作为答案）。
   - 问题改写：按问号、分号、换行拆开，去掉寒暄；有上文且问题很短时补上上一句客户消息。
   - 转人工摘要：概括最后几句客户消息。
-  - 坐席建议回复：把参考资料的答案作为建议。
+  - 坐席建议回复：把【商品信息】和参考资料的答案作为建议。
   - 会话小结：客户说过的话作为诉求，带"退"字时标签为售后。
   - 知识提炼：客户的问题与紧跟的客服回答组成问答；客服没能解答的问题记为缺口。
   - 优秀话术：坐席说的较长的话。
   - 待办解析：按关键词识别开票、回电、退换货、投诉、上门、报价、寄资料（只用系统提示里列出的
     类型），开票的抬头和税号从原话里取；坐席说"给您回电"时记为坐席答应的事；
     客户原话带"【低置信】"时置信度为 0.4。
+  - 订单解析：客户说的"<商品> N 个/件/台"或"要 N 个 <商品>"是商品行，"收货人""电话""地址"
+    后面的内容是收货信息，"货到付款""定金""月结"等是付款方式，"备注"后面的内容是备注。
 - /v1/rerank：问题词项被文档覆盖的比例作为相关度。
 - /v1/audio/transcriptions：语音转文字。音频内容里带 "text=..." 时返回这段文字（测试和验收
   发的"语音"里写好要转写的内容），否则返回固定的文字。
@@ -39,6 +42,7 @@ import httpx
 from app.modules.ai.prompts import (
     NO_REFERENCE,
     TASK_EXTRACT,
+    TASK_ORDER_EXTRACT,
     TASK_PHRASE,
     TASK_REPLY,
     TASK_REWRITE,
@@ -83,6 +87,14 @@ def _answers(system: str) -> list[str]:
         else:
             answers.append(entry.split("\n", 1)[-1].strip())
     return answers
+
+
+def _products(system: str) -> list[str]:
+    """系统提示里【商品信息】的每一行（商品库里查到的商品）。"""
+    match = re.search(r"【商品信息】\n(.*?)(?:\n\n|\Z)", system, re.S)
+    if not match:
+        return []
+    return [line.removeprefix("- ").strip() for line in match.group(1).splitlines() if line]
 
 
 # 坐席没能当场解答时常说的话：客户的问题记为"没有得到解答"。
@@ -238,6 +250,61 @@ def _todo_extract(system: str, transcript: str) -> str:
     return json.dumps({"todos": list(found.values())}, ensure_ascii=False)
 
 
+_QUANTITY = r"(\d+|[一两二三四五六七八九十])\s*(?:个|件|台|套|把|盒|箱|只|部)"
+_NUMBERS = dict(zip("一两二三四五六七八九", (1, 2, 2, 3, 4, 5, 6, 7, 8, 9), strict=True))
+_VERBS = re.compile(r"^(我想要|我想买|我要|想要|想买|再来|来|要|买|订)")
+_PAYMENTS = (
+    ("货到付款", "cod"),
+    ("定金", "deposit"),
+    ("月结", "credit"),
+    ("先欠", "credit"),
+    ("在线付", "online"),
+    ("转账", "online"),
+    ("微信支付", "online"),
+)
+
+
+def _order_extract(transcript: str) -> str:
+    """订单解析：从客户的话里找商品行、收货信息、付款方式和备注。"""
+    said = [
+        text.strip()
+        for role, text in re.findall(r"(?m)^\[\d+\] ([^：\n]+)：(.*)$", transcript)
+        if role == "客户"
+    ]
+    items: list[dict[str, Any]] = []
+    receiver = {"name": "", "phone": "", "address": ""}
+    payment = note = ""
+    for text in said:
+        for clause in re.split(r"[，,。；;！!\n]", text):
+            clause = clause.strip()
+            match = re.search(_QUANTITY, clause)
+            if match and not re.search(r"收货人|电话|地址", clause):
+                before = _VERBS.sub("", clause[: match.start()].strip()).strip()
+                after = clause[match.end() :].strip()
+                product = (before or after).strip(" 的")
+                raw = match.group(1)
+                quantity = int(raw) if raw.isdigit() else _NUMBERS.get(raw, 1)
+                if product:
+                    items.append({"product": product, "quantity": quantity})
+        name = re.search(r"(?:收货人|收件人|联系人)[是为：:\s]*([^\s，,。；;]+)", text)
+        phone = re.search(r"\[手机号\d+\]|1\d{10}", text)
+        address = re.search(r"(?:地址|寄到|送到)[是为：:\s]*([^，,。；;]+)", text)
+        if name:
+            receiver["name"] = name.group(1)
+        if phone:
+            receiver["phone"] = phone.group(0)
+        if address:
+            receiver["address"] = address.group(1).strip()
+        payment = next((code for word, code in _PAYMENTS if word in text), payment)
+        remark = re.search(r"备注[是为：:\s]*(.+)$", text)
+        if remark:
+            note = remark.group(1).strip()
+    return json.dumps(
+        {"items": items, "receiver": receiver, "payment": payment, "note": note},
+        ensure_ascii=False,
+    )
+
+
 def rerank_score(query: str, document: str) -> float:
     wanted = set(terms(query))
     if not wanted:
@@ -280,10 +347,8 @@ class FakeLLM:
                 ],
             )
         if task == TASK_REPLY:
-            tool_results = "\n".join(
-                str(m.get("content") or "") for m in messages if m.get("role") == "tool"
-            )
-            content = self._reply(system, last_user, tool_results)
+            outputs = [str(m.get("content") or "") for m in messages if m.get("role") == "tool"]
+            content = self._reply(system, last_user, "\n".join(outputs), outputs[-1:])
         elif task == TASK_REWRITE:
             content = _rewrite(last_user)
         elif task == TASK_SESSION_SUMMARY:
@@ -299,10 +364,12 @@ class FakeLLM:
             content = f"客户咨询：{'；'.join(customer[-3:])[:100]}。"
         elif task == TASK_TODO_EXTRACT:
             content = "这不是 JSON" if self.mode == "bad_json" else _todo_extract(system, last_user)
+        elif task == TASK_ORDER_EXTRACT:
+            content = "这不是 JSON" if self.mode == "bad_json" else _order_extract(last_user)
         elif task == TASK_EXTRACT:
             content = "这不是 JSON" if self.mode == "bad_json" else _extract(last_user)
         elif task == TASK_SUGGEST:
-            answers = _answers(system) or ["您好，我帮您确认一下，请稍等。"]
+            answers = [*_products(system), *_answers(system)] or ["您好，我帮您确认一下，请稍等。"]
             content = json.dumps({"suggestions": answers[:3]}, ensure_ascii=False)
         else:
             content = "好的。"
@@ -339,22 +406,43 @@ class FakeLLM:
             },
         }
 
-    def _reply(self, system: str, question: str, tool_results: str = "") -> str:
+    def _reply(
+        self, system: str, question: str, tool_results: str = "", last: list[str] | None = None
+    ) -> str:
         if self.mode == "bad_json":
             return "这不是 JSON"
         answers = _answers(system)
         if not answers and "答：" in tool_results:
             answers = [tool_results.split("答：", 1)[1].split("\n", 1)[0].strip()]
-        # 待办工具：按工具返回的话术答复、追问缺少的信息、复述查到的进度。
-        if not answers and "请这样答复客户：" in tool_results:
-            answers = [tool_results.rsplit("请这样答复客户：", 1)[1].split("\n", 1)[0].strip()]
-        elif not answers and "还不能登记：" in tool_results:
-            missing = tool_results.rsplit("还不能登记：", 1)[1].split("。", 1)[0]
+        # 待办、订单工具（按最后一次工具调用的结果）：按工具返回的话术答复、追问缺少的信息、
+        # 复述订单、复述查到的商品或进度。
+        latest = (last or [""])[0]
+        if not answers and "请这样答复客户：" in latest:
+            answers = [latest.rsplit("请这样答复客户：", 1)[1].split("\n", 1)[0].strip()]
+        elif not answers and "还不能登记：" in latest:
+            missing = latest.rsplit("还不能登记：", 1)[1].split("。", 1)[0]
             answers = [f"好的，还需要您补充：{missing}。"]
-        elif not answers and "请告诉客户" in tool_results:
+        elif not answers and "请客户确认：" in latest:
+            recap = latest.rsplit("请客户确认：", 1)[1].split("\n", 1)[0].strip()
+            answers = [f"您要的是：{recap}。确认的话请回复「确认」。"]
+        elif not answers and "还不能提交：缺少" in latest:
+            missing = latest.rsplit("还不能提交：缺少", 1)[1].split("。", 1)[0]
+            answers = [f"好的，还需要您提供：{missing}。"]
+        elif not answers and "对应多个商品：" in latest:
+            choices = latest.rsplit("对应多个商品：", 1)[1].split("。", 1)[0]
+            answers = [f"请问您要的是哪一款：{choices}？"]
+        elif not answers and "商品库里没有找到" in latest:
+            answers = ["抱歉，暂时没有找到您说的商品，您可以换个说法或者告诉我型号。"]
+        elif not answers and "查到这些商品" in latest:
+            answers = [re.sub(r"^\d+\. ", "", latest.strip().splitlines()[1])]
+        elif not answers and "请告诉客户：" in latest:
+            answers = [latest.rsplit("请告诉客户：", 1)[1].split("\n", 1)[0].strip()]
+        elif not answers and "请告诉客户" in latest:
             answers = ["好的，已经在为您跟进，请耐心等待。"]
-        elif not answers and "」：" in tool_results:
-            answers = [tool_results.strip().splitlines()[0]]
+        elif not answers and "」：" in latest:
+            answers = [latest.strip().splitlines()[0]]
+        elif not answers and _products(system):
+            answers = [_products(system)[0]]
         if self.mode == "handoff":
             reply = {
                 "reply": "这个问题需要人工处理。",

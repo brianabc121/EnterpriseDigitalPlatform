@@ -45,6 +45,9 @@ export const GUARD_LABEL: Record<string, string> = {
   promise: '资料外的承诺',
   sensitive: '包含敏感词',
   bad_output: '模型输出格式错误',
+  price_probe: '识别到套价',
+  price_internal_term: '出现内部价格口径',
+  price_cost_amount: '出现成本价金额',
 }
 
 /** 命中的软信号名称。 */
@@ -86,6 +89,17 @@ export function parseEvalCases(text: string): { cases: EvalCase[]; errors: strin
     cases.push({ question, expect_handoff: false, expect_keywords: keywords.slice(0, 10) })
   })
   return { cases, errors }
+}
+
+/** 把评测样例写回文本格式（加载内置评测集时用）。 */
+export function formatEvalCases(cases: EvalCase[]): string {
+  return cases
+    .map((c) => {
+      if (c.expect_handoff) return `${c.question} | 转人工`
+      const keywords = c.expect_keywords ?? []
+      return keywords.length ? `${c.question} | ${keywords.join('，')}` : c.question
+    })
+    .join('\n')
 }
 
 export const EVAL_SAMPLE = [

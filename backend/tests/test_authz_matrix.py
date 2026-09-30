@@ -652,6 +652,7 @@ async def test_other_tenants_ids_in_bodies_and_queries_are_rejected(
             "/api/v1/todos/extract",
             {"session_id": other["session_id"], "message_ids": [other["session_id"]]},
         ),
+        ("POST", "/api/v1/orders/extract", {"session_id": other["session_id"]}),
         (
             "PUT",
             f"/api/v1/admin/todo-types/{own['type_id']}",

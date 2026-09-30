@@ -13,6 +13,10 @@ REASON_LABELS = {
     "disabled": "AI 接待已关闭",
     "not_configured": "AI 接待未配置",
     "supervisor": "主管转人工",
+    "product_not_found": "没有找到客户要的商品",
+    "order_limit": "今天 AI 下单已达上限",
+    "price_probe": "识别到套价，已用固定话术答复",
+    "reply_blocked": "回复出现内部价格信息，已拦截",
 }
 
 

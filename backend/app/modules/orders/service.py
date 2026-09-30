@@ -553,7 +553,16 @@ async def open_review_todo(
     now: datetime | None = None,
 ) -> Todo:
     """订单提交审核时生成"订单审核"待办：按这个类型的分派规则确定处理人（或由员工指定），
-    订单的处理人与它一致（由调用方提交）。"""
+    订单的处理人与它一致（由调用方提交）。草稿的"跟进未完成的订单"待办随之完成。"""
+    await close_todo(
+        session,
+        order.review_todo_id,
+        result="订单已提交审核",
+        cancelled=False,
+        actor_type=actor_type,
+        actor_id=actor_id,
+        now=now,
+    )
     type_ = await presets.type_by_code(session, order.tenant_id, presets.ORDER_REVIEW)
     todo = await todo_service.create(
         session,

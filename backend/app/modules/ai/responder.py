@@ -190,6 +190,7 @@ async def respond(
             turns=state.turns,
             guard_failures=state.guard_failures,
             message_ids=[m.id for m in pending],
+            product_misses=state.product_misses,
         )
         account = await session.get(ChannelAccount, chat.channel_account_id)
         channel = channel_ai(account)
@@ -264,6 +265,8 @@ async def respond(
         state.last_question = context.question
         state.repeats = outcome.repeats
         state.guard_failures = outcome.guard_failures
+        if outcome.product_misses is not None:
+            state.product_misses = outcome.product_misses
         if outcome.action == DecisionAction.REPLY and not outcome.collecting:
             state.turns += 1
         _release(state, lease)

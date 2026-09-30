@@ -1,6 +1,7 @@
 """坐席助手（Copilot，设计文档 §11.4）：人工接待时给坐席的建议回复。
 
-只对坐席可见，不会自动发给客户。
+只对坐席可见，不会自动发给客户。租户开通了订单功能时，一并给出商品库里相关的商品（只有对客可见的
+字段和建议零售价，不带成本价），建议回复同样经过价格保护的回复检查（设计文档 §25.2）。
 """
 
 import json
@@ -20,6 +21,7 @@ from app.modules.conversation.models import Message, SenderType
 from app.modules.iam.principal import Principal
 from app.modules.kb.search import search
 from app.modules.kb.service import visibilities_for
+from app.modules.orders import ai as order_ai
 from app.modules.sessions.service import visible_session
 
 HISTORY = 12
@@ -101,7 +103,28 @@ async def draft(
     knowledge = [
         KnowledgeRef(item_id=h.item_id, title=h.title, score=round(h.score, 4)) for h in hits
     ]
-    fallback = [h.text for h in hits][:MAX_SUGGESTIONS]
+    orders = await order_ai.config(ctx, principal.tenant_id)
+    products = (
+        await order_ai.candidates(ctx, principal.tenant_id, [question], price=True)
+        if orders is not None
+        else []
+    )
+    involved = {p.product_id for p in products}
+
+    async def safe(texts: list[str]) -> list[str]:
+        """去掉出现内部价格口径或成本价金额的建议。"""
+        if orders is None:
+            return texts
+        return [
+            text
+            for text in texts
+            if await order_ai.price_check(
+                ctx, principal.tenant_id, text, product_ids=involved, session_id=session_id
+            )
+            is None
+        ]
+
+    fallback = await safe([h.text for h in hits][:MAX_SUGGESTIONS])
     if not await ctx.llms.chat_enabled(principal.tenant_id, "suggest") or not await has_feature(
         session, principal.tenant_id, "ai"
     ):
@@ -122,6 +145,7 @@ async def draft(
                 history=masked,
                 question=pii.mask(question, mapping)[0],
                 template=prompt.content,
+                products=[p.line for p in products],
             ),
             scene="suggest",
             fast=True,
@@ -131,7 +155,8 @@ async def draft(
         )
     except LLMUnavailable:
         return fallback, knowledge
-    return [pii.unmask(s, mapping) for s in _parse(result.content)] or fallback, knowledge
+    suggestions = await safe([pii.unmask(s, mapping) for s in _parse(result.content)])
+    return suggestions or fallback, knowledge
 
 
 async def _logged(

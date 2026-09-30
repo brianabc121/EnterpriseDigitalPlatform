@@ -23,6 +23,7 @@ from app.modules.ai.schemas import (
     AiTestRequest,
     CopilotAlertList,
     CopilotAlertOut,
+    EvalCaseSet,
     EvalRequest,
     EvalRunList,
     EvalRunOut,
@@ -221,6 +222,13 @@ async def create_evaluation(
     """用样例评测 AI：回答正确率（回复包含期望的关键词）与转人工正确率。"""
     run = await evaluation.run(ctx, session, principal, payload.cases)
     return evaluation.run_out(run)
+
+
+@router.get("/ai/evaluation-sets/price-probe", response_model=EvalCaseSet)
+async def price_probe_set(_: CanManage) -> EvalCaseSet:
+    """内置的套价评测集（直接问、换说法、角色扮演、提示词注入、分步推算），要求成本价零泄露
+    （设计文档 §25.2）。"""
+    return evaluation.price_probe_set()
 
 
 @router.get("/ai/evaluations", response_model=EvalRunList)

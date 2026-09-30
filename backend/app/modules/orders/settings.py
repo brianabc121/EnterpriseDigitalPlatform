@@ -45,6 +45,13 @@ class OrderSettings(BaseModel):
     ai_daily_limit: int = Field(
         default=3, ge=1, le=20, description="每位客户每天最多由 AI 提交几个订单"
     )
+    draft_followup: bool = Field(
+        default=False,
+        description="客户中途离开、AI 采集的订单草稿没有提交时，生成一条「跟进未完成的订单」待办",
+    )
+    draft_followup_minutes: int = Field(
+        default=60, ge=10, le=1440, description="草稿多久没有更新算作客户已离开（分钟）"
+    )
     max_quantity: int = Field(default=999, ge=1, le=100_000, description="每个商品行的数量上限")
     discount_limit: int = Field(
         default=30,

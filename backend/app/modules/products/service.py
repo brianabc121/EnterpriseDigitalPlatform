@@ -15,6 +15,7 @@ from typing import Any
 from sqlalchemy import ColumnElement, and_, cast, func, literal, or_, select, text, update
 from sqlalchemy.dialects.postgresql import ARRAY, insert
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import load_only
 from sqlalchemy.types import Float, Text
 
 from app.context import AppContext
@@ -99,6 +100,25 @@ def public_fields(product: Product) -> dict[str, Any]:
     }
 
 
+def public_columns() -> Any:
+    """只加载对客可见的字段（AI 用到的商品数据在查询这一层就不取出成本价和备注）；
+    访问其他字段会直接报错，不会悄悄再查一次。"""
+    return load_only(
+        Product.id,
+        Product.tenant_id,
+        Product.code,
+        Product.name,
+        Product.model,
+        Product.spec,
+        Product.category,
+        Product.image_url,
+        Product.retail_price,
+        Product.aliases,
+        Product.status,
+        raiseload=True,
+    )
+
+
 def label(product: Product) -> str:
     """一行描述：名称 型号 规格。"""
     return " ".join(p for p in (product.name, product.model, product.spec) if p)
@@ -120,13 +140,17 @@ async def search(
     limit: int = 5,
     on_shelf: bool = True,
     min_score: float = MIN_SCORE,
+    public_only: bool = False,
+    vector: list[float] | None = None,
 ) -> list[Candidate]:
+    """public_only：只加载对客可见的字段（给 AI 用）。vector：调用方已经算好的问题向量。"""
     query = query.strip()[:200]
     if not query:
         return []
     base: list[ColumnElement[bool]] = [Product.tenant_id == tenant_id]
     if on_shelf:
         base.append(Product.status == ProductStatus.ON)
+    options = [public_columns()] if public_only else []
     scores: dict[uuid.UUID, float] = {}
     products: dict[uuid.UUID, Product] = {}
     exact_ids: set[uuid.UUID] = set()
@@ -134,6 +158,7 @@ async def search(
     lowered = query.lower()
     for row in await session.scalars(
         select(Product)
+        .options(*options)
         .where(
             *base,
             or_(func.lower(Product.code) == lowered, func.lower(Product.model) == lowered),
@@ -156,6 +181,7 @@ async def search(
         )
         rows = await session.execute(
             select(Product, overlap.label("overlap"))
+            .options(*options)
             .where(*base, Product.terms.overlap(q))
             .order_by(text("overlap DESC"), Product.name)
             .limit(CANDIDATES)
@@ -164,24 +190,25 @@ async def search(
             products[product.id] = product
             scores[product.id] = max(scores.get(product.id, 0.0), matched / len(query_terms))
 
-    if ctx is not None and await ctx.llms.embed_enabled():
+    if vector is None and ctx is not None and await ctx.llms.embed_enabled():
         try:
             [vector] = await gateway.embed(ctx, tenant_id, [query], scene="product_search")
         except LLMUnavailable as exc:
             logger.warning("embedding failed, keyword product search only: %s", exc)
-        else:
-            v = cast(literal(vector_literal(vector)), Product.embedding.type)
-            distance = Product.embedding.op("<=>", return_type=Float)(v)
-            await session.execute(text("SET LOCAL hnsw.iterative_scan = relaxed_order"))
-            rows = await session.execute(
-                select(Product, distance.label("d"))
-                .where(*base, Product.embedding.is_not(None))
-                .order_by(distance)
-                .limit(CANDIDATES)
-            )
-            for product, d in rows:
-                products[product.id] = product
-                scores[product.id] = max(scores.get(product.id, 0.0), 1.0 - float(d))
+    if vector is not None:
+        v = cast(literal(vector_literal(vector)), Product.embedding.type)
+        distance = Product.embedding.op("<=>", return_type=Float)(v)
+        await session.execute(text("SET LOCAL hnsw.iterative_scan = relaxed_order"))
+        rows = await session.execute(
+            select(Product, distance.label("d"))
+            .options(*options)
+            .where(*base, Product.embedding.is_not(None))
+            .order_by(distance)
+            .limit(CANDIDATES)
+        )
+        for product, d in rows:
+            products[product.id] = product
+            scores[product.id] = max(scores.get(product.id, 0.0), 1.0 - float(d))
 
     ranked = sorted(
         (pid for pid in scores if scores[pid] >= min_score),

@@ -57,6 +57,7 @@ from app.modules.kb.service import expire_items
 from app.modules.lifecycle.closure import run_purges
 from app.modules.lifecycle.export import run_exports
 from app.modules.orders.jobs import run_collections as run_order_collections
+from app.modules.orders.jobs import run_draft_followups as run_order_followups
 from app.modules.products.service import embed_pending as embed_products
 from app.modules.security.retention import run_retention
 from app.modules.security.scanning import run_file_scan
@@ -116,6 +117,7 @@ JOBS = (
     Job("todo-digest", 300, run_todo_digest),
     Job("todo-extract", 60, run_todo_extraction),
     Job("order-collections", 600, run_order_collections),
+    Job("order-draft-followups", 300, run_order_followups),
     Job("product-embed", 60, embed_products),
     Job("metrics-state", state.INTERVAL_SECONDS, state.refresh),
     Job("partitions", 3600, ensure_partitions),

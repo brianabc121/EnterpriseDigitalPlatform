@@ -8,10 +8,15 @@
 | request_human_handoff | 请求转人工，交给决策引擎处理（附带交接摘要） |
 | create_todo | 登记需要员工线下处理的事（回电、开票、退换货……），进入待确认页（设计文档 §24.4） |
 | lookup_todos | 查询当前客户登记过的事项的进度 |
+| search_products | 在商品库里查商品，只有对客可见的字段（设计文档 §25.2） |
+| create_order_draft | 保存客户要买的商品和收货信息，客户确认后提交审核（设计文档 §25.3） |
+| lookup_order | 查询当前客户本人的订单进度，附跟踪链接（设计文档 §25.6） |
+| request_order_change | 记下客户修改或取消订单的要求，交给员工处理 |
 
 模型看到的是脱敏后的对话（手机号等替换为占位符），工具参数里的占位符在执行前还原。
 "试一试"和评测没有真实的客户和会话，写入类工具只返回说明、不落库。
 create_todo 的类型和字段按租户启用的待办类型生成；租户没有可以由 AI 登记的类型时不提供。
+订单工具在租户开通了订单功能时提供，create_order_draft 还要求订单设置开启了"AI 下单"。
 """
 
 import json
@@ -38,6 +43,7 @@ from app.modules.customer.sensitive import (
 )
 from app.modules.kb.search import search
 from app.modules.notifications import service as notifications
+from app.modules.orders import ai as order_ai
 from app.modules.todos import ai as todo_ai
 
 logger = logging.getLogger(__name__)
@@ -95,11 +101,15 @@ SPECS: dict[str, tuple[str, dict[str, Any]]] = {
 }
 
 
-def specs(todo_types: list[todo_ai.AiType] | None = None) -> list[dict[str, Any]]:
+def specs(
+    todo_types: list[todo_ai.AiType] | None = None, orders: order_ai.OrderAi | None = None
+) -> list[dict[str, Any]]:
     """OpenAI 兼容的 tools 参数。"""
     tools = dict(SPECS)
     if todo_types:
         tools["create_todo"] = todo_ai.create_spec(todo_types)
+    if orders is not None:
+        tools.update(order_ai.specs(orders))
     return [
         {
             "type": "function",
@@ -138,12 +148,27 @@ class ToolBox:
     todo_types: list[todo_ai.AiType] = field(default_factory=list)
     evidence_ids: list[uuid.UUID] = field(default_factory=list)
     todo_ids: list[uuid.UUID] = field(default_factory=list)
-    # 正在向客户追问待办的必填信息（这一轮不计入 AI 接待轮次）。
+    # 正在向客户追问待办或订单的必填信息（这一轮不计入 AI 接待轮次）。
     collecting: bool = False
+    # 订单工具（租户开通了订单功能时）；这一轮客户的原话（试一试时判断客户是否确认了订单）。
+    orders: order_ai.OrderAi | None = None
+    question: str = ""
+    # 连续几次没找到客户要的商品（跨轮累计）、没找到的说法；本次对话涉及的商品（回复检查用）。
+    product_misses: int = 0
+    missed: list[str] = field(default_factory=list)
+    involved: set[uuid.UUID] = field(default_factory=set)
+    order_ids: list[uuid.UUID] = field(default_factory=list)
 
     @property
     def dry_run(self) -> bool:
         return self.session_id is None or self.customer_id is None
+
+    def _known(self, name: str) -> bool:
+        if name in SPECS:
+            return True
+        if name == "create_todo":
+            return bool(self.todo_types)
+        return self.orders is not None and name in order_ai.specs(self.orders)
 
     async def run(self, call: ToolCall) -> str:
         if len(self.log) >= MAX_CALLS:
@@ -153,8 +178,7 @@ class ToolBox:
         except json.JSONDecodeError:
             raw = {}
         args = _unmask(raw if isinstance(raw, dict) else {}, self.mapping)
-        known = call.name in SPECS or (call.name == "create_todo" and bool(self.todo_types))
-        handler = getattr(self, f"_{call.name}", None) if known else None
+        handler = getattr(self, f"_{call.name}", None) if self._known(call.name) else None
         if handler is None:
             self.log.append({"name": call.name, "ok": False})
             return f"没有名为 {call.name} 的工具。"
@@ -319,4 +343,66 @@ class ToolBox:
             session_id=self.session_id,
             customer_id=self.customer_id,
             type_code=str(args.get("type") or "").strip() or None,
+        )
+
+    # ---- 订单工具 ----
+
+    async def _search_products(self, args: dict[str, Any]) -> str:
+        assert self.orders is not None
+        query = str(args.get("query", "")).strip()
+        found = await order_ai.search_tool(
+            self.ctx, self.tenant_id, self.orders, query, dry_run=self.dry_run
+        )
+        self.involved.update(found.product_ids)
+        if found.found:
+            self.product_misses = 0
+        else:
+            self.product_misses += 1
+            self.missed.append(query[:50])
+        return found.output
+
+    async def _create_order_draft(self, args: dict[str, Any]) -> str:
+        assert self.orders is not None
+        saved = await order_ai.save(
+            self.ctx,
+            self.tenant_id,
+            self.orders,
+            args,
+            session_id=self.session_id,
+            customer_id=self.customer_id,
+            evidence_ids=self.evidence_ids,
+            question=self.question,
+            dry_run=self.dry_run,
+        )
+        self.involved.update(saved.product_ids)
+        self.collecting = self.collecting or saved.collecting
+        if saved.order_id is not None and saved.order_id not in self.order_ids:
+            self.order_ids.append(saved.order_id)
+        if saved.handoff is not None:
+            self.handoff = {
+                "reason": "order_limit",
+                "category": "订单",
+                "urgency": "normal",
+                "summary": saved.handoff,
+            }
+        return saved.output
+
+    async def _lookup_order(self, args: dict[str, Any]) -> str:
+        return await order_ai.lookup(
+            self.ctx,
+            self.tenant_id,
+            args,
+            session_id=self.session_id,
+            customer_id=self.customer_id,
+        )
+
+    async def _request_order_change(self, args: dict[str, Any]) -> str:
+        return await order_ai.request_change(
+            self.ctx,
+            self.tenant_id,
+            args,
+            session_id=self.session_id,
+            customer_id=self.customer_id,
+            evidence_ids=self.evidence_ids,
+            dry_run=self.dry_run,
         )

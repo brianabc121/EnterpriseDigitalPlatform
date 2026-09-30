@@ -15,11 +15,16 @@ const verdict = computed(() => {
     return { text: '转人工', type: 'warning' as const }
   }
   if (o.reason === 'guardrail_retry') return { text: '兜底回复', type: 'info' as const }
+  // 价格保护（套价、回复里出现内部价格信息）：改用固定话术。
+  if (o.reason === 'price_probe' || o.reason === 'reply_blocked') {
+    return { text: '固定话术', type: 'info' as const }
+  }
   return { text: '回复', type: 'success' as const }
 })
+const FIXED = ['guardrail_retry', 'price_probe', 'reply_blocked']
 const reason = computed(() => {
   const r = props.outcome.reason
-  if (!r || r === 'guardrail_retry') return ''
+  if (!r || FIXED.includes(r)) return ''
   return HANDOFF_REASON[r] ?? r
 })
 const signals = computed(() => activeSignals(props.outcome.signals))
