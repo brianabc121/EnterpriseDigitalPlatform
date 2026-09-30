@@ -7,7 +7,7 @@ from app.context import AppContext
 from app.core.deps import get_context
 from app.core.errors import ERROR_RESPONSES
 from app.core.permissions import Permission
-from app.modules.conversation.models import Message, SessionStatus, TicketStatus
+from app.modules.conversation.models import Message, SessionStatus
 from app.modules.conversation.schemas import MessageOut, MessagePage
 from app.modules.conversation.service import message_page
 from app.modules.iam.deps import CurrentPrincipal, TenantDb, require_permission
@@ -19,8 +19,6 @@ from app.modules.sessions.schemas import (
     SessionDetail,
     SessionOut,
     SessionPage,
-    TicketOut,
-    TicketPage,
     TransferList,
     TransferOut,
     TransferRequest,
@@ -107,23 +105,6 @@ async def send_message(
 ) -> MessageOut:
     """接待中的坐席回复客户。先写库再发往 IM；同一个 client_msg_id 重复提交是幂等的。"""
     return await messages.send_message(ctx, session, principal, session_id, payload)
-
-
-@router.get("/tickets", response_model=TicketPage)
-async def list_tickets(
-    session: TenantDb,
-    principal: CanServe,
-    status: TicketStatus | None = None,
-    limit: Annotated[int, Query(ge=1, le=100)] = 20,
-    offset: Annotated[int, Query(ge=0)] = 0,
-) -> TicketPage:
-    """留言：指派给自己的、所在技能组的、自己能看到其客户的。"""
-    return await service.list_tickets(session, principal, status=status, limit=limit, offset=offset)
-
-
-@router.post("/tickets/{ticket_id}/done", response_model=TicketOut)
-async def complete_ticket(ticket_id: UUID, session: TenantDb, principal: CanServe) -> TicketOut:
-    return await service.complete_ticket(session, principal, ticket_id)
 
 
 @router.post("/sessions/{session_id}/transfer", response_model=TransferOut)

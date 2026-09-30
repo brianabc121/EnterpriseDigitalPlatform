@@ -189,6 +189,7 @@ async def respond(
             repeats=state.repeats,
             turns=state.turns,
             guard_failures=state.guard_failures,
+            message_ids=[m.id for m in pending],
         )
         account = await session.get(ChannelAccount, chat.channel_account_id)
         channel = channel_ai(account)
@@ -263,7 +264,7 @@ async def respond(
         state.last_question = context.question
         state.repeats = outcome.repeats
         state.guard_failures = outcome.guard_failures
-        if outcome.action == DecisionAction.REPLY:
+        if outcome.action == DecisionAction.REPLY and not outcome.collecting:
             state.turns += 1
         _release(state, lease)
         # 排队中的会话只发回答，不发转人工的过渡话术（客户已经在等人工）。

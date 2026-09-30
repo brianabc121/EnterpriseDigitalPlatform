@@ -67,7 +67,29 @@ MATRIX: list[tuple[str, str, dict[str, Any] | None]] = [
     ("POST", "/api/v1/sessions/{session_id}/close", None),
     ("POST", "/api/v1/sessions/{session_id}/messages", {"client_msg_id": "x" * 16, "text": "越权"}),
     ("POST", "/api/v1/sessions/{session_id}/transfer", {"to_staff_id": "{own_staff_id}"}),
-    ("POST", "/api/v1/tickets/{ticket_id}/done", None),
+    ("GET", "/api/v1/todos/{todo_id}", None),
+    ("PATCH", "/api/v1/todos/{todo_id}", {"title": "越权修改"}),
+    ("POST", "/api/v1/todos/{todo_id}/reveal", None),
+    ("POST", "/api/v1/todos/{todo_id}/confirm", {}),
+    ("POST", "/api/v1/todos/{todo_id}/discard", {"reason": "other"}),
+    ("POST", "/api/v1/todos/{todo_id}/merge", {"target_id": "{own_todo_id}"}),
+    ("POST", "/api/v1/todos/{todo_id}/claim", None),
+    ("POST", "/api/v1/todos/{todo_id}/start", None),
+    ("POST", "/api/v1/todos/{todo_id}/wait", {}),
+    ("POST", "/api/v1/todos/{todo_id}/resume", None),
+    ("POST", "/api/v1/todos/{todo_id}/done", {"result": "越权完成"}),
+    ("POST", "/api/v1/todos/{todo_id}/cancel", {"reason": "越权取消"}),
+    ("POST", "/api/v1/todos/{todo_id}/reopen", {"reason": "越权"}),
+    ("POST", "/api/v1/todos/{todo_id}/assign", {"assignee_id": "{own_staff_id}"}),
+    (
+        "POST",
+        "/api/v1/todos/{todo_id}/reschedule",
+        {"due_at": "2099-01-01T10:00:00+08:00", "reason": "越权改期"},
+    ),
+    ("POST", "/api/v1/todos/{todo_id}/comments", {"text": "越权评论"}),
+    ("POST", "/api/v1/todos/{todo_id}/notify", {"text": "越权通知"}),
+    ("PUT", "/api/v1/admin/todo-types/{type_id}", {"code": "other", "name": "越权修改"}),
+    ("DELETE", "/api/v1/admin/todo-types/{type_id}", None),
     ("POST", "/api/v1/transfers/{transfer_id}/accept", None),
     ("POST", "/api/v1/transfers/{transfer_id}/reject", None),
     ("POST", "/api/v1/transfers/{transfer_id}/cancel", None),
@@ -165,7 +187,10 @@ async def build(desk: Desk) -> Tenant:
         json={"title": "内部报价规则", "content": "仅限内部", "visibility": "admin"},
     )
     [channel] = (await client.get("/api/v1/channels", headers=desk.admin)).json()["items"]
-    [ticket] = await desk.sql("SELECT id FROM tickets WHERE tenant_id = $1", desk.tenant_id)
+    [todo] = await desk.sql("SELECT id FROM todos WHERE tenant_id = $1", desk.tenant_id)
+    [todo_type] = await desk.sql(
+        "SELECT id FROM todo_types WHERE tenant_id = $1 AND code = 'other'", desk.tenant_id
+    )
     # 从会话提炼的待审候选（直接写库，提炼流程见 test_kb_extraction.py）。
     [candidate] = await desk.sql(
         "INSERT INTO kb_candidates (id, tenant_id, kind, question, answer)"
@@ -241,7 +266,8 @@ async def build(desk: Desk) -> Tenant:
         "channel_id": channel["id"],
         "room_id": str(chat["room_id"]),
         "session_id": str(chat["id"]),
-        "ticket_id": str(ticket["id"]),
+        "todo_id": str(todo["id"]),
+        "type_id": str(todo_type["id"]),
         "transfer_id": transfer.json()["id"],
         "group_id": group.json()["id"],
         "policy_id": policy.json()["id"],
@@ -335,7 +361,8 @@ async def snapshot(desk: Desk) -> list[Any]:
         "customers": "id, owner_id, notes, display_name",
         "channel_accounts": "id, name, config",
         "session_transfers": "id, status",
-        "tickets": "id, status",
+        "todos": "id, status, title, assignee_id, due_at",
+        "todo_types": "id, name, enabled",
         "skill_groups": "id, name",
         "skill_group_members": "skill_group_id, staff_id",
         "routing_policies": "id, name, default_skill_group_id",
@@ -487,6 +514,60 @@ async def test_other_tenants_ids_in_bodies_and_queries_are_rejected(
             f"/api/v1/customers/{own['customer_id']}/merge",
             {"source_ids": [other["customer_id"]]},
         ),
+        ("POST", "/api/v1/todos", {"type_id": other["type_id"], "title": "x"}),
+        (
+            "POST",
+            "/api/v1/todos",
+            {"type_id": own["type_id"], "title": "x", "customer_id": other["customer_id"]},
+        ),
+        (
+            "POST",
+            "/api/v1/todos",
+            {"type_id": own["type_id"], "title": "x", "session_id": other["session_id"]},
+        ),
+        (
+            "POST",
+            "/api/v1/todos",
+            {"type_id": own["type_id"], "title": "x", "assignee_id": other["staff_id"]},
+        ),
+        (
+            "POST",
+            "/api/v1/todos",
+            {"type_id": own["type_id"], "title": "x", "skill_group_id": other["group_id"]},
+        ),
+        (
+            "POST",
+            f"/api/v1/todos/{own['todo_id']}/assign",
+            {"assignee_id": other["staff_id"]},
+        ),
+        (
+            "POST",
+            f"/api/v1/todos/{own['todo_id']}/assign",
+            {"skill_group_id": other["group_id"]},
+        ),
+        (
+            "POST",
+            "/api/v1/todos/extract",
+            {"session_id": other["session_id"], "message_ids": [other["session_id"]]},
+        ),
+        (
+            "PUT",
+            f"/api/v1/admin/todo-types/{own['type_id']}",
+            {
+                "code": "other",
+                "name": "x",
+                "assign_rule": {"steps": ["skill_group"], "skill_group_id": other["group_id"]},
+            },
+        ),
+        (
+            "PUT",
+            f"/api/v1/admin/todo-types/{own['type_id']}",
+            {
+                "code": "other",
+                "name": "x",
+                "assign_rule": {"steps": ["staff"], "staff_id": other["staff_id"]},
+            },
+        ),
     ]
     before = await snapshot(globex.desk)
 
@@ -555,7 +636,8 @@ async def test_agents_only_reach_their_own_sessions_and_customers(
         "reply_id": dave_reply.json()["id"],
         "staff_id": str(acme.other_agent.staff_id),
         "channel_id": acme.ids["channel_id"],
-        "ticket_id": acme.ids["ticket_id"],
+        "todo_id": acme.ids["todo_id"],
+        "type_id": acme.ids["type_id"],
         "transfer_id": acme.ids["transfer_id"],
         "group_id": acme.ids["group_id"],
         "policy_id": acme.ids["policy_id"],
@@ -575,7 +657,7 @@ async def test_agents_only_reach_their_own_sessions_and_customers(
     results = {}
     for method, template, body in MATRIX:
         # 待确认的转接是 Carol 自己发起的，她可以撤回；这里只验证她不能替 Dave 接受或拒绝。
-        if template.endswith("/cancel"):
+        if template.endswith("/cancel") and "/todos/" not in template:
             continue
         path = fill(template, dave_ids, acme.ids)
         response = await call(

@@ -237,3 +237,79 @@ async def test_partitioning_migration_as_non_superuser_owner(owned: OwnedDatabas
     await owned.migrate("downgrade", "0016")
     assert await counts(owned) == (6, 2)
     assert await unforced(owned) == []
+
+
+async def test_tickets_become_todos_as_non_superuser_owner(owned: OwnedDatabase) -> None:
+    """0018：留言并入"留言"类待办（保留 ID、状态和处理人），自定义角色获得待办权限；降级还原。"""
+    await owned.migrate("upgrade", "0017")
+    tenants = await seed(owned)
+    conn = await asyncpg.connect(owned.superuser_dsn)
+    try:
+        tickets = []
+        for tenant in tenants:
+            customer = await conn.fetchval("SELECT id FROM customers WHERE tenant_id = $1", tenant)
+            for source, status in (("visitor", "open"), ("off_hours", "done")):
+                ticket = uuid.uuid4()
+                tickets.append(ticket)
+                await conn.execute(
+                    "INSERT INTO tickets (id, tenant_id, customer_id, source, content, contact,"
+                    " status) VALUES ($1, $2, $3, $4, '请回电', $5, $6)",
+                    ticket,
+                    tenant,
+                    customer,
+                    source,
+                    "13800000000" if source == "visitor" else None,
+                    status,
+                )
+            await conn.execute(
+                "INSERT INTO roles (id, tenant_id, code, name, permissions)"
+                " VALUES ($1, $2, 'desk', '前台', '{workbench:use}')",
+                uuid.uuid4(),
+                tenant,
+            )
+    finally:
+        await conn.close()
+
+    await owned.migrate("upgrade", "0018")
+    assert await unforced(owned) == []
+    rows = await owned.fetch(
+        "SELECT d.id, d.tenant_id, d.no, d.title, d.source, d.status, d.fields ->> 'contact' AS"
+        " contact, t.code FROM todos d JOIN todo_types t ON t.id = d.type_id ORDER BY d.no"
+    )
+    assert sorted(r["id"] for r in rows) == sorted(tickets)
+    assert {r["code"] for r in rows} == {"leave_message"}
+    by_title = {(r["tenant_id"], r["title"]): r for r in rows}
+    for tenant in tenants:
+        visitor = by_title[(tenant, "访客留言")]
+        assert (visitor["source"], visitor["status"], visitor["contact"]) == (
+            "visitor",
+            "open",
+            "13800000000",
+        )
+        assert by_title[(tenant, "非工作时间留言")]["status"] == "done"
+    [counter] = await owned.fetch(
+        "SELECT max(value) AS n FROM number_counters WHERE scope = 'todo'"
+    )
+    assert counter["n"] == 2
+    permissions = await owned.fetch("SELECT permissions FROM roles WHERE code = 'desk'")
+    assert all({"todo:read", "todo:handle"} <= set(r["permissions"]) for r in permissions)
+    assert await owned.fetch("SELECT to_regclass('tickets') IS NULL AS gone") == [(True,)]
+
+    # 员工只看到本租户的待办（行级安全）。
+    app = await asyncpg.connect(owned.app_dsn)
+    try:
+        await app.execute("SELECT set_config('app.tenant_id', $1, false)", str(tenants[0]))
+        assert await app.fetchval("SELECT count(*) FROM todos") == 2
+    finally:
+        await app.close()
+
+    await owned.migrate("downgrade", "0017")
+    restored = await owned.fetch("SELECT id, source, status, contact FROM tickets ORDER BY id")
+    assert sorted(r["id"] for r in restored) == sorted(tickets)
+    assert {(r["source"], r["status"]) for r in restored} == {
+        ("visitor", "open"),
+        ("off_hours", "done"),
+    }
+    assert await unforced(owned) == []
+    permissions = await owned.fetch("SELECT permissions FROM roles WHERE code = 'desk'")
+    assert all(r["permissions"] == ["workbench:use"] for r in permissions)

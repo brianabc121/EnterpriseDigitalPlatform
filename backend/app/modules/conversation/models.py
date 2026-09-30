@@ -205,42 +205,6 @@ class SessionEvent(IdMixin, TenantMixin, Base):
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
 
 
-class TicketSource(StrEnum):
-    QUEUE_TIMEOUT = "queue_timeout"
-    OFF_HOURS = "off_hours"
-    VISITOR = "visitor"
-    AI = "ai"  # AI 接待时调用工具 create_ticket 建的留言
-
-
-class TicketStatus(StrEnum):
-    OPEN = "open"
-    DONE = "done"
-
-
-class Ticket(IdMixin, TimestampMixin, TenantMixin, Base):
-    """留言与跟进任务。"""
-
-    __tablename__ = "tickets"
-    __table_args__ = (
-        ForeignKeyConstraint(["tenant_id", "customer_id"], ["customers.tenant_id", "customers.id"]),
-        ForeignKeyConstraint(["tenant_id", "session_id"], ["sessions.tenant_id", "sessions.id"]),
-        ForeignKeyConstraint(["tenant_id", "assignee_id"], ["staff.tenant_id", "staff.id"]),
-        ForeignKeyConstraint(
-            ["tenant_id", "skill_group_id"], ["skill_groups.tenant_id", "skill_groups.id"]
-        ),
-    )
-
-    customer_id: Mapped[uuid.UUID]
-    session_id: Mapped[uuid.UUID | None]
-    source: Mapped[str] = mapped_column(String(16))
-    content: Mapped[str] = mapped_column(Text)
-    contact: Mapped[str | None] = mapped_column(String(128))
-    status: Mapped[str] = mapped_column(String(16), server_default=TicketStatus.OPEN.value)
-    assignee_id: Mapped[uuid.UUID | None]
-    skill_group_id: Mapped[uuid.UUID | None]
-    closed_at: Mapped[datetime | None]
-
-
 class ImOpType(StrEnum):
     INVITE = "invite"  # payload: staff_id, nickname
     KICK = "kick"  # payload: staff_id

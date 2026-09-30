@@ -14,6 +14,8 @@ from app.modules.conversation.deps import get_im, get_im_provisioner
 from app.modules.conversation.provisioning import IMProvisioner
 from app.modules.files.router import upload_out
 from app.modules.files.schemas import UploadOut, UploadRequest
+from app.modules.todos import visitor as todo_visitor
+from app.modules.todos.schemas import VisitorTodoList
 from app.modules.visitor import actions, conversation, service
 from app.modules.visitor.deps import CurrentVisitor
 from app.modules.visitor.schemas import (
@@ -84,13 +86,21 @@ async def rate_ai_answer(payload: AiFeedbackRequest, visitor: CurrentVisitor) ->
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
-@router.post("/tickets", status_code=status.HTTP_204_NO_CONTENT)
+@router.post("/leave-message", status_code=status.HTTP_204_NO_CONTENT)
+@router.post("/tickets", status_code=status.HTTP_204_NO_CONTENT, include_in_schema=False)
 async def leave_message(
-    payload: LeaveMessageRequest, visitor: CurrentVisitor, limiter: Limiter
+    payload: LeaveMessageRequest, ctx: Context, visitor: CurrentVisitor, limiter: Limiter
 ) -> Response:
-    """留言：客服不在线或非工作时间时，访客留下问题和联系方式。"""
-    await actions.leave_message(visitor, limiter, payload)
+    """留言：客服不在线或非工作时间时，访客留下问题和联系方式（生成"留言"类待办）。
+    /visitor/tickets 是早期版本的路径，保留兼容。"""
+    await actions.leave_message(ctx, visitor, limiter, payload)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.get("/progress", response_model=VisitorTodoList)
+async def service_progress(visitor: CurrentVisitor) -> VisitorTodoList:
+    """服务进度：自己登记的事项（待办）的状态和预计完成时间（企业开启后可用）。"""
+    return await todo_visitor.progress(visitor)
 
 
 @router.post("/handoff", response_model=VisitorSessionState)

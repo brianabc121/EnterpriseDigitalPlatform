@@ -37,6 +37,7 @@ from app.modules.security.router import platform_router as platform_security_rou
 from app.modules.security.router import router as security_router
 from app.modules.sessions.router import router as sessions_router
 from app.modules.tenancy.router import router as platform_router
+from app.modules.todos.router import router as todos_router
 from app.modules.usage.router import platform_router as platform_usage_router
 from app.modules.usage.router import router as usage_router
 from app.modules.visitor.router import router as visitor_router
@@ -107,6 +108,7 @@ def create_app(
     app.include_router(channels_router)
     app.include_router(conversation_router)
     app.include_router(sessions_router)
+    app.include_router(todos_router)
     app.include_router(routing_router)
     app.include_router(quick_reply_router)
     app.include_router(kb_router)

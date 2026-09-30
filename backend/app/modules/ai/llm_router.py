@@ -45,6 +45,7 @@ SCENES = {
     "copilot": "坐席实时提醒",
     "extract": "知识提炼",
     "phrase": "优秀话术挖掘",
+    "todo_extract": "待办解析",
     "evaluate": "AI 评测",
 }
 CACHE_SECONDS = 5.0

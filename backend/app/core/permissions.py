@@ -31,6 +31,11 @@ class Permission(StrEnum):
     BROADCAST_MANAGE = "broadcast:manage"  # 企业微信群发任务（发给可见范围内的客户或客户群）
     TENANT_MANAGE = "tenant:manage"  # 数据导出、注销、授权平台运维访问（只有租户管理员）
     AUDIT_READ = "audit:read"  # 查看本租户的操作日志
+    TODO_READ = "todo:read"  # 查看待办（受数据范围约束）
+    TODO_HANDLE = "todo:handle"  # 认领、处理、转交自己的待办，确认或驳回交给自己确认的待办
+    TODO_ASSIGN = "todo:assign"  # 分派和改派任何人的待办，确认或驳回数据范围内的全部待确认
+    TODO_CONFIG = "todo:config"  # 待办类型与待办设置
+    TODO_EXPORT = "todo:export"  # 导出待办
 
 
 ALL_PERMISSIONS = frozenset(Permission)
@@ -53,6 +58,11 @@ PERMISSION_INFO: dict[Permission, tuple[str, str]] = {
     Permission.CUSTOMER_EXPORT: ("导出客户名单", "客户"),
     Permission.CUSTOMER_MANAGE: ("合并客户、处理个人信息请求", "客户"),
     Permission.BROADCAST_MANAGE: ("企业微信群发", "客户"),
+    Permission.TODO_READ: ("查看待办", "待办"),
+    Permission.TODO_HANDLE: ("处理自己的待办、确认 AI 生成的待办", "待办"),
+    Permission.TODO_ASSIGN: ("分派和改派待办", "待办"),
+    Permission.TODO_CONFIG: ("待办类型和待办设置", "待办"),
+    Permission.TODO_EXPORT: ("导出待办", "待办"),
     Permission.KB_READ: ("查看知识库", "知识库"),
     Permission.KB_MANAGE: ("编辑知识和审核候选", "知识库"),
     Permission.KB_PUBLISH: ("发布知识", "知识库"),
@@ -88,6 +98,8 @@ DEFAULT_ROLES: tuple[RoleSpec, ...] = (
                 Permission.CUSTOMER_CREATE,
                 Permission.KB_READ,
                 Permission.SESSION_TRANSFER,
+                Permission.TODO_READ,
+                Permission.TODO_HANDLE,
             }
         ),
     ),
@@ -108,6 +120,10 @@ DEFAULT_ROLES: tuple[RoleSpec, ...] = (
                 Permission.SESSION_MONITOR,
                 Permission.QUICK_REPLY_MANAGE,
                 Permission.BROADCAST_MANAGE,
+                Permission.TODO_READ,
+                Permission.TODO_HANDLE,
+                Permission.TODO_ASSIGN,
+                Permission.TODO_EXPORT,
             }
         ),
     ),

@@ -33,7 +33,14 @@ function emptyForm() {
       LimitKey,
       { unlimited: boolean; value: number }
     >,
-    features: { ai: true, wecom: true, broadcast: true, extraction: true, zone: false },
+    features: {
+      ai: true,
+      wecom: true,
+      broadcast: true,
+      extraction: true,
+      zone: false,
+      todos: true,
+    },
     policy: 'degrade' as 'degrade' | 'warn',
     aiReplyPriceYuan: 0,
     trialDays: 0,

@@ -1,5 +1,6 @@
 """导入全部模型，确保它们注册到 Base.metadata。"""
 
+from app.db.counters import NumberCounter
 from app.modules.ai.models import (
     AiAnswerCache,
     AiDecision,
@@ -23,7 +24,6 @@ from app.modules.conversation.models import (
     SessionEvent,
     SessionTransfer,
     SessionWatcher,
-    Ticket,
 )
 from app.modules.customer.models import (
     Customer,
@@ -53,6 +53,7 @@ from app.modules.quickreply.models import QuickReply
 from app.modules.routing.models import AgentState, RoutingPolicy, SkillGroup, SkillGroupMember
 from app.modules.security.models import FileScan, PrivacyRequest, TenantKey, TenantSetting
 from app.modules.tenancy.models import PlatformUser, Tenant
+from app.modules.todos.models import Todo, TodoEvent, TodoExtraction, TodoType
 from app.modules.usage.models import UsageDaily
 from app.modules.wecom.models import (
     WecomBroadcast,
@@ -106,6 +107,7 @@ __all__ = [
     "LlmCall",
     "LlmProvider",
     "Message",
+    "NumberCounter",
     "Plan",
     "PlatformSetting",
     "PlatformUser",
@@ -132,7 +134,10 @@ __all__ = [
     "TenantExport",
     "TenantKey",
     "TenantSetting",
-    "Ticket",
+    "Todo",
+    "TodoEvent",
+    "TodoExtraction",
+    "TodoType",
     "UsageDaily",
     "WecomBroadcast",
     "WecomBroadcastResult",

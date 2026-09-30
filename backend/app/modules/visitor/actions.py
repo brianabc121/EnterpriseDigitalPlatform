@@ -9,18 +9,11 @@ from app.context import AppContext
 from app.core.errors import Conflict, NotFound, Unprocessable
 from app.core.ratelimit import Limit, RateLimiter
 from app.modules.ai import feedback
-from app.modules.conversation.models import (
-    ChatSession,
-    Room,
-    SessionStatus,
-    Ticket,
-    TicketSource,
-)
-from app.modules.customer.models import Customer
+from app.modules.conversation.models import ChatSession, Room, SessionStatus
 from app.modules.files import service as files
-from app.modules.routing.assign import PolicyResolver
 from app.modules.sessions import collab, engine
 from app.modules.tenancy.models import Tenant
+from app.modules.todos import service as todos
 from app.modules.visitor.deps import VisitorContext
 from app.modules.visitor.schemas import AiFeedbackRequest, CsatRequest, LeaveMessageRequest
 
@@ -73,31 +66,28 @@ async def rate_ai_answer(visitor: VisitorContext, payload: AiFeedbackRequest) ->
 
 
 async def leave_message(
-    visitor: VisitorContext, limiter: RateLimiter, payload: LeaveMessageRequest
+    ctx: AppContext, visitor: VisitorContext, limiter: RateLimiter, payload: LeaveMessageRequest
 ) -> None:
-    """访客留言：指派给归属坐席或默认技能组，由坐席在"留言"里跟进。"""
+    """访客留言：生成"留言"类待办（直接进入待办列表），按规则分派给归属坐席或渠道默认技能组。"""
     await limiter.check(LEAVE_MESSAGE_LIMIT, str(visitor.claims.identity_id))
     session = visitor.session
     room = await _room(visitor)
-    policy = await PolicyResolver(session).for_channel(room.channel_account_id)
     latest = await session.scalar(
         select(ChatSession.id)
         .where(ChatSession.room_id == room.id)
         .order_by(ChatSession.created_at.desc())
         .limit(1)
     )
-    owner = await session.scalar(select(Customer.owner_id).where(Customer.id == room.customer_id))
-    session.add(
-        Ticket(
-            tenant_id=room.tenant_id,
-            customer_id=room.customer_id,
-            session_id=latest,
-            source=TicketSource.VISITOR,
-            content=payload.content,
-            contact=payload.contact or None,
-            assignee_id=owner,
-            skill_group_id=policy.default_skill_group_id,
-        )
+    await todos.leave_message(
+        session,
+        tenant_id=room.tenant_id,
+        customer_id=room.customer_id,
+        session_id=latest,
+        origin="visitor",
+        detail=payload.content,
+        channel_account_id=room.channel_account_id,
+        contact=payload.contact or None,
+        keys=ctx.keys,
     )
     await session.commit()
 

@@ -1,8 +1,16 @@
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from app.modules.routing.hours import in_business_hours, validate_business_hours
+from app.modules.routing.hours import (
+    add_business_minutes,
+    business_day_minutes,
+    business_minutes_between,
+    day_start,
+    in_business_hours,
+    is_business_day,
+    validate_business_hours,
+)
 
 WEEKDAYS = {"tz": "Asia/Shanghai", "days": {str(d): [["09:00", "18:00"]] for d in range(1, 6)}}
 
@@ -54,3 +62,43 @@ def test_spec_is_normalized() -> None:
         "tz": "Asia/Shanghai",
         "days": {"1": [["09:00", "12:00"], ["13:00", "18:00"]]},
     }
+
+
+# ---- 按工作时间计时（待办的时限） ----
+
+# 上海时间，2026-10-02 是周五。
+FRIDAY_5PM = datetime(2026, 10, 2, 9, 0, tzinfo=UTC)
+MONDAY_9AM = datetime(2026, 10, 5, 1, 0, tzinfo=UTC)
+
+
+def test_business_minutes_skip_nights_and_weekends() -> None:
+    # 周五 17:00 开始 4 个工作小时：周五 1 小时 + 周一 3 小时 → 周一 12:00。
+    assert add_business_minutes(WEEKDAYS, FRIDAY_5PM, 240) == MONDAY_9AM + timedelta(hours=3)
+    # 周六开始：从周一上班算起。
+    saturday = datetime(2026, 10, 3, 2, 0, tzinfo=UTC)
+    assert add_business_minutes(WEEKDAYS, saturday, 60) == MONDAY_9AM + timedelta(hours=1)
+    # 0 分钟：非工作时间时是下一个上班时间。
+    assert add_business_minutes(WEEKDAYS, saturday, 0) == MONDAY_9AM
+    # 全天服务或没有任何工作日时按自然时间。
+    assert add_business_minutes(None, FRIDAY_5PM, 240) == FRIDAY_5PM + timedelta(hours=4)
+    assert add_business_minutes({"days": {}}, FRIDAY_5PM, 60) == FRIDAY_5PM + timedelta(hours=1)
+
+
+def test_business_minutes_between_and_a_business_day() -> None:
+    assert business_minutes_between(WEEKDAYS, FRIDAY_5PM, MONDAY_9AM + timedelta(hours=3)) == 240
+    assert business_minutes_between(WEEKDAYS, MONDAY_9AM, FRIDAY_5PM) == 0
+    assert business_minutes_between(None, FRIDAY_5PM, FRIDAY_5PM + timedelta(hours=2)) == 120
+    assert business_day_minutes(WEEKDAYS) == 540
+    assert business_day_minutes(None) == 1440
+    # 一个工作日：同一时间的下一个工作日。
+    monday_3pm = MONDAY_9AM + timedelta(hours=6)
+    assert add_business_minutes(WEEKDAYS, monday_3pm, 540) == monday_3pm + timedelta(days=1)
+
+
+def test_business_day_and_day_start() -> None:
+    assert is_business_day(WEEKDAYS, MONDAY_9AM)
+    assert not is_business_day(WEEKDAYS, datetime(2026, 10, 3, 2, 0, tzinfo=UTC))
+    assert day_start(WEEKDAYS, MONDAY_9AM + timedelta(hours=5)) == MONDAY_9AM
+    assert day_start(WEEKDAYS, datetime(2026, 10, 3, 2, 0, tzinfo=UTC)) is None
+    # 全天服务按 9 点上班。
+    assert day_start(None, MONDAY_9AM + timedelta(hours=5)) == MONDAY_9AM

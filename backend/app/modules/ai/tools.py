@@ -6,17 +6,18 @@
 | get_customer_profile | 读取当前客户的档案摘要，不含手机号、邮箱等敏感字段 |
 | save_lead_info | 登记客户主动提供的线索（白名单字段），坐席确认后才写入客户档案 |
 | request_human_handoff | 请求转人工，交给决策引擎处理（附带交接摘要） |
-| create_ticket | 登记留言，由归属坐席或技能组跟进（每次判定最多一条） |
+| create_todo | 登记需要员工线下处理的事（回电、开票、退换货……），进入待确认页（设计文档 §24.4） |
+| lookup_todos | 查询当前客户登记过的事项的进度 |
 
 模型看到的是脱敏后的对话（手机号等替换为占位符），工具参数里的占位符在执行前还原。
 "试一试"和评测没有真实的客户和会话，写入类工具只返回说明、不落库。
+create_todo 的类型和字段按租户启用的待办类型生成；租户没有可以由 AI 登记的类型时不提供。
 """
 
 import json
 import logging
 import uuid
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import func, select
@@ -25,7 +26,7 @@ from app.context import AppContext
 from app.integrations.llm import LLMUnavailable, ToolCall
 from app.modules.ai import pii
 from app.modules.ai.prompts import Passage
-from app.modules.conversation.models import ChatSession, Ticket, TicketSource
+from app.modules.conversation.models import ChatSession
 from app.modules.customer.models import Customer, CustomerLeadDraft
 from app.modules.customer.sensitive import (
     mask_email,
@@ -37,6 +38,7 @@ from app.modules.customer.sensitive import (
 )
 from app.modules.kb.search import search
 from app.modules.notifications import service as notifications
+from app.modules.todos import ai as todo_ai
 
 logger = logging.getLogger(__name__)
 
@@ -89,25 +91,31 @@ SPECS: dict[str, tuple[str, dict[str, Any]]] = {
             ["reason"],
         ),
     ),
-    "create_ticket": (
-        "为客户登记一条留言，由人工客服后续跟进。非工作时间或需要稍后处理时使用。",
-        _object(
-            {"subject": _text("留言主题"), "detail": _text("需要跟进的内容")},
-            ["subject", "detail"],
-        ),
-    ),
+    "lookup_todos": (todo_ai.LOOKUP_DESCRIPTION, todo_ai.LOOKUP_PARAMETERS),
 }
 
 
-def specs() -> list[dict[str, Any]]:
+def specs(todo_types: list[todo_ai.AiType] | None = None) -> list[dict[str, Any]]:
     """OpenAI 兼容的 tools 参数。"""
+    tools = dict(SPECS)
+    if todo_types:
+        tools["create_todo"] = todo_ai.create_spec(todo_types)
     return [
         {
             "type": "function",
             "function": {"name": name, "description": description, "parameters": parameters},
         }
-        for name, (description, parameters) in SPECS.items()
+        for name, (description, parameters) in tools.items()
     ]
+
+
+def _unmask(value: Any, mapping: dict[str, str]) -> Any:
+    """还原参数里的占位符（字段可能是嵌套的对象）。"""
+    if isinstance(value, dict):
+        return {str(k): _unmask(v, mapping) for k, v in value.items() if v is not None}
+    if isinstance(value, list):
+        return [_unmask(v, mapping) for v in value if v is not None]
+    return pii.unmask(str(value), mapping)
 
 
 @dataclass
@@ -124,9 +132,14 @@ class ToolBox:
     space_ids: list[uuid.UUID] | None = None
     passages: list[Passage] = field(default_factory=list)
     handoff: dict[str, str] | None = None
-    ticket_id: uuid.UUID | None = None
     lead_id: uuid.UUID | None = None
     log: list[dict[str, Any]] = field(default_factory=list)
+    # AI 可以登记的待办类型；这一轮客户消息的 ID（登记待办时作为依据）。
+    todo_types: list[todo_ai.AiType] = field(default_factory=list)
+    evidence_ids: list[uuid.UUID] = field(default_factory=list)
+    todo_ids: list[uuid.UUID] = field(default_factory=list)
+    # 正在向客户追问待办的必填信息（这一轮不计入 AI 接待轮次）。
+    collecting: bool = False
 
     @property
     def dry_run(self) -> bool:
@@ -139,12 +152,9 @@ class ToolBox:
             raw = json.loads(call.arguments or "{}")
         except json.JSONDecodeError:
             raw = {}
-        args = {
-            k: pii.unmask(str(v), self.mapping)
-            for k, v in (raw if isinstance(raw, dict) else {}).items()
-            if v is not None
-        }
-        handler = getattr(self, f"_{call.name}", None) if call.name in SPECS else None
+        args = _unmask(raw if isinstance(raw, dict) else {}, self.mapping)
+        known = call.name in SPECS or (call.name == "create_todo" and bool(self.todo_types))
+        handler = getattr(self, f"_{call.name}", None) if known else None
         if handler is None:
             self.log.append({"name": call.name, "ok": False})
             return f"没有名为 {call.name} 的工具。"
@@ -162,8 +172,8 @@ class ToolBox:
 
     # ---- 各工具 ----
 
-    async def _search_knowledge(self, args: dict[str, str]) -> str:
-        query = args.get("query", "").strip()[:200]
+    async def _search_knowledge(self, args: dict[str, Any]) -> str:
+        query = str(args.get("query", "")).strip()[:200]
         if not query:
             return "请提供检索的问题。"
         async with self.ctx.db.tenant_session(self.tenant_id) as db:
@@ -192,7 +202,7 @@ class ToolBox:
             lines.append(head + hit.text)
         return "\n\n".join(lines) if lines else "没有找到相关资料。"
 
-    async def _get_customer_profile(self, args: dict[str, str]) -> str:
+    async def _get_customer_profile(self, args: dict[str, Any]) -> str:
         if self.customer_id is None:
             return json.dumps({"说明": "试一试没有真实客户"}, ensure_ascii=False)
         async with self.ctx.db.tenant_session(self.tenant_id) as db:
@@ -214,10 +224,10 @@ class ToolBox:
         }
         return json.dumps(profile, ensure_ascii=False)
 
-    async def _save_lead_info(self, args: dict[str, str]) -> str:
+    async def _save_lead_info(self, args: dict[str, Any]) -> str:
         fields: dict[str, str] = {}
         for name, limit in LEAD_FIELDS.items():
-            value = args.get(name, "").strip()
+            value = str(args.get(name, "")).strip()
             if value:
                 fields[name] = value[:limit]
         if "phone" in fields:
@@ -269,38 +279,44 @@ class ToolBox:
             self.lead_id = draft.id
         return "已记录，人工客服确认后写入客户档案。"
 
-    async def _request_human_handoff(self, args: dict[str, str]) -> str:
+    async def _request_human_handoff(self, args: dict[str, Any]) -> str:
         self.handoff = {
-            "reason": args.get("reason", "")[:200],
-            "category": args.get("category", "")[:32],
-            "urgency": args.get("urgency", "normal")[:8],
-            "summary": args.get("summary", "")[:500],
+            "reason": str(args.get("reason", ""))[:200],
+            "category": str(args.get("category", ""))[:32],
+            "urgency": str(args.get("urgency", "normal"))[:8],
+            "summary": str(args.get("summary", ""))[:500],
         }
         return "已记录转人工请求。"
 
-    async def _create_ticket(self, args: dict[str, str]) -> str:
-        subject = args.get("subject", "").strip()[:100]
-        detail = args.get("detail", "").strip()[:1500]
-        if not subject and not detail:
-            return "请提供留言内容。"
-        if self.ticket_id is not None:
-            return "已经登记过留言了。"
-        if self.dry_run:
-            return "（试一试：不会创建）已登记留言，工作人员会尽快联系您。"
-        assert self.customer_id is not None
-        async with self.ctx.db.tenant_session(self.tenant_id) as db:
-            customer = await db.get(Customer, self.customer_id)
-            chat = await db.get(ChatSession, self.session_id) if self.session_id else None
-            ticket = Ticket(
-                tenant_id=self.tenant_id,
-                customer_id=self.customer_id,
-                session_id=self.session_id,
-                source=TicketSource.AI,
-                content=f"【{subject}】{detail}" if subject else detail,
-                assignee_id=customer.owner_id if customer else None,
-                skill_group_id=chat.skill_group_id if chat else None,
-            )
-            db.add(ticket)
-            await db.commit()
-            self.ticket_id = ticket.id
-        return f"已登记留言（{datetime.now(UTC):%m-%d %H:%M}），工作人员会尽快联系您。"
+    async def _create_todo(self, args: dict[str, Any]) -> str:
+        result = await todo_ai.register(
+            self.ctx,
+            self.tenant_id,
+            self.todo_types,
+            args,
+            session_id=self.session_id,
+            customer_id=self.customer_id,
+            evidence_ids=self.evidence_ids,
+            dry_run=self.dry_run,
+        )
+        self.collecting = self.collecting or result.collecting
+        if result.todo_id is not None and result.todo_id not in self.todo_ids:
+            self.todo_ids.append(result.todo_id)
+        if result.handoff is not None:
+            # 类型设置了"同时转人工"（如投诉处理）。
+            self.handoff = {
+                "reason": f"登记了{result.handoff.name}",
+                "category": result.handoff.name,
+                "urgency": "high",
+                "summary": str(args.get("detail", ""))[:500],
+            }
+        return result.output
+
+    async def _lookup_todos(self, args: dict[str, Any]) -> str:
+        return await todo_ai.lookup(
+            self.ctx,
+            self.tenant_id,
+            session_id=self.session_id,
+            customer_id=self.customer_id,
+            type_code=str(args.get("type") or "").strip() or None,
+        )

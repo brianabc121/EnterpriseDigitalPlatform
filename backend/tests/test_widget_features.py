@@ -143,7 +143,7 @@ async def test_csat_after_the_session_ends(desk: Desk) -> None:
     assert foreign.status_code == 404
 
 
-async def test_leave_message_creates_a_ticket(desk: Desk) -> None:
+async def test_leave_message_creates_a_todo(desk: Desk) -> None:
     visitor = await desk.visitor()
     body = {"content": "想要报价单", "contact": "13800000000"}
 
@@ -152,8 +152,10 @@ async def test_leave_message_creates_a_ticket(desk: Desk) -> None:
     )
 
     assert response.status_code == 204
-    [ticket] = await desk.sql("SELECT source, content, contact, status FROM tickets")
-    assert tuple(ticket) == ("visitor", "想要报价单", "13800000000", "open")
+    [todo] = await desk.sql(
+        "SELECT source, detail, fields ->> 'contact' AS contact, status FROM todos"
+    )
+    assert tuple(todo) == ("visitor", "想要报价单", "13800000000", "open")
     for _ in range(4):
         await desk.client.post("/api/v1/visitor/tickets", headers=headers(visitor), json=body)
     limited = await desk.client.post("/api/v1/visitor/tickets", headers=headers(visitor), json=body)

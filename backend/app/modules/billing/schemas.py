@@ -27,6 +27,7 @@ class PlanFeatures(BaseModel):
     broadcast: bool = True
     extraction: bool = True
     zone: bool = False
+    todos: bool = True
 
 
 class PlanOverage(BaseModel):

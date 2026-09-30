@@ -22,7 +22,7 @@ from app.core.errors import Unprocessable
 from app.core.ids import new_id
 from app.modules.audit.service import record_audit
 from app.modules.channels.models import ChannelAccount
-from app.modules.conversation.models import ChatSession, Message, Room, Ticket
+from app.modules.conversation.models import ChatSession, Message, Room
 from app.modules.customer import sensitive
 from app.modules.customer.models import (
     CustomerIdentity,
@@ -38,6 +38,8 @@ from app.modules.files.service import key_of_url
 from app.modules.iam.models import Staff
 from app.modules.iam.principal import Principal
 from app.modules.security.models import PrivacyRequest
+from app.modules.todos import fields as todo_fields
+from app.modules.todos.models import STATUS_LABELS, Todo, TodoType
 from app.modules.wecom.models import (
     WecomContactFollow,
     WecomGroupMember,
@@ -52,7 +54,7 @@ _MOVED: tuple[type[Any], ...] = (
     CustomerIdentity,
     Room,
     ChatSession,
-    Ticket,
+    Todo,
     CustomerOwnerHistory,
     WecomContactFollow,
     WecomGroupMember,
@@ -200,11 +202,18 @@ async def personal_data(
             .limit(MAX_MESSAGES)
         )
     ).all()
-    tickets = (
-        await session.scalars(
-            select(Ticket).where(Ticket.customer_id == customer.id).order_by(Ticket.created_at)
+    todos = (
+        await session.execute(
+            select(Todo, TodoType.name)
+            .join(TodoType, TodoType.id == Todo.type_id)
+            .where(Todo.customer_id == customer.id)
+            .order_by(Todo.created_at)
         )
     ).all()
+    todo_values = [
+        await todo_fields.reveal(ctx.keys, customer.tenant_id, todo.fields or {})
+        for todo, _ in todos
+    ]
     history = (
         await session.scalars(
             select(CustomerOwnerHistory)
@@ -268,14 +277,19 @@ async def personal_data(
             }
             for m in messages
         ],
-        tickets=[
+        todos=[
             {
-                "content": t.content,
-                "contact": t.contact,
-                "status": t.status,
+                "no": t.no,
+                "type": type_name,
+                "title": t.title,
+                "detail": t.detail,
+                "fields": values,
+                "status": STATUS_LABELS.get(t.status, t.status),
+                "result": t.result,
                 "created_at": _iso(t.created_at),
+                "closed_at": _iso(t.closed_at),
             }
-            for t in tickets
+            for (t, type_name), values in zip(todos, todo_values, strict=True)
         ],
         owner_history=[
             {
@@ -308,7 +322,7 @@ async def personal_data(
         detail={
             "sessions": len(chats),
             "messages": len(messages),
-            "tickets": len(tickets),
+            "todos": len(todos),
             "identities": len(identities),
         },
     )
@@ -379,9 +393,9 @@ async def erase_customer(
             )
             or 0
         ),
-        "tickets": int(
+        "todos": int(
             await session.scalar(
-                select(func.count()).select_from(Ticket).where(Ticket.customer_id == customer.id)
+                select(func.count()).select_from(Todo).where(Todo.customer_id == customer.id)
             )
             or 0
         ),

@@ -220,6 +220,59 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/todo-settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Settings */
+        get: operations["get_settings_api_v1_admin_todo_settings_get"];
+        /** Put Settings */
+        put: operations["put_settings_api_v1_admin_todo_settings_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/todo-types": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Type */
+        post: operations["create_type_api_v1_admin_todo_types_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/todo-types/{type_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Update Type */
+        put: operations["update_type_api_v1_admin_todo_types__type_id__put"];
+        post?: never;
+        /** Delete Type */
+        delete: operations["delete_type_api_v1_admin_todo_types__type_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/agent/heartbeat": {
         parameters: {
             query?: never;
@@ -2736,18 +2789,15 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/tickets": {
+    "/api/v1/todo-types": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /**
-         * List Tickets
-         * @description 留言：指派给自己的、所在技能组的、自己能看到其客户的。
-         */
-        get: operations["list_tickets_api_v1_tickets_get"];
+        /** List Types */
+        get: operations["list_types_api_v1_todo_types_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2756,7 +2806,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/tickets/{ticket_id}/done": {
+    "/api/v1/todos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Todos */
+        get: operations["list_todos_api_v1_todos_get"];
+        put?: never;
+        /**
+         * Create Todo
+         * @description 员工新建（包括 AI 预填后核对保存的）：直接进入待办列表，按规则或指定的人分派。
+         */
+        post: operations["create_todo_api_v1_todos_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/todos/batch": {
         parameters: {
             query?: never;
             header?: never;
@@ -2765,8 +2836,342 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Complete Ticket */
-        post: operations["complete_ticket_api_v1_tickets__ticket_id__done_post"];
+        /**
+         * Batch
+         * @description 批量确认或批量驳回待确认的待办。
+         */
+        post: operations["batch_api_v1_todos_batch_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/todos/counts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Counts
+         * @description 菜单角标：等我确认的、我的、今日到期、已逾期、我能认领的。
+         */
+        get: operations["counts_api_v1_todos_counts_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/todos/extract": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Extract Todos
+         * @description 从选中的消息或粘贴的文字由 AI 预填待办（不保存）。
+         */
+        post: operations["extract_todos_api_v1_todos_extract_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/todos/{todo_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Todo */
+        get: operations["get_todo_api_v1_todos__todo_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Todo */
+        patch: operations["update_todo_api_v1_todos__todo_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/todos/{todo_id}/assign": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Assign
+         * @description 分派、改派，或把自己的待办转交他人。
+         */
+        post: operations["assign_api_v1_todos__todo_id__assign_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/todos/{todo_id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Cancel */
+        post: operations["cancel_api_v1_todos__todo_id__cancel_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/todos/{todo_id}/claim": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Claim */
+        post: operations["claim_api_v1_todos__todo_id__claim_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/todos/{todo_id}/comments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Comment */
+        post: operations["comment_api_v1_todos__todo_id__comments_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/todos/{todo_id}/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Confirm */
+        post: operations["confirm_api_v1_todos__todo_id__confirm_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/todos/{todo_id}/discard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Discard
+         * @description 驳回待确认的待办（选择原因）。
+         */
+        post: operations["discard_api_v1_todos__todo_id__discard_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/todos/{todo_id}/done": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Done
+         * @description 完成：填写处理结果，可以同时通知客户（结果在响应头 X-Customer-Notice）。
+         */
+        post: operations["done_api_v1_todos__todo_id__done_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/todos/{todo_id}/merge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Merge */
+        post: operations["merge_api_v1_todos__todo_id__merge_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/todos/{todo_id}/notify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Notify Customer
+         * @description 按客户所在渠道的规则通知客户（结果记入待办动态）。
+         */
+        post: operations["notify_customer_api_v1_todos__todo_id__notify_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/todos/{todo_id}/reopen": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reopen */
+        post: operations["reopen_api_v1_todos__todo_id__reopen_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/todos/{todo_id}/reschedule": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reschedule */
+        post: operations["reschedule_api_v1_todos__todo_id__reschedule_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/todos/{todo_id}/resume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Resume */
+        post: operations["resume_api_v1_todos__todo_id__resume_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/todos/{todo_id}/reveal": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reveal
+         * @description 查看敏感字段的完整内容（需要查看敏感信息的权限，记审计日志）。
+         */
+        post: operations["reveal_api_v1_todos__todo_id__reveal_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/todos/{todo_id}/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Start */
+        post: operations["start_api_v1_todos__todo_id__start_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/todos/{todo_id}/wait": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Wait
+         * @description 等待客户补充信息（暂停计时）。
+         */
+        post: operations["wait_api_v1_todos__todo_id__wait_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3007,6 +3412,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/visitor/leave-message": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Leave Message
+         * @description 留言：客服不在线或非工作时间时，访客留下问题和联系方式（生成"留言"类待办）。
+         *     /visitor/tickets 是早期版本的路径，保留兼容。
+         */
+        post: operations["leave_message_api_v1_visitor_leave_message_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/visitor/messages": {
         parameters: {
             query?: never;
@@ -3019,6 +3445,26 @@ export interface paths {
          * @description 访客自己的消息历史（请求头 X-Visitor-Token）。
          */
         get: operations["list_messages_api_v1_visitor_messages_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/visitor/progress": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Service Progress
+         * @description 服务进度：自己登记的事项（待办）的状态和预计完成时间（企业开启后可用）。
+         */
+        get: operations["service_progress_api_v1_visitor_progress_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3041,26 +3487,6 @@ export interface paths {
         get: operations["session_state_api_v1_visitor_session_get"];
         put?: never;
         post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/visitor/tickets": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Leave Message
-         * @description 留言：客服不在线或非工作时间时，访客留下问题和联系方式。
-         */
-        post: operations["leave_message_api_v1_visitor_tickets_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4599,6 +5025,33 @@ export interface components {
             /** Question */
             question: string;
         };
+        /** AssignRequest */
+        AssignRequest: {
+            /** Assignee Id */
+            assignee_id?: string | null;
+            /** Note */
+            note?: string | null;
+            /**
+             * Skill Group Id
+             * @description 不指定处理人时放进这个技能组的待认领池
+             */
+            skill_group_id?: string | null;
+        };
+        /** AssignRule */
+        AssignRule: {
+            /**
+             * Group Mode
+             * @default pool
+             * @enum {string}
+             */
+            group_mode: "least_loaded" | "pool";
+            /** Skill Group Id */
+            skill_group_id?: string | null;
+            /** Staff Id */
+            staff_id?: string | null;
+            /** Steps */
+            steps?: ("session_agent" | "owner" | "channel_group" | "skill_group" | "staff")[];
+        };
         /** AssignUnassignedRequest */
         AssignUnassignedRequest: {
             /**
@@ -4709,6 +5162,36 @@ export interface components {
             resource_id: string | null;
             /** Resource Type */
             resource_type: string | null;
+        };
+        /** BatchFailure */
+        BatchFailure: {
+            /** Error */
+            error: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+        };
+        /** BatchRequest */
+        BatchRequest: {
+            /**
+             * Action
+             * @enum {string}
+             */
+            action: "confirm" | "reject";
+            /** Ids */
+            ids: string[];
+            /** Note */
+            note?: string | null;
+            reason?: components["schemas"]["RejectReason"] | null;
+        };
+        /** BatchResult */
+        BatchResult: {
+            /** Done */
+            done: string[];
+            /** Failed */
+            failed: components["schemas"]["BatchFailure"][];
         };
         /** BillingOverview */
         BillingOverview: {
@@ -5051,6 +5534,13 @@ export interface components {
              */
             scheduled_at: string | null;
         };
+        /** CommentRequest */
+        CommentRequest: {
+            /** Mentions */
+            mentions?: string[];
+            /** Text */
+            text: string;
+        };
         /** ComponentHealth */
         ComponentHealth: {
             /** Detail */
@@ -5066,6 +5556,29 @@ export interface components {
              * @enum {string}
              */
             status: "ok" | "degraded" | "down" | "disabled";
+        };
+        /**
+         * ConfirmRequest
+         * @description 确认时可以先修改类型、标题、字段、处理人和截止时间。
+         */
+        ConfirmRequest: {
+            /** Assignee Id */
+            assignee_id?: string | null;
+            /** Detail */
+            detail?: string | null;
+            /** Due At */
+            due_at?: string | null;
+            /** Fields */
+            fields?: {
+                [key: string]: string;
+            } | null;
+            priority?: components["schemas"]["Priority"] | null;
+            /** Skill Group Id */
+            skill_group_id?: string | null;
+            /** Title */
+            title?: string | null;
+            /** Type Id */
+            type_id?: string | null;
         };
         /**
          * ContentPolicy
@@ -5533,6 +6046,21 @@ export interface components {
             /** Type */
             type: string;
         };
+        /** DoneRequest */
+        DoneRequest: {
+            /**
+             * Notice
+             * @description 通知客户的内容；为空时用类型的完成通知模板
+             */
+            notice?: string | null;
+            /**
+             * Notify Customer
+             * @default false
+             */
+            notify_customer: boolean;
+            /** Result */
+            result: string;
+        };
         /** ErasureRequest */
         ErasureRequest: {
             /**
@@ -5566,8 +6094,11 @@ export interface components {
             request_id: string;
             /** Sessions */
             sessions: number;
-            /** Tickets */
-            tickets: number;
+            /**
+             * Todos
+             * @description 删除的待办数
+             */
+            todos: number;
             /**
              * Wecom Contact
              * @description 客户是企业微信的外部联系人：需要员工在企业微信里删除好友，否则下次同步会重新建档
@@ -5656,6 +6187,25 @@ export interface components {
             /** Results */
             results: components["schemas"]["EvalCaseResult"][];
         };
+        /** EvidenceMessage */
+        EvidenceMessage: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Sender Type */
+            sender_type: string;
+            /**
+             * Sent At
+             * Format: date-time
+             */
+            sent_at: string;
+            /** Session Id */
+            session_id: string | null;
+            /** Text */
+            text: string;
+        };
         /** ExportDownload */
         ExportDownload: {
             /** Expires In */
@@ -5665,6 +6215,23 @@ export interface components {
              * @description 短时有效的下载地址
              */
             url: string;
+        };
+        /**
+         * ExtractRequest
+         * @description 从选中的消息或粘贴的文字预填待办（不保存）。
+         */
+        ExtractRequest: {
+            /** Message Ids */
+            message_ids?: string[];
+            /** Session Id */
+            session_id?: string | null;
+            /** Text */
+            text?: string | null;
+        };
+        /** ExtractResult */
+        ExtractResult: {
+            /** Items */
+            items: components["schemas"]["TodoSuggestion"][];
         };
         /** FeatureOut */
         FeatureOut: {
@@ -5676,6 +6243,20 @@ export interface components {
             label: string;
             /** Overridden */
             overridden: boolean;
+        };
+        /** FieldValue */
+        FieldValue: {
+            /** Key */
+            key: string;
+            /** Label */
+            label: string;
+            /**
+             * Sensitive
+             * @default false
+             */
+            sensitive: boolean;
+            /** Value */
+            value: string;
         };
         /** FollowOut */
         FollowOut: {
@@ -7791,6 +8372,15 @@ export interface components {
             /** Userid */
             userid: string;
         };
+        /** MergeRequest */
+        MergeRequest: {
+            /**
+             * Target Id
+             * Format: uuid
+             * @description 并入这位客户已有的待办
+             */
+            target_id: string;
+        };
         /** MessageOut */
         MessageOut: {
             /**
@@ -7898,6 +8488,11 @@ export interface components {
         MyAgentStatusUpdate: {
             status: components["schemas"]["AgentStatus"];
         };
+        /** NoteRequest */
+        NoteRequest: {
+            /** Note */
+            note?: string | null;
+        };
         /** NotificationList */
         NotificationList: {
             /** Items */
@@ -7936,6 +8531,23 @@ export interface components {
             read_at: string | null;
             /** Title */
             title: string;
+        };
+        /** NotifyRequest */
+        NotifyRequest: {
+            /** Text */
+            text: string;
+        };
+        /** NotifyResult */
+        NotifyResult: {
+            /** Channel */
+            channel: string | null;
+            /** Reason */
+            reason: string | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "sent" | "manual" | "unreachable";
         };
         /** OpsResult */
         OpsResult: {
@@ -8160,7 +8772,7 @@ export interface components {
          * Permission
          * @enum {string}
          */
-        Permission: "dashboard:view" | "workbench:use" | "customer:read" | "customer:read_all" | "customer:create" | "customer:assign" | "customer:view_sensitive" | "customer:export" | "customer:manage" | "session:read_all" | "session:read_team" | "session:transfer" | "session:transfer_any" | "session:monitor" | "routing:manage" | "staff:read" | "staff:manage" | "quick_reply:manage" | "kb:read" | "kb:manage" | "kb:publish" | "report:view" | "settings:manage" | "broadcast:manage" | "tenant:manage" | "audit:read";
+        Permission: "dashboard:view" | "workbench:use" | "customer:read" | "customer:read_all" | "customer:create" | "customer:assign" | "customer:view_sensitive" | "customer:export" | "customer:manage" | "session:read_all" | "session:read_team" | "session:transfer" | "session:transfer_any" | "session:monitor" | "routing:manage" | "staff:read" | "staff:manage" | "quick_reply:manage" | "kb:read" | "kb:manage" | "kb:publish" | "report:view" | "settings:manage" | "broadcast:manage" | "tenant:manage" | "audit:read" | "todo:read" | "todo:handle" | "todo:assign" | "todo:config" | "todo:export";
         /** PermissionInfo */
         PermissionInfo: {
             code: components["schemas"]["Permission"];
@@ -8204,8 +8816,8 @@ export interface components {
             sessions: {
                 [key: string]: unknown;
             }[];
-            /** Tickets */
-            tickets: {
+            /** Todos */
+            todos: {
                 [key: string]: unknown;
             }[];
             /** Wecom Follows */
@@ -8273,6 +8885,11 @@ export interface components {
              * @default true
              */
             extraction: boolean;
+            /**
+             * Todos
+             * @default true
+             */
+            todos: boolean;
             /**
              * Wecom
              * @default true
@@ -8494,6 +9111,11 @@ export interface components {
              */
             token_type: "bearer";
         };
+        /**
+         * Priority
+         * @enum {string}
+         */
+        Priority: "urgent" | "high" | "normal" | "low";
         /** PrivacyRequestList */
         PrivacyRequestList: {
             /** Items */
@@ -8773,6 +9395,22 @@ export interface components {
              */
             today_sessions: number;
         };
+        /** ReasonRequest */
+        ReasonRequest: {
+            /** Reason */
+            reason: string;
+        };
+        /**
+         * RejectReason
+         * @enum {string}
+         */
+        RejectReason: "not_real" | "duplicate" | "wrong_info" | "other";
+        /** RejectRequest */
+        RejectRequest: {
+            /** Note */
+            note?: string | null;
+            reason: components["schemas"]["RejectReason"];
+        };
         /**
          * ReplyWindowOut
          * @description 微信客服的回复限制：客户最后一次发消息后 48 小时内最多发 5 条（设计 §3.1）。
@@ -8806,6 +9444,16 @@ export interface components {
              */
             remaining: number | null;
         };
+        /** RescheduleRequest */
+        RescheduleRequest: {
+            /**
+             * Due At
+             * Format: date-time
+             */
+            due_at: string;
+            /** Reason */
+            reason: string;
+        };
         /**
          * RetentionPolicy
          * @description 聊天记录保留期（到期后由调度进程删除）。为空表示一直保留。
@@ -8821,6 +9469,11 @@ export interface components {
              * @description 聊天消息保留天数（到期删除消息和其中的文件）
              */
             messages_days?: number | null;
+        };
+        /** RevealOut */
+        RevealOut: {
+            /** Fields */
+            fields: components["schemas"]["FieldValue"][];
         };
         /** RoleCreate */
         RoleCreate: {
@@ -10390,57 +11043,622 @@ export interface components {
                 [key: string]: number;
             };
         };
-        /** TicketOut */
-        TicketOut: {
+        /**
+         * TodoAllowed
+         * @description 当前员工能对这条待办做的操作（前端据此显示按钮）。
+         */
+        TodoAllowed: {
+            /** Assign */
+            assign: boolean;
+            /** Claim */
+            claim: boolean;
+            /** Confirm */
+            confirm: boolean;
+            /** Handle */
+            handle: boolean;
+        };
+        /** TodoCounts */
+        TodoCounts: {
+            /** Due Today */
+            due_today: number;
+            /**
+             * Mine
+             * @description 我的未完成待办
+             */
+            mine: number;
+            /** Overdue */
+            overdue: number;
+            /**
+             * Pending
+             * @description 等我确认的（能分派待办的人是数据范围内全部待确认）
+             */
+            pending: number;
+            /**
+             * Pool
+             * @description 我能认领的
+             */
+            pool: number;
+        };
+        /** TodoCreate */
+        TodoCreate: {
+            /**
+             * Assignee Id
+             * @description 处理人；与 skill_group_id 都为空时按类型的规则分派
+             */
+            assignee_id?: string | null;
+            /** Customer Id */
+            customer_id?: string | null;
+            /**
+             * Detail
+             * @default
+             */
+            detail: string;
+            /** Due At */
+            due_at?: string | null;
+            /** Evidence Message Ids */
+            evidence_message_ids?: string[];
+            /** Expected At */
+            expected_at?: string | null;
+            /** Fields */
+            fields?: {
+                [key: string]: string;
+            };
+            priority?: components["schemas"]["Priority"] | null;
+            /** Session Id */
+            session_id?: string | null;
+            /**
+             * Skill Group Id
+             * @description 放进这个技能组的待认领池
+             */
+            skill_group_id?: string | null;
+            /**
+             * Source
+             * @default staff
+             * @enum {string}
+             */
+            source: "staff" | "copilot" | "sidebar";
+            /** Title */
+            title: string;
+            /**
+             * Type Id
+             * Format: uuid
+             */
+            type_id: string;
+        };
+        /** TodoDetail */
+        TodoDetail: {
+            allowed: components["schemas"]["TodoAllowed"];
+            /** Assigned By */
+            assigned_by: string | null;
             /** Assignee Id */
             assignee_id: string | null;
+            /** Assignee Name */
+            assignee_name: string | null;
+            /** Close Note */
+            close_note: string | null;
             /** Closed At */
             closed_at: string | null;
-            /** Contact */
-            contact: string | null;
-            /** Content */
-            content: string;
+            /** Confidence */
+            confidence: number | null;
+            /** Confirmed At */
+            confirmed_at: string | null;
+            /** Confirmed By */
+            confirmed_by: string | null;
             /**
              * Created At
              * Format: date-time
              */
             created_at: string;
-            /** Customer Display Name */
-            customer_display_name: string;
-            /**
-             * Customer Id
-             * Format: uuid
-             */
-            customer_id: string;
+            /** Created By */
+            created_by: string | null;
+            /** Created By Name */
+            created_by_name: string | null;
+            /** Created By Type */
+            created_by_type: string;
+            /** Customer Id */
+            customer_id: string | null;
+            /** Customer Name */
+            customer_name: string | null;
+            /** Detail */
+            detail: string;
+            /** Due At */
+            due_at: string | null;
+            /** Events */
+            events: components["schemas"]["TodoEventOut"][];
+            /** Evidence */
+            evidence: components["schemas"]["EvidenceMessage"][];
+            /** Evidence Count */
+            evidence_count: number;
+            /** Expected At */
+            expected_at: string | null;
+            /** Fields */
+            fields: components["schemas"]["FieldValue"][];
+            /** First Response At */
+            first_response_at: string | null;
             /**
              * Id
              * Format: uuid
              */
             id: string;
+            /** No */
+            no: string;
+            /** Nudge Count */
+            nudge_count: number;
+            /** Order Id */
+            order_id: string | null;
+            /**
+             * Overdue
+             * @description 截止时间已过、仍未完成
+             */
+            overdue: boolean;
+            priority: components["schemas"]["Priority"];
+            /**
+             * Progress Note
+             * @description 客户可见的进度说明
+             */
+            progress_note: string | null;
+            reject_reason: components["schemas"]["RejectReason"] | null;
+            /** Respond Due At */
+            respond_due_at: string | null;
+            /** Result */
+            result: string | null;
             /** Session Id */
             session_id: string | null;
             /** Skill Group Id */
             skill_group_id: string | null;
-            source: components["schemas"]["TicketSource"];
-            status: components["schemas"]["TicketStatus"];
+            /** Skill Group Name */
+            skill_group_name: string | null;
+            source: components["schemas"]["TodoSource"];
+            status: components["schemas"]["TodoStatus"];
+            /** Title */
+            title: string;
+            /** Type Code */
+            type_code: string;
+            /**
+             * Type Fields
+             * @description 类型的字段定义（编辑表单用）
+             */
+            type_fields: {
+                [key: string]: unknown;
+            }[];
+            /**
+             * Type Id
+             * Format: uuid
+             */
+            type_id: string;
+            /** Type Name */
+            type_name: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
         };
-        /** TicketPage */
-        TicketPage: {
+        /** TodoEventOut */
+        TodoEventOut: {
+            /** Actor Id */
+            actor_id: string | null;
+            /** Actor Name */
+            actor_name: string | null;
+            /** Actor Type */
+            actor_type: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Payload */
+            payload: {
+                [key: string]: unknown;
+            };
+            /** Type */
+            type: string;
+        };
+        /** TodoFieldSpec */
+        TodoFieldSpec: {
+            /** Key */
+            key: string;
+            /** Label */
+            label: string;
+            /** Options */
+            options?: string[] | null;
+            /**
+             * Required
+             * @default false
+             */
+            required: boolean;
+            /**
+             * Sensitive
+             * @default false
+             */
+            sensitive: boolean;
+            /**
+             * Type
+             * @default text
+             * @enum {string}
+             */
+            type: "text" | "number" | "date" | "option" | "phone" | "email" | "address" | "file";
+        };
+        /** TodoOut */
+        TodoOut: {
+            /** Assigned By */
+            assigned_by: string | null;
+            /** Assignee Id */
+            assignee_id: string | null;
+            /** Assignee Name */
+            assignee_name: string | null;
+            /** Close Note */
+            close_note: string | null;
+            /** Closed At */
+            closed_at: string | null;
+            /** Confidence */
+            confidence: number | null;
+            /** Confirmed At */
+            confirmed_at: string | null;
+            /** Confirmed By */
+            confirmed_by: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Created By */
+            created_by: string | null;
+            /** Created By Name */
+            created_by_name: string | null;
+            /** Created By Type */
+            created_by_type: string;
+            /** Customer Id */
+            customer_id: string | null;
+            /** Customer Name */
+            customer_name: string | null;
+            /** Detail */
+            detail: string;
+            /** Due At */
+            due_at: string | null;
+            /** Evidence Count */
+            evidence_count: number;
+            /** Expected At */
+            expected_at: string | null;
+            /** Fields */
+            fields: components["schemas"]["FieldValue"][];
+            /** First Response At */
+            first_response_at: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** No */
+            no: string;
+            /** Nudge Count */
+            nudge_count: number;
+            /** Order Id */
+            order_id: string | null;
+            /**
+             * Overdue
+             * @description 截止时间已过、仍未完成
+             */
+            overdue: boolean;
+            priority: components["schemas"]["Priority"];
+            /**
+             * Progress Note
+             * @description 客户可见的进度说明
+             */
+            progress_note: string | null;
+            reject_reason: components["schemas"]["RejectReason"] | null;
+            /** Respond Due At */
+            respond_due_at: string | null;
+            /** Result */
+            result: string | null;
+            /** Session Id */
+            session_id: string | null;
+            /** Skill Group Id */
+            skill_group_id: string | null;
+            /** Skill Group Name */
+            skill_group_name: string | null;
+            source: components["schemas"]["TodoSource"];
+            status: components["schemas"]["TodoStatus"];
+            /** Title */
+            title: string;
+            /** Type Code */
+            type_code: string;
+            /**
+             * Type Id
+             * Format: uuid
+             */
+            type_id: string;
+            /** Type Name */
+            type_name: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** TodoPage */
+        TodoPage: {
             /** Items */
-            items: components["schemas"]["TicketOut"][];
+            items: components["schemas"]["TodoOut"][];
             /** Total */
             total: number;
         };
+        /** TodoSettings */
+        TodoSettings: {
+            /**
+             * Ai Hourly Limit
+             * @description 每个会话每小时最多由 AI 登记几条待办（防止刷单）
+             * @default 3
+             */
+            ai_hourly_limit: number;
+            /**
+             * Digest Enabled
+             * @description 每个工作日上班时发送今日待办汇总
+             * @default true
+             */
+            digest_enabled: boolean;
+            /**
+             * Extract Enabled
+             * @description 会话结束后由 AI 解析未解决的诉求和坐席答应的事，进入待确认页
+             * @default true
+             */
+            extract_enabled: boolean;
+            /**
+             * Extract Min Confidence
+             * @description 会话后解析的置信度低于这个值时不进入待确认页
+             * @default 0.6
+             */
+            extract_min_confidence: number;
+            /**
+             * Pending Remind Minutes
+             * @description 待确认超过这么多工作分钟还没处理，再提醒一次
+             * @default 120
+             */
+            pending_remind_minutes: number;
+            /**
+             * Reopen Days
+             * @description 完成后多少天内可以重新打开
+             * @default 7
+             */
+            reopen_days: number;
+            /**
+             * Visitor Progress
+             * @description 访客在 Widget 的服务进度里查看自己的待办（类型、状态、预计时间）
+             * @default false
+             */
+            visitor_progress: boolean;
+        };
         /**
-         * TicketSource
+         * TodoSource
          * @enum {string}
          */
-        TicketSource: "queue_timeout" | "off_hours" | "visitor" | "ai";
+        TodoSource: "ai_chat" | "ai_summary" | "zone" | "copilot" | "sidebar" | "staff" | "visitor" | "rule" | "api";
         /**
-         * TicketStatus
+         * TodoStatus
          * @enum {string}
          */
-        TicketStatus: "open" | "done";
+        TodoStatus: "pending" | "open" | "in_progress" | "waiting" | "done" | "cancelled" | "rejected";
+        /** TodoSuggestion */
+        TodoSuggestion: {
+            /** Confidence */
+            confidence: number;
+            /** Detail */
+            detail: string;
+            /** Evidence Message Ids */
+            evidence_message_ids: string[];
+            /** Expected At */
+            expected_at: string | null;
+            /** Fields */
+            fields: {
+                [key: string]: string;
+            };
+            /**
+             * Missing
+             * @description 还缺少的必填字段
+             */
+            missing: string[];
+            /** Promised By Agent */
+            promised_by_agent: boolean;
+            /** Title */
+            title: string;
+            /** Type Code */
+            type_code: string;
+            /**
+             * Type Id
+             * Format: uuid
+             */
+            type_id: string;
+            /** Type Name */
+            type_name: string;
+        };
+        /** TodoTypeList */
+        TodoTypeList: {
+            /** Items */
+            items: components["schemas"]["TodoTypeOut"][];
+        };
+        /** TodoTypeOut */
+        TodoTypeOut: {
+            /**
+             * Ai Enabled
+             * @default true
+             */
+            ai_enabled: boolean;
+            /**
+             * Ai Hint
+             * @default
+             */
+            ai_hint: string;
+            assign_rule?: components["schemas"]["AssignRule"];
+            /** Code */
+            code: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Done Template
+             * @default
+             */
+            done_template: string;
+            /**
+             * Enabled
+             * @default true
+             */
+            enabled: boolean;
+            /**
+             * Escalate After Minutes
+             * @default 240
+             */
+            escalate_after_minutes: number;
+            /** Examples */
+            examples?: string[];
+            /** Fields */
+            fields?: components["schemas"]["TodoFieldSpec"][];
+            /**
+             * Handoff
+             * @default false
+             */
+            handoff: boolean;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /**
+             * Notify Supervisor
+             * @default false
+             */
+            notify_supervisor: boolean;
+            /** Preset */
+            preset: boolean;
+            /** @default normal */
+            priority: components["schemas"]["Priority"];
+            /**
+             * Promise Text
+             * @default
+             */
+            promise_text: string;
+            /**
+             * Remind Before Minutes
+             * @default 120
+             */
+            remind_before_minutes: number;
+            /** Sla Resolve Days */
+            sla_resolve_days?: number | null;
+            /** Sla Resolve Minutes */
+            sla_resolve_minutes?: number | null;
+            /** Sla Response Minutes */
+            sla_response_minutes?: number | null;
+            /**
+             * Sort
+             * @default 100
+             */
+            sort: number;
+            /** System */
+            system: boolean;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** TodoTypeWrite */
+        TodoTypeWrite: {
+            /**
+             * Ai Enabled
+             * @default true
+             */
+            ai_enabled: boolean;
+            /**
+             * Ai Hint
+             * @default
+             */
+            ai_hint: string;
+            assign_rule?: components["schemas"]["AssignRule"];
+            /** Code */
+            code: string;
+            /**
+             * Done Template
+             * @default
+             */
+            done_template: string;
+            /**
+             * Enabled
+             * @default true
+             */
+            enabled: boolean;
+            /**
+             * Escalate After Minutes
+             * @default 240
+             */
+            escalate_after_minutes: number;
+            /** Examples */
+            examples?: string[];
+            /** Fields */
+            fields?: components["schemas"]["TodoFieldSpec"][];
+            /**
+             * Handoff
+             * @default false
+             */
+            handoff: boolean;
+            /** Name */
+            name: string;
+            /**
+             * Notify Supervisor
+             * @default false
+             */
+            notify_supervisor: boolean;
+            /** @default normal */
+            priority: components["schemas"]["Priority"];
+            /**
+             * Promise Text
+             * @default
+             */
+            promise_text: string;
+            /**
+             * Remind Before Minutes
+             * @default 120
+             */
+            remind_before_minutes: number;
+            /** Sla Resolve Days */
+            sla_resolve_days?: number | null;
+            /** Sla Resolve Minutes */
+            sla_resolve_minutes?: number | null;
+            /** Sla Response Minutes */
+            sla_response_minutes?: number | null;
+            /**
+             * Sort
+             * @default 100
+             */
+            sort: number;
+        };
+        /** TodoUpdate */
+        TodoUpdate: {
+            /** Detail */
+            detail?: string | null;
+            /** Expected At */
+            expected_at?: string | null;
+            /**
+             * Fields
+             * @description 只修改给出的字段，空字符串表示清除
+             */
+            fields?: {
+                [key: string]: string;
+            } | null;
+            priority?: components["schemas"]["Priority"] | null;
+            /** Progress Note */
+            progress_note?: string | null;
+            /** Title */
+            title?: string | null;
+        };
         /** TokenResponse */
         TokenResponse: {
             /** Access Token */
@@ -10898,6 +12116,37 @@ export interface components {
              * @description none（还没有会话）、ai_serving、queued、human_serving、transferring、closed
              */
             status: string;
+        };
+        /** VisitorTodoList */
+        VisitorTodoList: {
+            /** Enabled */
+            enabled: boolean;
+            /** Items */
+            items: components["schemas"]["VisitorTodoOut"][];
+        };
+        /** VisitorTodoOut */
+        VisitorTodoOut: {
+            /** Closed At */
+            closed_at: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Due At */
+            due_at: string | null;
+            /** No */
+            no: string;
+            /** Progress Note */
+            progress_note: string | null;
+            /** Status */
+            status: string;
+            /** Status Label */
+            status_label: string;
+            /** Title */
+            title: string;
+            /** Type Name */
+            type_name: string;
         };
         /** WatcherOut */
         WatcherOut: {
@@ -12084,6 +13333,390 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["TransferResult"];
                 };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_settings_api_v1_admin_todo_settings_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TodoSettings"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    put_settings_api_v1_admin_todo_settings_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TodoSettings"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TodoSettings"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    create_type_api_v1_admin_todo_types_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TodoTypeWrite"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TodoTypeOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    update_type_api_v1_admin_todo_types__type_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                type_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TodoTypeWrite"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TodoTypeOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    delete_type_api_v1_admin_todo_types__type_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                type_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Bad Request */
             400: {
@@ -24317,13 +25950,9 @@ export interface operations {
             };
         };
     };
-    list_tickets_api_v1_tickets_get: {
+    list_types_api_v1_todo_types_get: {
         parameters: {
-            query?: {
-                status?: components["schemas"]["TicketStatus"] | null;
-                limit?: number;
-                offset?: number;
-            };
+            query?: never;
             header?: never;
             path?: never;
             cookie?: never;
@@ -24336,7 +25965,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["TicketPage"];
+                    "application/json": components["schemas"]["TodoTypeList"];
                 };
             };
             /** @description Bad Request */
@@ -24395,12 +26024,410 @@ export interface operations {
             };
         };
     };
-    complete_ticket_api_v1_tickets__ticket_id__done_post: {
+    list_todos_api_v1_todos_get: {
+        parameters: {
+            query?: {
+                /** @description pending 待确认；mine 我的未完成；pool 我能认领的；assigned 我分派的；all 全部（默认不含待确认） */
+                view?: "pending" | "mine" | "pool" | "assigned" | "all";
+                status?: components["schemas"]["TodoStatus"] | null;
+                type_id?: string | null;
+                priority?: components["schemas"]["Priority"] | null;
+                source?: components["schemas"]["TodoSource"] | null;
+                customer_id?: string | null;
+                session_id?: string | null;
+                assignee_id?: string | null;
+                /** @description overdue 已逾期；today 今日到期；soon 24 小时内到期 */
+                due?: ("overdue" | "today" | "soon") | null;
+                /** @description 按编号或标题搜索 */
+                q?: string | null;
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TodoPage"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    create_todo_api_v1_todos_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TodoCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TodoOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    batch_api_v1_todos_batch_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BatchRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BatchResult"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    counts_api_v1_todos_counts_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TodoCounts"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    extract_todos_api_v1_todos_extract_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExtractRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExtractResult"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_todo_api_v1_todos__todo_id__get: {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                ticket_id: string;
+                todo_id: string;
             };
             cookie?: never;
         };
@@ -24412,7 +26439,1271 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["TicketOut"];
+                    "application/json": components["schemas"]["TodoDetail"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    update_todo_api_v1_todos__todo_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                todo_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TodoUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TodoOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    assign_api_v1_todos__todo_id__assign_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                todo_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AssignRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TodoOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    cancel_api_v1_todos__todo_id__cancel_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                todo_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReasonRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TodoOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    claim_api_v1_todos__todo_id__claim_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                todo_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TodoOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    comment_api_v1_todos__todo_id__comments_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                todo_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CommentRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TodoOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    confirm_api_v1_todos__todo_id__confirm_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                todo_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConfirmRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TodoOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    discard_api_v1_todos__todo_id__discard_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                todo_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RejectRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TodoOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    done_api_v1_todos__todo_id__done_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                todo_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DoneRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TodoOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    merge_api_v1_todos__todo_id__merge_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                todo_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MergeRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TodoOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    notify_customer_api_v1_todos__todo_id__notify_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                todo_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NotifyRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotifyResult"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    reopen_api_v1_todos__todo_id__reopen_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                todo_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReasonRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TodoOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    reschedule_api_v1_todos__todo_id__reschedule_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                todo_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RescheduleRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TodoOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    resume_api_v1_todos__todo_id__resume_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                todo_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TodoOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    reveal_api_v1_todos__todo_id__reveal_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                todo_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RevealOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    start_api_v1_todos__todo_id__start_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                todo_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TodoOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    wait_api_v1_todos__todo_id__wait_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                todo_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NoteRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TodoOut"];
                 };
             };
             /** @description Bad Request */
@@ -25412,6 +28703,85 @@ export interface operations {
             };
         };
     };
+    leave_message_api_v1_visitor_leave_message_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description 访客初始化返回的 visitor_token */
+                "X-Visitor-Token"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LeaveMessageRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     list_messages_api_v1_visitor_messages_get: {
         parameters: {
             query?: {
@@ -25493,7 +28863,7 @@ export interface operations {
             };
         };
     };
-    session_state_api_v1_visitor_session_get: {
+    service_progress_api_v1_visitor_progress_get: {
         parameters: {
             query?: never;
             header?: {
@@ -25511,7 +28881,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["VisitorSessionState"];
+                    "application/json": components["schemas"]["VisitorTodoList"];
                 };
             };
             /** @description Bad Request */
@@ -25570,7 +28940,7 @@ export interface operations {
             };
         };
     };
-    leave_message_api_v1_visitor_tickets_post: {
+    session_state_api_v1_visitor_session_get: {
         parameters: {
             query?: never;
             header?: {
@@ -25580,18 +28950,16 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["LeaveMessageRequest"];
-            };
-        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
-            204: {
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["VisitorSessionState"];
+                };
             };
             /** @description Bad Request */
             400: {

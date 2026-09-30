@@ -337,12 +337,15 @@ async function run(browser) {
     await form.locator('input').fill('13800000000')
     await form.locator('button[type="submit"]').click()
     await w.locator('[data-testid="leave-thanks"]').waitFor()
-    const tickets = await json(`${API}/api/v1/tickets`, { token: adminToken })
-    const ticket = tickets.items.find((t) => t.source === 'visitor')
+    const todos = await json(`${API}/api/v1/todos`, { token: adminToken })
+    const todo = todos.items.find((t) => t.source === 'visitor')
+    const contact = todo?.fields.find((f) => f.key === 'contact')?.value
     check(
-      '访客留言生成留言工单',
-      ticket?.content === '请把发票寄到公司地址' && ticket.contact === '13800000000',
-      tickets.items,
+      '访客留言生成"留言"类待办',
+      todo?.type_code === 'leave_message' &&
+        todo.detail === '请把发票寄到公司地址' &&
+        contact === '13800000000',
+      todos.items,
     )
     await shop.ctx.close()
 

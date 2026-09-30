@@ -43,7 +43,7 @@ export const MENU: readonly MenuItem[] = [
     icon: 'history',
     permission: 'workbench:use',
   },
-  { name: 'tickets', path: '/tickets', title: '留言', icon: 'ticket', permission: 'workbench:use' },
+  { name: 'todos', path: '/todos', title: '待办', icon: 'ticket', permission: 'todo:read' },
   {
     name: 'customers',
     path: '/customers',

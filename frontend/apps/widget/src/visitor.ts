@@ -124,7 +124,7 @@ export async function rateAnswer(token: string, serverMsgId: string, value: 1 | 
 }
 
 export async function leaveMessage(token: string, content: string, contact: string): Promise<void> {
-  const { error } = await api.POST('/api/v1/visitor/tickets', {
+  const { error } = await api.POST('/api/v1/visitor/leave-message', {
     params: auth(token),
     body: { content, contact: contact || null },
   })

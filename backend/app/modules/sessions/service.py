@@ -1,4 +1,4 @@
-"""会话与留言查询（带数据范围）以及坐席发起的会话操作。
+"""会话查询（带数据范围）以及坐席发起的会话操作。
 
 会话的可见范围：
 - session:read_all：全部会话；
@@ -6,7 +6,6 @@
 - 另有 session:read_team 时：所带技能组的会话、组员接待的会话、组员名下客户的会话。
 """
 
-from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
@@ -24,15 +23,10 @@ from app.modules.conversation.models import (
     SessionEvent,
     SessionStatus,
     SessionWatcher,
-    Ticket,
-    TicketSource,
-    TicketStatus,
 )
 from app.modules.customer.models import Customer
-from app.modules.customer.service import visible_to as customer_visible_to
 from app.modules.iam.models import Staff
 from app.modules.iam.principal import Principal
-from app.modules.routing.models import SkillGroupMember
 from app.modules.routing.scope import led_groups, team_members
 from app.modules.sessions import engine
 from app.modules.sessions.schemas import (
@@ -40,13 +34,10 @@ from app.modules.sessions.schemas import (
     SessionEventOut,
     SessionOut,
     SessionPage,
-    TicketOut,
-    TicketPage,
     WatcherOut,
 )
 
 SESSION_NOT_FOUND = "会话不存在"
-TICKET_NOT_FOUND = "留言不存在"
 OPEN = "open"
 # 接待中：AI 或人工正在接待（不含排队）。
 SERVING = "serving"
@@ -275,81 +266,3 @@ async def close_session(
     )
     session.expire_all()
     return SessionOut(**_session_out(*await visible_session(session, principal, session_id)))
-
-
-# ---- 留言 ----
-
-
-def ticket_visible_to(principal: Principal) -> ColumnElement[bool]:
-    """留言：指派给自己的、自己能看到其客户的、所在技能组的。"""
-    if principal.has(Permission.SESSION_READ_ALL) or principal.has(Permission.CUSTOMER_READ_ALL):
-        return true()
-    my_groups = select(SkillGroupMember.skill_group_id).where(
-        SkillGroupMember.staff_id == principal.staff_id
-    )
-    return or_(
-        Ticket.assignee_id == principal.staff_id,
-        Ticket.skill_group_id.in_(my_groups),
-        customer_visible_to(principal),
-    )
-
-
-def _tickets(principal: Principal) -> Select[Ticket, str]:
-    return (
-        select(Ticket, Customer.display_name)
-        .join(
-            Customer,
-            and_(Customer.tenant_id == Ticket.tenant_id, Customer.id == Ticket.customer_id),
-        )
-        .where(ticket_visible_to(principal))
-    )
-
-
-def _ticket_out(ticket: Ticket, customer_name: str) -> TicketOut:
-    return TicketOut(
-        id=ticket.id,
-        customer_id=ticket.customer_id,
-        customer_display_name=customer_name,
-        session_id=ticket.session_id,
-        source=TicketSource(ticket.source),
-        content=ticket.content,
-        contact=ticket.contact,
-        status=TicketStatus(ticket.status),
-        assignee_id=ticket.assignee_id,
-        skill_group_id=ticket.skill_group_id,
-        created_at=ticket.created_at,
-        closed_at=ticket.closed_at,
-    )
-
-
-async def list_tickets(
-    session: AsyncSession,
-    principal: Principal,
-    *,
-    status: TicketStatus | None,
-    limit: int,
-    offset: int,
-) -> TicketPage:
-    query = _tickets(principal)
-    if status is not None:
-        query = query.where(Ticket.status == status)
-    total = await session.scalar(select(func.count()).select_from(query.subquery()))
-    rows = await session.execute(
-        query.order_by(Ticket.created_at.desc(), Ticket.id.desc()).limit(limit).offset(offset)
-    )
-    return TicketPage(items=[_ticket_out(t, name) for t, name in rows], total=total or 0)
-
-
-async def complete_ticket(
-    session: AsyncSession, principal: Principal, ticket_id: UUID
-) -> TicketOut:
-    row = (await session.execute(_tickets(principal).where(Ticket.id == ticket_id))).first()
-    if row is None:
-        raise NotFound(TICKET_NOT_FOUND)
-    ticket, customer_name = row
-    if ticket.status != TicketStatus.DONE:
-        ticket.status = TicketStatus.DONE
-        ticket.closed_at = datetime.now(UTC)
-        ticket.assignee_id = ticket.assignee_id or principal.staff_id
-        await session.commit()
-    return _ticket_out(ticket, customer_name)

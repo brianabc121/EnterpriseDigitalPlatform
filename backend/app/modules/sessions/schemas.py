@@ -4,12 +4,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field, model_validator
 
-from app.modules.conversation.models import (
-    SessionStatus,
-    TicketSource,
-    TicketStatus,
-    TransferStatus,
-)
+from app.modules.conversation.models import SessionStatus, TransferStatus
 
 
 class SessionOut(BaseModel):
@@ -74,26 +69,6 @@ class SessionDetail(SessionOut):
 
 class AssistRequest(BaseModel):
     staff_id: UUID = Field(description="邀请协助的员工")
-
-
-class TicketOut(BaseModel):
-    id: UUID
-    customer_id: UUID
-    customer_display_name: str
-    session_id: UUID | None
-    source: TicketSource
-    content: str
-    contact: str | None
-    status: TicketStatus
-    assignee_id: UUID | None
-    skill_group_id: UUID | None
-    created_at: datetime
-    closed_at: datetime | None
-
-
-class TicketPage(BaseModel):
-    items: list[TicketOut]
-    total: int
 
 
 class Attachment(BaseModel):

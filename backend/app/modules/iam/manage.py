@@ -38,6 +38,7 @@ from app.modules.iam.schemas import (
 from app.modules.iam.service import IssuedTokens, issue_tokens, role_permissions
 from app.modules.routing.models import AgentState, AgentStatus
 from app.modules.sessions.engine import assign_queued, lock_tenant_routing, requeue_unanswered
+from app.modules.todos.assign import reassign_from as reassign_todos
 
 logger = logging.getLogger(__name__)
 
@@ -186,6 +187,8 @@ async def update_staff(
         rooms = await requeue_unanswered(
             session, staff.id, now, reason="staff_disabled", include_answered=True
         )
+        # 未完成的待办按规则重新分派（设计文档 §24.6）。
+        await reassign_todos(session, staff.id, actor_id=principal.staff_id)
     if changes:
         record_audit(
             session,

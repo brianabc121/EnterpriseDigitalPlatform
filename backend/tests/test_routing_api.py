@@ -232,7 +232,7 @@ async def test_going_offline_requeues_unanswered_sessions(desk: Desk) -> None:
     assert alice.im_user not in desk.members(visitor)
 
 
-async def test_ticket_visibility(desk: Desk) -> None:
+async def test_leave_message_visibility(desk: Desk) -> None:
     alice = await desk.agent("alice", online=False)
     bob = await desk.agent("bob", online=False)
     [policy] = (await desk.client.get("/api/v1/routing-policies", headers=desk.admin)).json()[
@@ -254,5 +254,7 @@ async def test_ticket_visibility(desk: Desk) -> None:
     # 留言指派给归属坐席 Alice；Bob 看不到。
     for who, count in ((alice, 1), (bob, 0), (None, 1)):
         headers = who.headers if who else desk.admin
-        tickets = await desk.client.get("/api/v1/tickets", headers=headers)
-        assert tickets.json()["total"] == count
+        todos = await desk.client.get("/api/v1/todos", headers=headers)
+        assert todos.json()["total"] == count
+    [todo] = (await desk.client.get("/api/v1/todos", headers=alice.headers)).json()["items"]
+    assert (todo["type_code"], todo["assignee_id"]) == ("leave_message", str(alice.staff_id))

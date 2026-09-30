@@ -20,6 +20,7 @@ from app.modules.ai.prompts import Passage, Turn
 from app.modules.ai.tools import ToolBox, specs
 from app.modules.kb.search import Hit, search
 from app.modules.platform.content import ai_words
+from app.modules.todos import ai as todo_ai
 
 logger = logging.getLogger(__name__)
 
@@ -57,6 +58,8 @@ class Context:
     repeats: int = 0
     turns: int = 0
     guard_failures: int = 0
+    # 这一轮客户消息的 ID（AI 登记待办时作为依据）。
+    message_ids: list[uuid.UUID] = field(default_factory=list)
 
 
 @dataclass
@@ -74,6 +77,8 @@ class Outcome:
     intent: str | None = None
     # 模型调用 request_human_handoff 时给出的交接摘要（不再单独生成摘要）。
     summary: str | None = None
+    # 正在向客户追问待办的必填信息：这一轮不计入 AI 接待轮次（设计文档 §24.4）。
+    collecting: bool = False
 
     @property
     def used_items(self) -> list[uuid.UUID]:
@@ -310,6 +315,8 @@ async def evaluate(
         customer_id=customer_id if scene == "reply" else None,
         mapping=mapping,
         space_ids=channel.space_ids or None,
+        todo_types=await todo_ai.ai_types(ctx, tenant_id) if use_tools else [],
+        evidence_ids=list(context.message_ids),
     )
     messages: list[dict[str, Any]] = list(
         prompts.reply_messages(
@@ -334,7 +341,7 @@ async def evaluate(
                 scene=scene,
                 json_mode=True,
                 session_id=session_id,
-                tools=specs() if use_tools and round_ < MAX_TOOL_ROUNDS else None,
+                tools=specs(toolbox.todo_types) if use_tools and round_ < MAX_TOOL_ROUNDS else None,
                 prompt_version=prompt.version,
             )
             if not result.tool_calls or result.message is None:
@@ -422,7 +429,7 @@ async def evaluate(
         confidence=parsed["confidence"],
         previous_question=context.previous_question,
         repeats=context.repeats,
-        turns=context.turns + 1,
+        turns=context.turns + (0 if toolbox.collecting else 1),
         max_turns=max_turns,
     )
     signal_values = {**found.active(), **found.details, **extra}
@@ -461,6 +468,7 @@ async def evaluate(
         knowledge=knowledge,
         repeats=repeats,
         intent=intent,
+        collecting=toolbox.collecting,
     )
 
 

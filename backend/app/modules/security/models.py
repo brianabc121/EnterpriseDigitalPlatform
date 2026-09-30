@@ -30,6 +30,8 @@ class TenantSetting(Base):
         ForeignKey("tenants.id"), primary_key=True, server_default=text("app_current_tenant()")
     )
     retention: Mapped[dict[str, Any]] = mapped_column(server_default="{}")
+    # 待办设置（todos/settings.py 的 TodoSettings）。
+    todos: Mapped[dict[str, Any]] = mapped_column(server_default="{}")
     updated_by: Mapped[uuid.UUID | None]
     updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
 

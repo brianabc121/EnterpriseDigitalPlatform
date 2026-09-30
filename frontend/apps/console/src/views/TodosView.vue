@@ -5,12 +5,12 @@ import { onMounted, ref, watch } from 'vue'
 
 import { api, formatDateTime } from '../api'
 import SessionDrawer from '../components/sessions/SessionDrawer.vue'
-import { TICKET_SOURCE } from '../labels'
+import { TODO_SOURCE } from '../labels'
 
-type Status = Schemas['TicketStatus']
+type Status = Schemas['TodoStatus']
 
 const PAGE_SIZE = 20
-const items = ref<Schemas['TicketOut'][]>([])
+const items = ref<Schemas['TodoOut'][]>([])
 const total = ref(0)
 const page = ref(1)
 const status = ref<Status | ''>('open')
@@ -20,9 +20,10 @@ const viewing = ref<string | null>(null)
 
 async function load(): Promise<void> {
   loading.value = true
-  const { data, error } = await api.GET('/api/v1/tickets', {
+  const { data, error } = await api.GET('/api/v1/todos', {
     params: {
       query: {
+        view: 'all',
         status: status.value || undefined,
         limit: PAGE_SIZE,
         offset: (page.value - 1) * PAGE_SIZE,
@@ -38,10 +39,15 @@ async function load(): Promise<void> {
   total.value = data.total
 }
 
-async function complete(ticket: Schemas['TicketOut']): Promise<void> {
-  completing.value = ticket.id
-  const { data, error } = await api.POST('/api/v1/tickets/{ticket_id}/done', {
-    params: { path: { ticket_id: ticket.id } },
+function contact(todo: Schemas['TodoOut']): string {
+  return todo.fields.find((f) => f.key === 'contact' || f.key === 'phone')?.value ?? '—'
+}
+
+async function complete(todo: Schemas['TodoOut']): Promise<void> {
+  completing.value = todo.id
+  const { data, error } = await api.POST('/api/v1/todos/{todo_id}/done', {
+    params: { path: { todo_id: todo.id } },
+    body: { result: '已处理', notify_customer: false },
   })
   completing.value = null
   if (!data) {
@@ -63,10 +69,10 @@ onMounted(load)
 <template>
   <div>
     <div class="page-header">
-      <h2>留言</h2>
-      <el-radio-group v-model="status" size="small" data-testid="ticket-status-filter">
+      <h2>待办</h2>
+      <el-radio-group v-model="status" size="small" data-testid="todo-status-filter">
         <el-radio-button value="open">待处理</el-radio-button>
-        <el-radio-button value="done">已处理</el-radio-button>
+        <el-radio-button value="done">已完成</el-radio-button>
         <el-radio-button value="">全部</el-radio-button>
       </el-radio-group>
     </div>
@@ -75,22 +81,29 @@ onMounted(load)
       :closable="false"
       show-icon
       class="tip"
-      title="访客在 Widget 里留言、排队超时或非工作时间来访时，会在这里生成留言。联系客户后标记为已处理。"
+      title="访客留言、排队超时或非工作时间来访、员工新建的事项会在这里生成待办。处理后标记为已完成。"
     />
-    <el-table v-loading="loading" :data="items" data-testid="tickets-table" empty-text="暂无留言">
-      <el-table-column prop="customer_display_name" label="客户" min-width="120" />
-      <el-table-column label="来源" width="110">
+    <el-table v-loading="loading" :data="items" data-testid="todos-table" empty-text="暂无待办">
+      <el-table-column prop="no" label="编号" width="150" />
+      <el-table-column label="客户" min-width="110">
+        <template #default="{ row }">{{ row.customer_name ?? '—' }}</template>
+      </el-table-column>
+      <el-table-column label="类型" width="110">
         <template #default="{ row }">
-          <el-tag size="small" type="info">{{ TICKET_SOURCE[row.source] ?? row.source }}</el-tag>
+          <el-tag size="small" type="info">{{ row.type_name }}</el-tag>
         </template>
       </el-table-column>
       <el-table-column label="内容" min-width="260">
         <template #default="{ row }">
-          <div class="content">{{ row.content }}</div>
+          <div class="title">{{ row.title }}</div>
+          <div class="content">{{ row.detail }}</div>
         </template>
       </el-table-column>
-      <el-table-column label="联系方式" min-width="130">
-        <template #default="{ row }">{{ row.contact ?? '—' }}</template>
+      <el-table-column label="来源" width="100">
+        <template #default="{ row }">{{ TODO_SOURCE[row.source] ?? row.source }}</template>
+      </el-table-column>
+      <el-table-column label="联系方式" min-width="120">
+        <template #default="{ row }">{{ contact(row) }}</template>
       </el-table-column>
       <el-table-column label="时间" width="170">
         <template #default="{ row }">{{ formatDateTime(row.created_at) }}</template>
@@ -107,18 +120,18 @@ onMounted(load)
             会话
           </el-button>
           <el-button
-            v-if="row.status === 'open'"
+            v-if="row.status === 'open' || row.status === 'in_progress'"
             link
             type="primary"
             size="small"
             :loading="completing === row.id"
-            data-testid="complete-ticket"
+            data-testid="complete-todo"
             @click="complete(row)"
           >
             标记已处理
           </el-button>
-          <span v-else class="muted"
-            >已处理 {{ row.closed_at ? formatDateTime(row.closed_at) : '' }}</span
+          <span v-else-if="row.closed_at" class="muted"
+            >已结束 {{ formatDateTime(row.closed_at) }}</span
           >
         </template>
       </el-table-column>
@@ -141,9 +154,14 @@ onMounted(load)
   margin-bottom: 16px;
 }
 
+.title {
+  font-weight: 500;
+}
+
 .content {
   white-space: pre-wrap;
   word-break: break-word;
+  color: var(--el-text-color-regular);
 }
 
 .muted {

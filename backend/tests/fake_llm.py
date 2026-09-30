@@ -2,7 +2,8 @@
 
 - /v1/embeddings：按词项（中文二元组）哈希到 1024 维再归一化，意思相近的问题向量相近。
 - /v1/chat/completions：按系统提示第一行的任务名作答：
-  - 在线客服回复：取【参考资料】第一条的答案作为回复（有资料时把握 0.9）；
+  - 在线客服回复：取【参考资料】第一条的答案作为回复（有资料时把握 0.9）；待办工具返回了答复话术、
+    缺少的信息或查到的进度时，照着答复；
     没有资料时回复无法回答并请求转人工。请求带了工具且 tool_plan 里有安排时，先返回工具调用，
     拿到工具结果后再回复（工具查到的资料也可以作为答案）。
   - 问题改写：按问号、分号、换行拆开，去掉寒暄；有上文且问题很短时补上上一句客户消息。
@@ -11,6 +12,9 @@
   - 会话小结：客户说过的话作为诉求，带"退"字时标签为售后。
   - 知识提炼：客户的问题与紧跟的客服回答组成问答；客服没能解答的问题记为缺口。
   - 优秀话术：坐席说的较长的话。
+  - 待办解析：按关键词识别开票、回电、退换货、投诉、上门、报价、寄资料（只用系统提示里列出的
+    类型），开票的抬头和税号从原话里取；坐席说"给您回电"时记为坐席答应的事；
+    客户原话带"【低置信】"时置信度为 0.4。
 - /v1/rerank：问题词项被文档覆盖的比例作为相关度。
 - /v1/audio/transcriptions：语音转文字。音频内容里带 "text=..." 时返回这段文字（测试和验收
   发的"语音"里写好要转写的内容），否则返回固定的文字。
@@ -27,6 +31,7 @@ import json
 import math
 import re
 from dataclasses import dataclass, field
+from datetime import date, timedelta
 from typing import Any
 
 import httpx
@@ -40,6 +45,7 @@ from app.modules.ai.prompts import (
     TASK_SESSION_SUMMARY,
     TASK_SUGGEST,
     TASK_SUMMARY,
+    TASK_TODO_EXTRACT,
 )
 from app.modules.kb.text import terms
 
@@ -158,6 +164,80 @@ def _phrases(transcript: str) -> str:
     return json.dumps({"phrases": phrases}, ensure_ascii=False)
 
 
+# 待办解析的关键词：类型编码 → 客户原话里的词。
+_TODO_WORDS: dict[str, tuple[str, ...]] = {
+    "invoice": ("发票", "开票", "专票"),
+    "callback": ("回电", "回个电话", "打电话", "给我电话"),
+    "after_sales": ("退货", "换货", "换一个", "破损", "坏了", "维修"),
+    "complaint": ("投诉", "赔偿"),
+    "visit": ("上门", "安装"),
+    "quote": ("报价", "批量", "什么价"),
+    "send_materials": ("资料", "手册"),
+}
+_AGENT_PROMISE = ("给您回电", "回您电话", "给您打电话")
+
+
+def _todo_extract(system: str, transcript: str) -> str:
+    """待办解析：按关键词找客户的诉求和坐席答应的事。"""
+    codes = set(re.findall(r"(?m)^- ([a-z][a-z0-9_]*)（", system))
+    now_match = re.search(r"现在是 (\S+)。", system)
+    lines = [
+        (int(number), role, text.strip())
+        for number, role, text in re.findall(
+            r"(?ms)^\[(\d+)\] ([^：\n]+)：(.*?)(?=^\[\d+\] |\Z)", transcript
+        )
+    ]
+    found: dict[str, dict[str, Any]] = {}
+    for number, role, text in lines:
+        matched: list[tuple[str, bool]] = []
+        if role == "客户":
+            matched = [
+                (code, False)
+                for code, words in _TODO_WORDS.items()
+                if any(w in text for w in words)
+            ]
+        elif any(word in text for word in _AGENT_PROMISE):
+            matched = [("callback", True)]
+        for code, promised in matched:
+            if code not in codes:
+                continue
+            item = found.setdefault(
+                code,
+                {
+                    "type": code,
+                    "title": text[:20],
+                    "detail": "",
+                    "fields": {},
+                    "promised_by_agent": promised,
+                    "due_hint": "",
+                    "due_at": "",
+                    "evidence": [],
+                    "confidence": 0.4 if "【低置信】" in text else 0.8,
+                },
+            )
+            item["detail"] = "；".join(filter(None, [item["detail"], text]))[:300]
+            item["evidence"].append(number)
+            if code == "invoice":
+                kind = "增值税专用发票" if ("专票" in text or "专用" in text) else "普通发票"
+                item["fields"].setdefault("invoice_type", kind)
+                title = re.search(r"抬头[是为：:\s]*([^\s，,。；;]+)", text)
+                tax = re.search(r"税号[是为：:\s]*([0-9A-Za-z]+)", text)
+                if title:
+                    item["fields"]["invoice_title"] = title.group(1)
+                if tax:
+                    item["fields"]["tax_no"] = tax.group(1)
+            if "明天" in text and now_match:
+                day = now_match.group(1)[:10]
+                item["due_hint"] = "明天"
+                item["due_at"] = f"{day}T18:00:00+08:00"
+    for item in found.values():
+        if item["due_at"]:
+            # "明天"：现在的日期加一天。
+            day = date.fromisoformat(item["due_at"][:10]) + timedelta(days=1)
+            item["due_at"] = f"{day.isoformat()}T18:00:00+08:00"
+    return json.dumps({"todos": list(found.values())}, ensure_ascii=False)
+
+
 def rerank_score(query: str, document: str) -> float:
     wanted = set(terms(query))
     if not wanted:
@@ -217,6 +297,8 @@ class FakeLLM:
                 if line.startswith("客户：")
             ]
             content = f"客户咨询：{'；'.join(customer[-3:])[:100]}。"
+        elif task == TASK_TODO_EXTRACT:
+            content = "这不是 JSON" if self.mode == "bad_json" else _todo_extract(system, last_user)
         elif task == TASK_EXTRACT:
             content = "这不是 JSON" if self.mode == "bad_json" else _extract(last_user)
         elif task == TASK_SUGGEST:
@@ -263,6 +345,16 @@ class FakeLLM:
         answers = _answers(system)
         if not answers and "答：" in tool_results:
             answers = [tool_results.split("答：", 1)[1].split("\n", 1)[0].strip()]
+        # 待办工具：按工具返回的话术答复、追问缺少的信息、复述查到的进度。
+        if not answers and "请这样答复客户：" in tool_results:
+            answers = [tool_results.rsplit("请这样答复客户：", 1)[1].split("\n", 1)[0].strip()]
+        elif not answers and "还不能登记：" in tool_results:
+            missing = tool_results.rsplit("还不能登记：", 1)[1].split("。", 1)[0]
+            answers = [f"好的，还需要您补充：{missing}。"]
+        elif not answers and "请告诉客户" in tool_results:
+            answers = ["好的，已经在为您跟进，请耐心等待。"]
+        elif not answers and "」：" in tool_results:
+            answers = [tool_results.strip().splitlines()[0]]
         if self.mode == "handoff":
             reply = {
                 "reply": "这个问题需要人工处理。",

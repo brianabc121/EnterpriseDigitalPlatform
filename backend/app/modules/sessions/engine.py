@@ -35,9 +35,6 @@ from app.modules.conversation.models import (
     SessionStatus,
     SessionTransfer,
     SessionWatcher,
-    Ticket,
-    TicketSource,
-    TicketStatus,
     TransferStatus,
 )
 from app.modules.customer.models import Customer
@@ -57,6 +54,7 @@ from app.modules.routing.models import (
     RoutingPolicy,
     SkillGroup,
 )
+from app.modules.todos import service as todos
 from app.modules.wecom import menus
 from app.modules.wecom.notify import notify_staff
 from app.observability import metrics
@@ -65,8 +63,8 @@ logger = logging.getLogger(__name__)
 
 _ASSIGN_LOCK = 1002
 # 非工作时间的留言：这段时间内客户的后续消息追加到同一条留言。
-_OFF_HOURS_TICKET_WINDOW = timedelta(hours=12)
-_TICKET_TEXT_LIMIT = 2000
+_OFF_HOURS_WINDOW = timedelta(hours=12)
+_LEAVE_TEXT_LIMIT = 2000
 
 
 class Notice:
@@ -318,25 +316,13 @@ async def _leave_off_hours_message(
     todo: _AfterCommit,
     skill_group_id: uuid.UUID | None,
 ) -> ChatSession:
-    """非工作时间：会话直接转为留言。同一段非工作时间里的后续消息追加到同一条留言。"""
-    row = (
-        await session.execute(
-            select(Ticket, ChatSession)
-            .join(ChatSession, ChatSession.id == Ticket.session_id)
-            .where(
-                ChatSession.room_id == room.id,
-                Ticket.source == TicketSource.OFF_HOURS,
-                Ticket.status == TicketStatus.OPEN,
-                Ticket.created_at >= now - _OFF_HOURS_TICKET_WINDOW,
-            )
-            .order_by(Ticket.created_at.desc())
-            .limit(1)
-        )
-    ).first()
-    if row is not None:
-        ticket, chat = row
-        ticket.content = _clip(f"{ticket.content}\n{text}")
-        return chat
+    """非工作时间：会话直接转为留言（"留言"类待办）。同一段非工作时间里的后续消息追加到同一条留言。"""
+    existing = await todos.open_leave_message(session, room.id, now - _OFF_HOURS_WINDOW)
+    if existing is not None and existing.session_id is not None:
+        chat = await session.get(ChatSession, existing.session_id)
+        if chat is not None:
+            existing.detail = _clip(f"{existing.detail}\n{text}")
+            return chat
 
     chat = ChatSession(
         id=new_id(),
@@ -355,16 +341,16 @@ async def _leave_off_hours_message(
     record_event(
         session, chat, "closed", payload={"reason": CloseReason.LEAVE_MESSAGE, "off_hours": True}
     )
-    session.add(
-        Ticket(
-            tenant_id=room.tenant_id,
-            customer_id=room.customer_id,
-            session_id=chat.id,
-            source=TicketSource.OFF_HOURS,
-            content=_clip(text),
-            assignee_id=await _owner_of(session, room.customer_id),
-            skill_group_id=skill_group_id,
-        )
+    await todos.leave_message(
+        session,
+        tenant_id=room.tenant_id,
+        customer_id=room.customer_id,
+        session_id=chat.id,
+        origin="off_hours",
+        detail=_clip(text),
+        channel_account_id=room.channel_account_id,
+        group_hint=skill_group_id,
+        now=now,
     )
     outbox.enqueue_notice(session, room.id, Notice.OFF_HOURS)
     todo.rooms.add(room.id)
@@ -470,16 +456,16 @@ async def _handoff_off_hours(
     content = chat.ai_summary or "\n".join(await _customer_texts(session, chat.id))
     if chat.handoff_reason:
         content = f"【{reasons.label(chat.handoff_reason)}】{content}"
-    session.add(
-        Ticket(
-            tenant_id=chat.tenant_id,
-            customer_id=chat.customer_id,
-            session_id=chat.id,
-            source=TicketSource.OFF_HOURS,
-            content=_clip(content or "（客户没有留下文字内容）"),
-            assignee_id=await _owner_of(session, chat.customer_id),
-            skill_group_id=chat.skill_group_id,
-        )
+    await todos.leave_message(
+        session,
+        tenant_id=chat.tenant_id,
+        customer_id=chat.customer_id,
+        session_id=chat.id,
+        origin="off_hours",
+        detail=_clip(content or "（客户没有留下文字内容）"),
+        channel_account_id=chat.channel_account_id,
+        group_hint=chat.skill_group_id,
+        now=now,
     )
     await mark_closed(
         session,
@@ -497,11 +483,7 @@ def _message_text(message: Message) -> str:
 
 
 def _clip(text: str) -> str:
-    return text if len(text) <= _TICKET_TEXT_LIMIT else text[: _TICKET_TEXT_LIMIT - 1] + "…"
-
-
-async def _owner_of(session: AsyncSession, customer_id: uuid.UUID) -> uuid.UUID | None:
-    return await session.scalar(select(Customer.owner_id).where(Customer.id == customer_id))
+    return text if len(text) <= _LEAVE_TEXT_LIMIT else text[: _LEAVE_TEXT_LIMIT - 1] + "…"
 
 
 # ---- 排队与分配 ----
@@ -1009,16 +991,16 @@ def _overflow(
 async def _queue_timeout(session: AsyncSession, chat: ChatSession, now: datetime) -> None:
     metrics.QUEUE_TIMEOUTS.labels(metrics.tenant_label(chat.tenant_id)).inc()
     texts = await _customer_texts(session, chat.id)
-    session.add(
-        Ticket(
-            tenant_id=chat.tenant_id,
-            customer_id=chat.customer_id,
-            session_id=chat.id,
-            source=TicketSource.QUEUE_TIMEOUT,
-            content=_clip("\n".join(texts) or "（客户没有留下文字内容）"),
-            assignee_id=await _owner_of(session, chat.customer_id),
-            skill_group_id=chat.skill_group_id,
-        )
+    await todos.leave_message(
+        session,
+        tenant_id=chat.tenant_id,
+        customer_id=chat.customer_id,
+        session_id=chat.id,
+        origin="queue_timeout",
+        detail=_clip("\n".join(texts) or "（客户没有留下文字内容）"),
+        channel_account_id=chat.channel_account_id,
+        group_hint=chat.skill_group_id,
+        now=now,
     )
     await mark_closed(
         session,

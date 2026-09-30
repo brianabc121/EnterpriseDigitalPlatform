@@ -3,7 +3,7 @@
 // 1. 管理员在"设置"里新建技能组（含组长）、两套路由策略（其中一套带工作时间）、把渠道绑定到
 //    "分配到技能组"的策略，并把小艾的最多同时接待改成 1。
 // 2. 两位访客先后咨询：按技能组和并发上限分别分给小艾、小博。小艾回复并结束，访客评价；
-//    第三位访客留言，管理员在"留言"页处理。
+//    第三位访客留言（生成"留言"类待办），管理员在"待办"页处理。
 // 3. 汇总用量后检查：会话记录（对话与过程）、用量页、报表、首页实时数据、运营后台的租户用量。
 //
 // 前置与 m4-workbench-acceptance.cjs 相同（后端、实时消费进程、调度进程、控制台、运营后台、Widget、
@@ -262,17 +262,17 @@ async function run(browser) {
   await third.page.locator('[data-testid="leave-message"] button[type="submit"]').click()
   await third.page.locator('[data-testid="leave-thanks"]').waitFor()
 
-  // 7. 留言：管理员处理
-  await menu(page, '留言')
-  const ticketRow = page.locator('[data-testid="tickets-table"] .el-table__row', {
+  // 7. 留言：管理员在待办里处理
+  await menu(page, '待办')
+  const todoRow = page.locator('[data-testid="todos-table"] .el-table__row', {
     hasText: '周末能送货吗',
   })
-  await ticketRow.waitFor({ timeout: 15000 })
-  await ticketRow.locator('[data-testid="complete-ticket"]').click()
+  await todoRow.waitFor({ timeout: 15000 })
+  await todoRow.locator('[data-testid="complete-todo"]').click()
   await page.locator('.el-message--success', { hasText: '已处理' }).waitFor()
-  await page.locator('[data-testid="ticket-status-filter"] .el-radio-button', { hasText: '已处理' }).click()
-  await ticketRow.waitFor()
-  check('留言在"留言"页处理完成', true)
+  await page.locator('[data-testid="todo-status-filter"] .el-radio-button', { hasText: '已完成' }).click()
+  await todoRow.waitFor()
+  check('留言在"待办"页处理完成', true)
 
   // 8. 会话记录：已结束的会话，查看对话与过程
   await menu(page, '会话记录')

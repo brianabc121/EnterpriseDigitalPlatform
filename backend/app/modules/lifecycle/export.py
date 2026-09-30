@@ -53,6 +53,8 @@ REDACT: dict[str, tuple[str, ...]] = {
 }
 # 用租户密钥加密的字段：导出明文（注销后密钥随数据删除，密文没有用处）。
 DECRYPT: dict[str, dict[str, str]] = {"customers": {"phone_enc": "phone", "email_enc": "email"}}
+# jsonb 列里加密保存的值（{"enc": 密文, "masked": 掩码}），同样导出明文：待办的敏感字段。
+DECRYPT_NESTED: dict[str, str] = {"todos": "fields"}
 # 聊天文件合计超过这个大小后，其余的只列出 key。
 MAX_FILE_BYTES = 512 * 1024 * 1024
 
@@ -158,6 +160,20 @@ async def _decrypt_row(
     return json.dumps(row, ensure_ascii=False)
 
 
+async def _decrypt_nested(ctx: AppContext, tenant_id: uuid.UUID, line: str, column: str) -> str:
+    row = json.loads(line)
+    values = row.get(column)
+    if isinstance(values, dict):
+        for key, value in values.items():
+            if isinstance(value, dict) and "enc" in value:
+                try:
+                    values[key] = await ctx.keys.unseal(tenant_id, str(value["enc"]))
+                except DecryptError:
+                    logger.warning("cannot decrypt %s.%s of an exported row", column, key)
+                    values[key] = None
+    return json.dumps(row, ensure_ascii=False)
+
+
 async def _write_files(
     ctx: AppContext, archive: zipfile.ZipFile, tenant_code: str
 ) -> dict[str, int]:
@@ -215,6 +231,10 @@ async def build_export(ctx: AppContext, export_id: uuid.UUID) -> str:
                             async for (line,) in result:
                                 if table in DECRYPT:
                                     line = await _decrypt_row(ctx, tenant.id, line, DECRYPT[table])
+                                if table in DECRYPT_NESTED:
+                                    line = await _decrypt_nested(
+                                        ctx, tenant.id, line, DECRYPT_NESTED[table]
+                                    )
                                 out.write(line.encode() + b"\n")
                                 rows += 1
                         counts[table] = rows

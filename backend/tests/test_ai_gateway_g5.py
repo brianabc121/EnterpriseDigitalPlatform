@@ -162,7 +162,7 @@ async def _tools_provider(desk: Desk, app: FastAPI) -> dict[str, str]:
     return ops
 
 
-async def test_tools_capture_leads_hand_off_and_leave_tickets(
+async def test_tools_capture_leads_hand_off_and_register_todos(
     desk: Desk, app: FastAPI, fake_llm: FakeLLM
 ) -> None:
     await _tools_provider(desk, app)
@@ -225,15 +225,21 @@ async def test_tools_capture_leads_hand_off_and_leave_tickets(
     summaries = await desk.sql("SELECT id FROM llm_calls WHERE scene = 'summary'")
     assert summaries == []
 
-    # 登记留言。
-    fake_llm.tool_plan = [("create_ticket", {"subject": "回电", "detail": "客户希望明天上午回电"})]
+    # 登记待办（回电）：进入待确认页，由人工确认。
+    fake_llm.tool_plan = [
+        (
+            "create_todo",
+            {"type": "callback", "title": "回电", "detail": "客户希望明天上午回电"},
+        )
+    ]
     third = await desk.visitor()
     await desk.say(third, "想批量采购，明天上午给我回电话")
-    [ticket] = await desk.sql("SELECT source, content, status FROM tickets")
-    assert (ticket["source"], ticket["content"], ticket["status"]) == (
-        "ai",
-        "【回电】客户希望明天上午回电",
-        "open",
+    [todo] = await desk.sql("SELECT source, title, detail, status FROM todos")
+    assert (todo["source"], todo["title"], todo["detail"], todo["status"]) == (
+        "ai_chat",
+        "回电",
+        "客户希望明天上午回电",
+        "pending",
     )
 
 

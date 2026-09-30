@@ -24,10 +24,16 @@ export const CLOSE_REASON: Record<string, string> = {
   visitor_cancel: '客户取消排队',
 }
 
-export const TICKET_SOURCE: Record<string, string> = {
-  queue_timeout: '排队超时',
-  off_hours: '非工作时间',
+export const TODO_SOURCE: Record<string, string> = {
+  ai_chat: 'AI 接待',
+  ai_summary: '会话后解析',
+  zone: '专区',
+  copilot: '工作台',
+  sidebar: '侧边栏',
+  staff: '员工新建',
   visitor: '访客留言',
+  rule: '系统规则',
+  api: '企业系统',
 }
 
 export const SESSION_EVENT: Record<string, string> = {

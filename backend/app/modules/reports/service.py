@@ -26,7 +26,6 @@ from app.modules.conversation.models import (
     SessionEvent,
     SessionStatus,
     SessionTransfer,
-    Ticket,
     TransferStatus,
 )
 from app.modules.customer.models import Customer
@@ -42,7 +41,10 @@ from app.modules.reports.schemas import (
 )
 from app.modules.routing.models import AgentState, AgentStatus
 from app.modules.routing.scope import team_members
-from app.modules.sessions.service import session_visible_to, ticket_visible_to
+from app.modules.sessions.service import session_visible_to
+from app.modules.todos.models import Todo, TodoType
+from app.modules.todos.presets import LEAVE_MESSAGE
+from app.modules.todos.service import visible_to as todo_visible_to
 
 SERVING = (SessionStatus.HUMAN_SERVING, SessionStatus.TRANSFERRING)
 DONE_TRANSFERS = (TransferStatus.ACCEPTED, TransferStatus.COMPLETED)
@@ -223,12 +225,17 @@ async def overview(
             )
         )
     ).one()
+    # 新增留言："留言"类待办（非工作时间、排队超时和访客自己提交的）。
     tickets = await session.scalar(
-        _with_customer(select(func.count()).select_from(Ticket), Ticket).where(
-            Ticket.tenant_id == principal.tenant_id,
-            Ticket.created_at >= since,
-            Ticket.created_at < until,
-            ticket_visible_to(principal),
+        select(func.count())
+        .select_from(Todo)
+        .join(TodoType, TodoType.id == Todo.type_id)
+        .where(
+            Todo.tenant_id == principal.tenant_id,
+            TodoType.code == LEAVE_MESSAGE,
+            Todo.created_at >= since,
+            Todo.created_at < until,
+            todo_visible_to(principal),
         )
     )
     transfers = await session.scalar(

@@ -220,7 +220,7 @@ async def test_agent_cannot_close_someone_elses_session(desk: Desk) -> None:
     assert response.status_code == 200
 
 
-async def test_queue_timeout_turns_into_a_ticket(desk: Desk) -> None:
+async def test_queue_timeout_turns_into_a_leave_message(desk: Desk) -> None:
     [policy] = (await desk.client.get("/api/v1/routing-policies", headers=desk.admin)).json()[
         "items"
     ]
@@ -244,15 +244,19 @@ async def test_queue_timeout_turns_into_a_ticket(desk: Desk) -> None:
     chat = await desk.session_of(visitor)
     assert (chat["status"], chat["close_reason"]) == ("closed", "leave_message")
     assert desk.notices(visitor)[-1] == "当前咨询较多，您的问题已登记为留言，我们会尽快联系您。"
-    response = await desk.client.get("/api/v1/tickets?status=open", headers=desk.admin)
-    [ticket] = response.json()["items"]
-    assert (ticket["source"], ticket["content"], ticket["session_id"]) == (
-        "queue_timeout",
-        "请问能开发票吗\n急用",
-        str(chat["id"]),
+    # 排队超时转为"留言"类待办，直接进入待办列表。
+    response = await desk.client.get("/api/v1/todos?status=open", headers=desk.admin)
+    [todo] = response.json()["items"]
+    assert (todo["type_code"], todo["source"], todo["title"]) == (
+        "leave_message",
+        "rule",
+        "排队超时留言",
     )
+    assert (todo["detail"], todo["session_id"]) == ("请问能开发票吗\n急用", str(chat["id"]))
 
-    response = await desk.client.post(f"/api/v1/tickets/{ticket['id']}/done", headers=desk.admin)
+    response = await desk.client.post(
+        f"/api/v1/todos/{todo['id']}/done", headers=desk.admin, json={"result": "已回电"}
+    )
     assert response.json()["status"] == "done"
 
 
@@ -311,7 +315,7 @@ async def test_heartbeat_keeps_the_agent_online(desk: Desk) -> None:
     assert report.agents_offline == 0
 
 
-async def test_off_hours_messages_become_one_ticket(desk: Desk) -> None:
+async def test_off_hours_messages_become_one_leave_message(desk: Desk) -> None:
     [policy] = (await desk.client.get("/api/v1/routing-policies", headers=desk.admin)).json()[
         "items"
     ]
@@ -336,11 +340,12 @@ async def test_off_hours_messages_become_one_ticket(desk: Desk) -> None:
     assert desk.notices(visitor) == [
         "您好，现在是非工作时间。您的留言已记录，我们会在工作时间尽快联系您。"
     ]
-    [ticket] = await desk.sql("SELECT source, content, session_id FROM tickets")
-    assert (ticket["source"], ticket["content"], ticket["session_id"]) == (
-        "off_hours",
+    [todo] = await desk.sql("SELECT title, detail, session_id, status FROM todos")
+    assert (todo["title"], todo["detail"], todo["session_id"], todo["status"]) == (
+        "非工作时间留言",
         "晚上好\n明天联系我",
         chat["id"],
+        "open",
     )
 
 

@@ -199,7 +199,7 @@ class PersonalData(BaseModel):
     identities: list[dict[str, Any]]
     sessions: list[dict[str, Any]]
     messages: list[dict[str, Any]]
-    tickets: list[dict[str, Any]]
+    todos: list[dict[str, Any]]
     owner_history: list[dict[str, Any]]
     wecom_follows: list[dict[str, Any]]
 
@@ -208,7 +208,7 @@ class ErasureResult(BaseModel):
     request_id: UUID
     sessions: int
     messages: int
-    tickets: int
+    todos: int = Field(description="删除的待办数")
     identities: int
     files: int = Field(description="删除的聊天文件数")
     im_groups: int = Field(description="解散的服务群数")

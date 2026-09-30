@@ -10,6 +10,8 @@ const AGENT: Permission[] = [
   'customer:read',
   'customer:create',
   'kb:read',
+  'todo:read',
+  'todo:handle',
 ]
 const KNOWLEDGE_MANAGER: Permission[] = ['dashboard:view', 'kb:read', 'kb:manage', 'kb:publish']
 
@@ -27,7 +29,7 @@ describe('visibleMenus', () => {
       'dashboard',
       'workbench',
       'sessions',
-      'tickets',
+      'todos',
       'customers',
       'knowledge',
     ])

@@ -175,8 +175,8 @@ async function run(browser) {
   const menus = summary.menus
   const customers = summary.customers
   // 与控制台 menu.ts 一致：管理员有全部权限；坐席只有接待相关的菜单。
-  const ALL_MENUS = ['首页', '工作台', '会话记录', '留言', '客户', '知识库', 'AI 接待', '员工', '报表', '群发', '企业微信', '操作日志', '设置']
-  const AGENT_MENUS = ['首页', '工作台', '会话记录', '留言', '客户', '知识库']
+  const ALL_MENUS = ['首页', '工作台', '会话记录', '待办', '客户', '知识库', 'AI 接待', '员工', '报表', '群发', '企业微信', '操作日志', '设置']
+  const AGENT_MENUS = ['首页', '工作台', '会话记录', '待办', '客户', '知识库']
   check(
     `管理员看到全部 ${ALL_MENUS.length} 个菜单`,
     JSON.stringify(menus['租户 A 管理员']) === JSON.stringify(ALL_MENUS),

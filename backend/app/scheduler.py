@@ -17,6 +17,8 @@
 - 生成上个月的账单（每 6 小时检查，已收款的不变）；
 - 生成排队中的数据导出、删除过期的导出文件（每 30 秒）；
 - 删除注销保留期已到的租户数据（每小时）；
+- 待办：发送提醒、待确认再提醒、到期提醒、逾期提醒与升级（每 15 秒）；每个工作日上班后发送
+  今日待办汇总（每 5 分钟检查）；解析最近结束的人工会话，生成待确认的待办（每分钟）；
 - 读取排队、坐席、发件箱、事件积压等状态类指标（每 15 秒，见 app/observability/state.py）；
 - 建好本月和之后 3 个月的消息分区（每小时，见 app/db/partitions.py）。
 
@@ -58,6 +60,9 @@ from app.modules.security.retention import run_retention
 from app.modules.security.scanning import run_file_scan
 from app.modules.sessions.engine import republish_orphans, run_session_timers
 from app.modules.sessions.transfer import run_transfer_timers
+from app.modules.todos.extract import run_pending as run_todo_extraction
+from app.modules.todos.notify import run_digest as run_todo_digest
+from app.modules.todos.notify import run_timers as run_todo_timers
 from app.modules.usage.service import run_usage_rollup
 from app.modules.wecom.contacts import poll_transfers
 from app.modules.wecom.kf import sync_all as kf_sync_all
@@ -105,6 +110,9 @@ JOBS = (
     Job("file-scan", 60, run_file_scan),
     Job("ai-cache", 3600, purge_expired_answers),
     Job("session-summaries", 60, run_session_summaries),
+    Job("todo-timers", 15, run_todo_timers),
+    Job("todo-digest", 300, run_todo_digest),
+    Job("todo-extract", 60, run_todo_extraction),
     Job("metrics-state", state.INTERVAL_SECONDS, state.refresh),
     Job("partitions", 3600, ensure_partitions),
 )

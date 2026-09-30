@@ -262,9 +262,9 @@ async def test_handoff_outside_business_hours_leaves_a_message(desk: Desk) -> No
 
     chat = await desk.session_of(visitor)
     assert (chat["status"], chat["close_reason"]) == ("closed", "leave_message")
-    [ticket] = await desk.sql("SELECT source, content FROM tickets")
-    assert ticket["source"] == "off_hours"
-    assert ticket["content"].startswith("【客户要求人工】客户咨询：")
+    [todo] = await desk.sql("SELECT title, detail FROM todos")
+    assert todo["title"] == "非工作时间留言"
+    assert todo["detail"].startswith("【客户要求人工】客户咨询：")
 
 
 async def test_idle_ai_sessions_are_closed_as_resolved(desk: Desk) -> None:

@@ -22,6 +22,7 @@ from app.modules.iam.models import Role, Staff, StaffRole
 from app.modules.routing.models import RoutingPolicy
 from app.modules.tenancy.models import PlatformUser, PlatformUserStatus, Tenant, TenantStatus
 from app.modules.tenancy.schemas import TenantCreate, TenantOut, TenantUpdate
+from app.modules.todos.presets import add_presets as add_todo_presets
 
 MIN_PASSWORD_LENGTH = 8
 
@@ -95,6 +96,7 @@ async def provision_tenant(
     session.add_all(roles.values())
     session.add(default_web_channel(tenant.id, tenant.code))
     session.add(RoutingPolicy(id=new_id(), tenant_id=tenant.id, name="默认策略", is_default=True))
+    add_todo_presets(session, tenant.id)
     admin = Staff(
         id=new_id(),
         tenant_id=tenant.id,
