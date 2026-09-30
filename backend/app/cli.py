@@ -34,6 +34,8 @@ from app.modules.kb.reminders import remind_expiring
 from app.modules.kb.service import reindex_all
 from app.modules.lifecycle.closure import run_purges
 from app.modules.lifecycle.export import run_exports
+from app.modules.orders.jobs import run_collections as run_order_collections
+from app.modules.products.service import embed_pending as embed_products
 from app.modules.security.keys import TenantKeyring
 from app.modules.security.retention import run_retention
 from app.modules.security.rotation import rewrap_master
@@ -138,6 +140,18 @@ async def todo_jobs(settings: Settings) -> dict[str, Any]:
             "timers": await run_todo_timers(ctx),
             "digests": await run_todo_digest(ctx),
             "extracted": await run_todo_extraction(ctx),
+        }
+    finally:
+        await ctx.aclose()
+
+
+async def order_jobs(settings: Settings) -> dict[str, Any]:
+    """立即为到期未收清的暂欠订单生成催收待办，并为新商品生成向量（平时由调度进程定时执行）。"""
+    ctx = AppContext.create(settings)
+    try:
+        return {
+            "collections": await run_order_collections(ctx),
+            "embedded": await embed_products(ctx),
         }
     finally:
         await ctx.aclose()
@@ -357,6 +371,10 @@ def main(argv: list[str] | None = None) -> int:
         "todo-jobs",
         help="立即发送待办提醒、到期提醒和逾期升级，并解析最近结束的会话（平时由调度进程定时执行）",
     )
+    commands.add_parser(
+        "order-jobs",
+        help="立即为到期未收清的暂欠订单生成催收待办，并为新商品生成向量（平时由调度进程定时执行）",
+    )
 
     digest = commands.add_parser("kb-digest", help="生成知识周报（默认本周）")
     digest.add_argument("--tenant", help="租户编码，不填时处理全部租户")
@@ -437,6 +455,8 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps(done, ensure_ascii=False))
     elif args.command == "todo-jobs":
         print(json.dumps(asyncio.run(todo_jobs(get_settings())), ensure_ascii=False))
+    elif args.command == "order-jobs":
+        print(json.dumps(asyncio.run(order_jobs(get_settings())), ensure_ascii=False))
     elif args.command == "kb-digest":
         digests = asyncio.run(kb_digest(get_settings(), args.tenant, args.week))
         print(json.dumps(digests, ensure_ascii=False))

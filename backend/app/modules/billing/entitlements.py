@@ -27,7 +27,7 @@ from app.modules.kb.models import ItemStatus, KbItem
 from app.modules.tenancy.models import Tenant
 
 LimitKey = Literal["seats", "ai_replies_monthly", "kb_items", "channels"]
-FeatureKey = Literal["ai", "wecom", "broadcast", "extraction", "zone", "todos"]
+FeatureKey = Literal["ai", "wecom", "broadcast", "extraction", "zone", "todos", "orders"]
 
 # 额度：名称与单位。
 LIMITS: dict[str, tuple[str, str]] = {
@@ -43,6 +43,7 @@ FEATURES: dict[str, str] = {
     "extraction": "聊天知识提炼",
     "zone": "数据与智能专区",
     "todos": "待办（AI 登记、会话后解析）",
+    "orders": "订单与商品库（AI 下单、收款登记、订单跟踪）",
 }
 UPGRADE_HINT = "请联系平台升级套餐"
 

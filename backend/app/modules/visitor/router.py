@@ -14,6 +14,8 @@ from app.modules.conversation.deps import get_im, get_im_provisioner
 from app.modules.conversation.provisioning import IMProvisioner
 from app.modules.files.router import upload_out
 from app.modules.files.schemas import UploadOut, UploadRequest
+from app.modules.orders import public as order_public
+from app.modules.orders.schemas import VisitorOrderList
 from app.modules.todos import visitor as todo_visitor
 from app.modules.todos.schemas import VisitorTodoList
 from app.modules.visitor import actions, conversation, service
@@ -101,6 +103,12 @@ async def leave_message(
 async def service_progress(visitor: CurrentVisitor) -> VisitorTodoList:
     """服务进度：自己登记的事项（待办）的状态和预计完成时间（企业开启后可用）。"""
     return await todo_visitor.progress(visitor)
+
+
+@router.get("/orders", response_model=VisitorOrderList)
+async def my_orders(ctx: Context, visitor: CurrentVisitor) -> VisitorOrderList:
+    """我的订单：自己提交的订单和跟踪链接（匿名访客只有在当前访客身份下提交的）。"""
+    return await order_public.visitor_orders(ctx, visitor)
 
 
 @router.post("/handoff", response_model=VisitorSessionState)

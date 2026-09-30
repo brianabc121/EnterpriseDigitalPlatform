@@ -12,7 +12,7 @@ export const HEALTH_STATUS: Record<string, { label: string; type: string }> = {
 }
 
 export type LimitKey = 'seats' | 'ai_replies_monthly' | 'kb_items' | 'channels'
-export type FeatureKey = 'ai' | 'wecom' | 'broadcast' | 'extraction' | 'zone' | 'todos'
+export type FeatureKey = 'ai' | 'wecom' | 'broadcast' | 'extraction' | 'zone' | 'todos' | 'orders'
 
 export const LIMIT_LABELS: Record<LimitKey, { label: string; unit: string }> = {
   seats: { label: '坐席账号', unit: '个' },
@@ -28,6 +28,7 @@ export const FEATURE_LABELS: Record<FeatureKey, string> = {
   extraction: '聊天知识提炼',
   zone: '数据与智能专区',
   todos: '待办（AI 登记、会话后解析）',
+  orders: '订单与商品库（AI 下单、收款登记、订单跟踪）',
 }
 
 export const LLM_SOURCE: Record<string, string> = {

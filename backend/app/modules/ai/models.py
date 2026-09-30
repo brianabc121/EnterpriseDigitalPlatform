@@ -237,3 +237,24 @@ class SessionSummary(TenantMixin, Base):
     generated_at: Mapped[datetime] = mapped_column(server_default=func.now())
     confirmed_by: Mapped[uuid.UUID | None]
     confirmed_at: Mapped[datetime | None]
+
+
+class SecurityEventKind(StrEnum):
+    PRICE_PROBE = "price_probe"  # 客户套问成本价、底价，或诱导 AI 越权（用固定话术答复）
+    REPLY_BLOCKED = "reply_blocked"  # AI 的回复出现内部价格口径或成本价金额，已拦截
+
+
+class AiSecurityEvent(IdMixin, TenantMixin, Base):
+    """AI 安全事件（设计文档 §25.2）：套价识别与回复拦截，留痕并计入指标。"""
+
+    __tablename__ = "ai_security_events"
+    __table_args__ = (
+        ForeignKeyConstraint(["tenant_id", "session_id"], ["sessions.tenant_id", "sessions.id"]),
+        ForeignKeyConstraint(["tenant_id", "customer_id"], ["customers.tenant_id", "customers.id"]),
+    )
+
+    kind: Mapped[str] = mapped_column(String(16))
+    session_id: Mapped[uuid.UUID | None]
+    customer_id: Mapped[uuid.UUID | None]
+    detail: Mapped[dict[str, Any]] = mapped_column(server_default="{}")
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())

@@ -25,9 +25,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.context import AppContext
 from app.core.permissions import Permission
-from app.modules.channels.models import ChannelAccount, ChannelType
-from app.modules.conversation import outbox
-from app.modules.conversation.models import ChatSession, Room
+from app.modules.conversation import notices
+from app.modules.conversation.notices import CustomerNotice
 from app.modules.customer.models import Customer
 from app.modules.iam.models import Staff
 from app.modules.notifications import service as notifications
@@ -461,31 +460,6 @@ async def _digest_tenant(ctx: AppContext, tenant_id: uuid.UUID, now: datetime) -
 # ---- 通知客户 ----
 
 
-@dataclass(frozen=True)
-class CustomerNotice:
-    status: str  # sent（已发送）、manual（待员工发送）、unreachable（未能通知）
-    channel: str | None
-    reason: str | None
-    room_id: uuid.UUID | None
-
-
-async def _room_of(session: AsyncSession, todo: Todo) -> Room | None:
-    if todo.session_id is not None:
-        room_id = await session.scalar(
-            select(ChatSession.room_id).where(ChatSession.id == todo.session_id)
-        )
-        if room_id is not None:
-            return await session.get(Room, room_id)
-    if todo.customer_id is None:
-        return None
-    return await session.scalar(
-        select(Room)
-        .where(Room.customer_id == todo.customer_id)
-        .order_by(Room.updated_at.desc())
-        .limit(1)
-    )
-
-
 async def notify_customer(
     session: AsyncSession,
     todo: Todo,
@@ -496,27 +470,13 @@ async def notify_customer(
     now: datetime | None = None,
 ) -> CustomerNotice:
     """按客户所在渠道的规则通知客户，结果记入待办动态（由调用方提交并刷新发件箱）。"""
-    from app.modules.wecom.kf import reply_window
-
-    now = now or utcnow()
-    room = await _room_of(session, todo)
-    channel = await session.get(ChannelAccount, room.channel_account_id) if room else None
-    if room is None or channel is None:
-        notice = CustomerNotice("unreachable", None, "客户没有可以联系的对话", None)
-    elif channel.type == ChannelType.WEB:
-        outbox.enqueue_notice(session, room.id, text)
-        notice = CustomerNotice("sent", channel.type, None, room.id)
-    elif channel.type == ChannelType.WECOM_KF:
-        window = await reply_window(session, room.id, now)
-        if window.open:
-            outbox.enqueue_notice(session, room.id, text)
-            notice = CustomerNotice("sent", channel.type, None, room.id)
-        else:
-            notice = CustomerNotice("unreachable", channel.type, window.reason, room.id)
-    else:
-        notice = CustomerNotice(
-            "manual", channel.type, "企业微信客户联系不能直接发送，请在侧边栏发送", room.id
-        )
+    notice = await notices.send(
+        session,
+        session_id=todo.session_id,
+        customer_id=todo.customer_id,
+        text=text,
+        now=now or utcnow(),
+    )
     events.record(
         session,
         todo,

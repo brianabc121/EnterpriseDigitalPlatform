@@ -36,6 +36,16 @@ class Permission(StrEnum):
     TODO_ASSIGN = "todo:assign"  # 分派和改派任何人的待办，确认或驳回数据范围内的全部待确认
     TODO_CONFIG = "todo:config"  # 待办类型与待办设置
     TODO_EXPORT = "todo:export"  # 导出待办
+    ORDER_READ = "order:read"  # 查看订单（受数据范围约束）
+    ORDER_CREATE = "order:create"  # 新建订单、提交审核
+    ORDER_REVIEW = "order:review"  # 审核（确认、取消）和跟进订单
+    ORDER_PRICE = "order:price"  # 改价和优惠
+    ORDER_PAYMENT = "order:payment"  # 登记和作废收款、登记退款
+    ORDER_CREDIT = "order:credit"  # 主管审批：同意暂欠、超过折扣上限的优惠
+    ORDER_EXPORT = "order:export"  # 导出订单
+    ORDER_CONFIG = "order:config"  # 订单设置
+    PRODUCT_MANAGE = "product:manage"  # 维护商品库（新建、编辑、Excel 导入）
+    PRODUCT_VIEW_COST = "product:view_cost"  # 查看和导出成本价
 
 
 ALL_PERMISSIONS = frozenset(Permission)
@@ -63,6 +73,16 @@ PERMISSION_INFO: dict[Permission, tuple[str, str]] = {
     Permission.TODO_ASSIGN: ("分派和改派待办", "待办"),
     Permission.TODO_CONFIG: ("待办类型和待办设置", "待办"),
     Permission.TODO_EXPORT: ("导出待办", "待办"),
+    Permission.ORDER_READ: ("查看订单", "订单"),
+    Permission.ORDER_CREATE: ("新建订单", "订单"),
+    Permission.ORDER_REVIEW: ("审核和跟进订单", "订单"),
+    Permission.ORDER_PRICE: ("改价和优惠", "订单"),
+    Permission.ORDER_PAYMENT: ("登记收款和退款", "订单"),
+    Permission.ORDER_CREDIT: ("同意暂欠、审批超过折扣上限的优惠", "订单"),
+    Permission.ORDER_EXPORT: ("导出订单", "订单"),
+    Permission.ORDER_CONFIG: ("订单设置", "订单"),
+    Permission.PRODUCT_MANAGE: ("维护商品库", "订单"),
+    Permission.PRODUCT_VIEW_COST: ("查看和导出成本价", "订单"),
     Permission.KB_READ: ("查看知识库", "知识库"),
     Permission.KB_MANAGE: ("编辑知识和审核候选", "知识库"),
     Permission.KB_PUBLISH: ("发布知识", "知识库"),
@@ -100,6 +120,10 @@ DEFAULT_ROLES: tuple[RoleSpec, ...] = (
                 Permission.SESSION_TRANSFER,
                 Permission.TODO_READ,
                 Permission.TODO_HANDLE,
+                Permission.ORDER_READ,
+                Permission.ORDER_CREATE,
+                Permission.ORDER_REVIEW,
+                Permission.ORDER_PAYMENT,
             }
         ),
     ),
@@ -124,6 +148,13 @@ DEFAULT_ROLES: tuple[RoleSpec, ...] = (
                 Permission.TODO_HANDLE,
                 Permission.TODO_ASSIGN,
                 Permission.TODO_EXPORT,
+                Permission.ORDER_READ,
+                Permission.ORDER_CREATE,
+                Permission.ORDER_REVIEW,
+                Permission.ORDER_PRICE,
+                Permission.ORDER_PAYMENT,
+                Permission.ORDER_CREDIT,
+                Permission.ORDER_EXPORT,
             }
         ),
     ),

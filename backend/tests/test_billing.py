@@ -80,8 +80,9 @@ async def test_trial_signup_by_ops_shows_plan_features_and_notice(
         "broadcast": True,
         "extraction": True,
         "zone": False,
-        # 待办是 P6 新增的功能：已有的套餐没有设置时默认开放。
+        # 待办和订单是 P6 新增的功能：已有的套餐没有设置时默认开放。
         "todos": True,
+        "orders": True,
     }
     assert me["billing_notice"].startswith("试用期剩余 14 天")
 

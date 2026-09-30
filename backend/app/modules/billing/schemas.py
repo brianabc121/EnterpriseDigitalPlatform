@@ -28,6 +28,7 @@ class PlanFeatures(BaseModel):
     extraction: bool = True
     zone: bool = False
     todos: bool = True
+    orders: bool = True
 
 
 class PlanOverage(BaseModel):

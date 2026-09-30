@@ -200,6 +200,7 @@ class PersonalData(BaseModel):
     sessions: list[dict[str, Any]]
     messages: list[dict[str, Any]]
     todos: list[dict[str, Any]]
+    orders: list[dict[str, Any]] = Field(default_factory=list, description="订单（收货信息为明文）")
     owner_history: list[dict[str, Any]]
     wecom_follows: list[dict[str, Any]]
 
@@ -209,6 +210,9 @@ class ErasureResult(BaseModel):
     sessions: int
     messages: int
     todos: int = Field(description="删除的待办数")
+    orders: int = Field(
+        default=0, description="处理的订单数（按订单设置清空其中的个人信息，或整单删除）"
+    )
     identities: int
     files: int = Field(description="删除的聊天文件数")
     im_groups: int = Field(description="解散的服务群数")

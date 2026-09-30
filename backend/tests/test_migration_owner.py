@@ -313,3 +313,61 @@ async def test_tickets_become_todos_as_non_superuser_owner(owned: OwnedDatabase)
     assert await unforced(owned) == []
     permissions = await owned.fetch("SELECT permissions FROM roles WHERE code = 'desk'")
     assert all(r["permissions"] == ["workbench:use"] for r in permissions)
+
+
+async def test_orders_migration_as_non_superuser_owner(owned: OwnedDatabase) -> None:
+    """0019：商品库、订单、收款、修改记录等新表启用强制行级安全，待办可以关联订单；降级删除。"""
+    await owned.migrate("upgrade", "0018")
+    tenants = await seed(owned)
+    await owned.migrate("upgrade", "0019")
+    assert await unforced(owned) == []
+    new_tables = (
+        "products",
+        "product_imports",
+        "product_gaps",
+        "orders",
+        "order_items",
+        "order_payments",
+        "order_revisions",
+        "order_events",
+        "ai_security_events",
+    )
+    present = await owned.fetch(
+        "SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename = ANY($1)",
+        list(new_tables),
+    )
+    assert sorted(r["tablename"] for r in present) == sorted(new_tables)
+    conn = await asyncpg.connect(owned.superuser_dsn)
+    try:
+        for n, tenant in enumerate(tenants):
+            customer = await conn.fetchval("SELECT id FROM customers WHERE tenant_id = $1", tenant)
+            await conn.execute(
+                "INSERT INTO orders (id, tenant_id, no, source, customer_id, tracking_token,"
+                " created_by_type) VALUES ($1, $2, 'SO20260930-0001', 'staff', $3, $4, 'staff')",
+                uuid.uuid4(),
+                tenant,
+                customer,
+                f"token-{n}-{uuid.uuid4().hex}",
+            )
+    finally:
+        await conn.close()
+    # 员工只看到本租户的订单（行级安全）。
+    app = await asyncpg.connect(owned.app_dsn)
+    try:
+        await app.execute("SELECT set_config('app.tenant_id', $1, false)", str(tenants[0]))
+        assert await app.fetchval("SELECT count(*) FROM orders") == 1
+    finally:
+        await app.close()
+
+    await owned.migrate("downgrade", "0018")
+    gone = await owned.fetch(
+        "SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename = ANY($1)",
+        list(new_tables),
+    )
+    assert gone == []
+    assert await unforced(owned) == []
+    columns = await owned.fetch(
+        "SELECT column_name FROM information_schema.columns"
+        " WHERE table_name = 'tenant_settings' AND column_name = 'orders'"
+    )
+    assert columns == []

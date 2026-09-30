@@ -37,6 +37,15 @@ from app.modules.customer.service import ensure_visible
 from app.modules.files.service import key_of_url
 from app.modules.iam.models import Staff
 from app.modules.iam.principal import Principal
+from app.modules.orders import service as order_service
+from app.modules.orders import settings as order_settings
+from app.modules.orders.models import (
+    PAYMENT_METHOD_LABELS,
+    Order,
+    OrderItem,
+    OrderPayment,
+)
+from app.modules.orders.models import STATUS_LABELS as ORDER_STATUS_LABELS
 from app.modules.security.models import PrivacyRequest
 from app.modules.todos import fields as todo_fields
 from app.modules.todos.models import STATUS_LABELS, Todo, TodoType
@@ -55,6 +64,7 @@ _MOVED: tuple[type[Any], ...] = (
     Room,
     ChatSession,
     Todo,
+    Order,
     CustomerOwnerHistory,
     WecomContactFollow,
     WecomGroupMember,
@@ -214,6 +224,12 @@ async def personal_data(
         await todo_fields.reveal(ctx.keys, customer.tenant_id, todo.fields or {})
         for todo, _ in todos
     ]
+    orders = (
+        await session.scalars(
+            select(Order).where(Order.customer_id == customer.id).order_by(Order.created_at)
+        )
+    ).all()
+    order_documents = [await _order_document(ctx, session, order) for order in orders]
     history = (
         await session.scalars(
             select(CustomerOwnerHistory)
@@ -291,6 +307,7 @@ async def personal_data(
             }
             for (t, type_name), values in zip(todos, todo_values, strict=True)
         ],
+        orders=order_documents,
         owner_history=[
             {
                 "from": names.get(h.from_owner_id) if h.from_owner_id else None,
@@ -323,6 +340,7 @@ async def personal_data(
             "sessions": len(chats),
             "messages": len(messages),
             "todos": len(todos),
+            "orders": len(orders),
             "identities": len(identities),
         },
     )
@@ -340,6 +358,84 @@ async def personal_data(
     )
     await session.commit()
     return document
+
+
+async def _order_document(ctx: AppContext, session: AsyncSession, order: Order) -> dict[str, Any]:
+    items = (
+        await session.scalars(
+            select(OrderItem).where(OrderItem.order_id == order.id).order_by(OrderItem.sort)
+        )
+    ).all()
+    payments = (
+        await session.scalars(
+            select(OrderPayment)
+            .where(OrderPayment.order_id == order.id, OrderPayment.voided_at.is_(None))
+            .order_by(OrderPayment.paid_at)
+        )
+    ).all()
+    return {
+        "no": order.no,
+        "status": ORDER_STATUS_LABELS.get(order.status, order.status),
+        "items": [
+            {
+                "name": i.name,
+                "spec": i.spec,
+                "quantity": i.quantity,
+                "unit_price": order_service.text_money(i.unit_price),
+                "amount": order_service.text_money(i.amount),
+            }
+            for i in items
+        ],
+        "total": order_service.text_money(order.total),
+        "payment_method": PAYMENT_METHOD_LABELS.get(order.payment_method or ""),
+        "payments": [
+            {
+                "kind": p.kind,
+                "amount": order_service.text_money(p.amount),
+                "channel": p.channel,
+                "paid_at": _iso(p.paid_at),
+            }
+            for p in payments
+        ],
+        "receiver": await order_service.reveal_receiver(ctx.keys, order.tenant_id, order.receiver),
+        "customer_note": order.customer_note,
+        "shipping_company": order.shipping_company,
+        "tracking_no": order.tracking_no,
+        "created_at": _iso(order.created_at),
+    }
+
+
+async def _erase_orders(
+    ctx: AppContext, session: AsyncSession, tenant_id: uuid.UUID, customer_id: uuid.UUID
+) -> int:
+    """客户的订单：按订单设置整单删除，或清空订单里的个人信息（保留商品、金额和收款用于统计）。"""
+    orders = (await session.scalars(select(Order).where(Order.customer_id == customer_id))).all()
+    if not orders:
+        return 0
+    settings = await order_settings.load(session, tenant_id)
+    if settings.erase_mode == "delete":
+        for order in orders:
+            await session.delete(order)
+        await session.flush()
+        return len(orders)
+    now = _now()
+    for order in orders:
+        order.receiver = {}
+        order.customer_note = ""
+        order.evidence_message_ids = []
+        order.confirm_message_id = None
+        order.tracking_token = order_service.new_token()
+        order.tracking_expires_at = now
+    ids = [o.id for o in orders]
+    # 修改记录里的收货信息（掩码）也一并清除。
+    await session.execute(
+        text(
+            "UPDATE order_revisions SET snapshot = jsonb_set(snapshot, '{receiver}', '{}'::jsonb)"
+            " WHERE order_id = ANY(:ids)"
+        ),
+        {"ids": ids},
+    )
+    return len(orders)
 
 
 # ---- 个人信息删除 ----
@@ -408,6 +504,7 @@ async def erase_customer(
             or 0
         ),
     }
+    counts["orders"] = await _erase_orders(ctx, session, principal.tenant_id, customer.id)
     wecom_contact = bool(
         await session.scalar(
             select(func.count())

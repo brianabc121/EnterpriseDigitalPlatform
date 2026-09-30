@@ -6,6 +6,7 @@ from app.modules.ai.models import (
     AiDecision,
     AiEvalRun,
     AiMessageFeedback,
+    AiSecurityEvent,
     AiSessionState,
     AiSettings,
     AiSuggestion,
@@ -48,7 +49,9 @@ from app.modules.kb.models import (
 )
 from app.modules.lifecycle.models import SupportGrant, TenantDeletion, TenantExport
 from app.modules.notifications.models import StaffNotification
+from app.modules.orders.models import Order, OrderEvent, OrderItem, OrderPayment, OrderRevision
 from app.modules.platform.models import LlmProvider, PlatformSetting, PromptTemplate
+from app.modules.products.models import Product, ProductGap, ProductImport
 from app.modules.quickreply.models import QuickReply
 from app.modules.routing.models import AgentState, RoutingPolicy, SkillGroup, SkillGroupMember
 from app.modules.security.models import FileScan, PrivacyRequest, TenantKey, TenantSetting
@@ -78,6 +81,7 @@ __all__ = [
     "AiDecision",
     "AiEvalRun",
     "AiMessageFeedback",
+    "AiSecurityEvent",
     "AiSessionState",
     "AiSettings",
     "AiSuggestion",
@@ -108,10 +112,18 @@ __all__ = [
     "LlmProvider",
     "Message",
     "NumberCounter",
+    "Order",
+    "OrderEvent",
+    "OrderItem",
+    "OrderPayment",
+    "OrderRevision",
     "Plan",
     "PlatformSetting",
     "PlatformUser",
     "PrivacyRequest",
+    "Product",
+    "ProductGap",
+    "ProductImport",
     "PromptTemplate",
     "QuickReply",
     "RefreshToken",

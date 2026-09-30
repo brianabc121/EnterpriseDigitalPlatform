@@ -40,6 +40,7 @@ function emptyForm() {
       extraction: true,
       zone: false,
       todos: true,
+      orders: true,
     },
     policy: 'degrade' as 'degrade' | 'warn',
     aiReplyPriceYuan: 0,

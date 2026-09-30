@@ -56,6 +56,8 @@ from app.modules.kb.reminders import remind_expiring
 from app.modules.kb.service import expire_items
 from app.modules.lifecycle.closure import run_purges
 from app.modules.lifecycle.export import run_exports
+from app.modules.orders.jobs import run_collections as run_order_collections
+from app.modules.products.service import embed_pending as embed_products
 from app.modules.security.retention import run_retention
 from app.modules.security.scanning import run_file_scan
 from app.modules.sessions.engine import republish_orphans, run_session_timers
@@ -113,6 +115,8 @@ JOBS = (
     Job("todo-timers", 15, run_todo_timers),
     Job("todo-digest", 300, run_todo_digest),
     Job("todo-extract", 60, run_todo_extraction),
+    Job("order-collections", 600, run_order_collections),
+    Job("product-embed", 60, embed_products),
     Job("metrics-state", state.INTERVAL_SECONDS, state.refresh),
     Job("partitions", 3600, ensure_partitions),
 )

@@ -5,6 +5,7 @@
 - 跨坐席：坐席只能访问自己接待的会话和自己的客户，管理类接口一律 403。
 """
 
+import base64
 import uuid
 from dataclasses import dataclass
 from typing import Any
@@ -21,7 +22,7 @@ from tests.support import DatabaseUrls
 DENIED = {403, 404}
 REJECTED = {403, 404, 422}
 # 路径参数里不是对象 ID 的值（检查列表是否泄露 ID 时跳过）。
-NOT_IDS = {"version", "userid"}
+NOT_IDS = {"version", "userid", "order_version"}
 
 # 每个带路径参数的租户接口：(方法, 路径模板, 请求体)。请求体必须合法，才能验证到权限而不是参数校验。
 MATRIX: list[tuple[str, str, dict[str, Any] | None]] = [
@@ -130,7 +131,34 @@ MATRIX: list[tuple[str, str, dict[str, Any] | None]] = [
     ("POST", "/api/v1/wecom/broadcasts/{broadcast_id}/remind", None),
     ("GET", "/api/v1/tenant/exports/{export_id}/download", None),
     ("DELETE", "/api/v1/tenant/support-grants/{grant_id}", None),
+    ("GET", "/api/v1/orders/{order_id}", None),
+    ("PATCH", "/api/v1/orders/{order_id}", {"version": "{order_version}", "customer_note": "越权"}),
+    ("POST", "/api/v1/orders/{order_id}/submit", None),
+    ("POST", "/api/v1/orders/{order_id}/confirm", {"payment_method": "cod"}),
+    ("POST", "/api/v1/orders/{order_id}/start", None),
+    ("POST", "/api/v1/orders/{order_id}/ship", {"shipping_company": "越权", "tracking_no": "1"}),
+    ("POST", "/api/v1/orders/{order_id}/complete", {}),
+    ("POST", "/api/v1/orders/{order_id}/cancel", {"reason": "越权取消"}),
+    ("POST", "/api/v1/orders/{order_id}/payments", {"amount": "1", "channel": "cash"}),
+    ("POST", "/api/v1/orders/{order_id}/payments/{payment_id}/void", {"reason": "越权作废"}),
+    ("POST", "/api/v1/orders/{order_id}/reveal", None),
+    ("POST", "/api/v1/orders/{order_id}/tracking-link", None),
+    ("POST", "/api/v1/orders/{order_id}/assign", {"assignee_id": "{own_staff_id}"}),
+    ("POST", "/api/v1/orders/{order_id}/notify", {"text": "越权通知"}),
+    ("GET", "/api/v1/orders/{order_id}/revisions", None),
+    ("GET", "/api/v1/orders/{order_id}/revisions/{version}", None),
+    ("GET", "/api/v1/products/{product_id}", None),
+    ("PUT", "/api/v1/products/{product_id}", {"name": "越权修改"}),
+    ("DELETE", "/api/v1/products/{product_id}", None),
+    ("GET", "/api/v1/products/imports/{import_id}", None),
+    ("POST", "/api/v1/products/imports/{import_id}/confirm", None),
+    ("POST", "/api/v1/products/imports/{import_id}/cancel", None),
+    ("GET", "/api/v1/products/imports/{import_id}/result", None),
+    ("POST", "/api/v1/products/gaps/{gap_id}/resolve", None),
 ]
+# 凭随机令牌访问的公开接口（订单跟踪页）：令牌本身就是访问凭证，不属于租户内的越权检查，
+# 令牌的有效期和失效见 test_orders.py。
+PUBLIC: set[tuple[str, str]] = {("GET", "/api/v1/public/orders/{token}")}
 
 
 @dataclass
@@ -259,8 +287,10 @@ async def build(desk: Desk) -> Tenant:
         chat["id"],
         chat["customer_id"],
     )
+    order_ids = await orders(desk, chat)
     await desk.flush()
     ids = {
+        **order_ids,
         "customer_id": str(chat["customer_id"]),
         "staff_id": str(agent.staff_id),
         "channel_id": channel["id"],
@@ -290,6 +320,72 @@ async def build(desk: Desk) -> Tenant:
         "tenant_id": str(desk.tenant_id),
     }
     return Tenant(desk, agent, other, visitor, ids)
+
+
+async def orders(desk: Desk, chat: Any) -> dict[str, str]:
+    """商品、待审核的订单（带一笔收款）、商品导入预览和商品缺口。"""
+    client = desk.client
+    product = await client.post(
+        "/api/v1/products",
+        headers=desk.admin,
+        json={"code": "LOCK-X1", "name": "智能门锁", "retail_price": "1299", "cost_price": "800"},
+    )
+    assert product.status_code == 201, product.text
+    order = await client.post(
+        "/api/v1/orders",
+        headers=desk.admin,
+        json={
+            "customer_id": str(chat["customer_id"]),
+            "session_id": str(chat["id"]),
+            "items": [{"product_id": product.json()["id"], "quantity": 1}],
+            "receiver": {"name": "王先生", "phone": "13800001111", "address": "上海市浦东新区"},
+        },
+    )
+    assert order.status_code == 201, order.text
+    paid = await client.post(
+        f"/api/v1/orders/{order.json()['id']}/payments",
+        headers=desk.admin,
+        json={"amount": "100", "channel": "wechat"},
+    )
+    assert paid.status_code == 200, paid.text
+    upload = await client.post(
+        "/api/v1/products/imports",
+        headers=desk.admin,
+        json={
+            "filename": "商品.csv",
+            "content_base64": base64.b64encode("名称,建议零售价\n门铃,199\n".encode()).decode(),
+        },
+    )
+    assert upload.status_code == 201, upload.text
+    [gap] = await desk.sql(
+        "INSERT INTO product_gaps (id, tenant_id, term) VALUES ($1, $2, '扫地机器人') RETURNING id",
+        uuid.uuid4(),
+        desk.tenant_id,
+    )
+    return {
+        "product_id": product.json()["id"],
+        "order_id": order.json()["id"],
+        "payment_id": paid.json()["payments"][0]["id"],
+        "import_id": upload.json()["id"],
+        "gap_id": str(gap["id"]),
+        "order_version": str(paid.json()["version"]),
+    }
+
+
+async def dave_order(desk: Desk, chat: Any, product_id: str) -> str:
+    response = await desk.client.post(
+        "/api/v1/orders",
+        headers=desk.admin,
+        json={
+            "customer_id": str(chat["customer_id"]),
+            "session_id": str(chat["id"]),
+            "items": [{"product_id": product_id, "quantity": 1}],
+            "receiver": {"name": "李女士", "phone": "13900002222", "address": "北京市朝阳区"},
+        },
+    )
+    assert response.status_code == 201, response.text
+    order_id: str = response.json()["id"]
+    return order_id
 
 
 async def lead_draft(desk: Desk, chat: Any) -> str:
@@ -388,6 +484,12 @@ async def snapshot(desk: Desk) -> list[Any]:
         "kb_categories": "id, name, parent_id",
         "staff_notifications": "id, read_at",
         "kb_import_jobs": "id, status",
+        "products": "id, name, status, retail_price, cost_price",
+        "product_imports": "id, status",
+        "product_gaps": "id, resolved_at",
+        "orders": "id, status, version, total, assignee_id, customer_note, tracking_token",
+        "order_items": "id, product_id, quantity, unit_price",
+        "order_payments": "id, voided_at",
     }
     rows = []
     for table, columns in tables.items():
@@ -407,7 +509,7 @@ def test_matrix_covers_every_route_with_an_id(app: FastAPI) -> None:
         if path.startswith("/api/v1/") and "{" in path
         for method in operations
     }
-    assert routes == {(method, path) for method, path, _ in MATRIX}
+    assert routes - PUBLIC == {(method, path) for method, path, _ in MATRIX}
 
 
 async def test_other_tenants_objects_are_invisible_and_untouchable(
@@ -569,6 +671,52 @@ async def test_other_tenants_ids_in_bodies_and_queries_are_rejected(
             },
         ),
     ]
+    own_order = await acme.desk.client.get(
+        f"/api/v1/orders/{own['order_id']}", headers=acme.desk.admin
+    )
+    version = own_order.json()["version"]
+    vectors += [
+        (
+            "POST",
+            "/api/v1/orders",
+            {
+                "customer_id": other["customer_id"],
+                "items": [{"product_id": own["product_id"], "quantity": 1}],
+            },
+        ),
+        (
+            "POST",
+            "/api/v1/orders",
+            {
+                "customer_id": own["customer_id"],
+                "items": [{"product_id": other["product_id"], "quantity": 1}],
+            },
+        ),
+        (
+            "POST",
+            "/api/v1/orders",
+            {
+                "customer_id": own["customer_id"],
+                "session_id": other["session_id"],
+                "items": [{"product_id": own["product_id"], "quantity": 1}],
+            },
+        ),
+        (
+            "PATCH",
+            f"/api/v1/orders/{own['order_id']}",
+            {
+                "version": version,
+                "items": [{"product_id": other["product_id"], "quantity": 1}],
+                "reason": "other",
+            },
+        ),
+        ("POST", f"/api/v1/orders/{own['order_id']}/assign", {"assignee_id": other["staff_id"]}),
+        (
+            "POST",
+            f"/api/v1/orders/{own['order_id']}/assign",
+            {"skill_group_id": other["group_id"]},
+        ),
+    ]
     before = await snapshot(globex.desk)
 
     results = {}
@@ -651,6 +799,13 @@ async def test_agents_only_reach_their_own_sessions_and_customers(
         "category_id": acme.ids["category_id"],
         "job_id": acme.ids["job_id"],
         "notification_id": await notification(desk, acme.other_agent.staff_id),
+        "order_id": await dave_order(desk, chat, acme.ids["product_id"]),
+        "payment_id": acme.ids["payment_id"],
+        "order_version": "1",
+        "version": "1",
+        "product_id": acme.ids["product_id"],
+        "import_id": acme.ids["import_id"],
+        "gap_id": acme.ids["gap_id"],
     }
     before = await snapshot(desk)
 
@@ -658,6 +813,9 @@ async def test_agents_only_reach_their_own_sessions_and_customers(
     for method, template, body in MATRIX:
         # 待确认的转接是 Carol 自己发起的，她可以撤回；这里只验证她不能替 Dave 接受或拒绝。
         if template.endswith("/cancel") and "/todos/" not in template:
+            continue
+        # 商品库是全租户共享的：能查看订单的坐席都可以查看商品（不含成本价）。
+        if (method, template) == ("GET", "/api/v1/products/{product_id}"):
             continue
         path = fill(template, dave_ids, acme.ids)
         response = await call(
