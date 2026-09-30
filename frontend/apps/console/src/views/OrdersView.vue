@@ -17,14 +17,16 @@ import {
   PAYMENT_METHOD,
   PAYMENT_STATUS,
   PAYMENT_STATUS_TAG,
+  viewLabel,
   type Order,
   type OrderView,
 } from '../orders'
 import { useAuthStore } from '../stores/auth'
 
 /**
- * 订单中心（设计文档 §25.9）：全部、待审核、处理中、应收（未收清，按约定日期排序，逾期标红）、
- * 修改过的；按状态、来源、客户和时间筛选。站内信和待办里的链接带 id，打开后直接显示这个订单。
+ * 订单中心（设计文档 §25.9）：全部、待审核、处理中、待发货（工人加工完成，§25.11）、缺货、
+ * 应收（未收清，按约定日期排序，逾期标红）、修改过的；按状态、来源、客户和时间筛选。
+ * 站内信和待办里的链接带 id，打开后直接显示这个订单。
  */
 const PAGE_SIZE = 20
 const route = useRoute()
@@ -47,6 +49,8 @@ const filters = reactive({
   q: '',
 })
 
+// 没有发货环节时"待发货"显示为"待交付"。
+const shipping = ref(true)
 const canCreate = computed(() => auth.can('order:create'))
 const canExport = computed(() => auth.can('order:export'))
 
@@ -55,8 +59,16 @@ function badge(name: OrderView): number {
   if (!c) return 0
   if (name === 'pending_review') return c.pending_review
   if (name === 'processing') return c.processing
+  if (name === 'awaiting_shipment') return c.awaiting_shipment
+  if (name === 'out_of_stock') return c.out_of_stock
   if (name === 'receivable') return c.receivable
   return 0
+}
+
+const BADGE_TYPE: Partial<Record<OrderView, 'warning' | 'danger'>> = {
+  pending_review: 'warning',
+  awaiting_shipment: 'warning',
+  out_of_stock: 'danger',
 }
 
 interface Filters {
@@ -84,6 +96,11 @@ const DAY = [new Date(2000, 0, 1, 0, 0, 0), new Date(2000, 0, 1, 23, 59, 59)]
 async function loadCounts(): Promise<void> {
   const { data } = await api.GET('/api/v1/orders/counts')
   if (data) counts.value = data
+}
+
+async function loadSettings(): Promise<void> {
+  const { data } = await api.GET('/api/v1/orders/settings')
+  if (data) shipping.value = data.shipping_enabled
 }
 
 async function load(): Promise<void> {
@@ -159,7 +176,7 @@ watch(() => route.query, applyQuery)
 
 onMounted(async () => {
   applyQuery()
-  await refresh()
+  await Promise.all([refresh(), loadSettings()])
 })
 </script>
 
@@ -179,11 +196,11 @@ onMounted(async () => {
       <el-tab-pane v-for="[name, label] in ORDER_VIEWS" :key="name" :name="name">
         <template #label>
           <span :data-testid="`order-view-${name}`">
-            {{ label }}
+            {{ viewLabel(name, label, shipping) }}
             <el-badge
               v-if="badge(name)"
               :value="badge(name)"
-              :type="name === 'pending_review' ? 'warning' : 'primary'"
+              :type="BADGE_TYPE[name] ?? 'primary'"
               class="badge"
             />
           </span>
@@ -247,6 +264,29 @@ onMounted(async () => {
             <el-tag v-if="row.price_pending" size="small" type="warning" effect="plain">待定价</el-tag>
             <el-tag v-if="row.modified" size="small" effect="plain">修改过</el-tag>
             <el-tag v-if="row.source === 'ai_chat'" size="small" type="info" effect="plain">AI</el-tag>
+            <el-tag
+              v-if="row.shortage && ['confirmed', 'fulfilling'].includes(row.status)"
+              size="small"
+              type="danger"
+              effect="plain"
+              data-testid="order-row-shortage"
+              >缺货</el-tag
+            >
+            <el-tag
+              v-if="row.processed_at && row.status === 'fulfilling'"
+              size="small"
+              type="success"
+              effect="plain"
+              data-testid="order-row-processed"
+              >加工完成</el-tag
+            >
+            <el-tag
+              v-else-if="row.worker_name && row.status === 'fulfilling'"
+              size="small"
+              type="info"
+              effect="plain"
+              >加工中 · {{ row.worker_name }}</el-tag
+            >
           </div>
         </template>
       </el-table-column>

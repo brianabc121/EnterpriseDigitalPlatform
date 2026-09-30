@@ -18,6 +18,7 @@ const AGENT: Permission[] = [
   'order:payment',
 ]
 const KNOWLEDGE_MANAGER: Permission[] = ['dashboard:view', 'kb:read', 'kb:manage', 'kb:publish']
+const WORKER: Permission[] = ['production:work']
 
 const names = (permissions: Permission[]) =>
   visibleMenus(new Set(permissions)).map((item) => item.name)
@@ -45,6 +46,11 @@ describe('visibleMenus', () => {
     expect(names(KNOWLEDGE_MANAGER)).toEqual(['dashboard', 'knowledge'])
   })
 
+  it('shows workers only the production page and lands them there', () => {
+    expect(names(WORKER)).toEqual(['production'])
+    expect(firstAccessiblePath(new Set(WORKER))).toBe('/production')
+  })
+
   it('hides menus for features the plan does not include', () => {
     const all = new Set(MENU.map((item) => item.permission))
     const names = (features: Record<string, boolean>) =>
@@ -54,6 +60,7 @@ describe('visibleMenus', () => {
     expect(names({})).toContain('broadcasts')
     expect(names({ orders: false })).not.toContain('orders')
     expect(names({ orders: false })).not.toContain('products')
+    expect(names({ orders: false })).not.toContain('production')
   })
 })
 

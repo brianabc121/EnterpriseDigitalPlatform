@@ -18,6 +18,8 @@ from app.modules.todos.models import FieldType, Priority, TodoType
 LEAVE_MESSAGE = "leave_message"
 ORDER_REVIEW = "order_review"
 COLLECTION = "collection"
+ORDER_SHIP = "order_ship"
+ORDER_SHORTAGE = "order_shortage"
 COMPLAINT = "complaint"
 OTHER = "other"
 
@@ -235,6 +237,31 @@ PRESETS: tuple[Preset, ...] = (
         examples=(),
         fields=(),
         assign_rule=_rule("owner"),
+        sla_resolve_days=1,
+        system=True,
+        promise_text="",
+        done_template="",
+    ),
+    Preset(
+        code=ORDER_SHIP,
+        name="待发货",
+        ai_hint="工人加工完成订单后由系统生成，提醒客服发货或交付。",
+        examples=(),
+        fields=(),
+        assign_rule=_rule("owner"),
+        sla_resolve_days=1,
+        system=True,
+        promise_text="",
+        done_template="",
+    ),
+    Preset(
+        code=ORDER_SHORTAGE,
+        name="缺货处理",
+        ai_hint="工人登记订单里的商品缺货时由系统生成，提醒客服联系客户：等到货、换货或取消。",
+        examples=(),
+        fields=(),
+        assign_rule=_rule("owner"),
+        priority=Priority.HIGH,
         sla_resolve_days=1,
         system=True,
         promise_text="",

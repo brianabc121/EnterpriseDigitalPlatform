@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.context import AppContext
 from app.core.deps import client_ip, get_context, get_rate_limiter
-from app.core.errors import ERROR_RESPONSES, NotFound
+from app.core.errors import ERROR_RESPONSES, NotFound, Unprocessable
 from app.core.permissions import Permission
 from app.core.ratelimit import PASSWORD_CHECK, RateLimiter
 from app.modules.audit.service import record_audit
@@ -22,10 +22,10 @@ from app.modules.customer.export import confirm_password
 from app.modules.iam.deps import TenantDb, require_permission
 from app.modules.iam.models import Staff
 from app.modules.iam.principal import Principal
-from app.modules.orders import actions, extract, queries, service
+from app.modules.orders import actions, extract, production, queries, service
 from app.modules.orders import export as order_export
 from app.modules.orders import settings as order_settings
-from app.modules.orders.models import Order, OrderRevision
+from app.modules.orders.models import Order, OrderRevision, OrderStatus
 from app.modules.orders.schemas import (
     NoticeRequest,
     NotifyFlag,
@@ -376,6 +376,19 @@ async def assign_order(
     principal: CanReview,
 ) -> OrderDetail:
     order = await actions.assign(ctx, session, principal, order_id, payload)
+    return await _detail(ctx, session, principal, order)
+
+
+@router.post("/orders/{order_id}/items/{order_item_id}/restock", response_model=OrderDetail)
+async def restock_item(
+    order_id: UUID, order_item_id: UUID, ctx: Context, session: TenantDb, principal: CanReview
+) -> OrderDetail:
+    """登记缺货的商品到货（设计文档 §25.11）：回到待加工；订单没有其他缺货时离开"缺货"，
+    "缺货处理"待办随之完成。"""
+    order = await service.get_visible(session, principal, order_id, lock=True)
+    if order.status not in (OrderStatus.CONFIRMED, OrderStatus.FULFILLING):
+        raise Unprocessable("只有待加工、加工中的订单可以登记到货")
+    await production.restock(ctx, session, principal, order, order_item_id)
     return await _detail(ctx, session, principal, order)
 
 

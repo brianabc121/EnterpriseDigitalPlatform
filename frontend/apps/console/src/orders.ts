@@ -7,7 +7,14 @@ export type OrderItem = Schemas['OrderItemOut']
 export type OrderEvent = Schemas['OrderEventOut']
 export type OrderRevision = Schemas['OrderRevisionOut']
 export type Product = Schemas['ProductOut']
-export type OrderView = 'all' | 'pending_review' | 'processing' | 'receivable' | 'modified'
+export type OrderView =
+  | 'all'
+  | 'pending_review'
+  | 'processing'
+  | 'awaiting_shipment'
+  | 'out_of_stock'
+  | 'receivable'
+  | 'modified'
 export type PaymentMethod = NonNullable<Schemas['OrderConfirmRequest']['payment_method']>
 export type ChangeReason = NonNullable<Schemas['OrderUpdate']['reason']>
 type TagType = 'primary' | 'success' | 'info' | 'warning' | 'danger'
@@ -97,9 +104,42 @@ export const ORDER_VIEWS: [OrderView, string][] = [
   ['all', '全部'],
   ['pending_review', '待审核'],
   ['processing', '处理中'],
+  ['awaiting_shipment', '待发货'],
+  ['out_of_stock', '缺货'],
   ['receivable', '应收'],
   ['modified', '修改过的'],
 ]
+
+/** 订单中心的视图名称：没有发货环节时"待发货"叫"待交付"。 */
+export function viewLabel(view: OrderView, label: string, shipping: boolean): string {
+  return view === 'awaiting_shipment' && !shipping ? '待交付' : label
+}
+
+/** 商品行的加工进度（设计文档 §25.11）。 */
+export const WORK_STATUS: Record<string, string> = {
+  pending: '待加工',
+  done: '已完成',
+  out_of_stock: '缺货',
+}
+
+export const WORK_STATUS_TAG: Record<string, TagType> = {
+  pending: 'info',
+  done: 'success',
+  out_of_stock: 'danger',
+}
+
+/** 缺货的说明：缺多少、预计到货、备注。 */
+export function shortageText(item: {
+  quantity: number
+  shortage_qty?: number | null
+  shortage_note?: string | null
+  restock_date?: string | null
+}): string {
+  const parts = [`缺 ${item.shortage_qty ?? item.quantity}/${item.quantity}`]
+  if (item.restock_date) parts.push(`预计 ${item.restock_date} 到货`)
+  if (item.shortage_note) parts.push(item.shortage_note)
+  return parts.join('，')
+}
 
 export const RECEIVER_FIELDS: ['name' | 'phone' | 'address', string][] = [
   ['name', '收货人'],
@@ -269,6 +309,15 @@ const EVENT: Record<string, string> = {
   change_requested: '客户要求修改',
   collection_due: '暂欠到期未收清',
   followup_created: '客户没有完成下单，生成跟进待办',
+  claimed: '领取加工',
+  released: '退回待领取',
+  worker_assigned: '指派加工人',
+  item_done: '标记完成',
+  item_reopened: '撤销完成',
+  shortage: '登记缺货',
+  restocked: '登记到货',
+  processed: '完成加工',
+  reprocess: '订单修改后需要重新加工',
 }
 
 const NOTICE: Record<string, string> = {
@@ -327,6 +376,25 @@ export function describeOrderEvent(event: OrderEvent, names: Map<string, string>
       break
     case 'collection_due':
       extra = `还有 ${money(text(payload.outstanding))} 未收`
+      break
+    case 'worker_assigned':
+      extra = text(payload.worker)
+      break
+    case 'item_done':
+    case 'item_reopened':
+    case 'restocked':
+      extra = text(payload.name)
+      break
+    case 'shortage':
+      action = payload.edited ? '修改缺货' : '登记缺货'
+      extra = [
+        text(payload.name),
+        typeof payload.quantity === 'number' ? `缺 ${payload.quantity}` : '',
+        text(payload.restock_date) ? `预计 ${text(payload.restock_date)} 到货` : '',
+        text(payload.note),
+      ]
+        .filter(Boolean)
+        .join('，')
       break
   }
   const actor =

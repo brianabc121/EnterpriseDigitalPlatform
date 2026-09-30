@@ -6,6 +6,8 @@ import {
   discountRate,
   formTotals,
   money,
+  shortageText,
+  viewLabel,
   type OrderEvent,
 } from './orders'
 
@@ -96,5 +98,28 @@ describe('describeOrderEvent', () => {
     expect(describeOrderEvent(event('paid', { amount: '100.00', channel: 'cash' }), names)).toBe(
       '小艾 登记收款：¥100.00（现金）',
     )
+  })
+
+  it('describes production progress', () => {
+    const names = new Map<string, string>()
+    const short = { name: '门铃', quantity: 1, restock_date: '2026-10-03', note: '供应商周四到' }
+    expect(describeOrderEvent(event('shortage', short), names)).toBe(
+      '小艾 登记缺货：门铃，缺 1，预计 2026-10-03 到货，供应商周四到',
+    )
+    expect(describeOrderEvent(event('shortage', { ...short, edited: true }), names)).toContain('小艾 修改缺货')
+    expect(describeOrderEvent(event('worker_assigned', { worker: '老王' }), names)).toBe('小艾 指派加工人：老王')
+    expect(describeOrderEvent(event('item_done', { name: '门锁' }), names)).toBe('小艾 标记完成：门锁')
+  })
+})
+
+describe('production labels', () => {
+  it('explains a shortage and renames the shipment view without shipping', () => {
+    expect(shortageText({ quantity: 3 })).toBe('缺 3/3')
+    expect(shortageText({ quantity: 3, shortage_qty: 1, restock_date: '2026-10-03', shortage_note: '缺料' })).toBe(
+      '缺 1/3，预计 2026-10-03 到货，缺料',
+    )
+    expect(viewLabel('awaiting_shipment', '待发货', false)).toBe('待交付')
+    expect(viewLabel('awaiting_shipment', '待发货', true)).toBe('待发货')
+    expect(viewLabel('out_of_stock', '缺货', false)).toBe('缺货')
   })
 })

@@ -147,6 +147,16 @@ MATRIX: list[tuple[str, str, dict[str, Any] | None]] = [
     ("POST", "/api/v1/orders/{order_id}/notify", {"text": "越权通知"}),
     ("GET", "/api/v1/orders/{order_id}/revisions", None),
     ("GET", "/api/v1/orders/{order_id}/revisions/{version}", None),
+    ("POST", "/api/v1/orders/{order_id}/items/{order_item_id}/restock", None),
+    ("GET", "/api/v1/production/orders/{order_id}", None),
+    ("POST", "/api/v1/production/orders/{order_id}/claim", None),
+    ("POST", "/api/v1/production/orders/{order_id}/release", None),
+    ("POST", "/api/v1/production/orders/{order_id}/items/{order_item_id}/done", None),
+    ("POST", "/api/v1/production/orders/{order_id}/items/{order_item_id}/undo", None),
+    ("PUT", "/api/v1/production/orders/{order_id}/items/{order_item_id}/shortage", {}),
+    ("POST", "/api/v1/production/orders/{order_id}/items/{order_item_id}/restock", None),
+    ("POST", "/api/v1/production/orders/{order_id}/complete", {"mark_all": True}),
+    ("POST", "/api/v1/production/orders/{order_id}/assign", {"worker_id": "{own_staff_id}"}),
     ("GET", "/api/v1/products/{product_id}", None),
     ("PUT", "/api/v1/products/{product_id}", {"name": "越权修改"}),
     ("DELETE", "/api/v1/products/{product_id}", None),
@@ -334,7 +344,7 @@ async def build(desk: Desk) -> Tenant:
 
 
 async def orders(desk: Desk, chat: Any) -> dict[str, str]:
-    """商品、待审核的订单（带一笔收款）、商品导入预览和商品缺口。"""
+    """商品、已确认的订单（带一笔收款、货到付款，在待领取加工的列表里）、商品导入预览和商品缺口。"""
     client = desk.client
     product = await client.post(
         "/api/v1/products",
@@ -359,6 +369,12 @@ async def orders(desk: Desk, chat: Any) -> dict[str, str]:
         json={"amount": "100", "channel": "wechat"},
     )
     assert paid.status_code == 200, paid.text
+    confirmed = await client.post(
+        f"/api/v1/orders/{order.json()['id']}/confirm",
+        headers=desk.admin,
+        json={"payment_method": "cod", "notify_customer": False},
+    )
+    assert confirmed.status_code == 200, confirmed.text
     upload = await client.post(
         "/api/v1/products/imports",
         headers=desk.admin,
@@ -399,11 +415,19 @@ async def orders(desk: Desk, chat: Any) -> dict[str, str]:
         "delivery_id": str(delivery["id"]),
         "product_id": product.json()["id"],
         "order_id": order.json()["id"],
+        "order_item_id": paid.json()["items"][0]["id"],
         "payment_id": paid.json()["payments"][0]["id"],
         "import_id": upload.json()["id"],
         "gap_id": str(gap["id"]),
-        "order_version": str(paid.json()["version"]),
+        "order_version": str(confirmed.json()["order"]["version"]),
     }
+
+
+async def first_item(desk: Desk, order_id: str) -> str:
+    [item] = await desk.sql(
+        "SELECT id FROM order_items WHERE order_id = $1 ORDER BY sort LIMIT 1", uuid.UUID(order_id)
+    )
+    return str(item["id"])
 
 
 async def dave_order(desk: Desk, chat: Any, product_id: str) -> str:
@@ -691,6 +715,11 @@ async def test_other_tenants_ids_in_bodies_and_queries_are_rejected(
         ),
         ("POST", "/api/v1/orders/extract", {"session_id": other["session_id"]}),
         (
+            "POST",
+            f"/api/v1/production/orders/{own['order_id']}/assign",
+            {"worker_id": other["staff_id"]},
+        ),
+        (
             "PUT",
             f"/api/v1/admin/todo-types/{own['type_id']}",
             {
@@ -815,6 +844,7 @@ async def test_agents_only_reach_their_own_sessions_and_customers(
         headers=acme.other_agent.headers,
         json={"title": "私人", "content": "只给自己用"},
     )
+    dave_order_id = await dave_order(desk, chat, acme.ids["product_id"])
     dave_ids = {
         "customer_id": str(chat["customer_id"]),
         "room_id": str(chat["room_id"]),
@@ -837,7 +867,8 @@ async def test_agents_only_reach_their_own_sessions_and_customers(
         "category_id": acme.ids["category_id"],
         "job_id": acme.ids["job_id"],
         "notification_id": await notification(desk, acme.other_agent.staff_id),
-        "order_id": await dave_order(desk, chat, acme.ids["product_id"]),
+        "order_id": dave_order_id,
+        "order_item_id": await first_item(desk, dave_order_id),
         "payment_id": acme.ids["payment_id"],
         "order_version": "1",
         "version": "1",

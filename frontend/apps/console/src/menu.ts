@@ -7,6 +7,7 @@ export type MenuIcon =
   | 'ticket'
   | 'order'
   | 'goods'
+  | 'production'
   | 'user'
   | 'reading'
   | 'ai'
@@ -60,6 +61,14 @@ export const MENU: readonly MenuItem[] = [
     title: '商品',
     icon: 'goods',
     permission: 'order:read',
+    feature: 'orders',
+  },
+  {
+    name: 'production',
+    path: '/production',
+    title: '加工',
+    icon: 'production',
+    permission: 'production:work',
     feature: 'orders',
   },
   {

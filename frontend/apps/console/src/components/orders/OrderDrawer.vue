@@ -19,6 +19,9 @@ import {
   PAYMENT_STATUS,
   PAYMENT_STATUS_TAG,
   RECEIVER_FIELDS,
+  shortageText,
+  WORK_STATUS,
+  WORK_STATUS_TAG,
   type OrderDetail,
   type PaymentMethod,
 } from '../../orders'
@@ -31,6 +34,7 @@ import RevisionsDialog from './RevisionsDialog.vue'
 /**
  * 订单详情（设计文档 §25.9）：商品行与金额、收款方式与收款记录、收货信息、依据的对话、动态、
  * 修改记录（任意两个版本对比）、关联的待办和跟踪链接，以及按权限和状态显示的处理操作。
+ * 加工（§25.11）：每个商品的加工进度和缺货，加工人与加工完成时间；登记到货、指派加工人。
  */
 const props = withDefaults(defineProps<{ orderId: string | null; size?: string }>(), {
   size: '760px',
@@ -74,6 +78,7 @@ const payment = reactive({
 })
 const assign = reactive({ open: false, mode: 'staff' as 'staff' | 'group', staffId: '', groupId: '' })
 const notice = reactive({ open: false, text: '' })
+const worker = reactive({ open: false, id: '', options: [] as Schemas['WorkerOption'][] })
 
 const open = computed({
   get: () => props.orderId !== null,
@@ -89,6 +94,12 @@ const methods = computed(() =>
     (m) => [m, PAYMENT_METHOD[m] ?? m] as const,
   ),
 )
+// 已确认之后才有加工进度；待审核的订单不显示"加工"一列。
+const producing = computed(() => {
+  const d = detail.value
+  return !!d && !['draft', 'pending_review'].includes(d.status)
+})
+const active = computed(() => ['confirmed', 'fulfilling'].includes(detail.value?.status ?? ''))
 const handler = computed(() => {
   const d = detail.value
   if (!d) return ''
@@ -370,6 +381,37 @@ async function submitNotice(): Promise<void> {
   await load()
 }
 
+async function restock(itemId: string): Promise<void> {
+  await run(
+    () =>
+      api.POST('/api/v1/orders/{order_id}/items/{order_item_id}/restock', {
+        params: { path: { order_id: props.orderId ?? '', order_item_id: itemId } },
+      }),
+    '已登记到货，回到待加工',
+  )
+}
+
+async function openWorker(): Promise<void> {
+  worker.id = detail.value?.worker_id ?? ''
+  worker.open = true
+  if (!worker.options.length) {
+    const { data } = await api.GET('/api/v1/production/workers')
+    if (data) worker.options = data.items
+  }
+}
+
+async function submitWorker(): Promise<void> {
+  const ok = await run(
+    () =>
+      api.POST('/api/v1/production/orders/{order_id}/assign', {
+        ...path(),
+        body: { worker_id: worker.id || null },
+      }),
+    worker.id ? '已指派加工人' : '已退回待领取',
+  )
+  if (ok) worker.open = false
+}
+
 function openTodo(id: string): void {
   void router.push({ path: '/todos', query: { view: 'all', id } })
 }
@@ -395,6 +437,10 @@ async function onSaved(): Promise<void> {
           <el-tag v-if="detail.modified" type="warning" effect="plain">修改过</el-tag>
           <el-tag v-if="detail.ai_error" type="danger" effect="plain">AI 识别错误</el-tag>
           <el-tag v-if="detail.receivable_overdue" type="danger">暂欠逾期</el-tag>
+          <el-tag v-if="detail.shortage && active" type="danger" data-testid="order-shortage">缺货</el-tag>
+          <el-tag v-if="detail.processed_at && detail.status === 'fulfilling'" type="success" data-testid="order-processed"
+            >加工完成</el-tag
+          >
         </div>
         <el-alert
           v-if="detail.missing.length && ['draft', 'pending_review'].includes(detail.status)"
@@ -415,6 +461,9 @@ async function onSaved(): Promise<void> {
                   <el-tag v-if="!row.matched" size="small" type="warning">未匹配商品库</el-tag>
                 </div>
                 <div v-if="row.raw_text" class="muted">客户原话：{{ row.raw_text }}</div>
+                <div v-if="producing && row.work_status === 'out_of_stock'" class="short" data-testid="order-item-shortage">
+                  缺货：{{ shortageText(row) }}
+                </div>
               </template>
             </el-table-column>
             <el-table-column prop="quantity" label="数量" width="70" align="right" />
@@ -433,6 +482,25 @@ async function onSaved(): Promise<void> {
             </el-table-column>
             <el-table-column v-if="detail.cost_amount !== null" label="成本价" width="100" align="right">
               <template #default="{ row }">{{ money(row.cost_price) }}</template>
+            </el-table-column>
+            <el-table-column v-if="producing" label="加工" width="100">
+              <template #default="{ row }">
+                <el-tag size="small" :type="WORK_STATUS_TAG[row.work_status]" data-testid="order-item-work">{{
+                  WORK_STATUS[row.work_status]
+                }}</el-tag>
+                <div v-if="row.work_status === 'out_of_stock' && detail.allowed.restock">
+                  <el-button
+                    link
+                    type="primary"
+                    size="small"
+                    :disabled="acting"
+                    data-testid="order-item-restock"
+                    @click="restock(row.id)"
+                    >登记到货</el-button
+                  >
+                </div>
+                <div v-else-if="row.done_by_name" class="muted">{{ row.done_by_name }}</div>
+              </template>
             </el-table-column>
           </el-table>
           <dl class="amounts">
@@ -577,6 +645,32 @@ async function onSaved(): Promise<void> {
               <dt>确认</dt>
               <dd>{{ formatDateTime(detail.confirmed_at) }}</dd>
             </template>
+            <template v-if="producing && (detail.worker_name || detail.allowed.assign_worker)">
+              <dt>加工人</dt>
+              <dd data-testid="order-worker">
+                <span v-if="detail.worker_name"
+                  >{{ detail.worker_name }}
+                  <span v-if="detail.claimed_at" class="muted">{{ formatDateTime(detail.claimed_at) }} 开始</span></span
+                >
+                <span v-else class="muted">待领取</span>
+                <el-button
+                  v-if="detail.allowed.assign_worker"
+                  link
+                  type="primary"
+                  size="small"
+                  data-testid="order-assign-worker"
+                  @click="openWorker"
+                  >{{ detail.worker_name ? '改派' : '指派' }}</el-button
+                >
+              </dd>
+            </template>
+            <template v-if="detail.processed_at">
+              <dt>加工完成</dt>
+              <dd data-testid="order-processed-at">
+                {{ formatDateTime(detail.processed_at) }}
+                <span class="muted">{{ detail.processed_by_name ?? '' }}</span>
+              </dd>
+            </template>
             <template v-if="detail.shipping_company">
               <dt>物流</dt>
               <dd data-testid="order-shipping">{{ detail.shipping_company }} {{ detail.tracking_no }}</dd>
@@ -686,6 +780,17 @@ async function onSaved(): Promise<void> {
     <OrderFormDialog v-if="detail" v-model="editing" :order="detail" @saved="onSaved" />
     <RevisionsDialog v-if="detail" v-model="revisionsOpen" :order="detail" />
 
+    <el-dialog v-model="worker.open" title="指派加工人" width="400px" append-to-body data-testid="worker-dialog">
+      <el-select v-model="worker.id" clearable placeholder="退回待领取" data-testid="worker-select" class="full">
+        <el-option v-for="w in worker.options" :key="w.id" :label="w.name" :value="w.id" />
+      </el-select>
+      <p class="muted">已确认的订单指派后开始处理；清空表示退回待领取，由工人自己领取。</p>
+      <template #footer>
+        <el-button @click="worker.open = false">取消</el-button>
+        <el-button type="primary" :loading="acting" data-testid="worker-submit" @click="submitWorker">确定</el-button>
+      </template>
+    </el-dialog>
+
     <el-dialog v-model="confirm.open" title="确认订单" width="460px" append-to-body data-testid="confirm-order-dialog">
       <el-form label-width="96px">
         <el-form-item label="收款方式" required>
@@ -718,6 +823,15 @@ async function onSaved(): Promise<void> {
     </el-dialog>
 
     <el-dialog v-model="ship.open" title="登记发货" width="420px" append-to-body data-testid="ship-dialog">
+      <el-alert
+        v-if="detail && detail.worker_name && !detail.processed_at"
+        type="warning"
+        :closable="false"
+        show-icon
+        class="ship-tip"
+        data-testid="ship-unprocessed"
+        :title="`${detail.worker_name}还没有完成加工${detail.shortage ? '（有缺货的商品）' : ''}，确认要发货吗？`"
+      />
       <el-form label-width="80px">
         <el-form-item label="物流公司" required>
           <el-input v-model="ship.company" maxlength="64" data-testid="ship-company" />
@@ -941,5 +1055,18 @@ dd {
 
 .actions .el-button + .el-button {
   margin-left: 0;
+}
+
+.full {
+  width: 100%;
+}
+
+.short {
+  color: var(--el-color-danger);
+  font-size: 12px;
+}
+
+.ship-tip {
+  margin-bottom: 12px;
 }
 </style>

@@ -14,7 +14,16 @@ PaymentMethodValue = Literal["online", "cod", "deposit", "credit"]
 PaymentStatusValue = Literal["unpaid", "deposit", "partial", "paid", "refunded"]
 PaymentChannelValue = Literal["wechat", "alipay", "bank", "cash", "other"]
 ReasonValue = Literal["customer_request", "ai_error", "price_adjust", "substitution", "other"]
-View = Literal["all", "pending_review", "processing", "receivable", "modified"]
+WorkStatusValue = Literal["pending", "done", "out_of_stock"]
+View = Literal[
+    "all",
+    "pending_review",
+    "processing",
+    "awaiting_shipment",
+    "out_of_stock",
+    "receivable",
+    "modified",
+]
 
 
 def _money(**kwargs: Any) -> Any:
@@ -164,6 +173,12 @@ class OrderItemOut(BaseModel):
     unit_price: Money | None = Field(description="成交单价；为空表示待定价")
     amount: Money
     cost_price: Money | None = Field(default=None, description="只有有查看成本价的权限时返回")
+    work_status: WorkStatusValue = Field(description="加工进度：待加工、已完成、缺货")
+    done_at: datetime | None = None
+    done_by_name: str | None = None
+    shortage_qty: int | None = Field(default=None, description="缺多少；为空表示整行都缺")
+    shortage_note: str | None = None
+    restock_date: date | None = Field(default=None, description="预计到货日期")
 
 
 class OrderPaymentOut(BaseModel):
@@ -211,6 +226,10 @@ class OrderOut(BaseModel):
     created_at: datetime
     updated_at: datetime
     confirmed_at: datetime | None
+    worker_id: UUID | None = Field(default=None, description="加工人（领取或被指派的工人）")
+    worker_name: str | None = None
+    processed_at: datetime | None = Field(default=None, description="加工完成的时间")
+    shortage: bool = Field(default=False, description="有缺货的商品")
 
 
 class OrderPage(BaseModel):
@@ -223,6 +242,8 @@ class OrderCounts(BaseModel):
     processing: int = Field(description="处理中（已确认、处理中、已发货）")
     receivable: int = Field(description="未收清")
     receivable_overdue: int = Field(description="暂欠逾期未收清")
+    awaiting_shipment: int = Field(default=0, description="加工完成、等待发货（或交付）")
+    out_of_stock: int = Field(default=0, description="有缺货的商品")
 
 
 class OrderEventOut(BaseModel):
@@ -282,6 +303,8 @@ class OrderAllowed(BaseModel):
     payment: bool
     reveal: bool
     assign: bool
+    assign_worker: bool = Field(default=False, description="指派或改派加工人")
+    restock: bool = Field(default=False, description="登记缺货的商品到货")
 
 
 class OrderDetail(OrderOut):
@@ -318,6 +341,8 @@ class OrderDetail(OrderOut):
     cost_amount: Money | None = Field(
         default=None, description="成本合计（只有有查看成本价的权限时返回）"
     )
+    claimed_at: datetime | None = None
+    processed_by_name: str | None = None
 
 
 class ReceiverOut(BaseModel):
@@ -430,3 +455,89 @@ class VisitorOrder(BaseModel):
 class VisitorOrderList(BaseModel):
     enabled: bool = Field(description="企业开通了订单功能（没有开通时 Widget 不显示“我的订单”）")
     items: list[VisitorOrder]
+
+
+# ---- 加工（设计文档 §25.11） ----
+
+ProductionView = Literal["pool", "mine", "done", "all"]
+
+
+class ProductionItemOut(BaseModel):
+    """工人看到的商品行：没有价格。"""
+
+    id: UUID
+    code: str | None
+    name: str
+    model: str
+    spec: str
+    image_url: str | None
+    raw_text: str | None = Field(description="客户的原话（没有对应到商品库时）")
+    quantity: int
+    work_status: WorkStatusValue
+    done_at: datetime | None
+    done_by_name: str | None
+    shortage_qty: int | None = Field(description="缺多少；为空表示整行都缺")
+    shortage_note: str | None
+    restock_date: date | None = Field(description="预计到货日期")
+
+
+class ProductionOrder(BaseModel):
+    """工人看到的订单：只有加工需要的信息（商品、数量、备注、期望时间、客户称呼），没有金额、
+    客户电话和收货地址。"""
+
+    id: UUID
+    no: str
+    status: OrderStatusValue
+    customer_name: str | None = Field(description="客户称呼")
+    expected_at: datetime | None = Field(description="客户期望的时间")
+    customer_note: str
+    internal_note: str
+    items: list[ProductionItemOut]
+    done_count: int
+    shortage: bool = Field(description="有缺货的商品")
+    worker_id: UUID | None
+    worker_name: str | None
+    claimed_at: datetime | None
+    processed_at: datetime | None
+    confirmed_at: datetime | None
+    can_claim: bool = Field(description="在待领取列表里，可以领取")
+    can_work: bool = Field(description="可以标记完成、缺货和完成订单（自己的，或主管代为操作）")
+
+
+class ProductionPage(BaseModel):
+    items: list[ProductionOrder]
+    total: int
+
+
+class ProductionCounts(BaseModel):
+    pool: int = Field(description="待领取")
+    mine: int = Field(description="我加工中的")
+    mine_shortage: int = Field(description="我加工中、有缺货的")
+    all: int = Field(description="全部加工中的（有指派权限时）")
+
+
+class ShortageIn(BaseModel):
+    quantity: int | None = Field(
+        default=None, ge=1, le=100_000, description="缺多少；不填表示整行都缺"
+    )
+    note: str | None = Field(default=None, max_length=200, description="说明，例如缺什么料")
+    restock_date: date | None = Field(default=None, description="预计到货日期")
+
+
+class CompleteProductionIn(BaseModel):
+    mark_all: bool = Field(
+        default=False, description="还有没标记的商品时一并标记完成（否则提示先标记）"
+    )
+
+
+class AssignWorkerIn(BaseModel):
+    worker_id: UUID | None = Field(description="加工人；为空表示退回待领取")
+
+
+class WorkerOption(BaseModel):
+    id: UUID
+    name: str
+
+
+class WorkerOptions(BaseModel):
+    items: list[WorkerOption]

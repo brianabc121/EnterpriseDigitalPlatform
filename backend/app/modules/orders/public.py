@@ -53,6 +53,7 @@ EVENT_TEXT: dict[str, str] = {
     "submitted": "订单已提交，等待客服确认",
     "confirmed": "订单已确认",
     "started": "开始处理",
+    "processed": "已加工完成，等待发货",
     "shipped": "已发货",
     "completed": "订单已完成",
     "cancelled": "订单已取消",
@@ -71,6 +72,8 @@ def _event_text(event: OrderEvent) -> str:
         text += f" {payload['amount']} 元"
     elif event.type == "cancelled" and payload.get("reason"):
         text += f"：{payload['reason']}"
+    elif event.type == "processed" and payload.get("shipping") is False:
+        text = "已加工完成，等待交付"
     return text
 
 

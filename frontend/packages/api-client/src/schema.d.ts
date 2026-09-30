@@ -2241,6 +2241,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/orders/{order_id}/items/{order_item_id}/restock": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Restock Item
+         * @description 登记缺货的商品到货（设计文档 §25.11）：回到待加工；订单没有其他缺货时离开"缺货"，
+         *     "缺货处理"待办随之完成。
+         */
+        post: operations["restock_item_api_v1_orders__order_id__items__order_item_id__restock_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/orders/{order_id}/notify": {
         parameters: {
             query?: never;
@@ -2448,6 +2469,234 @@ export interface paths {
          * @description 全部权限点及其名称、分组（编辑自定义角色时使用）。
          */
         get: operations["list_permissions_api_v1_permissions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/production/counts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Counts */
+        get: operations["counts_api_v1_production_counts_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/production/orders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Orders
+         * @description 待领取（pool）、我加工中的（mine）、我最近完成的（done）；有指派权限时还有全部加工中的（all）。
+         */
+        get: operations["list_orders_api_v1_production_orders_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/production/orders/{order_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Order */
+        get: operations["get_order_api_v1_production_orders__order_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/production/orders/{order_id}/assign": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Assign
+         * @description 主管指派或改派加工人（为空时退回待领取）。
+         */
+        post: operations["assign_api_v1_production_orders__order_id__assign_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/production/orders/{order_id}/claim": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Claim
+         * @description 领取：已确认的订单同时开始处理。
+         */
+        post: operations["claim_api_v1_production_orders__order_id__claim_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/production/orders/{order_id}/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Complete
+         * @description 完成订单（加工完成）：订单进入"待发货"，客服在待办里收到提醒。
+         */
+        post: operations["complete_api_v1_production_orders__order_id__complete_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/production/orders/{order_id}/items/{order_item_id}/done": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Item Done */
+        post: operations["item_done_api_v1_production_orders__order_id__items__order_item_id__done_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/production/orders/{order_id}/items/{order_item_id}/restock": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Item Restock
+         * @description 到货：缺货的商品回到待加工。
+         */
+        post: operations["item_restock_api_v1_production_orders__order_id__items__order_item_id__restock_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/production/orders/{order_id}/items/{order_item_id}/shortage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Item Shortage
+         * @description 登记或修改缺货：订单进入订单中心的"缺货"，客服收到"缺货处理"待办。
+         */
+        put: operations["item_shortage_api_v1_production_orders__order_id__items__order_item_id__shortage_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/production/orders/{order_id}/items/{order_item_id}/undo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Item Undo */
+        post: operations["item_undo_api_v1_production_orders__order_id__items__order_item_id__undo_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/production/orders/{order_id}/release": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Release
+         * @description 放弃：退回待领取。
+         */
+        post: operations["release_api_v1_production_orders__order_id__release_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/production/workers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Workers
+         * @description 可以指派的加工人。
+         */
+        get: operations["workers_api_v1_production_workers_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -6304,6 +6553,14 @@ export interface components {
              */
             transfer_groups: boolean;
         };
+        /** AssignWorkerIn */
+        AssignWorkerIn: {
+            /**
+             * Worker Id
+             * @description 加工人；为空表示退回待领取
+             */
+            worker_id: string | null;
+        };
         /** AssigneeOption */
         AssigneeOption: {
             /**
@@ -6801,6 +7058,15 @@ export interface components {
             mentions?: string[];
             /** Text */
             text: string;
+        };
+        /** CompleteProductionIn */
+        CompleteProductionIn: {
+            /**
+             * Mark All
+             * @description 还有没标记的商品时一并标记完成（否则提示先标记）
+             * @default false
+             */
+            mark_all: boolean;
         };
         /** ComponentHealth */
         ComponentHealth: {
@@ -10033,6 +10299,11 @@ export interface components {
             payment_status: string;
             /** Payments */
             payments: components["schemas"]["OpenPayment"][];
+            /**
+             * Processed At
+             * @description 工人加工完成的时间
+             */
+            processed_at?: string | null;
             receiver: components["schemas"]["OpenReceiver"];
             /** Refunded Amount */
             refunded_amount: string;
@@ -10040,6 +10311,12 @@ export interface components {
             shipped_at: string | null;
             /** Shipping Company */
             shipping_company: string | null;
+            /**
+             * Shortage
+             * @description 有缺货的商品
+             * @default false
+             */
+            shortage: boolean;
             /** Source */
             source: string;
             /** Started At */
@@ -10135,6 +10412,16 @@ export interface components {
              * @description 没有对应到商品库的商品行：客户的原话
              */
             raw_text: string | null;
+            /**
+             * Restock Date
+             * @description 缺货时预计到货的日期
+             */
+            restock_date?: string | null;
+            /**
+             * Shortage Qty
+             * @description 缺货时缺多少；为空表示整行都缺
+             */
+            shortage_qty?: number | null;
             /** Spec */
             spec: string;
             /**
@@ -10142,6 +10429,13 @@ export interface components {
              * @description 为空表示待定价
              */
             unit_price: string | null;
+            /**
+             * Work Status
+             * @description 加工进度：待加工、已完成、缺货
+             * @default pending
+             * @enum {string}
+             */
+            work_status: "pending" | "done" | "out_of_stock";
         };
         /** OpenOrderPage */
         OpenOrderPage: {
@@ -10426,6 +10720,12 @@ export interface components {
         OrderAllowed: {
             /** Assign */
             assign: boolean;
+            /**
+             * Assign Worker
+             * @description 指派或改派加工人
+             * @default false
+             */
+            assign_worker: boolean;
             /** Cancel */
             cancel: boolean;
             /** Complete */
@@ -10438,6 +10738,12 @@ export interface components {
             payment: boolean;
             /** Price */
             price: boolean;
+            /**
+             * Restock
+             * @description 登记缺货的商品到货
+             * @default false
+             */
+            restock: boolean;
             /** Reveal */
             reveal: boolean;
             /** Ship */
@@ -10525,6 +10831,18 @@ export interface components {
         /** OrderCounts */
         OrderCounts: {
             /**
+             * Awaiting Shipment
+             * @description 加工完成、等待发货（或交付）
+             * @default 0
+             */
+            awaiting_shipment: number;
+            /**
+             * Out Of Stock
+             * @description 有缺货的商品
+             * @default 0
+             */
+            out_of_stock: number;
+            /**
              * Pending Review
              * @description 待审核
              */
@@ -10610,6 +10928,8 @@ export interface components {
             cancel_reason: string | null;
             /** Cancelled At */
             cancelled_at: string | null;
+            /** Claimed At */
+            claimed_at?: string | null;
             /** Completed At */
             completed_at: string | null;
             /** Confirmed At */
@@ -10699,6 +11019,13 @@ export interface components {
              */
             price_pending: boolean;
             /**
+             * Processed At
+             * @description 加工完成的时间
+             */
+            processed_at?: string | null;
+            /** Processed By Name */
+            processed_by_name?: string | null;
+            /**
              * Receivable Overdue
              * @description 暂欠已过约定付款日期仍未收清
              */
@@ -10720,6 +11047,12 @@ export interface components {
             shipped_at: string | null;
             /** Shipping Company */
             shipping_company: string | null;
+            /**
+             * Shortage
+             * @description 有缺货的商品
+             * @default false
+             */
+            shortage: boolean;
             /** Skill Group Id */
             skill_group_id: string | null;
             /** Skill Group Name */
@@ -10760,6 +11093,13 @@ export interface components {
             updated_at: string;
             /** Version */
             version: number;
+            /**
+             * Worker Id
+             * @description 加工人（领取或被指派的工人）
+             */
+            worker_id?: string | null;
+            /** Worker Name */
+            worker_name?: string | null;
         };
         /** OrderEventOut */
         OrderEventOut: {
@@ -10811,7 +11151,7 @@ export interface components {
              * @default all
              * @enum {string}
              */
-            view: "all" | "pending_review" | "processing" | "receivable" | "modified";
+            view: "all" | "pending_review" | "processing" | "awaiting_shipment" | "out_of_stock" | "receivable" | "modified";
         };
         /** OrderExtractRequest */
         OrderExtractRequest: {
@@ -10842,6 +11182,10 @@ export interface components {
              * @description 只有有查看成本价的权限时返回
              */
             cost_price?: string | null;
+            /** Done At */
+            done_at?: string | null;
+            /** Done By Name */
+            done_by_name?: string | null;
             /**
              * Id
              * Format: uuid
@@ -10869,6 +11213,18 @@ export interface components {
             quantity: number;
             /** Raw Text */
             raw_text: string | null;
+            /**
+             * Restock Date
+             * @description 预计到货日期
+             */
+            restock_date?: string | null;
+            /** Shortage Note */
+            shortage_note?: string | null;
+            /**
+             * Shortage Qty
+             * @description 缺多少；为空表示整行都缺
+             */
+            shortage_qty?: number | null;
             /** Spec */
             spec: string;
             /**
@@ -10876,6 +11232,12 @@ export interface components {
              * @description 成交单价；为空表示待定价
              */
             unit_price: string | null;
+            /**
+             * Work Status
+             * @description 加工进度：待加工、已完成、缺货
+             * @enum {string}
+             */
+            work_status: "pending" | "done" | "out_of_stock";
         };
         /** OrderNotice */
         OrderNotice: {
@@ -10948,6 +11310,11 @@ export interface components {
              */
             price_pending: boolean;
             /**
+             * Processed At
+             * @description 加工完成的时间
+             */
+            processed_at?: string | null;
+            /**
              * Receivable Overdue
              * @description 暂欠已过约定付款日期仍未收清
              */
@@ -10956,6 +11323,12 @@ export interface components {
             refunded_amount: string;
             /** Session Id */
             session_id: string | null;
+            /**
+             * Shortage
+             * @description 有缺货的商品
+             * @default false
+             */
+            shortage: boolean;
             /** Skill Group Id */
             skill_group_id: string | null;
             /** Skill Group Name */
@@ -10984,6 +11357,13 @@ export interface components {
             updated_at: string;
             /** Version */
             version: number;
+            /**
+             * Worker Id
+             * @description 加工人（领取或被指派的工人）
+             */
+            worker_id?: string | null;
+            /** Worker Name */
+            worker_name?: string | null;
         };
         /** OrderPage */
         OrderPage: {
@@ -11666,7 +12046,7 @@ export interface components {
          * Permission
          * @enum {string}
          */
-        Permission: "dashboard:view" | "workbench:use" | "customer:read" | "customer:read_all" | "customer:create" | "customer:assign" | "customer:view_sensitive" | "customer:export" | "customer:manage" | "session:read_all" | "session:read_team" | "session:transfer" | "session:transfer_any" | "session:monitor" | "routing:manage" | "staff:read" | "staff:manage" | "quick_reply:manage" | "kb:read" | "kb:manage" | "kb:publish" | "report:view" | "settings:manage" | "broadcast:manage" | "tenant:manage" | "audit:read" | "todo:read" | "todo:handle" | "todo:assign" | "todo:config" | "todo:export" | "order:read" | "order:create" | "order:review" | "order:price" | "order:payment" | "order:credit" | "order:export" | "order:config" | "product:manage" | "product:view_cost" | "integration:manage";
+        Permission: "dashboard:view" | "workbench:use" | "customer:read" | "customer:read_all" | "customer:create" | "customer:assign" | "customer:view_sensitive" | "customer:export" | "customer:manage" | "session:read_all" | "session:read_team" | "session:transfer" | "session:transfer_any" | "session:monitor" | "routing:manage" | "staff:read" | "staff:manage" | "quick_reply:manage" | "kb:read" | "kb:manage" | "kb:publish" | "report:view" | "settings:manage" | "broadcast:manage" | "tenant:manage" | "audit:read" | "todo:read" | "todo:handle" | "todo:assign" | "todo:config" | "todo:export" | "order:read" | "order:create" | "order:review" | "order:price" | "order:payment" | "order:credit" | "order:export" | "order:config" | "product:manage" | "product:view_cost" | "production:work" | "production:assign" | "integration:manage";
         /** PermissionInfo */
         PermissionInfo: {
             code: components["schemas"]["Permission"];
@@ -12384,6 +12764,147 @@ export interface components {
              * @enum {string}
              */
             status: "on" | "off";
+        };
+        /** ProductionCounts */
+        ProductionCounts: {
+            /**
+             * All
+             * @description 全部加工中的（有指派权限时）
+             */
+            all: number;
+            /**
+             * Mine
+             * @description 我加工中的
+             */
+            mine: number;
+            /**
+             * Mine Shortage
+             * @description 我加工中、有缺货的
+             */
+            mine_shortage: number;
+            /**
+             * Pool
+             * @description 待领取
+             */
+            pool: number;
+        };
+        /**
+         * ProductionItemOut
+         * @description 工人看到的商品行：没有价格。
+         */
+        ProductionItemOut: {
+            /** Code */
+            code: string | null;
+            /** Done At */
+            done_at: string | null;
+            /** Done By Name */
+            done_by_name: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Image Url */
+            image_url: string | null;
+            /** Model */
+            model: string;
+            /** Name */
+            name: string;
+            /** Quantity */
+            quantity: number;
+            /**
+             * Raw Text
+             * @description 客户的原话（没有对应到商品库时）
+             */
+            raw_text: string | null;
+            /**
+             * Restock Date
+             * @description 预计到货日期
+             */
+            restock_date: string | null;
+            /** Shortage Note */
+            shortage_note: string | null;
+            /**
+             * Shortage Qty
+             * @description 缺多少；为空表示整行都缺
+             */
+            shortage_qty: number | null;
+            /** Spec */
+            spec: string;
+            /**
+             * Work Status
+             * @enum {string}
+             */
+            work_status: "pending" | "done" | "out_of_stock";
+        };
+        /**
+         * ProductionOrder
+         * @description 工人看到的订单：只有加工需要的信息（商品、数量、备注、期望时间、客户称呼），没有金额、
+         *     客户电话和收货地址。
+         */
+        ProductionOrder: {
+            /**
+             * Can Claim
+             * @description 在待领取列表里，可以领取
+             */
+            can_claim: boolean;
+            /**
+             * Can Work
+             * @description 可以标记完成、缺货和完成订单（自己的，或主管代为操作）
+             */
+            can_work: boolean;
+            /** Claimed At */
+            claimed_at: string | null;
+            /** Confirmed At */
+            confirmed_at: string | null;
+            /**
+             * Customer Name
+             * @description 客户称呼
+             */
+            customer_name: string | null;
+            /** Customer Note */
+            customer_note: string;
+            /** Done Count */
+            done_count: number;
+            /**
+             * Expected At
+             * @description 客户期望的时间
+             */
+            expected_at: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Internal Note */
+            internal_note: string;
+            /** Items */
+            items: components["schemas"]["ProductionItemOut"][];
+            /** No */
+            no: string;
+            /** Processed At */
+            processed_at: string | null;
+            /**
+             * Shortage
+             * @description 有缺货的商品
+             */
+            shortage: boolean;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "draft" | "pending_review" | "confirmed" | "fulfilling" | "shipped" | "completed" | "cancelled";
+            /** Worker Id */
+            worker_id: string | null;
+            /** Worker Name */
+            worker_name: string | null;
+        };
+        /** ProductionPage */
+        ProductionPage: {
+            /** Items */
+            items: components["schemas"]["ProductionOrder"][];
+            /** Total */
+            total: number;
         };
         /** PromptActivate */
         PromptActivate: {
@@ -13298,6 +13819,24 @@ export interface components {
             shipping_company: string;
             /** Tracking No */
             tracking_no: string;
+        };
+        /** ShortageIn */
+        ShortageIn: {
+            /**
+             * Note
+             * @description 说明，例如缺什么料
+             */
+            note?: string | null;
+            /**
+             * Quantity
+             * @description 缺多少；不填表示整行都缺
+             */
+            quantity?: number | null;
+            /**
+             * Restock Date
+             * @description 预计到货日期
+             */
+            restock_date?: string | null;
         };
         /**
          * SidebarContext
@@ -16041,6 +16580,21 @@ export interface components {
             title: string;
             /** Welcome Message */
             welcome_message: string | null;
+        };
+        /** WorkerOption */
+        WorkerOption: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+        };
+        /** WorkerOptions */
+        WorkerOptions: {
+            /** Items */
+            items: components["schemas"]["WorkerOption"][];
         };
     };
     responses: never;
@@ -25740,7 +26294,7 @@ export interface operations {
     list_orders_api_v1_orders_get: {
         parameters: {
             query?: {
-                view?: "all" | "pending_review" | "processing" | "receivable" | "modified";
+                view?: "all" | "pending_review" | "processing" | "awaiting_shipment" | "out_of_stock" | "receivable" | "modified";
                 status?: ("draft" | "pending_review" | "confirmed" | "fulfilling" | "shipped" | "completed" | "cancelled") | null;
                 source?: ("ai_chat" | "copilot" | "sidebar" | "staff" | "api") | null;
                 assignee_id?: string | null;
@@ -26684,6 +27238,83 @@ export interface operations {
             };
         };
     };
+    restock_item_api_v1_orders__order_id__items__order_item_id__restock_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                order_id: string;
+                order_item_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrderDetail"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     notify_customer_api_v1_orders__order_id__notify_post: {
         parameters: {
             query?: never;
@@ -27478,6 +28109,934 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PermissionList"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    counts_api_v1_production_counts_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProductionCounts"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    list_orders_api_v1_production_orders_get: {
+        parameters: {
+            query?: {
+                view?: "pool" | "mine" | "done" | "all";
+                /** @description 订单号或商品名称 */
+                q?: string | null;
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProductionPage"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_order_api_v1_production_orders__order_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                order_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProductionOrder"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    assign_api_v1_production_orders__order_id__assign_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                order_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AssignWorkerIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProductionOrder"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    claim_api_v1_production_orders__order_id__claim_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                order_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProductionOrder"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    complete_api_v1_production_orders__order_id__complete_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                order_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CompleteProductionIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProductionOrder"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    item_done_api_v1_production_orders__order_id__items__order_item_id__done_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                order_id: string;
+                order_item_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProductionOrder"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    item_restock_api_v1_production_orders__order_id__items__order_item_id__restock_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                order_id: string;
+                order_item_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProductionOrder"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    item_shortage_api_v1_production_orders__order_id__items__order_item_id__shortage_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                order_id: string;
+                order_item_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ShortageIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProductionOrder"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    item_undo_api_v1_production_orders__order_id__items__order_item_id__undo_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                order_id: string;
+                order_item_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProductionOrder"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    release_api_v1_production_orders__order_id__release_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                order_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProductionOrder"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    workers_api_v1_production_workers_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkerOptions"];
                 };
             };
             /** @description Bad Request */

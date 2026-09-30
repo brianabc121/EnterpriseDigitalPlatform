@@ -539,6 +539,19 @@ async def update_status(
                 actor_id=None,
                 now=now,
             )
+        if target in (OrderStatus.SHIPPED, OrderStatus.COMPLETED, OrderStatus.CANCELLED):
+            await service.close_production_todos(
+                session,
+                order,
+                result={
+                    OrderStatus.SHIPPED: "企业系统已发货",
+                    OrderStatus.COMPLETED: "企业系统已完成订单",
+                }.get(target, "订单已取消"),
+                cancelled=target == OrderStatus.CANCELLED,
+                actor_type=API,
+                actor_id=None,
+                now=now,
+            )
         template = {
             OrderStatus.CONFIRMED: settings.confirm_template,
             OrderStatus.SHIPPED: settings.ship_template,

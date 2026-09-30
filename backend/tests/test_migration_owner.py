@@ -371,3 +371,21 @@ async def test_orders_migration_as_non_superuser_owner(owned: OwnedDatabase) -> 
         " WHERE table_name = 'tenant_settings' AND column_name = 'orders'"
     )
     assert columns == []
+
+
+async def test_worker_role_backfill_as_non_superuser_owner(owned: OwnedDatabase) -> None:
+    """0021 给已有租户补上"工人"系统角色（强制行级安全下所有者也要写得进角色表），降级时删除
+    （连同员工的这个角色）。"""
+    await owned.migrate("upgrade", "0020")
+    tenant = uuid.uuid4()
+    await owned.fetch("INSERT INTO tenants (id, code, name) VALUES ($1, 'owner-w', '租户')", tenant)
+    await owned.migrate("upgrade", "0021")
+    rows = await owned.fetch("SELECT tenant_id, name, is_system FROM roles WHERE code = 'worker'")
+    assert [(r["tenant_id"], r["name"], r["is_system"]) for r in rows] == [(tenant, "工人", True)]
+    assert await unforced(owned) == []
+
+    await owned.migrate("downgrade", "0020")
+    assert await owned.fetch("SELECT id FROM roles WHERE code = 'worker'") == []
+    assert await unforced(owned) == []
+    await owned.migrate("upgrade", "0021")
+    assert len(await owned.fetch("SELECT id FROM roles WHERE code = 'worker'")) == 1

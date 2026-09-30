@@ -182,6 +182,11 @@ class OpenOrderItem(BaseModel):
     list_price: Money | None
     unit_price: Money | None = Field(description="为空表示待定价")
     amount: Money
+    work_status: Literal["pending", "done", "out_of_stock"] = Field(
+        default="pending", description="加工进度：待加工、已完成、缺货"
+    )
+    shortage_qty: int | None = Field(default=None, description="缺货时缺多少；为空表示整行都缺")
+    restock_date: date | None = Field(default=None, description="缺货时预计到货的日期")
 
 
 class OpenPayment(BaseModel):
@@ -234,6 +239,8 @@ class OpenOrder(BaseModel):
     submitted_at: datetime | None
     confirmed_at: datetime | None
     started_at: datetime | None
+    processed_at: datetime | None = Field(default=None, description="工人加工完成的时间")
+    shortage: bool = Field(default=False, description="有缺货的商品")
     shipped_at: datetime | None
     completed_at: datetime | None
     cancelled_at: datetime | None

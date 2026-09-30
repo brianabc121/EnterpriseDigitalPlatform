@@ -33,6 +33,7 @@ from app.modules.orders.models import (
     PaymentMethod,
     PaymentStatus,
     RevisionKind,
+    WorkStatus,
 )
 from app.modules.orders.settings import OrderSettings
 from app.modules.products.models import Product, ProductStatus
@@ -255,6 +256,7 @@ async def build_items(
                 unit_price=unit if unit is not None else product.retail_price,
                 cost_price=product.cost_price,
                 sort=sort,
+                work_status=WorkStatus.PENDING.value,
             )
         else:
             text = (line.raw_text or line.name or "").strip()
@@ -268,6 +270,7 @@ async def build_items(
                 quantity=line.quantity,
                 unit_price=unit,
                 sort=sort,
+                work_status=WorkStatus.PENDING.value,
             )
         item.amount = (
             cents(item.unit_price * item.quantity) if item.unit_price is not None else ZERO
@@ -655,3 +658,214 @@ def revisions_query(order_id: uuid.UUID) -> Any:
         .where(OrderRevision.order_id == order_id)
         .order_by(OrderRevision.version)
     )
+
+
+# ---- 加工（设计文档 §25.11） ----
+
+
+def item_label(item: OrderItem) -> str:
+    return f"{item.name}{' ' + item.spec if item.spec else ''}"
+
+
+def shortage_items(items: list[OrderItem]) -> list[OrderItem]:
+    return [i for i in items if i.work_status == WorkStatus.OUT_OF_STOCK]
+
+
+def shortage_text(items: list[OrderItem]) -> str:
+    """ "缺货处理"待办的说明：每个缺货的商品一行（缺多少、预计到货、说明）。"""
+    lines: list[str] = []
+    for item in shortage_items(items):
+        parts = [f"{item_label(item)} 缺 {item.shortage_qty or item.quantity}/{item.quantity}"]
+        if item.restock_date is not None:
+            parts.append(f"预计 {item.restock_date.isoformat()} 到货")
+        if item.shortage_note:
+            parts.append(item.shortage_note)
+        lines.append("，".join(parts))
+    return "\n".join(lines)
+
+
+def carry_work(old_items: list[OrderItem], new_items: list[OrderItem]) -> None:
+    """修改商品后保留原有商品行（同一商品、同一说明）的加工进度：数量没有增加的已完成仍算完成，
+    数量不变的缺货仍算缺货，其余的重新加工。"""
+    remaining: dict[tuple[uuid.UUID | None, str | None], list[OrderItem]] = {}
+    for old in old_items:
+        remaining.setdefault((old.product_id, old.raw_text), []).append(old)
+    for item in new_items:
+        matches = remaining.get((item.product_id, item.raw_text))
+        previous = matches.pop(0) if matches else None
+        item.work_status = WorkStatus.PENDING.value
+        if previous is None:
+            continue
+        if previous.work_status == WorkStatus.DONE and item.quantity <= previous.quantity:
+            item.work_status = WorkStatus.DONE.value
+            item.done_at, item.done_by = previous.done_at, previous.done_by
+        elif previous.work_status == WorkStatus.OUT_OF_STOCK and item.quantity == previous.quantity:
+            item.work_status = WorkStatus.OUT_OF_STOCK.value
+            item.shortage_qty, item.shortage_note = previous.shortage_qty, previous.shortage_note
+            item.restock_date = previous.restock_date
+            item.shortage_at, item.shortage_by = previous.shortage_at, previous.shortage_by
+
+
+def _todo_owner(order: Order) -> dict[str, Any]:
+    """订单相关的待办交给订单的处理人（或它所在技能组的待认领池）；都没有时按类型的分派规则。"""
+    if order.assignee_id is None and order.skill_group_id is None:
+        return {}
+    return {
+        "explicit": True,
+        "assignee_id": order.assignee_id,
+        "skill_group_id": order.skill_group_id if order.assignee_id is None else None,
+    }
+
+
+async def open_ship_todo(
+    session: AsyncSession,
+    keys: TenantKeyring | None,
+    order: Order,
+    items: list[OrderItem],
+    settings: OrderSettings,
+    *,
+    actor_id: uuid.UUID | None,
+    now: datetime,
+) -> Todo:
+    """加工完成后生成"待发货"待办，提醒客服发货（没有发货环节的是交付并完成订单）。"""
+    type_ = await presets.type_by_code(session, order.tenant_id, presets.ORDER_SHIP)
+    verb = "发货" if settings.shipping_enabled else "交付并完成订单"
+    detail = summary(items)
+    if order.expected_at is not None:
+        detail += f"\n客户期望时间：{order.expected_at.isoformat(timespec='minutes')}"
+    todo = await todo_service.create(
+        session,
+        keys,
+        todo_service.Draft(
+            type=type_,
+            title=f"订单 {order.no} 已加工完成，请{verb}",
+            detail=detail,
+            source=TodoSource.RULE,
+            created_by_type=ActorType.STAFF,
+            created_by=actor_id,
+            customer_id=order.customer_id,
+            session_id=order.session_id,
+            order_id=order.id,
+            **_todo_owner(order),
+        ),
+        now=now,
+    )
+    order.ship_todo_id = todo.id
+    return todo
+
+
+async def sync_shortage(
+    session: AsyncSession,
+    keys: TenantKeyring | None,
+    order: Order,
+    items: list[OrderItem],
+    *,
+    actor_id: uuid.UUID | None,
+    now: datetime,
+) -> Todo | None:
+    """缺货变化后：订单的缺货标记与"缺货处理"待办跟着变化（有缺货时说明随之更新，都处理好后
+    结束待办）。新建了待办时返回它（由调用方提醒处理人）。"""
+    short = shortage_items(items)
+    if not short:
+        order.shortage_at = None
+        await close_todo(
+            session,
+            order.shortage_todo_id,
+            result="缺货已处理",
+            cancelled=False,
+            actor_type=ActorType.STAFF,
+            actor_id=actor_id,
+            now=now,
+        )
+        return None
+    order.shortage_at = order.shortage_at or now
+    detail = shortage_text(items)
+    if order.shortage_todo_id is not None:
+        existing = await session.scalar(
+            select(Todo).where(Todo.id == order.shortage_todo_id).with_for_update()
+        )
+        if existing is not None and existing.status in UNFINISHED:
+            existing.detail = detail
+            return None
+    type_ = await presets.type_by_code(session, order.tenant_id, presets.ORDER_SHORTAGE)
+    names = "、".join(item_label(i) for i in short)
+    todo = await todo_service.create(
+        session,
+        keys,
+        todo_service.Draft(
+            type=type_,
+            title=f"订单 {order.no} 缺货：{names}"[:120],
+            detail=detail,
+            source=TodoSource.RULE,
+            created_by_type=ActorType.STAFF,
+            created_by=actor_id,
+            customer_id=order.customer_id,
+            session_id=order.session_id,
+            order_id=order.id,
+            **_todo_owner(order),
+        ),
+        now=now,
+    )
+    order.shortage_todo_id = todo.id
+    return todo
+
+
+async def close_production_todos(
+    session: AsyncSession,
+    order: Order,
+    *,
+    result: str,
+    cancelled: bool,
+    actor_type: str,
+    actor_id: uuid.UUID | None,
+    now: datetime,
+) -> None:
+    """订单发货、完成或取消后，结束"待发货""缺货处理"待办（由调用方提交）。"""
+    for todo_id in (order.ship_todo_id, order.shortage_todo_id):
+        await close_todo(
+            session,
+            todo_id,
+            result=result,
+            cancelled=cancelled,
+            actor_type=actor_type,
+            actor_id=actor_id,
+            now=now,
+        )
+
+
+async def after_edit(
+    session: AsyncSession,
+    keys: TenantKeyring | None,
+    order: Order,
+    items: list[OrderItem],
+    *,
+    actor_id: uuid.UUID | None,
+    now: datetime,
+) -> list[uuid.UUID]:
+    """修改商品后：加工完成的订单多了要加工的商品时退回加工（结束"待发货"待办）；缺货标记与
+    "缺货处理"待办跟着变化。返回新建的待办（由调用方提醒处理人）。"""
+    if order.status not in (OrderStatus.CONFIRMED, OrderStatus.FULFILLING):
+        return []
+    if order.processed_at is not None and any(i.work_status == WorkStatus.PENDING for i in items):
+        order.processed_at = order.processed_by = None
+        await close_todo(
+            session,
+            order.ship_todo_id,
+            result="订单修改后需要重新加工",
+            cancelled=True,
+            actor_type=ActorType.STAFF,
+            actor_id=actor_id,
+            now=now,
+        )
+        event(
+            session,
+            order,
+            "reprocess",
+            actor_type=ActorType.STAFF,
+            actor_id=actor_id,
+            payload={},
+        )
+    if order.shortage_at is None and not shortage_items(items):
+        return []
+    todo = await sync_shortage(session, keys, order, items, actor_id=actor_id, now=now)
+    return [todo.id] if todo is not None else []

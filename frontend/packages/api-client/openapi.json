@@ -1242,6 +1242,28 @@
         "title": "AssignUnassignedRequest",
         "type": "object"
       },
+      "AssignWorkerIn": {
+        "properties": {
+          "worker_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "加工人；为空表示退回待领取",
+            "title": "Worker Id"
+          }
+        },
+        "required": [
+          "worker_id"
+        ],
+        "title": "AssignWorkerIn",
+        "type": "object"
+      },
       "AssigneeOption": {
         "properties": {
           "id": {
@@ -2670,6 +2692,18 @@
           "text"
         ],
         "title": "CommentRequest",
+        "type": "object"
+      },
+      "CompleteProductionIn": {
+        "properties": {
+          "mark_all": {
+            "default": false,
+            "description": "还有没标记的商品时一并标记完成（否则提示先标记）",
+            "title": "Mark All",
+            "type": "boolean"
+          }
+        },
+        "title": "CompleteProductionIn",
         "type": "object"
       },
       "ComponentHealth": {
@@ -10731,6 +10765,19 @@
             "title": "Payments",
             "type": "array"
           },
+          "processed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "工人加工完成的时间",
+            "title": "Processed At"
+          },
           "receiver": {
             "$ref": "#/components/schemas/OpenReceiver"
           },
@@ -10761,6 +10808,12 @@
               }
             ],
             "title": "Shipping Company"
+          },
+          "shortage": {
+            "default": false,
+            "description": "有缺货的商品",
+            "title": "Shortage",
+            "type": "boolean"
           },
           "source": {
             "title": "Source",
@@ -11082,6 +11135,31 @@
             "description": "没有对应到商品库的商品行：客户的原话",
             "title": "Raw Text"
           },
+          "restock_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "缺货时预计到货的日期",
+            "title": "Restock Date"
+          },
+          "shortage_qty": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "缺货时缺多少；为空表示整行都缺",
+            "title": "Shortage Qty"
+          },
           "spec": {
             "title": "Spec",
             "type": "string"
@@ -11098,6 +11176,17 @@
             ],
             "description": "为空表示待定价",
             "title": "Unit Price"
+          },
+          "work_status": {
+            "default": "pending",
+            "description": "加工进度：待加工、已完成、缺货",
+            "enum": [
+              "pending",
+              "done",
+              "out_of_stock"
+            ],
+            "title": "Work Status",
+            "type": "string"
           }
         },
         "required": [
@@ -12037,6 +12126,12 @@
             "title": "Assign",
             "type": "boolean"
           },
+          "assign_worker": {
+            "default": false,
+            "description": "指派或改派加工人",
+            "title": "Assign Worker",
+            "type": "boolean"
+          },
           "cancel": {
             "title": "Cancel",
             "type": "boolean"
@@ -12059,6 +12154,12 @@
           },
           "price": {
             "title": "Price",
+            "type": "boolean"
+          },
+          "restock": {
+            "default": false,
+            "description": "登记缺货的商品到货",
+            "title": "Restock",
             "type": "boolean"
           },
           "reveal": {
@@ -12295,6 +12396,18 @@
       },
       "OrderCounts": {
         "properties": {
+          "awaiting_shipment": {
+            "default": 0,
+            "description": "加工完成、等待发货（或交付）",
+            "title": "Awaiting Shipment",
+            "type": "integer"
+          },
+          "out_of_stock": {
+            "default": 0,
+            "description": "有缺货的商品",
+            "title": "Out Of Stock",
+            "type": "integer"
+          },
           "pending_review": {
             "description": "待审核",
             "title": "Pending Review",
@@ -12502,6 +12615,18 @@
               }
             ],
             "title": "Cancelled At"
+          },
+          "claimed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Claimed At"
           },
           "completed_at": {
             "anyOf": [
@@ -12774,6 +12899,30 @@
             "title": "Price Pending",
             "type": "boolean"
           },
+          "processed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "加工完成的时间",
+            "title": "Processed At"
+          },
+          "processed_by_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Processed By Name"
+          },
           "receivable_overdue": {
             "description": "暂欠已过约定付款日期仍未收清",
             "title": "Receivable Overdue",
@@ -12833,6 +12982,12 @@
               }
             ],
             "title": "Shipping Company"
+          },
+          "shortage": {
+            "default": false,
+            "description": "有缺货的商品",
+            "title": "Shortage",
+            "type": "boolean"
           },
           "skill_group_id": {
             "anyOf": [
@@ -12949,6 +13104,30 @@
           "version": {
             "title": "Version",
             "type": "integer"
+          },
+          "worker_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "加工人（领取或被指派的工人）",
+            "title": "Worker Id"
+          },
+          "worker_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Worker Name"
           }
         },
         "required": [
@@ -13157,6 +13336,8 @@
               "all",
               "pending_review",
               "processing",
+              "awaiting_shipment",
+              "out_of_stock",
               "receivable",
               "modified"
             ],
@@ -13243,6 +13424,29 @@
             "description": "只有有查看成本价的权限时返回",
             "title": "Cost Price"
           },
+          "done_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Done At"
+          },
+          "done_by_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Done By Name"
+          },
           "id": {
             "format": "uuid",
             "title": "Id",
@@ -13312,6 +13516,42 @@
             ],
             "title": "Raw Text"
           },
+          "restock_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "预计到货日期",
+            "title": "Restock Date"
+          },
+          "shortage_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Shortage Note"
+          },
+          "shortage_qty": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "缺多少；为空表示整行都缺",
+            "title": "Shortage Qty"
+          },
           "spec": {
             "title": "Spec",
             "type": "string"
@@ -13328,6 +13568,16 @@
             ],
             "description": "成交单价；为空表示待定价",
             "title": "Unit Price"
+          },
+          "work_status": {
+            "description": "加工进度：待加工、已完成、缺货",
+            "enum": [
+              "pending",
+              "done",
+              "out_of_stock"
+            ],
+            "title": "Work Status",
+            "type": "string"
           }
         },
         "required": [
@@ -13343,7 +13593,8 @@
           "quantity",
           "list_price",
           "unit_price",
-          "amount"
+          "amount",
+          "work_status"
         ],
         "title": "OrderItemOut",
         "type": "object"
@@ -13557,6 +13808,19 @@
             "title": "Price Pending",
             "type": "boolean"
           },
+          "processed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "加工完成的时间",
+            "title": "Processed At"
+          },
           "receivable_overdue": {
             "description": "暂欠已过约定付款日期仍未收清",
             "title": "Receivable Overdue",
@@ -13578,6 +13842,12 @@
               }
             ],
             "title": "Session Id"
+          },
+          "shortage": {
+            "default": false,
+            "description": "有缺货的商品",
+            "title": "Shortage",
+            "type": "boolean"
           },
           "skill_group_id": {
             "anyOf": [
@@ -13644,6 +13914,30 @@
           "version": {
             "title": "Version",
             "type": "integer"
+          },
+          "worker_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "加工人（领取或被指派的工人）",
+            "title": "Worker Id"
+          },
+          "worker_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Worker Name"
           }
         },
         "required": [
@@ -15367,6 +15661,8 @@
           "order:config",
           "product:manage",
           "product:view_cost",
+          "production:work",
+          "production:assign",
           "integration:manage"
         ],
         "title": "Permission",
@@ -17085,6 +17381,371 @@
           "name"
         ],
         "title": "ProductWrite",
+        "type": "object"
+      },
+      "ProductionCounts": {
+        "properties": {
+          "all": {
+            "description": "全部加工中的（有指派权限时）",
+            "title": "All",
+            "type": "integer"
+          },
+          "mine": {
+            "description": "我加工中的",
+            "title": "Mine",
+            "type": "integer"
+          },
+          "mine_shortage": {
+            "description": "我加工中、有缺货的",
+            "title": "Mine Shortage",
+            "type": "integer"
+          },
+          "pool": {
+            "description": "待领取",
+            "title": "Pool",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "pool",
+          "mine",
+          "mine_shortage",
+          "all"
+        ],
+        "title": "ProductionCounts",
+        "type": "object"
+      },
+      "ProductionItemOut": {
+        "description": "工人看到的商品行：没有价格。",
+        "properties": {
+          "code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Code"
+          },
+          "done_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Done At"
+          },
+          "done_by_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Done By Name"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "image_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Image Url"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "quantity": {
+            "title": "Quantity",
+            "type": "integer"
+          },
+          "raw_text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "客户的原话（没有对应到商品库时）",
+            "title": "Raw Text"
+          },
+          "restock_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "预计到货日期",
+            "title": "Restock Date"
+          },
+          "shortage_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Shortage Note"
+          },
+          "shortage_qty": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "缺多少；为空表示整行都缺",
+            "title": "Shortage Qty"
+          },
+          "spec": {
+            "title": "Spec",
+            "type": "string"
+          },
+          "work_status": {
+            "enum": [
+              "pending",
+              "done",
+              "out_of_stock"
+            ],
+            "title": "Work Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "code",
+          "name",
+          "model",
+          "spec",
+          "image_url",
+          "raw_text",
+          "quantity",
+          "work_status",
+          "done_at",
+          "done_by_name",
+          "shortage_qty",
+          "shortage_note",
+          "restock_date"
+        ],
+        "title": "ProductionItemOut",
+        "type": "object"
+      },
+      "ProductionOrder": {
+        "description": "工人看到的订单：只有加工需要的信息（商品、数量、备注、期望时间、客户称呼），没有金额、\n客户电话和收货地址。",
+        "properties": {
+          "can_claim": {
+            "description": "在待领取列表里，可以领取",
+            "title": "Can Claim",
+            "type": "boolean"
+          },
+          "can_work": {
+            "description": "可以标记完成、缺货和完成订单（自己的，或主管代为操作）",
+            "title": "Can Work",
+            "type": "boolean"
+          },
+          "claimed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Claimed At"
+          },
+          "confirmed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confirmed At"
+          },
+          "customer_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "客户称呼",
+            "title": "Customer Name"
+          },
+          "customer_note": {
+            "title": "Customer Note",
+            "type": "string"
+          },
+          "done_count": {
+            "title": "Done Count",
+            "type": "integer"
+          },
+          "expected_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "客户期望的时间",
+            "title": "Expected At"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "internal_note": {
+            "title": "Internal Note",
+            "type": "string"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ProductionItemOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "no": {
+            "title": "No",
+            "type": "string"
+          },
+          "processed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Processed At"
+          },
+          "shortage": {
+            "description": "有缺货的商品",
+            "title": "Shortage",
+            "type": "boolean"
+          },
+          "status": {
+            "enum": [
+              "draft",
+              "pending_review",
+              "confirmed",
+              "fulfilling",
+              "shipped",
+              "completed",
+              "cancelled"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "worker_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Worker Id"
+          },
+          "worker_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Worker Name"
+          }
+        },
+        "required": [
+          "id",
+          "no",
+          "status",
+          "customer_name",
+          "expected_at",
+          "customer_note",
+          "internal_note",
+          "items",
+          "done_count",
+          "shortage",
+          "worker_id",
+          "worker_name",
+          "claimed_at",
+          "processed_at",
+          "confirmed_at",
+          "can_claim",
+          "can_work"
+        ],
+        "title": "ProductionOrder",
+        "type": "object"
+      },
+      "ProductionPage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ProductionOrder"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total"
+        ],
+        "title": "ProductionPage",
         "type": "object"
       },
       "PromptActivate": {
@@ -19338,6 +19999,52 @@
           "tracking_no"
         ],
         "title": "ShipRequest",
+        "type": "object"
+      },
+      "ShortageIn": {
+        "properties": {
+          "note": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "说明，例如缺什么料",
+            "title": "Note"
+          },
+          "quantity": {
+            "anyOf": [
+              {
+                "maximum": 100000.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "缺多少；不填表示整行都缺",
+            "title": "Quantity"
+          },
+          "restock_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "预计到货日期",
+            "title": "Restock Date"
+          }
+        },
+        "title": "ShortageIn",
         "type": "object"
       },
       "SidebarContext": {
@@ -26493,6 +27200,41 @@
           "privacy_notice"
         ],
         "title": "WidgetView",
+        "type": "object"
+      },
+      "WorkerOption": {
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "WorkerOption",
+        "type": "object"
+      },
+      "WorkerOptions": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/WorkerOption"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "WorkerOptions",
         "type": "object"
       }
     },
@@ -39143,6 +39885,8 @@
                 "all",
                 "pending_review",
                 "processing",
+                "awaiting_shipment",
+                "out_of_stock",
                 "receivable",
                 "modified"
               ],
@@ -40548,6 +41292,115 @@
         ]
       }
     },
+    "/api/v1/orders/{order_id}/items/{order_item_id}/restock": {
+      "post": {
+        "description": "登记缺货的商品到货（设计文档 §25.11）：回到待加工；订单没有其他缺货时离开\"缺货\"，\n\"缺货处理\"待办随之完成。",
+        "operationId": "restock_item_api_v1_orders__order_id__items__order_item_id__restock_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "order_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Order Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "order_item_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Order Item Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrderDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Restock Item",
+        "tags": [
+          "orders"
+        ]
+      }
+    },
     "/api/v1/orders/{order_id}/notify": {
       "post": {
         "description": "按客户所在渠道通知客户（官网访客发系统消息；微信客服在回复窗口内发送；企业微信客户\n需要员工在侧边栏发送）。",
@@ -41679,6 +42532,1284 @@
         "summary": "List Permissions",
         "tags": [
           "iam"
+        ]
+      }
+    },
+    "/api/v1/production/counts": {
+      "get": {
+        "operationId": "counts_api_v1_production_counts_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductionCounts"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Counts",
+        "tags": [
+          "production"
+        ]
+      }
+    },
+    "/api/v1/production/orders": {
+      "get": {
+        "description": "待领取（pool）、我加工中的（mine）、我最近完成的（done）；有指派权限时还有全部加工中的（all）。",
+        "operationId": "list_orders_api_v1_production_orders_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "view",
+            "required": false,
+            "schema": {
+              "default": "mine",
+              "enum": [
+                "pool",
+                "mine",
+                "done",
+                "all"
+              ],
+              "title": "View",
+              "type": "string"
+            }
+          },
+          {
+            "description": "订单号或商品名称",
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "订单号或商品名称",
+              "title": "Q"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductionPage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Orders",
+        "tags": [
+          "production"
+        ]
+      }
+    },
+    "/api/v1/production/orders/{order_id}": {
+      "get": {
+        "operationId": "get_order_api_v1_production_orders__order_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "order_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Order Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductionOrder"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Order",
+        "tags": [
+          "production"
+        ]
+      }
+    },
+    "/api/v1/production/orders/{order_id}/assign": {
+      "post": {
+        "description": "主管指派或改派加工人（为空时退回待领取）。",
+        "operationId": "assign_api_v1_production_orders__order_id__assign_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "order_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Order Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AssignWorkerIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductionOrder"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Assign",
+        "tags": [
+          "production"
+        ]
+      }
+    },
+    "/api/v1/production/orders/{order_id}/claim": {
+      "post": {
+        "description": "领取：已确认的订单同时开始处理。",
+        "operationId": "claim_api_v1_production_orders__order_id__claim_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "order_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Order Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductionOrder"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Claim",
+        "tags": [
+          "production"
+        ]
+      }
+    },
+    "/api/v1/production/orders/{order_id}/complete": {
+      "post": {
+        "description": "完成订单（加工完成）：订单进入\"待发货\"，客服在待办里收到提醒。",
+        "operationId": "complete_api_v1_production_orders__order_id__complete_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "order_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Order Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CompleteProductionIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductionOrder"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Complete",
+        "tags": [
+          "production"
+        ]
+      }
+    },
+    "/api/v1/production/orders/{order_id}/items/{order_item_id}/done": {
+      "post": {
+        "operationId": "item_done_api_v1_production_orders__order_id__items__order_item_id__done_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "order_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Order Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "order_item_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Order Item Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductionOrder"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Item Done",
+        "tags": [
+          "production"
+        ]
+      }
+    },
+    "/api/v1/production/orders/{order_id}/items/{order_item_id}/restock": {
+      "post": {
+        "description": "到货：缺货的商品回到待加工。",
+        "operationId": "item_restock_api_v1_production_orders__order_id__items__order_item_id__restock_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "order_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Order Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "order_item_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Order Item Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductionOrder"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Item Restock",
+        "tags": [
+          "production"
+        ]
+      }
+    },
+    "/api/v1/production/orders/{order_id}/items/{order_item_id}/shortage": {
+      "put": {
+        "description": "登记或修改缺货：订单进入订单中心的\"缺货\"，客服收到\"缺货处理\"待办。",
+        "operationId": "item_shortage_api_v1_production_orders__order_id__items__order_item_id__shortage_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "order_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Order Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "order_item_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Order Item Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ShortageIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductionOrder"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Item Shortage",
+        "tags": [
+          "production"
+        ]
+      }
+    },
+    "/api/v1/production/orders/{order_id}/items/{order_item_id}/undo": {
+      "post": {
+        "operationId": "item_undo_api_v1_production_orders__order_id__items__order_item_id__undo_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "order_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Order Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "order_item_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Order Item Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductionOrder"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Item Undo",
+        "tags": [
+          "production"
+        ]
+      }
+    },
+    "/api/v1/production/orders/{order_id}/release": {
+      "post": {
+        "description": "放弃：退回待领取。",
+        "operationId": "release_api_v1_production_orders__order_id__release_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "order_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Order Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductionOrder"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Release",
+        "tags": [
+          "production"
+        ]
+      }
+    },
+    "/api/v1/production/workers": {
+      "get": {
+        "description": "可以指派的加工人。",
+        "operationId": "workers_api_v1_production_workers_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkerOptions"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Workers",
+        "tags": [
+          "production"
         ]
       }
     },

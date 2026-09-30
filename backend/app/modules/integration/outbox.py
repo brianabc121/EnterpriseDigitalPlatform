@@ -27,6 +27,10 @@ ORDER_EVENTS: dict[str, WebhookEventType] = {
     "paid": WebhookEventType.ORDER_PAYMENT,
     "refunded": WebhookEventType.ORDER_PAYMENT,
     "payment_voided": WebhookEventType.ORDER_PAYMENT,
+    # 加工（§25.11）：加工完成、商品缺货和到货都作为订单的更新推送（data.change 区分）。
+    "processed": WebhookEventType.ORDER_UPDATED,
+    "shortage": WebhookEventType.ORDER_UPDATED,
+    "restocked": WebhookEventType.ORDER_UPDATED,
 }
 
 

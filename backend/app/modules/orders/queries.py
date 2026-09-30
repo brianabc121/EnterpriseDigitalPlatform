@@ -60,12 +60,29 @@ def _receivable() -> ColumnElement[bool]:
     return and_(Order.status.in_(RECEIVABLE), Order.payment_status.in_(UNPAID), Order.total > 0)
 
 
+def awaiting_shipment() -> ColumnElement[bool]:
+    """待发货：工人加工完成、还没有发货（没有发货环节的是还没有完成）的订单。"""
+    return and_(Order.status == OrderStatus.FULFILLING, Order.processed_at.is_not(None))
+
+
+def out_of_stock() -> ColumnElement[bool]:
+    """缺货：有商品缺货、还没有发货或取消的订单。"""
+    return and_(
+        Order.shortage_at.is_not(None),
+        Order.status.in_((OrderStatus.CONFIRMED, OrderStatus.FULFILLING)),
+    )
+
+
 def _view(view: View) -> ColumnElement[bool] | None:
     match view:
         case "pending_review":
             return Order.status == OrderStatus.PENDING_REVIEW
         case "processing":
             return Order.status.in_(IN_PROGRESS)
+        case "awaiting_shipment":
+            return awaiting_shipment()
+        case "out_of_stock":
+            return out_of_stock()
         case "receivable":
             return _receivable()
         case "modified":
@@ -156,11 +173,13 @@ async def list_orders(
         max_total=max_total,
     )
     total = int(await session.scalar(select(func.count()).select_from(Order).where(where)) or 0)
-    ordering: list[Any] = (
-        [Order.credit_due_date.asc().nulls_last(), Order.created_at]
-        if view == "receivable"
-        else [Order.created_at.desc()]
-    )
+    ordering: list[Any] = [Order.created_at.desc()]
+    if view == "receivable":
+        ordering = [Order.credit_due_date.asc().nulls_last(), Order.created_at]
+    elif view == "awaiting_shipment":
+        ordering = [Order.processed_at, Order.created_at]
+    elif view == "out_of_stock":
+        ordering = [Order.shortage_at, Order.created_at]
     rows = (
         await session.scalars(
             select(Order).where(where).order_by(*ordering).limit(limit).offset(offset)
@@ -208,7 +227,12 @@ async def outs(session: AsyncSession, orders: Iterable[Order]) -> list[OrderOut]
         ):
             items[item.order_id].append(item)
     customers = await names(session, Customer, Customer.display_name, (r.customer_id for r in rows))
-    staff = await names(session, Staff, Staff.display_name, (r.assignee_id for r in rows))
+    staff = await names(
+        session,
+        Staff,
+        Staff.display_name,
+        [*(r.assignee_id for r in rows), *(r.worker_id for r in rows)],
+    )
     groups = await names(session, SkillGroup, SkillGroup.name, (r.skill_group_id for r in rows))
     day = await _tenant_today(session)
     return [_out(r, items[r.id], customers, staff, groups, day) for r in rows]
@@ -251,6 +275,10 @@ def _out(
         created_at=order.created_at,
         updated_at=order.updated_at,
         confirmed_at=order.confirmed_at,
+        worker_id=order.worker_id,
+        worker_name=staff.get(order.worker_id) if order.worker_id else None,
+        processed_at=order.processed_at,
+        shortage=order.shortage_at is not None,
     )
 
 
@@ -278,6 +306,12 @@ def allowed(principal: Principal, order: Order) -> OrderAllowed:
         payment=principal.has(Permission.ORDER_PAYMENT) and order.status != OrderStatus.DRAFT,
         reveal=principal.has(Permission.CUSTOMER_VIEW_SENSITIVE) and bool(order.receiver),
         assign=review and order.status not in (OrderStatus.COMPLETED, OrderStatus.CANCELLED),
+        assign_worker=principal.has(Permission.PRODUCTION_ASSIGN)
+        and order.status in (OrderStatus.CONFIRMED, OrderStatus.FULFILLING)
+        and order.processed_at is None,
+        restock=review
+        and order.shortage_at is not None
+        and order.status in (OrderStatus.CONFIRMED, OrderStatus.FULFILLING),
     )
 
 
@@ -336,6 +370,8 @@ async def detail(
             *(e.actor_id for e in events),
             *(r.actor_id for r in revisions),
             *(t.assignee_id for t in todos),
+            *(i.done_by for i in items),
+            order.processed_by,
         ],
     )
     evidence: list[EvidenceOut] = []
@@ -379,6 +415,12 @@ async def detail(
                 unit_price=i.unit_price,
                 amount=i.amount,
                 cost_price=i.cost_price if cost else None,
+                work_status=i.work_status,
+                done_at=i.done_at,
+                done_by_name=staff.get(i.done_by) if i.done_by else None,
+                shortage_qty=i.shortage_qty,
+                shortage_note=i.shortage_note,
+                restock_date=i.restock_date,
             )
             for i in items
         ],
@@ -452,6 +494,8 @@ async def detail(
         tracking_active=service.tracking_active(order),
         allowed=allowed(principal, order),
         cost_amount=cost_amount,
+        claimed_at=order.claimed_at,
+        processed_by_name=staff.get(order.processed_by) if order.processed_by else None,
     )
 
 
@@ -476,4 +520,6 @@ async def counts(session: AsyncSession, principal: Principal) -> OrderCounts:
                 Order.credit_due_date < day,
             )
         ),
+        awaiting_shipment=await count(awaiting_shipment()),
+        out_of_stock=await count(out_of_stock()),
     )

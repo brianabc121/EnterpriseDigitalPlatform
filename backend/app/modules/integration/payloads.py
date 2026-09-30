@@ -55,6 +55,9 @@ async def order_out(
                 list_price=i.list_price,
                 unit_price=i.unit_price,
                 amount=i.amount,
+                work_status=i.work_status,
+                shortage_qty=i.shortage_qty,
+                restock_date=i.restock_date,
             )
             for i in items
         ],
@@ -93,6 +96,8 @@ async def order_out(
         submitted_at=order.submitted_at,
         confirmed_at=order.confirmed_at,
         started_at=order.started_at,
+        processed_at=order.processed_at,
+        shortage=order.shortage_at is not None,
         shipped_at=order.shipped_at,
         completed_at=order.completed_at,
         cancelled_at=order.cancelled_at,

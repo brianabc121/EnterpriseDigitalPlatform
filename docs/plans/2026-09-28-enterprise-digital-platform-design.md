@@ -1,7 +1,7 @@
 # 企业数字化转型平台 · 全渠道智能客服 设计文档
 
-> 状态：草案 v0.4（v0.3 增加待办事项与订单管理；v0.4 纳入第三轮决定，待评审）
-> 日期：2026-09-28（v0.3、v0.4 更新于 2026-09-30）
+> 状态：草案 v0.5（v0.3 增加待办事项与订单管理；v0.4 纳入第三轮决定；v0.5 增加加工与工人角色，待评审）
+> 日期：2026-09-28（v0.3、v0.4、v0.5 更新于 2026-09-30）
 > 范围：需求 R1–R8 的整体架构、关键决策与分期方案。本文确认后，再按阶段拆解实施计划。
 > 修订记录见附录 B。
 
@@ -1329,11 +1329,11 @@ sequenceDiagram
 | 订单（v0.3） | `products` | code（租户内唯一）, name, model, spec, category, image_url, cost_price（仅有权限可见，不进入 AI）, retail_price, remark, aliases, status, terms（检索词）, embedding |
 | | `product_imports` | 上传的文件、状态、逐行校验结果（rows）、新增/更新/跳过的数量，确认人 |
 | | `product_gaps` | term, sample, count, first_seen_at, last_seen_at, resolved_at（客户问到、商品库里没有的商品） |
-| | `orders` | no, status(draft/pending_review/confirmed/fulfilling/shipped/completed/cancelled), source(ai_chat/copilot/sidebar/staff/api), customer_id, session_id, assignee_id, skill_group_id, receiver(jsonb：收货人、电话、地址逐项加密并带掩码), payment_method(online/cod/deposit/credit), deposit_amount, credit_due_date, credit_approved_by, payment_status, items_amount, discount, total, paid_amount, refunded_amount, expected_at, shipping_company, tracking_no, submitted_at, confirmed_at, confirmed_by, shipped_at, completed_at, cancelled_at, cancel_reason, tracking_token, tracking_expires_at, external_no（企业系统的单号，租户内唯一）, version, modified, ai_error, confirm_message_id, evidence_message_ids, customer_note, internal_note, created_by_type(ai/staff/api), review_todo_id, collection_todo_id |
-| | `order_items` | order_id, product_id（未匹配时为空）, 代码、名称、型号、规格和图片的快照, raw_text（客户原话）, quantity, list_price（建议零售价快照）, unit_price, cost_price 快照（仅有权限可见）, amount |
+| | `orders` | no, status(draft/pending_review/confirmed/fulfilling/shipped/completed/cancelled), source(ai_chat/copilot/sidebar/staff/api), customer_id, session_id, assignee_id, skill_group_id, receiver(jsonb：收货人、电话、地址逐项加密并带掩码), payment_method(online/cod/deposit/credit), deposit_amount, credit_due_date, credit_approved_by, payment_status, items_amount, discount, total, paid_amount, refunded_amount, expected_at, shipping_company, tracking_no, submitted_at, confirmed_at, confirmed_by, shipped_at, completed_at, cancelled_at, cancel_reason, tracking_token, tracking_expires_at, external_no（企业系统的单号，租户内唯一）, version, modified, ai_error, confirm_message_id, evidence_message_ids, customer_note, internal_note, created_by_type(ai/staff/api), review_todo_id, collection_todo_id；加工（v0.5，§25.11）：worker_id, claimed_at, processed_at, processed_by, shortage_at（有缺货的商品时不为空）, ship_todo_id, shortage_todo_id |
+| | `order_items` | order_id, product_id（未匹配时为空）, 代码、名称、型号、规格和图片的快照, raw_text（客户原话）, quantity, list_price（建议零售价快照）, unit_price, cost_price 快照（仅有权限可见）, amount；加工（v0.5）：work_status(pending/done/out_of_stock), done_at, done_by, shortage_qty（为空表示整行都缺）, shortage_note, restock_date, shortage_at, shortage_by |
 | | `order_payments` | order_id, kind(payment/refund), amount, channel(wechat/alipay/bank/cash/other), paid_at, reference_no（企业系统回传时按它去重）, proof_url, note, recorded_by_type, recorded_by, voided_at, void_reason |
 | | `order_revisions` | order_id, version, kind(created/edit/status/payment), actor_type(ai/staff/system/api), actor_id, reason(customer_request/ai_error/price_adjust/substitution/other), note, changes(jsonb), snapshot(jsonb)（只追加，不修改） |
-| | `order_events` | order_id, type(submitted/api_created/updated/confirmed/started/shipped/completed/cancelled/paid/refunded/payment_voided/customer_notified/link_regenerated/collection_due…), actor_type, actor_id, payload(jsonb), public（客户在跟踪页能看到的动态） |
+| | `order_events` | order_id, type(submitted/api_created/updated/confirmed/started/shipped/completed/cancelled/paid/refunded/payment_voided/customer_notified/link_regenerated/collection_due/claimed/released/worker_assigned/item_done/item_reopened/shortage/restocked/processed/reprocess…), actor_type, actor_id, payload(jsonb), public（客户在跟踪页能看到的动态） |
 | | `tenant_settings.orders`（jsonb） | 编号前缀、必填信息、启用的收款方式和定金尾款规则、发货环节、AI 告知建议零售价、AI 下单与每日上限、草稿跟进、数量与优惠上限、跟踪链接保留天数 |
 | | `ai_security_events` | kind(price_probe/reply_blocked), session_id, customer_id, detail(jsonb) |
 | 开放接口（v0.3） | `api_keys` | name, prefix（`edp_<prefix>_…` 里用于查找和显示的部分，唯一）, key_hash（SHA-256，完整密钥只在创建时显示一次）, scopes(products:write/orders:read/orders:write/todos:write), last_used_at, revoked_at |
@@ -1374,12 +1374,13 @@ POST   /api/v1/todos/batch                          # 批量确认、驳回、�
 POST   /api/v1/todos/extract                        # 从选中的消息或粘贴的文字预填（不落库）
 POST   /api/v1/todos/export                         # 导出（再次输入密码）
 GET    /api/v1/todo-types      CRUD /api/v1/admin/todo-types      GET|PUT /api/v1/admin/todo-settings
-GET    /api/v1/orders?view=all|pending_review|processing|receivable|modified&status=&source=&assignee_id=&customer_id=     GET /orders/counts
+GET    /api/v1/orders?view=all|pending_review|processing|awaiting_shipment|out_of_stock|receivable|modified&status=&source=&assignee_id=&customer_id=     GET /orders/counts
 POST   /api/v1/orders          GET /orders/{id}     PATCH /orders/{id}    # PATCH 带版本号和修改原因
 POST   /api/v1/orders/{id}/submit | confirm | start | ship | complete | cancel | assign | notify | reveal
 POST   /api/v1/orders/{id}/payments       POST /orders/{id}/payments/{pid}/void    # 收款、退款记录
 GET    /api/v1/orders/{id}/revisions  |  /orders/{id}/revisions/{version}          # 修改记录与版本对比
 POST   /api/v1/orders/{id}/tracking-link            # 重新生成跟踪链接
+POST   /api/v1/orders/{id}/items/{item_id}/restock  # 客服登记缺货商品到货（v0.5）
 POST   /api/v1/orders/extract                       # 从选中的消息或粘贴的文字预填（不落库）
 POST   /api/v1/orders/export                        # 导出（再次输入密码）
 CRUD   /api/v1/products        GET /products/search?q=  |  /products/categories  |  /products/export
@@ -1388,6 +1389,13 @@ POST   /api/v1/products/imports                     # 上传并预览（逐行�
 POST   /api/v1/products/imports/{id}/confirm | cancel      GET /products/imports/{id}/result
 GET    /api/v1/products/gaps   POST /products/gaps/{id}/resolve    # 商品缺口
 GET    /api/v1/orders/settings                      # 员工端需要的订单设置（收款方式等）
+
+# 员工端 · 加工（v0.5，§25.11；production:work，指派需要 production:assign）
+GET    /api/v1/production/orders?view=pool|mine|done|all&q=      GET /production/counts
+GET    /api/v1/production/orders/{id}                            GET /production/workers   # 可指派的加工人
+POST   /api/v1/production/orders/{id}/claim | release | complete | assign
+POST   /api/v1/production/orders/{id}/items/{item_id}/done | undo | restock
+PUT    /api/v1/production/orders/{id}/items/{item_id}/shortage   # 登记或修改缺货
 GET    /api/v1/admin/order-settings   PUT /admin/order-settings
 GET    /api/v1/reports/todos  |  /reports/orders    # 待办、订单报表
 # 企业系统对接（管理员，integration:manage）
@@ -1789,9 +1797,11 @@ EnterpriseDigitalPlatform/
 | 投诉处理 | 投诉、要求赔偿 | 投诉技能组 → 主管 | 1 个工作小时内响应，2 个工作日内完成 | 开启，同时转人工 |
 | 订单审核 | 订单提交后自动生成（§25） | 按订单的分派规则 | 2 个工作小时 | —（系统生成） |
 | 催收 | 暂欠订单到期未收清时自动生成（§25.5） | 订单处理人 | 1 个工作日 | —（系统生成） |
+| 待发货（v0.5） | 工人加工完成订单后自动生成（§25.11） | 订单处理人 | 1 个工作日 | —（系统生成） |
+| 缺货处理（v0.5） | 工人登记商品缺货时自动生成（§25.11），优先级为高 | 订单处理人 | 1 个工作日 | —（系统生成） |
 | 其他 | — | 归属坐席 | 1 个工作日 | 开启 |
 
-"催收"是按第三轮决定的"暂欠"收款方式（§25.5）增加的系统类型，不是 AI 登记的类型。
+"催收"是按第三轮决定的"暂欠"收款方式（§25.5）增加的系统类型；"待发货""缺货处理"是 v0.5 为加工（§25.11）增加的系统类型。它们都不是 AI 登记的类型。
 
 ### 24.3 待办从哪里来
 
@@ -2096,6 +2106,7 @@ stateDiagram-v2
 - **收款是另一条线**：订单状态只描述履约进度；收款方式和收款状态单独记录（§25.5）。开始处理前要满足收款方式的条件，例如在线收款要先收清、预付定金要先收到定金。
 - **完成时还有未收金额**：货到付款要求先登记收款；暂欠允许完成，未收金额进入"应收"。
 - 发货环节可以按租户关闭，例如服务类订单没有发货。
+- **加工**（v0.5）：处理中的订单由工人领取加工（§25.11）。订单状态仍是"处理中"，加工进度单独记录：加工完成的进入订单中心的"待发货"，有缺货商品的进入"缺货"。
 - 订单完成后的退换货：生成关联这个订单的"退换货"待办（§24），订单上显示售后状态。
 - 对接企业系统后，"已确认"之后的状态以企业系统回传的为准（§25.8）。
 - **订单号**：租户前缀 + 日期 + 流水号，例如 `SO20260930-0007`，租户内唯一。
@@ -2142,7 +2153,7 @@ stateDiagram-v2
 
 ### 25.7 权限与数据
 
-- **权限点**：`order:read`、`order:create`、`order:review`（确认、取消）、`order:price`（改价和优惠）、`order:payment`（登记和作废收款、退款）、`order:credit`（同意暂欠）、`order:export`、`order:config`（订单设置）、`product:manage`（商品库）、`product:view_cost`（查看和导出成本价）。
+- **权限点**：`order:read`、`order:create`、`order:review`（确认、取消）、`order:price`（改价和优惠）、`order:payment`（登记和作废收款、退款）、`order:credit`（同意暂欠）、`order:export`、`order:config`（订单设置）、`product:manage`（商品库）、`product:view_cost`（查看和导出成本价）；v0.5 增加 `production:work`（领取订单加工，标记商品完成或缺货，完成订单）和 `production:assign`（指派和改派加工人），以及只有 `production:work` 的系统角色"工人"（§25.11）。
 - **数据范围**与客户一致：坐席能看到自己客户的订单和分派给自己的订单；主管能看到本团队的订单；管理员能看到全部。
 - **收货信息**：收货人、电话和地址加密保存，默认掩码。导出时需要再次输入密码，并记审计日志；没有 `customer:view_sensitive` 权限时，导出的是掩码。
 - **成本价**：见 §25.2 的"价格与成本价保护"。
@@ -2159,12 +2170,13 @@ stateDiagram-v2
 ### 25.9 界面
 
 - **订单中心**（控制台菜单"订单"）：
-  - 视图：全部、待审核、处理中、应收（未收清）、修改过的；按状态、来源、处理人、客户、时间和金额筛选。
+  - 视图：全部、待审核、处理中、待发货（没有发货环节时叫"待交付"）、缺货、应收（未收清）、修改过的；按状态、来源、处理人、客户、时间和金额筛选。
   - 详情：商品行、金额、收款方式与收款记录、收货信息、依据的对话、动态、修改记录（任意两个版本对比）、关联的待办、跟踪链接。
   - 新建与编辑（改价、改商品、改数量时选择原因）。
 - **工作台**：右栏新增"订单"页签（当前客户的订单、新建订单、AI 预填）；AI 提交订单时，聊天区显示订单卡片和一条内部提示。
 - **商品库**（控制台菜单"商品"）：表格模板下载、上传与预览、商品列表（成本价列按权限显示）、商品缺口。
 - **设置 → 订单**：编号前缀、必填项、启用的收款方式和定金规则、是否有发货环节、AI 告知建议零售价（默认开启）、AI 下单（关闭 / 采集并提交审核）、折扣上限、分派规则、通知模板、跟踪链接的有效期、企业系统对接（推送地址、接口密钥）。
+- **加工**（控制台菜单"加工"，v0.5）：工人的待领取、我的加工、已完成，主管另有全部加工中的；手机上按卡片排列（§25.11）。
 - **访客端**：订单跟踪页，以及 Widget 的"我的订单"。
 - **手机工作台与侧边栏**：订单列表、审核与跟进、登记收款；侧边栏可以查看当前客户的订单，并发送订单摘要和跟踪链接。
 
@@ -2174,7 +2186,61 @@ stateDiagram-v2
 - **业务**：订单数与金额（按来源、渠道、坐席、商品）、审核时长、取消原因分布、商品缺口 Top 10。
 - **收款**：各收款方式的占比、应收金额、逾期应收。
 - **安全**：套价识别和回复拦截的次数（§25.2）。
-- **看板与告警**：待审核订单积压、最久未审核的时长、逾期应收、推送失败（§19.3）。
+- **看板与告警**：待审核订单积压、最久未审核的时长、逾期应收、推送失败（§19.3）；v0.5 增加待发货和缺货的订单数（`edp_orders_awaiting_shipment`、`edp_orders_out_of_stock`）。
+
+### 25.11 加工与缺货（v0.5 新增，工人角色）
+
+目标：订单确认后，由工人在控制台的"加工"页领取订单加工。加工完成的订单交给客服发货；缺货的订单单独挂出来，由客服跟进。
+
+**确认的决定（2026-09-30）**
+
+1. 工人点"完成订单"后，订单进入订单中心新增的"待发货"视图，由客服处理（发货或交付）；客服在待办里收到"待发货"提醒。
+2. 工人只看加工需要的信息：商品、规格、数量、客户备注、内部备注、期望时间和客户称呼。工人看不到金额、电话和地址，也进不了订单中心。
+
+**角色与权限**
+
+- 系统角色"工人"只有 `production:work`。登录后只有"加工"菜单，看不到订单中心、客户和对话。
+- `production:assign` 用于指派和改派加工人，也可以替工人操作（例如工人请假）。主管默认有这个权限，管理员有全部权限。
+- 加工属于订单功能，套餐不含订单时不可用。
+
+**流程**
+
+```mermaid
+stateDiagram-v2
+  state "待领取" as pool
+  state "加工中" as working
+  state "缺货" as short
+  state "待发货" as ready
+  [*] --> pool: 订单已确认, 满足开工条件
+  pool --> working: 工人领取 / 主管指派
+  working --> pool: 放弃 / 退回
+  working --> short: 登记某个商品缺货
+  short --> working: 到货（工人或客服登记）
+  working --> ready: 完成订单
+  ready --> [*]: 客服发货 / 交付并完成
+```
+
+- **待领取**：已确认、满足开工条件（与"开始处理"相同，例如在线收款要先收清）的订单，以及还没有加工人、处理中的订单。领取时，已确认的订单同时开始处理。一个订单只能由一个工人领取，别人再领时提示已由谁领取。
+- **逐个商品标记**：工人可以把某个商品标记为已完成（也可以撤销），也可以登记缺货：缺多少（不填表示整行都缺）、预计到货日期和说明，登记后还可以修改。
+- **缺货**：订单有缺货商品时进入订单中心的"缺货"视图，订单处理人收到"缺货处理"待办（优先级高），由客服联系客户，决定等到货、换货或取消。修改缺货说明时，待办的说明随之更新，不重复生成待办。到货可以由工人在加工页登记，也可以由客服在订单详情里登记，商品回到待加工。所有缺货都处理好后，订单离开"缺货"，待办随之完成。
+- **完成订单**：有缺货商品时不能完成。还有没标记的商品时，确认框提示会一并标记为已完成。完成后订单进入"待发货"（没有发货环节时叫"待交付"），订单处理人收到"待发货"待办。客户的跟踪页显示"已加工完成，等待发货"，不显示加工人。
+- **发货、完成或取消**：订单离开加工页，"待发货""缺货处理"待办随之结束。加工还没完成就登记发货时，发货对话框会提示加工人还没有完成。
+- **修改订单**：客服修改商品时保留加工进度。数量没有增加的商品保持已完成，数量不变的保持缺货。已加工完成的订单如果因为修改多了要加工的商品，会回到加工中，"待发货"待办取消，并记录"订单修改后需要重新加工"。
+- **指派**：主管在订单详情里指派或改派加工人（为空时退回待领取）。被指派的工人收到站内信，点开直接看到这张订单。
+
+**界面**
+
+- **加工页**（手机优先，一张卡片一个订单）：
+  - 视图：待领取、我的加工、已完成，有指派权限时还有"全部加工中"；支持按订单号或商品名称搜索。
+  - 卡片内容：订单号、进度（已完成 n/m、缺货数）、客户称呼、期望时间（已过期标红）、备注和商品。
+  - 操作：商品上有完成、撤销、缺货、修改缺货和到货；订单上有领取、放弃和完成订单。
+  - 菜单角标显示待领取的订单数。窄屏（手机）时侧边栏收起成图标。
+- **订单中心**：新增"待发货""缺货"视图和角标，列表行上显示"缺货""加工完成""加工中 · 某某"。
+  - 详情的商品表格增加"加工"一列（进度、完成人，缺货说明和"登记到货"）。
+  - 详情增加"加工人"（指派 / 改派）和"加工完成"时间。
+- **动态**：领取、放弃、指派、商品完成与撤销、缺货与到货、加工完成都写入订单动态。其中加工完成客户可见。加工完成、缺货和到货作为 `order.updated` 推送给企业系统（§25.8）。
+
+**不做的**：本期不做库存。缺货由工人按实际情况登记，不与商品库的库存数量联动。
 
 ---
 
@@ -2240,4 +2306,5 @@ stateDiagram-v2
 | v0.2 | 2026-09-28 | 纳入第一轮决策（多租户 SaaS、国内大模型、OpenIM 先用后购、企业微信一客一群场景）。新增 §1 已确认决策、§4 群场景方案对比、§7 多租户设计、§10.5 侧边栏；企业微信改为服务商（代开发）接入；LLM 只接国内模型；更新数据模型、接口、前端、路线图（含上线闸门）、风险和待确认问题 |
 | v0.2.1 | 2026-09-28 | §8.3：OpenIM 的 ID 不接受 "-"，`{t}` 改为租户的 IM 前缀（"-" 写作 "X"）；OpenIM 实测结论记录在实施计划 §7.1 |
 | v0.3 | 2026-09-30 | 新增需求 R9 待办事项、R10 订单管理：新增 §24 待办事项、§25 订单管理（含商品库和企业系统对接）、§26 第三轮待确认问题；相应调整 §0、§1、§2、§5 D5、§6.2、§7.3、§8、§11（新工具、Copilot、护栏）、§13、§15 数据模型、§16 接口、§17 前端、§18、§19.3、§20、§21（新增 P6）和 §22 风险 |
+| v0.5 | 2026-09-30 | 新增 §25.11 加工与缺货：工人角色（`production:work`、`production:assign`）、加工页（手机优先）、逐个商品标记完成或缺货、订单中心的"待发货""缺货"视图、"待发货""缺货处理"系统待办；相应调整 §15、§16、§24.2、§25.4、§25.7、§25.9、§25.10 |
 | v0.4 | 2026-09-30 | 纳入第三轮决定（§26）：AI 生成的待办一律进入待确认页；订单增加收款方式与收款记录、应收与催收、修改记录与版本对比、订单跟踪页；商品库改为按用户给出的字段用 Excel 模板上传；AI 只能告知建议零售价，并增加成本价保护；相应调整 §0、§1、§2.2、§11、§15、§16、§17、§18、§19.3、§21、§22 |

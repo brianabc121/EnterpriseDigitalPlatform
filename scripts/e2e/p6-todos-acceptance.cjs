@@ -283,7 +283,7 @@ async function adminSection(browser, ctx) {
   const table = page.locator('[data-testid="todo-types-table"]')
   await table.locator('.el-table__row', { hasText: '开票' }).waitFor()
   const presets = await table.locator('.el-table__row').count()
-  check('待办类型：预置了回电、留言、开票、投诉等 11 种', presets === 11, presets)
+  check('待办类型：预置了回电、留言、开票、投诉等 13 种（含订单的审核、催收、待发货、缺货处理）', presets === 13, presets)
 
   // 开票交给财务组，分给未完成待办最少的组员。
   await page.click('[data-testid="edit-type-invoice"]')

@@ -2,8 +2,8 @@
 
 排队长度与最久等待、在线坐席与接待量、AI 接待中的会话、IM 发件箱积压、事件流积压、死信数量、
 授权已失效的企业微信企业、消息分区（提前建好的月数、默认分区里的行数）、待办与订单的积压
-（待确认、逾期、最久未认领、待审核、逾期应收）、向企业系统推送的失败，以及租户 ID 与短码的
-对应（edp_tenant_info）。
+（待确认、逾期、最久未认领、待审核、逾期应收、待发货、缺货）、向企业系统推送的失败，以及租户 ID
+与短码的对应（edp_tenant_info）。
 """
 
 import uuid
@@ -70,6 +70,10 @@ async def collect(ctx: AppContext, *, now: datetime | None = None) -> list[Metri
     receivable_overdue = _family(
         "edp_orders_receivable_overdue", "暂欠逾期仍未收清的订单", ["tenant"]
     )
+    awaiting_shipment = _family(
+        "edp_orders_awaiting_shipment", "工人加工完成、等待发货的订单", ["tenant"]
+    )
+    out_of_stock = _family("edp_orders_out_of_stock", "有缺货商品、还没有发货的订单", ["tenant"])
     webhooks = _family(
         "edp_webhook_deliveries",
         "向企业系统的推送（state：retrying 失败后等待重试，dead 已停止重试）",
@@ -175,6 +179,7 @@ async def collect(ctx: AppContext, *, now: datetime | None = None) -> list[Metri
             receivable_overdue,
             webhooks,
         )
+        await _production(session, awaiting_shipment, out_of_stock)
 
         partitions = await partition_status(session)
         partitions_ahead.add_metric([], partitions.months_ahead)
@@ -208,7 +213,30 @@ async def collect(ctx: AppContext, *, now: datetime | None = None) -> list[Metri
         orders_review_oldest,
         receivable_overdue,
         webhooks,
+        awaiting_shipment,
+        out_of_stock,
     ]
+
+
+async def _production(
+    session: AsyncSession, awaiting_shipment: GaugeMetricFamily, out_of_stock: GaugeMetricFamily
+) -> None:
+    """加工（设计文档 §25.11）：待发货和缺货的订单积压。"""
+    rows = await session.execute(
+        select(
+            Order.tenant_id,
+            func.count().filter(Order.processed_at.is_not(None)),
+            func.count().filter(Order.shortage_at.is_not(None)),
+        )
+        .where(
+            Order.status.in_((OrderStatus.CONFIRMED, OrderStatus.FULFILLING)),
+            (Order.processed_at.is_not(None)) | (Order.shortage_at.is_not(None)),
+        )
+        .group_by(Order.tenant_id)
+    )
+    for tenant_id, processed, short in rows:
+        awaiting_shipment.add_metric([tenant_label(tenant_id)], processed)
+        out_of_stock.add_metric([tenant_label(tenant_id)], short)
 
 
 async def _todos_and_orders(

@@ -112,6 +112,21 @@ class PaymentKind(StrEnum):
     REFUND = "refund"
 
 
+class WorkStatus(StrEnum):
+    """订单行的加工进度（设计文档 §25.11）。"""
+
+    PENDING = "pending"  # 待加工
+    DONE = "done"  # 已完成
+    OUT_OF_STOCK = "out_of_stock"  # 缺货
+
+
+WORK_STATUS_LABELS: dict[str, str] = {
+    WorkStatus.PENDING: "待加工",
+    WorkStatus.DONE: "已完成",
+    WorkStatus.OUT_OF_STOCK: "缺货",
+}
+
+
 class RevisionKind(StrEnum):
     CREATED = "created"  # 最初的版本（AI 或员工生成）
     EDIT = "edit"  # 修改内容（商品、价格、收货信息、收款方式等）
@@ -147,6 +162,7 @@ class Order(IdMixin, TimestampMixin, TenantMixin, Base):
         ForeignKeyConstraint(
             ["tenant_id", "skill_group_id"], ["skill_groups.tenant_id", "skill_groups.id"]
         ),
+        ForeignKeyConstraint(["tenant_id", "worker_id"], ["staff.tenant_id", "staff.id"]),
     )
 
     no: Mapped[str] = mapped_column(String(24))
@@ -203,6 +219,15 @@ class Order(IdMixin, TimestampMixin, TenantMixin, Base):
     created_by: Mapped[uuid.UUID | None]
     review_todo_id: Mapped[uuid.UUID | None]
     collection_todo_id: Mapped[uuid.UUID | None]
+    # 加工（§25.11）：领取或被指派的工人；全部商品加工完成的时间；有缺货商品的时间（为空表示
+    # 没有缺货）；提醒客服发货、处理缺货的待办。
+    worker_id: Mapped[uuid.UUID | None]
+    claimed_at: Mapped[datetime | None]
+    processed_at: Mapped[datetime | None]
+    processed_by: Mapped[uuid.UUID | None]
+    shortage_at: Mapped[datetime | None]
+    ship_todo_id: Mapped[uuid.UUID | None]
+    shortage_todo_id: Mapped[uuid.UUID | None]
 
 
 class OrderItem(IdMixin, TenantMixin, Base):
@@ -231,6 +256,15 @@ class OrderItem(IdMixin, TenantMixin, Base):
     cost_price: Mapped[Decimal | None] = mapped_column(MONEY)
     amount: Mapped[Decimal] = mapped_column(MONEY, server_default="0")
     sort: Mapped[int] = mapped_column(server_default="0")
+    # 加工进度；缺货时记下缺多少（为空表示整行都缺）、说明和预计到货日期。
+    work_status: Mapped[str] = mapped_column(String(12), server_default=WorkStatus.PENDING.value)
+    done_at: Mapped[datetime | None]
+    done_by: Mapped[uuid.UUID | None]
+    shortage_qty: Mapped[int | None]
+    shortage_note: Mapped[str | None] = mapped_column(Text)
+    restock_date: Mapped[date | None]
+    shortage_at: Mapped[datetime | None]
+    shortage_by: Mapped[uuid.UUID | None]
 
 
 class OrderPayment(IdMixin, TenantMixin, Base):

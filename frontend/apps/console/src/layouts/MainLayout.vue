@@ -2,6 +2,7 @@
 import {
   ArrowDown,
   Avatar,
+  Box,
   ChatDotRound,
   Clock,
   Connection,
@@ -40,6 +41,7 @@ const icons: Record<MenuIcon, Component> = {
   ticket: Tickets,
   order: ShoppingCart,
   goods: Goods,
+  production: Box,
   user: User,
   reading: Reading,
   ai: MagicStick,
@@ -84,25 +86,50 @@ async function loadOrderBadge(): Promise<void> {
   if (data) orderBadge.value = data.pending_review
 }
 
+// 加工菜单的角标：待领取的订单，给进不了订单中心的工人看（其他员工在订单中心看待发货和缺货），
+// 与待办一起刷新；加工或订单有变化时立即刷新。
+const productionBadge = ref(0)
+
+async function loadProductionBadge(): Promise<void> {
+  if (!auth.can('production:work') || auth.can('order:read')) return
+  if (auth.me?.features?.orders === false) return
+  const { data } = await api.GET('/api/v1/production/counts')
+  if (data) productionBadge.value = data.pool
+}
+
 function onOrdersChanged(): void {
   void loadOrderBadge()
+  void loadProductionBadge()
+}
+
+// 手机上（工人在车间用手机打开"加工"）侧边栏收起成图标。
+const NARROW = '(max-width: 768px)'
+const narrowQuery = typeof window.matchMedia === 'function' ? window.matchMedia(NARROW) : null
+const narrow = ref(narrowQuery?.matches ?? false)
+
+function onNarrow(event: MediaQueryListEvent): void {
+  narrow.value = event.matches
 }
 
 onMounted(() => {
   void loadTodoBadge()
   void loadOrderBadge()
+  void loadProductionBadge()
   todoTimer = setInterval(() => {
     if (document.visibilityState !== 'visible') return
     void loadTodoBadge()
     void loadOrderBadge()
+    void loadProductionBadge()
   }, TODO_POLL_MS)
   window.addEventListener(TODOS_CHANGED, onTodosChanged)
   window.addEventListener(ORDERS_CHANGED, onOrdersChanged)
+  narrowQuery?.addEventListener('change', onNarrow)
 })
 onBeforeUnmount(() => {
   clearInterval(todoTimer)
   window.removeEventListener(TODOS_CHANGED, onTodosChanged)
   window.removeEventListener(ORDERS_CHANGED, onOrdersChanged)
+  narrowQuery?.removeEventListener('change', onNarrow)
 })
 
 async function onCommand(command: string): Promise<void> {
@@ -123,27 +150,44 @@ async function logout(): Promise<void> {
 
 <template>
   <el-container class="layout">
-    <el-aside width="208px" class="aside">
-      <div class="brand">EDP 智能客服</div>
-      <el-menu :default-active="route.path" router class="menu" data-testid="main-menu">
+    <el-aside :width="narrow ? '64px' : '208px'" class="aside">
+      <div class="brand">{{ narrow ? 'EDP' : 'EDP 智能客服' }}</div>
+      <el-menu
+        :default-active="route.path"
+        :collapse="narrow"
+        :collapse-transition="false"
+        router
+        class="menu"
+        data-testid="main-menu"
+      >
         <el-menu-item v-for="item in menus" :key="item.name" :index="item.path">
           <el-icon><component :is="icons[item.icon]" /></el-icon>
-          <span>{{ item.title }}</span>
-          <el-badge
-            v-if="item.name === 'todos' && todoBadge"
-            :value="todoBadge"
-            :max="99"
-            class="menu-badge"
-            data-testid="todo-badge"
-          />
-          <el-badge
-            v-if="item.name === 'orders' && orderBadge"
-            :value="orderBadge"
-            :max="99"
-            type="warning"
-            class="menu-badge"
-            data-testid="order-badge"
-          />
+          <template #title>
+            <span>{{ item.title }}</span>
+            <el-badge
+              v-if="item.name === 'todos' && todoBadge"
+              :value="todoBadge"
+              :max="99"
+              class="menu-badge"
+              data-testid="todo-badge"
+            />
+            <el-badge
+              v-if="item.name === 'orders' && orderBadge"
+              :value="orderBadge"
+              :max="99"
+              type="warning"
+              class="menu-badge"
+              data-testid="order-badge"
+            />
+            <el-badge
+              v-if="item.name === 'production' && productionBadge"
+              :value="productionBadge"
+              :max="99"
+              type="warning"
+              class="menu-badge"
+              data-testid="production-badge"
+            />
+          </template>
         </el-menu-item>
       </el-menu>
     </el-aside>
@@ -217,6 +261,8 @@ async function logout(): Promise<void> {
   height: 56px;
   line-height: 56px;
   padding: 0 20px;
+  white-space: nowrap;
+  overflow: hidden;
   font-weight: 600;
   font-size: 16px;
   color: var(--el-color-primary);
@@ -243,5 +289,27 @@ async function logout(): Promise<void> {
   align-items: center;
   gap: 4px;
   cursor: pointer;
+}
+
+@media (max-width: 768px) {
+  .brand {
+    padding: 0;
+    text-align: center;
+  }
+
+  .header {
+    padding: 0 12px;
+  }
+
+  .tenant {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    margin-right: 8px;
+  }
+
+  .el-main {
+    padding: 12px;
+  }
 }
 </style>

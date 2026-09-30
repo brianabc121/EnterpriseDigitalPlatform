@@ -211,6 +211,12 @@ AI 与知识增强（G5）：
   收货信息为掩码）里查看进度，也可以直接问 AI。"设置 → 订单"里设置编号前缀、收款方式、必填信息、AI 下单、
   优惠上限和跟踪链接保留天数。订单和待办可以在输入密码后导出（CSV，按权限决定收货信息是否掩码、是否含成本）；
   商品库导出为与模板相同的 Excel，改完可以直接再导入。
+- **加工（工人角色，设计文档 §25.11）**：在"员工"里给工人分配"工人"角色，工人登录后只有"加工"菜单（手机上也能用），
+  看得到商品、规格、数量、备注、期望时间和客户称呼，看不到金额、电话和地址。工人在"待领取"里领取已确认的订单
+  （满足开工条件的，例如货到付款），逐个商品标记完成，缺货时登记缺多少、预计到货日期和说明；全部完成后点"完成订单"，
+  订单进入订单中心的"待发货"（没有发货环节时叫"待交付"），订单处理人收到"待发货"待办。有缺货商品的订单进入
+  "缺货"，订单处理人收到"缺货处理"待办，客服或工人登记到货后继续加工。主管在订单详情里指派或改派加工人，被指派的
+  工人收到站内信。
 - **企业系统对接**："设置 → 企业系统对接"里创建接口密钥（按权限范围授权，完整密钥只显示一次）和推送地址（签名密钥
   只显示一次）。企业系统用 `/open/v1`（`Authorization: Bearer edp_...`）同步商品、价格和上下架，创建订单（带自己的单号，
   重复提交返回原订单）、查询订单、回传状态、物流和收款、创建待办。平台把订单的创建、修改、确认、状态变化、取消、
@@ -355,6 +361,7 @@ make alerts-check    # 告警规则（promtool）
   NODE_PATH=$(npm root -g) PLATFORM_PASSWORD=<平台账号密码> node scripts/e2e/p6-todos-acceptance.cjs
   NODE_PATH=$(npm root -g) PLATFORM_PASSWORD=<平台账号密码> node scripts/e2e/p6-orders-acceptance.cjs
   NODE_PATH=$(npm root -g) PLATFORM_PASSWORD=<平台账号密码> node scripts/e2e/p6-integration-acceptance.cjs
+  NODE_PATH=$(npm root -g) PLATFORM_PASSWORD=<平台账号密码> node scripts/e2e/p7-production-acceptance.cjs
   NODE_PATH=$(npm root -g) PLATFORM_PASSWORD=<平台账号密码> \
     METRICS_URLS=http://127.0.0.1:9464/metrics,http://127.0.0.1:9465/metrics,http://127.0.0.1:9466/metrics \
     node scripts/e2e/g6-ops-observability.cjs
@@ -407,6 +414,10 @@ make alerts-check    # 告警规则（promtool）
   接收服务，校验每条推送的签名）并测试推送；企业系统同步商品、创建订单（重复提交返回原订单）、回传发货（跳过确认），
   订单中心和修改记录显示"企业系统"，跟踪页看到物流；接收方返回 500 时进入重试，运营后台看到重试中的推送并重发，
   失败的测试推送在推送记录里重发；企业系统创建的待办完成后推送 todo.done；待办、订单报表；撤销密钥后立即不能调用。
+- **加工**（`scripts/e2e/p7-production-acceptance.cjs`）：工人在手机尺寸的页面登录，只有"加工"菜单、看不到金额和
+  收货信息；领取订单（另一个工人不能再领），逐个商品标记完成、登记和修改缺货；客服从站内信打开"缺货处理"待办，
+  在订单中心的"缺货"里登记到货；工人完成订单后，客服收到"待发货"待办并发货，客户的跟踪页显示"已加工完成，
+  等待发货"；主管指派加工人，工人从站内信直接打开这张订单。需要后端（含实时消费进程）、控制台和 Widget。
   前置同 P3；脚本在后端目录执行 `uv run python -m app.cli webhook-jobs`（需要同样的环境变量）。
 
 - **P1 M1**（`scripts/e2e/m1-im-acceptance.cjs`）：访客在 Widget 里发消息、实时收到机器人回复，消息经回调入库；

@@ -376,6 +376,7 @@ async def update(
     if payload.internal_note is not None:
         order.internal_note = payload.internal_note.strip()
     if payload.items is not None:
+        service.carry_work(old_items, items)
         for item in old_items:
             await session.delete(item)
         await session.flush()
@@ -426,6 +427,9 @@ async def update(
             detail={"no": order.no, "reason": payload.reason, "changes": sorted(changes)},
             ip=ip,
         )
+    todos: list[uuid.UUID] = []
+    if payload.items is not None:
+        todos = await service.after_edit(session, ctx.keys, order, items, actor_id=me, now=now)
     notice: OrderNotice | None = None
     room: uuid.UUID | None = None
     if payload.notify_customer and order.status in (
@@ -435,7 +439,7 @@ async def update(
         text = render(settings.update_template, _values(ctx, order, items))
         notice, room = await _notice(session, order, text, actor_id=me, now=now)
     await session.commit()
-    await _after(ctx, order, [room], [])
+    await _after(ctx, order, [room], todos)
     return order, notice
 
 
@@ -589,11 +593,8 @@ def _net_paid(order: Order) -> Decimal:
     return order.paid_amount - order.refunded_amount
 
 
-async def start(
-    ctx: AppContext, session: AsyncSession, principal: Principal, order_id: uuid.UUID
-) -> Order:
-    order = await service.get_visible(session, principal, order_id, lock=True)
-    service.require_status(order, (OrderStatus.CONFIRMED,), "只有已确认的订单可以开始处理")
+def check_startable(order: Order) -> None:
+    """开始处理前的收款条件（加工页的"待领取"与这里一致，见 production.claimable）。"""
     method = order.payment_method
     if method == PaymentMethod.ONLINE and service.outstanding(order) > 0:
         raise Unprocessable("在线收款的订单要先收清全款，才能开始处理")
@@ -605,12 +606,25 @@ async def start(
         raise Unprocessable("还没有收到定金，不能开始处理")
     if method == PaymentMethod.CREDIT and order.credit_approved_at is None:
         raise Unprocessable("暂欠需要主管同意后才能开始处理")
+
+
+async def begin(session: AsyncSession, principal: Principal, order: Order) -> None:
+    """已确认 → 处理中（员工点"开始处理"，或工人领取时；由调用方提交）。"""
+    service.require_status(order, (OrderStatus.CONFIRMED,), "只有已确认的订单可以开始处理")
+    check_startable(order)
     now = service.utcnow()
 
     def change() -> None:
         order.started_at = now
 
     await _transition(session, principal, order, OrderStatus.FULFILLING, "started", change=change)
+
+
+async def start(
+    ctx: AppContext, session: AsyncSession, principal: Principal, order_id: uuid.UUID
+) -> Order:
+    order = await service.get_visible(session, principal, order_id, lock=True)
+    await begin(session, principal, order)
     await session.commit()
     return order
 
@@ -647,6 +661,15 @@ async def ship(
         "shipped",
         payload={"shipping_company": company, "tracking_no": number},
         change=change,
+    )
+    await service.close_production_todos(
+        session,
+        order,
+        result="订单已发货",
+        cancelled=False,
+        actor_type=STAFF,
+        actor_id=principal.staff_id,
+        now=now,
     )
     notice: OrderNotice | None = None
     room: uuid.UUID | None = None
@@ -689,6 +712,15 @@ async def complete(
 
     items, _ = await _transition(
         session, principal, order, OrderStatus.COMPLETED, "completed", change=change
+    )
+    await service.close_production_todos(
+        session,
+        order,
+        result="订单已完成",
+        cancelled=False,
+        actor_type=STAFF,
+        actor_id=principal.staff_id,
+        now=now,
     )
     notice: OrderNotice | None = None
     room: uuid.UUID | None = None
@@ -737,7 +769,12 @@ async def cancel(
         payload={"reason": reason, "refund_needed": _net_paid(order) > 0},
         change=change,
     )
-    for todo_id in (order.review_todo_id, order.collection_todo_id):
+    for todo_id in (
+        order.review_todo_id,
+        order.collection_todo_id,
+        order.ship_todo_id,
+        order.shortage_todo_id,
+    ):
         await service.close_todo(
             session,
             todo_id,
