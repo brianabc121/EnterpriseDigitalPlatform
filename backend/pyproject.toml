@@ -24,6 +24,7 @@ dependencies = [
     "opentelemetry-exporter-otlp-proto-http>=1.45.0",
     "opentelemetry-instrumentation-httpx>=0.66b0",
     "opentelemetry-instrumentation-sqlalchemy>=0.66b0",
+    "pypinyin>=0.53",
 ]
 
 [dependency-groups]

@@ -63,6 +63,8 @@ class Product(IdMixin, TimestampMixin, TenantMixin, Base):
     stock_alert: Mapped[Decimal | None] = mapped_column(QTY)
     # 关键词检索的词项（名称、别名、型号、规格、分类、代码）和稠密向量（有向量模型时）。
     terms: Mapped[list[str]] = mapped_column(server_default="{}")
+    # 开单时联想的检索键（§25.16）：各字段统一写法后的内容，名称和俗称的全拼与拼音首字母。
+    search_key: Mapped[str] = mapped_column(Text, server_default="")
     embedding: Mapped[list[float] | None] = mapped_column(Vector(EMBED_DIM))
     created_by: Mapped[uuid.UUID | None]
     updated_by: Mapped[uuid.UUID | None]

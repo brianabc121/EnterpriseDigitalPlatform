@@ -24,6 +24,7 @@ from app.db.types import vector_literal
 from app.integrations.llm import LLMUnavailable
 from app.modules.ai import gateway
 from app.modules.kb.text import normalize, terms
+from app.modules.products import suggest
 from app.modules.products.models import Product, ProductGap, ProductKind, ProductStatus
 
 logger = logging.getLogger(__name__)
@@ -77,8 +78,9 @@ def embed_text(product: Product) -> str:
 
 
 def refresh(product: Product) -> None:
-    """名称等检索字段变化后：重算词项，清空向量（由调度任务重新生成）。"""
+    """名称等检索字段变化后：重算词项和联想的检索键，清空向量（由调度任务重新生成）。"""
     product.terms = product_terms(product)
+    product.search_key = suggest.search_key(product)
     product.embedding = None
 
 

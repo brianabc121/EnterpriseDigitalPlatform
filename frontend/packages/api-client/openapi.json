@@ -18987,6 +18987,83 @@
         "title": "ProductSearchResult",
         "type": "object"
       },
+      "ProductSuggestion": {
+        "description": "开单时联想的一个商品（§25.16）。",
+        "properties": {
+          "field": {
+            "anyOf": [
+              {
+                "enum": [
+                  "code",
+                  "model",
+                  "name",
+                  "alias",
+                  "spec",
+                  "category",
+                  "pinyin"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "按哪个字段找到的：code 代码、model 型号、name 名称、alias 俗称、spec 规格、category 分类、pinyin 拼音（最近用过的为空）",
+            "title": "Field"
+          },
+          "match": {
+            "description": "exact 完全一致、prefix 开头一致、contains 包含、pinyin 拼音、similar 相近、recent 最近用过",
+            "enum": [
+              "exact",
+              "prefix",
+              "contains",
+              "pinyin",
+              "similar",
+              "recent"
+            ],
+            "title": "Match",
+            "type": "string"
+          },
+          "product": {
+            "$ref": "#/components/schemas/ProductOut"
+          },
+          "score": {
+            "description": "匹配程度（约 0 到 1），最近用过的为 0",
+            "title": "Score",
+            "type": "number"
+          }
+        },
+        "required": [
+          "product",
+          "score",
+          "field",
+          "match"
+        ],
+        "title": "ProductSuggestion",
+        "type": "object"
+      },
+      "ProductSuggestions": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ProductSuggestion"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "recent": {
+            "description": "没有输入关键词：自己最近开单用过的商品",
+            "title": "Recent",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "items",
+          "recent"
+        ],
+        "title": "ProductSuggestions",
+        "type": "object"
+      },
       "ProductUpload": {
         "properties": {
           "content_base64": {
@@ -23421,6 +23498,82 @@
           "total"
         ],
         "title": "StockMovementPage",
+        "type": "object"
+      },
+      "StockSuggestion": {
+        "description": "开领料单、入库单时联想的一个商品（§25.16，没有价格）。",
+        "properties": {
+          "field": {
+            "anyOf": [
+              {
+                "enum": [
+                  "code",
+                  "model",
+                  "name",
+                  "alias",
+                  "spec",
+                  "category",
+                  "pinyin"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "按哪个字段找到的（同 ProductSuggestion）",
+            "title": "Field"
+          },
+          "item": {
+            "$ref": "#/components/schemas/StockItemOut"
+          },
+          "match": {
+            "enum": [
+              "exact",
+              "prefix",
+              "contains",
+              "pinyin",
+              "similar",
+              "recent"
+            ],
+            "title": "Match",
+            "type": "string"
+          },
+          "score": {
+            "description": "匹配程度（约 0 到 1），最近用过的为 0",
+            "title": "Score",
+            "type": "number"
+          }
+        },
+        "required": [
+          "item",
+          "score",
+          "field",
+          "match"
+        ],
+        "title": "StockSuggestion",
+        "type": "object"
+      },
+      "StockSuggestions": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/StockSuggestion"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "recent": {
+            "description": "没有输入关键词：自己最近开单用过的",
+            "title": "Recent",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "items",
+          "recent"
+        ],
+        "title": "StockSuggestions",
         "type": "object"
       },
       "SubscriptionCreate": {
@@ -48420,6 +48573,120 @@
         ]
       }
     },
+    "/api/v1/products/suggest": {
+      "get": {
+        "description": "下单时的商品联想（§25.16）：上架的成品，按匹配程度、常用程度和库存排序。",
+        "operationId": "suggest_products_api_v1_products_suggest_get",
+        "parameters": [
+          {
+            "description": "输入的名称、代码、规格、拼音首字母等；为空时返回自己最近下单用过的",
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "default": "",
+              "description": "输入的名称、代码、规格、拼音首字母等；为空时返回自己最近下单用过的",
+              "maxLength": 100,
+              "title": "Q",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 8,
+              "maximum": 20,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductSuggestions"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Suggest Products",
+        "tags": [
+          "products"
+        ]
+      }
+    },
     "/api/v1/products/template": {
       "get": {
         "description": "商品表格模板（.xlsx）：表头、示例行、每列的填写说明；价格列只能填数字。",
@@ -62843,6 +63110,136 @@
           }
         ],
         "summary": "Put Settings",
+        "tags": [
+          "warehouse"
+        ]
+      }
+    },
+    "/api/v1/warehouse/suggest": {
+      "get": {
+        "description": "开领料单、入库单时的商品联想（§25.16）：启用的材料或成品，带库存（没有价格），按匹配程度、\n常用程度和库存排序。",
+        "operationId": "suggest_items_api_v1_warehouse_suggest_get",
+        "parameters": [
+          {
+            "description": "成品或材料",
+            "in": "query",
+            "name": "kind",
+            "required": false,
+            "schema": {
+              "default": "material",
+              "description": "成品或材料",
+              "enum": [
+                "goods",
+                "material"
+              ],
+              "title": "Kind",
+              "type": "string"
+            }
+          },
+          {
+            "description": "输入的名称、代码、规格、拼音首字母等；为空时返回自己最近开单用过的",
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "default": "",
+              "description": "输入的名称、代码、规格、拼音首字母等；为空时返回自己最近开单用过的",
+              "maxLength": 100,
+              "title": "Q",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 8,
+              "maximum": 20,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StockSuggestions"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Suggest Items",
         "tags": [
           "warehouse"
         ]
