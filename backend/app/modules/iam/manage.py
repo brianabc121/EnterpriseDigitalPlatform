@@ -24,6 +24,7 @@ from app.core.security import hash_password, verify_password
 from app.modules.audit.service import record_audit
 from app.modules.billing.entitlements import check_limit
 from app.modules.conversation import imids, outbox
+from app.modules.iam.console import role_profile
 from app.modules.iam.models import RefreshToken, Role, Staff, StaffRole, StaffStatus
 from app.modules.iam.principal import Principal
 from app.modules.iam.schemas import (
@@ -285,6 +286,8 @@ def role_out(role: Role, members: int) -> RoleOut:
         permissions=sorted(role_permissions(role)),
         is_system=role.is_system,
         members=members,
+        console=role_profile(role),
+        console_auto=not role.is_system and role.console is None,
     )
 
 
@@ -307,6 +310,7 @@ async def create_role(
         name=payload.name,
         permissions=_check_grantable(principal, [str(p) for p in payload.permissions]),
         is_system=False,
+        console=payload.console,
     )
     session.add(role)
     record_audit(
@@ -317,7 +321,7 @@ async def create_role(
         tenant_id=principal.tenant_id,
         resource_type="role",
         resource_id=str(role.id),
-        detail={"code": role.code, "permissions": role.permissions},
+        detail={"code": role.code, "permissions": role.permissions, "console": role.console},
         ip=ip,
     )
     await session.commit()
@@ -349,6 +353,8 @@ async def update_role(
         role.name = payload.name
     if payload.permissions is not None:
         role.permissions = _check_grantable(principal, [str(p) for p in payload.permissions])
+    if "console" in payload.model_fields_set:
+        role.console = payload.console
     record_audit(
         session,
         action="role.update",
@@ -357,7 +363,12 @@ async def update_role(
         tenant_id=principal.tenant_id,
         resource_type="role",
         resource_id=str(role.id),
-        detail={"code": role.code, "name": role.name, "permissions": role.permissions},
+        detail={
+            "code": role.code,
+            "name": role.name,
+            "permissions": role.permissions,
+            "console": role.console,
+        },
         ip=ip,
     )
     await session.commit()

@@ -81,6 +81,9 @@ async def list_items(
     q: Annotated[str | None, Query(max_length=100)] = None,
     stale: Annotated[bool, Query(description="只看发布 90 天以上且近 90 天未被引用的")] = False,
     must_read: Annotated[bool, Query(description="只看必读知识")] = False,
+    expiring: Annotated[
+        bool, Query(description="只看 7 天内到期的已发布知识（快到期的排在前面）")
+    ] = False,
     space_id: UUID | None = None,
     category_id: Annotated[UUID | None, Query(description="包括它的下级分类")] = None,
     unassigned: Annotated[bool, Query(description="只看没有归入空间的")] = False,
@@ -101,6 +104,7 @@ async def list_items(
         offset=offset,
         stale=stale,
         must_read=must_read,
+        expiring=expiring,
         space_id=space_id,
         category_id=category_id,
         unassigned=unassigned,

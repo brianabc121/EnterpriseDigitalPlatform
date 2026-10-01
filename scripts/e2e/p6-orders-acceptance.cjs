@@ -622,8 +622,8 @@ async function reviewSection(browser, ctx, visitor) {
   )
   await closeDrawer(page)
 
-  // 坐席的商品页：没有成本价列，也不能导入、导出。
-  await menu(page, '商品')
+  // 坐席的商品页：没有成本价列，也不能导入、导出。客服的菜单里默认没有"商品"（§25.15），从地址打开。
+  await page.goto(`${CONSOLE}/products`)
   const table = page.locator('[data-testid="products-table"]')
   await table.locator('.el-table__row', { hasText: 'LOCK-X1-B' }).waitFor()
   const cost = await table.locator('[data-testid="product-cost-cell"]').count()

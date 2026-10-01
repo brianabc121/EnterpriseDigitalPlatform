@@ -4,6 +4,7 @@ import { computed, ref } from 'vue'
 import AgentsTab from '../components/settings/AgentsTab.vue'
 import BillingTab from '../components/settings/BillingTab.vue'
 import ChannelsTab from '../components/settings/ChannelsTab.vue'
+import ConsoleTab from '../components/settings/ConsoleTab.vue'
 import DataTab from '../components/settings/DataTab.vue'
 import IntegrationTab from '../components/settings/IntegrationTab.vue'
 import RetentionTab from '../components/settings/RetentionTab.vue'
@@ -43,6 +44,9 @@ const tab = ref('channels')
       </el-tab-pane>
       <el-tab-pane v-if="canRoute" label="坐席" name="agents" lazy>
         <AgentsTab />
+      </el-tab-pane>
+      <el-tab-pane label="控制台" name="console" lazy>
+        <ConsoleTab />
       </el-tab-pane>
       <el-tab-pane v-if="canConfigTodos" label="待办" name="todos" lazy>
         <TodoTypesTab />

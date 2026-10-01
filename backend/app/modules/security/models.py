@@ -36,6 +36,8 @@ class TenantSetting(Base):
     orders: Mapped[dict[str, Any]] = mapped_column(server_default="{}")
     # 仓库设置（warehouse/settings.py 的 WarehouseSettings）。
     warehouse: Mapped[dict[str, Any]] = mapped_column(server_default="{}")
+    # 除管理员以外每个岗位显示的菜单（设计文档 §25.15）。
+    console: Mapped[dict[str, Any]] = mapped_column(server_default="{}")
     updated_by: Mapped[uuid.UUID | None]
     updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
 

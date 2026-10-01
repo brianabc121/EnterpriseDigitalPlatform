@@ -154,6 +154,11 @@ function applyQuery(): void {
   if (typeof v === 'string' && ORDER_VIEWS.some(([name]) => name === v)) view.value = v as OrderView
   const id = route.query.id
   openId.value = typeof id === 'string' && id ? id : openId.value
+  // 首页的快捷入口（/orders?new=1）：打开新建订单。
+  if (route.query.new) {
+    creating.value = canCreate.value
+    void router.replace({ query: { ...route.query, new: undefined } })
+  }
 }
 
 function onCreated(order: Schemas['OrderDetail']): void {

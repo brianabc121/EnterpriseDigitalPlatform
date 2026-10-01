@@ -5,7 +5,6 @@ import { onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
 import { api } from '../api'
-import { firstAccessiblePath } from '../menu'
 import { useAuthStore } from '../stores/auth'
 
 const auth = useAuthStore()
@@ -71,7 +70,7 @@ async function submit(): Promise<void> {
   try {
     await auth.login(data.tenant_code, data.username, form.password)
     ElMessage.success(`注册成功，企业代码 ${data.tenant_code}，员工登录时需要填写`)
-    await router.replace(firstAccessiblePath(auth.permissions))
+    await router.replace(auth.home)
   } catch {
     await router.replace({ name: 'login', query: { tenant: data.tenant_code, username: data.username } })
   } finally {

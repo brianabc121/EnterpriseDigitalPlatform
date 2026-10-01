@@ -46,6 +46,9 @@ from app.modules.security.router import router as security_router
 from app.modules.sessions.router import router as sessions_router
 from app.modules.tenancy.router import router as platform_router
 from app.modules.todos.router import router as todos_router
+from app.modules.transport.middleware import TransportMiddleware
+from app.modules.transport.router import router as transport_router
+from app.modules.transport.sessions import SessionStore
 from app.modules.usage.router import platform_router as platform_usage_router
 from app.modules.usage.router import router as usage_router
 from app.modules.visitor.router import router as visitor_router
@@ -98,8 +101,11 @@ def create_app(
     app.state.rate_limiter = ctx.limiter or RateLimiter(ctx.redis)
     app.state.im = ctx.im
     app.state.im_provisioner = ctx.provisioner
+    app.state.transport_store = SessionStore(ctx.redis)
 
     install_error_handlers(app)
+    # 接口传输加密（§25.15）：在 CORS 里面，出错的响应也带 CORS 头。
+    app.add_middleware(TransportMiddleware, settings=ctx.settings, store=app.state.transport_store)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=ctx.settings.cors_origins,
@@ -111,6 +117,7 @@ def create_app(
     app.add_middleware(ObservabilityMiddleware)
 
     app.include_router(health_router)
+    app.include_router(transport_router)
     app.include_router(auth_router)
     app.include_router(iam_router)
     app.include_router(customer_router)

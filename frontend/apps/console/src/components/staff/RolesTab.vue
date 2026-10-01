@@ -1,10 +1,16 @@
 <script setup lang="ts">
-import { errorMessage, type Permission, type Schemas } from '@edp/api-client'
+import { errorMessage, type ConsoleProfile, type Permission, type Schemas } from '@edp/api-client'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { computed, onMounted, reactive, ref } from 'vue'
 
 import { api } from '../../api'
+import { CONSOLE_PROFILES, PROFILE_LABEL } from '../../menu'
 import { useAuthStore } from '../../stores/auth'
+
+/**
+ * 角色：系统角色和自定义角色。自定义角色可以选择岗位（§25.15，决定员工看到的菜单和首页），不选时
+ * 按权限判断。
+ */
 
 const emit = defineEmits<{ changed: [] }>()
 
@@ -26,10 +32,16 @@ const groups = computed(() => {
 const dialogOpen = ref(false)
 const saving = ref(false)
 const editing = ref<Schemas['RoleOut'] | null>(null)
-const form = reactive<{ code: string; name: string; permissions: Permission[] }>({
+const form = reactive<{
+  code: string
+  name: string
+  permissions: Permission[]
+  console: ConsoleProfile | ''
+}>({
   code: '',
   name: '',
   permissions: [],
+  console: '',
 })
 
 async function load(): Promise<void> {
@@ -53,6 +65,7 @@ function openEditor(role: Schemas['RoleOut'] | null): void {
     code: role?.code ?? '',
     name: role?.name ?? '',
     permissions: [...((role?.permissions ?? []) as Permission[])],
+    console: role && !role.console_auto ? role.console : '',
   })
   dialogOpen.value = true
 }
@@ -68,14 +81,17 @@ async function save(): Promise<void> {
     return
   }
   saving.value = true
+  const body = {
+    name: form.name.trim(),
+    permissions: form.permissions,
+    console: form.console || null,
+  }
   const result = editing.value
     ? await api.PATCH('/api/v1/roles/{role_id}', {
         params: { path: { role_id: editing.value.id } },
-        body: { name: form.name.trim(), permissions: form.permissions },
+        body,
       })
-    : await api.POST('/api/v1/roles', {
-        body: { code: form.code.trim(), name: form.name.trim(), permissions: form.permissions },
-      })
+    : await api.POST('/api/v1/roles', { body: { ...body, code: form.code.trim() } })
   saving.value = false
   if (!result.data) {
     ElMessage.error(errorMessage(result.error))
@@ -125,6 +141,12 @@ defineExpose({ load })
         </template>
       </el-table-column>
       <el-table-column prop="code" label="代码" width="160" />
+      <el-table-column label="岗位" width="130">
+        <template #default="{ row }">
+          <span :data-testid="`role-console-${row.code}`">{{ PROFILE_LABEL[row.console as ConsoleProfile] }}</span>
+          <span v-if="row.console_auto" class="hint">（按权限）</span>
+        </template>
+      </el-table-column>
       <el-table-column label="权限" min-width="320">
         <template #default="{ row }">
           <el-tag
@@ -165,6 +187,13 @@ defineExpose({ load })
         </el-form-item>
         <el-form-item label="名称" required>
           <el-input v-model="form.name" maxlength="64" />
+        </el-form-item>
+        <el-form-item label="岗位">
+          <el-select v-model="form.console" class="console" data-testid="role-console">
+            <el-option label="按权限自动判断" value="" />
+            <el-option v-for="[value, label] in CONSOLE_PROFILES" :key="value" :label="label" :value="value" />
+          </el-select>
+          <div class="hint console-hint">决定员工看到的菜单和首页；每个岗位的菜单在“设置 → 控制台”里调整。</div>
         </el-form-item>
         <el-form-item label="权限" required>
           <el-checkbox-group v-model="form.permissions" class="perms">
@@ -211,6 +240,15 @@ defineExpose({ load })
   display: flex;
   flex-direction: column;
   gap: 6px;
+}
+
+.console {
+  width: 200px;
+}
+
+.console-hint {
+  width: 100%;
+  line-height: 1.5;
 }
 
 .group-name {

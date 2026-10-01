@@ -6,7 +6,7 @@
 """
 
 import uuid
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from zoneinfo import ZoneInfo
 
 from sqlalchemy import select
@@ -17,10 +17,11 @@ from app.core.permissions import Permission
 from app.modules.iam.models import Staff, StaffStatus
 from app.modules.kb.distribution import audience
 from app.modules.kb.models import ItemStatus, KbItem
+from app.modules.kb.service import EXPIRING_WITHIN
 from app.modules.notifications import service as notifications
 from app.modules.wecom.notify import notify_staff
 
-REMIND_BEFORE = timedelta(days=7)
+REMIND_BEFORE = EXPIRING_WITHIN
 BATCH = 200
 KIND = "kb_expiring"
 

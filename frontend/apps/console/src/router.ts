@@ -8,7 +8,7 @@ import {
 
 import { onUnauthorized } from './api'
 import MainLayout from './layouts/MainLayout.vue'
-import { MENU, firstAccessiblePath } from './menu'
+import { MENU } from './menu'
 import { useAuthStore } from './stores/auth'
 import { inWecom, isMobile } from './wecom'
 
@@ -112,11 +112,11 @@ router.beforeEach(async (to) => {
   await auth.restore()
   if (to.meta.public) {
     if (to.name === 'wecom-login' || to.name === 'wecom-sidebar') return true
-    return to.name === 'login' && auth.isAuthenticated
-      ? firstAccessiblePath(auth.permissions)
-      : true
+    return to.name === 'login' && auth.isAuthenticated ? auth.home : true
   }
   if (!auth.isAuthenticated) return { name: 'login', query: { redirect: to.fullPath } }
+  // 首页不在岗位的菜单里时（例如工人）打开第一个菜单（§25.15）。
+  if (to.name === 'dashboard' && auth.home !== '/') return auth.home
   if (to.meta.permission && !auth.can(to.meta.permission)) return { name: 'forbidden' }
   // 企业微信手机端打开工作台时进入手机版。
   if (to.name === 'workbench' && inWecom() && isMobile()) {

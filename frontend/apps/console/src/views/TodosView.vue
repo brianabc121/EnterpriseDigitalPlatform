@@ -161,6 +161,13 @@ function applyQuery(): void {
   if (typeof v === 'string' && VIEWS.some(([name]) => name === v)) view.value = v as View
   const id = route.query.id
   openId.value = typeof id === 'string' && id ? id : openId.value
+  // 首页的数字和快捷入口：/todos?due=overdue（已逾期、今天到期）、/todos?new=1（新建待办）。
+  // 只用一次，用过后从地址里去掉（之后可以在页面上改筛选条件）。
+  const { due, new: create } = route.query
+  if (due === undefined && create === undefined) return
+  if (due === 'overdue' || due === 'today' || due === 'soon') filters.due = due
+  if (create) creating.value = canCreate.value
+  void router.replace({ query: { ...route.query, due: undefined, new: undefined } })
 }
 
 watch(view, () => {

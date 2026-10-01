@@ -84,17 +84,24 @@ CanConfig = Annotated[Principal, Depends(_can_config)]
 async def _settings_out(session: TenantDb, principal: Principal) -> WarehouseSettingsOut:
     value = await warehouse_settings.load(session, principal.tenant_id)
     keeper = await warehouse_settings.keeper(session, principal.tenant_id, value)
-    ids = {i for i in (value.keeper_id, keeper.staff_id) if i is not None}
+    ids = {i for i in (value.keeper_id, keeper.staff_id, *keeper.by_role) if i is not None}
     names = dict(
         (await session.execute(select(Staff.id, Staff.display_name).where(Staff.id.in_(ids)))).all()
     )
+    if keeper.staff_id is not None:
+        effective: str | None = names.get(keeper.staff_id)
+    elif keeper.by_role:
+        effective = "、".join(names[i] for i in keeper.by_role if i in names)
+    else:
+        effective = None
     return WarehouseSettingsOut(
         confirm_required=value.confirm_required,
         keeper_id=value.keeper_id,
         keeper_name=names.get(value.keeper_id) if value.keeper_id else None,
         effective_keeper_id=keeper.staff_id,
-        effective_keeper_name=names.get(keeper.staff_id) if keeper.staff_id else None,
+        effective_keeper_name=effective,
         fallback=keeper.fallback,
+        by_role=bool(keeper.by_role),
         can_edit=principal.has(Permission.ORDER_CONFIG),
     )
 

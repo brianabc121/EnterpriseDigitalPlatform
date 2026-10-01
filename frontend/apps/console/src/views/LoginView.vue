@@ -7,7 +7,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { api } from '../api'
 import { newLoginState } from '../wecom'
 
-import { firstAccessiblePath, safeRedirect } from '../menu'
+import { safeRedirect } from '../menu'
 import { useAuthStore } from '../stores/auth'
 
 const auth = useAuthStore()
@@ -62,7 +62,7 @@ async function submit(): Promise<void> {
   loading.value = true
   try {
     await auth.login(form.tenantCode.trim(), form.username.trim(), form.password)
-    await router.replace(safeRedirect(route.query.redirect, firstAccessiblePath(auth.permissions)))
+    await router.replace(safeRedirect(route.query.redirect, auth.home))
   } catch (error) {
     ElMessage.error(error instanceof Error ? error.message : '登录失败')
   } finally {

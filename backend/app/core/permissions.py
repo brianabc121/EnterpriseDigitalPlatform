@@ -184,6 +184,14 @@ DEFAULT_ROLES: tuple[RoleSpec, ...] = (
     ),
     # 工人只做加工（设计文档 §25.11）：看不到金额、客户电话和地址，也进不了订单中心。
     RoleSpec("worker", "工人", frozenset({Permission.PRODUCTION_WORK})),
+    # 仓管（设计文档 §25.15）：确认领料单和入库单，管理材料和成品的库存。
+    RoleSpec(
+        "keeper",
+        "仓管",
+        frozenset(
+            {Permission.DASHBOARD_VIEW, Permission.INVENTORY_MANAGE, Permission.WAREHOUSE_CONFIRM}
+        ),
+    ),
 )
 
 TENANT_ADMIN_ROLE = "tenant_admin"

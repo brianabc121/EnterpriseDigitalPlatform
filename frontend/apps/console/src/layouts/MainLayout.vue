@@ -25,7 +25,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { api } from '../api'
 import PasswordDialog from '../components/account/PasswordDialog.vue'
 import NotificationBell from '../components/layout/NotificationBell.vue'
-import { visibleMenus, type MenuIcon } from '../menu'
+import type { MenuIcon } from '../menu'
 import { ORDERS_CHANGED } from '../orders'
 import { TODOS_CHANGED } from '../todos'
 import { useAuthStore } from '../stores/auth'
@@ -54,7 +54,9 @@ const icons: Record<MenuIcon, Component> = {
   audit: Document,
   setting: Setting,
 }
-const menus = computed(() => visibleMenus(auth.permissions, auth.me?.features ?? {}))
+// 按岗位显示的菜单（§25.15）；角标只给显示的菜单取数。
+const menus = computed(() => auth.menus)
+const shown = (name: string): boolean => menus.value.some((item) => item.name === name)
 const noticeClosed = ref(sessionStorage.getItem('edp:billing-notice') === auth.me?.billing_notice)
 
 function closeNotice(): void {
@@ -70,7 +72,7 @@ const todoBadge = ref(0)
 let todoTimer: ReturnType<typeof setInterval> | undefined
 
 async function loadTodoBadge(): Promise<void> {
-  if (!auth.can('todo:read')) return
+  if (!shown('todos')) return
   const { data } = await api.GET('/api/v1/todos/counts')
   if (data) todoBadge.value = data.pending + data.overdue
 }
@@ -83,7 +85,7 @@ function onTodosChanged(): void {
 const orderBadge = ref(0)
 
 async function loadOrderBadge(): Promise<void> {
-  if (!auth.can('order:review') || auth.me?.features?.orders === false) return
+  if (!auth.can('order:review') || !shown('orders')) return
   const { data } = await api.GET('/api/v1/orders/counts')
   if (data) orderBadge.value = data.pending_review
 }
@@ -93,8 +95,7 @@ async function loadOrderBadge(): Promise<void> {
 const productionBadge = ref(0)
 
 async function loadProductionBadge(): Promise<void> {
-  if (!auth.can('production:work') || auth.can('order:read')) return
-  if (auth.me?.features?.orders === false) return
+  if (!shown('production') || auth.can('order:read')) return
   const { data } = await api.GET('/api/v1/production/counts')
   if (data) productionBadge.value = data.pool
 }
@@ -103,7 +104,7 @@ async function loadProductionBadge(): Promise<void> {
 const warehouseBadge = ref(0)
 
 async function loadWarehouseBadge(): Promise<void> {
-  if (!auth.can('warehouse:confirm') || auth.me?.features?.orders === false) return
+  if (!auth.can('warehouse:confirm') || !shown('warehouse')) return
   const { data } = await api.GET('/api/v1/warehouse/counts')
   if (data) warehouseBadge.value = data.pending_requisitions + data.pending_receipts
 }

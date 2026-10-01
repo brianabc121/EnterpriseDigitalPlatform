@@ -1,11 +1,13 @@
 import createClient, { type Client } from 'openapi-fetch'
 
 import { createAuthFetch, type TokenStore } from './auth-fetch'
+import { createTransport } from './transport'
 import type { components, paths } from './schema'
 
 export { createAuthFetch, memoryTokenStore, type AuthFetchOptions, type TokenStore } from './auth-fetch'
 export type { components, paths }
 export { formatUsage, totalHint } from './usage'
+export { createTransport, SEALED_TYPE, transportKey, type TransportOptions } from './transport'
 export {
   formatLimit,
   formatMoney,
@@ -16,6 +18,9 @@ export {
 
 export type Schemas = components['schemas']
 export type Permission = Schemas['Permission']
+/** 按岗位的控制台（§25.15）：菜单名和岗位，与后端 app/core/consoles.py 一致。 */
+export type ConsoleMenu = Schemas['ConsoleMenu']
+export type ConsoleProfile = Schemas['ConsoleProfile']
 export type ApiClient = Client<paths>
 
 interface ClientOptions {
@@ -23,15 +28,23 @@ interface ClientOptions {
   baseUrl?: string
   tokens: TokenStore
   onUnauthorized?: () => void
+  /** 传输加密的服务器公钥（设计文档 §25.15）；为空时从后端获取。 */
+  transportKey?: string | null
+  /** 已经创建好的传输加密（与刷新令牌等共用一个加密会话）；不传时按 transportKey 创建。 */
+  transport?: Send
 }
 
+type Send = (request: Request) => Promise<Response>
+
 /** 用 httpOnly Cookie 中的刷新令牌换取新的 Access Token。会话失效时返回 null。 */
-export async function refreshAccessToken(baseUrl = ''): Promise<string | null> {
+export async function refreshAccessToken(
+  baseUrl = '',
+  send: Send = (request) => globalThis.fetch(request),
+): Promise<string | null> {
   try {
-    const response = await fetch(`${baseUrl}/api/v1/auth/refresh`, {
-      method: 'POST',
-      credentials: 'include',
-    })
+    const response = await send(
+      new Request(`${baseUrl}/api/v1/auth/refresh`, { method: 'POST', credentials: 'include' }),
+    )
     if (!response.ok) return null
     const body = (await response.json()) as Schemas['TokenResponse']
     return body.access_token
@@ -43,28 +56,35 @@ export async function refreshAccessToken(baseUrl = ''): Promise<string | null> {
 /** 租户员工使用的客户端：自动携带令牌，过期时自动刷新。 */
 export function createStaffApi(options: ClientOptions): ApiClient {
   const baseUrl = options.baseUrl ?? ''
+  const secure = options.transport ?? createTransport({ baseUrl, publicKey: options.transportKey })
   return createClient<paths>({
     baseUrl,
     credentials: 'include',
     fetch: createAuthFetch({
       tokens: options.tokens,
-      refresh: () => refreshAccessToken(baseUrl),
+      refresh: () => refreshAccessToken(baseUrl, secure),
       onUnauthorized: options.onUnauthorized,
+      fetch: secure,
     }),
   })
 }
 
 /** 平台运营使用的客户端。P0 不做令牌刷新，过期后重新登录。 */
 export function createPlatformApi(options: ClientOptions): ApiClient {
+  const baseUrl = options.baseUrl ?? ''
   return createClient<paths>({
-    baseUrl: options.baseUrl ?? '',
-    fetch: createAuthFetch({ tokens: options.tokens, onUnauthorized: options.onUnauthorized }),
+    baseUrl,
+    fetch: createAuthFetch({
+      tokens: options.tokens,
+      onUnauthorized: options.onUnauthorized,
+      fetch: options.transport ?? createTransport({ baseUrl, publicKey: options.transportKey }),
+    }),
   })
 }
 
 /** 访客 Widget 使用的客户端：不需要登录，访客身份由请求体中的访客令牌表示。 */
-export function createVisitorApi(baseUrl = ''): ApiClient {
-  return createClient<paths>({ baseUrl })
+export function createVisitorApi(baseUrl = '', transportKey: string | null = null): ApiClient {
+  return createClient<paths>({ baseUrl, fetch: createTransport({ baseUrl, publicKey: transportKey }) })
 }
 
 /** 后端统一错误结构里的错误码（如 plan_limit、mfa_required）。 */

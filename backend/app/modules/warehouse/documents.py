@@ -560,10 +560,13 @@ async def _lines(session: AsyncSession, document_id: uuid.UUID) -> list[StockDoc
 
 
 async def confirmers(session: AsyncSession, tenant_id: uuid.UUID) -> list[uuid.UUID]:
-    """要提醒确认单据的人：仓管；没有仓管（也没有工人）时是有确认权限的员工。"""
+    """要提醒确认单据的人：仓管（有"仓管"角色的员工都算）；没有仓管（也没有工人）时是有确认
+    权限的员工。"""
     keeper = await warehouse_settings.keeper(session, tenant_id)
     if keeper.staff_id is not None:
         return [keeper.staff_id]
+    if keeper.by_role:
+        return list(keeper.by_role)
     return await todo_assign.staff_with(session, Permission.WAREHOUSE_CONFIRM)
 
 

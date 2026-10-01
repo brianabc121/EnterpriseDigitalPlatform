@@ -3,9 +3,11 @@ from uuid import UUID
 from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Cookie, Depends, Request, Response, status
+from pydantic import ValidationError
 
 from app.context import AppContext
 from app.core.config import Settings
+from app.core.consoles import DEFAULT_MENUS, PROFILE_LABELS, ConsoleProfile
 from app.core.dates import today
 from app.core.deps import (
     client_ip,
@@ -14,7 +16,7 @@ from app.core.deps import (
     get_database,
     get_rate_limiter,
 )
-from app.core.errors import ERROR_RESPONSES, ErrorResponse, Unauthorized
+from app.core.errors import ERROR_RESPONSES, ErrorResponse, Unauthorized, Unprocessable
 from app.core.permissions import ALL_PERMISSIONS, Permission
 from app.core.ratelimit import PASSWORD_CHECK, RateLimiter, login_attempt
 from app.core.security import RefreshClaims, TokenError, decode_refresh_token
@@ -22,10 +24,15 @@ from app.db.session import Database
 from app.modules.audit.service import record_audit
 from app.modules.billing.entitlements import entitlements
 from app.modules.billing.service import billing_notice
+from app.modules.iam import console as consoles
 from app.modules.iam import manage, service
 from app.modules.iam.deps import CurrentPrincipal, TenantDb, require_permission
 from app.modules.iam.principal import Principal
 from app.modules.iam.schemas import (
+    ConsoleOut,
+    ConsoleProfileMenus,
+    ConsoleSettingsIn,
+    ConsoleSettingsOut,
     LoginRequest,
     MePlan,
     MeResponse,
@@ -57,6 +64,7 @@ RefreshCookie = Annotated[str | None, Cookie(alias=REFRESH_COOKIE, include_in_sc
 ContextDep = Annotated[AppContext, Depends(get_context)]
 CanReadStaff = Annotated[Principal, Depends(require_permission(Permission.STAFF_READ))]
 CanManageStaff = Annotated[Principal, Depends(require_permission(Permission.STAFF_MANAGE))]
+CanManageSettings = Annotated[Principal, Depends(require_permission(Permission.SETTINGS_MANAGE))]
 
 
 def set_refresh_cookie(response: Response, settings: Settings, token: str) -> None:
@@ -155,6 +163,10 @@ async def logout(
 async def me(principal: CurrentPrincipal, session: TenantDb, settings: SettingsDep) -> MeResponse:
     entitled = await entitlements(session, principal.tenant_id)
     sub, plan = entitled.subscription, entitled.plan
+    profiles = consoles.profiles_for(
+        await consoles.staff_roles(session, principal.staff_id), principal.permissions
+    )
+    console_settings = await consoles.load_settings(session, principal.tenant_id)
     days_left, notice = billing_notice(sub, [], today(ZoneInfo(settings.usage_timezone)))
     return MeResponse(
         id=principal.staff_id,
@@ -177,6 +189,12 @@ async def me(principal: CurrentPrincipal, session: TenantDb, settings: SettingsD
         if sub is not None and plan is not None
         else None,
         billing_notice=notice if principal.has(Permission.SETTINGS_MANAGE) else None,
+        console=ConsoleOut(
+            profiles=profiles,
+            menus=consoles.menus_for(
+                profiles, console_settings, principal.permissions, entitled.features
+            ),
+        ),
     )
 
 
@@ -243,6 +261,55 @@ async def delete_role(
     """删除没有员工使用的自定义角色。"""
     await manage.delete_role(session, principal, role_id, ip=client_ip(request))
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+def _console_out(value: consoles.ConsoleSettings) -> ConsoleSettingsOut:
+    items = []
+    for profile in ConsoleProfile:
+        defaults = list(DEFAULT_MENUS[profile])
+        menus = value.menus.get(profile, defaults)
+        items.append(
+            ConsoleProfileMenus(
+                profile=profile,
+                label=PROFILE_LABELS[profile],
+                menus=menus,
+                defaults=defaults,
+                customized=profile in value.menus,
+                editable=profile != ConsoleProfile.ADMIN,
+            )
+        )
+    return ConsoleSettingsOut(items=items)
+
+
+@router.get("/tenant/console", response_model=ConsoleSettingsOut)
+async def get_console(session: TenantDb, principal: CanManageSettings) -> ConsoleSettingsOut:
+    """每个岗位显示的菜单（§25.15）：管理员固定看全部，其他岗位可以调整。"""
+    return _console_out(await consoles.load_settings(session, principal.tenant_id))
+
+
+@router.put("/tenant/console", response_model=ConsoleSettingsOut)
+async def put_console(
+    payload: ConsoleSettingsIn, request: Request, session: TenantDb, principal: CanManageSettings
+) -> ConsoleSettingsOut:
+    """调整岗位显示的菜单（没有列出的岗位恢复默认）。菜单还要有相应的权限才会显示。"""
+    try:
+        value = consoles.ConsoleSettings(menus=payload.menus)
+    except ValidationError as exc:
+        raise Unprocessable(str(exc.errors()[0]["msg"]).removeprefix("Value error, ")) from exc
+    await consoles.save_settings(session, principal.tenant_id, value, principal.staff_id)
+    record_audit(
+        session,
+        action="console.update",
+        actor_type="staff",
+        actor_id=principal.staff_id,
+        tenant_id=principal.tenant_id,
+        resource_type="tenant",
+        resource_id=str(principal.tenant_id),
+        detail=value.model_dump(mode="json"),
+        ip=client_ip(request),
+    )
+    await session.commit()
+    return _console_out(value)
 
 
 @router.get("/staff", response_model=StaffList)

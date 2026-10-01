@@ -3969,6 +3969,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/tenant/console": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Console
+         * @description 每个岗位显示的菜单（§25.15）：管理员固定看全部，其他岗位可以调整。
+         */
+        get: operations["get_console_api_v1_tenant_console_get"];
+        /**
+         * Put Console
+         * @description 调整岗位显示的菜单（没有列出的岗位恢复默认）。菜单还要有相应的权限才会显示。
+         */
+        put: operations["put_console_api_v1_tenant_console_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/tenant/exports": {
         parameters: {
             query?: never;
@@ -4593,6 +4617,47 @@ export interface paths {
         put?: never;
         /** Reject Transfer */
         post: operations["reject_transfer_api_v1_transfers__transfer_id__reject_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/transport/handshake": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Handshake
+         * @description 浏览器的一次性公钥 → 会话号、服务器的一次性公钥和签名；会话密钥存在 Redis 里。
+         *     关闭了传输加密时返回 409（浏览器改为不加密）。
+         */
+        post: operations["handshake_api_v1_transport_handshake_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/transport/key": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Transport Key
+         * @description 握手签名用的服务器公钥。生产环境的前端在构建时写入公钥，不从这里获取。
+         */
+        get: operations["transport_key_api_v1_transport_key_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -7573,6 +7638,74 @@ export interface components {
             type_id?: string | null;
         };
         /**
+         * ConsoleMenu
+         * @description 控制台的菜单，与前端 menu.ts 的菜单名一致（前端按 OpenAPI 的枚举检查）。
+         * @enum {string}
+         */
+        ConsoleMenu: "dashboard" | "workbench" | "sessions" | "todos" | "orders" | "products" | "production" | "warehouse" | "customers" | "knowledge" | "ai" | "staff" | "reports" | "broadcasts" | "wecom" | "audit" | "settings";
+        /**
+         * ConsoleOut
+         * @description 按岗位的控制台（设计文档 §25.15）。
+         */
+        ConsoleOut: {
+            /**
+             * Menus
+             * @description 显示的菜单（还要有相应的权限和套餐功能；菜单名与控制台 menu.ts 一致）
+             */
+            menus: components["schemas"]["ConsoleMenu"][];
+            /**
+             * Profiles
+             * @description 岗位（按首页上显示的先后）
+             */
+            profiles: components["schemas"]["ConsoleProfile"][];
+        };
+        /**
+         * ConsoleProfile
+         * @enum {string}
+         */
+        ConsoleProfile: "admin" | "supervisor" | "agent" | "keeper" | "worker" | "knowledge";
+        /** ConsoleProfileMenus */
+        ConsoleProfileMenus: {
+            /**
+             * Customized
+             * @description 企业调整过（不是默认值）
+             */
+            customized: boolean;
+            /**
+             * Defaults
+             * @description 默认显示的菜单
+             */
+            defaults: components["schemas"]["ConsoleMenu"][];
+            /**
+             * Editable
+             * @description 可以调整（管理员固定看全部菜单）
+             */
+            editable: boolean;
+            /** Label */
+            label: string;
+            /**
+             * Menus
+             * @description 显示的菜单
+             */
+            menus: components["schemas"]["ConsoleMenu"][];
+            profile: components["schemas"]["ConsoleProfile"];
+        };
+        /** ConsoleSettingsIn */
+        ConsoleSettingsIn: {
+            /**
+             * Menus
+             * @description 除管理员以外要调整的岗位和它们显示的菜单；没有列出的岗位恢复默认
+             */
+            menus: {
+                [key: string]: components["schemas"]["ConsoleMenu"][];
+            };
+        };
+        /** ConsoleSettingsOut */
+        ConsoleSettingsOut: {
+            /** Items */
+            items: components["schemas"]["ConsoleProfileMenus"][];
+        };
+        /**
          * ContentPolicy
          * @description 全局敏感词与内容安全策略（平台设置 content_policy），在各租户自己的敏感词之外生效。
          */
@@ -8700,6 +8833,44 @@ export interface components {
              * @default false
              */
             transfer_groups: boolean;
+        };
+        /** HandshakeIn */
+        HandshakeIn: {
+            /**
+             * Client Key
+             * @description 浏览器的一次性 ECDH P-256 公钥（未压缩的点，base64url）
+             */
+            client_key: string;
+        };
+        /** HandshakeOut */
+        HandshakeOut: {
+            /**
+             * Expires At
+             * @description 会话的过期时间（Unix 秒）
+             */
+            expires_at: number;
+            /** Key Id */
+            key_id: string;
+            /**
+             * Server Key
+             * @description 服务器的一次性 ECDH P-256 公钥（未压缩的点，base64url）
+             */
+            server_key: string;
+            /**
+             * Server Time
+             * @description 服务器的当前时间（Unix 秒）：浏览器按它校正请求的时间戳
+             */
+            server_time: number;
+            /**
+             * Session
+             * @description 会话号：放在请求头 X-EDP-Transport 里
+             */
+            session: string;
+            /**
+             * Signature
+             * @description 服务器签名密钥对握手内容的 ECDSA P-256 / SHA-256 签名（r || s，base64url）
+             */
+            signature: string;
         };
         /** HealthReport */
         HealthReport: {
@@ -10822,6 +10993,7 @@ export interface components {
              * @description 试用或到期提醒（只返回给有设置权限的员工）
              */
             billing_notice?: string | null;
+            console: components["schemas"]["ConsoleOut"];
             /** Display Name */
             display_name: string;
             /**
@@ -14382,6 +14554,8 @@ export interface components {
              * @description 小写字母开头，字母、数字、下划线
              */
             code: string;
+            /** @description 岗位；不填时按权限判断 */
+            console?: components["schemas"]["ConsoleProfile"] | null;
             /** Name */
             name: string;
             /**
@@ -14399,6 +14573,14 @@ export interface components {
         RoleOut: {
             /** Code */
             code: string;
+            /** @description 岗位（§25.15）：系统角色固定，自定义角色可以选择 */
+            console: components["schemas"]["ConsoleProfile"];
+            /**
+             * Console Auto
+             * @description 自定义角色没有选择岗位，按权限判断
+             * @default false
+             */
+            console_auto: boolean;
             /**
              * Id
              * Format: uuid
@@ -14419,6 +14601,8 @@ export interface components {
         };
         /** RoleUpdate */
         RoleUpdate: {
+            /** @description 岗位；传 null 表示改为按权限判断，不传表示不修改 */
+            console?: components["schemas"]["ConsoleProfile"] | null;
             /** Name */
             name?: string | null;
             /** Permissions */
@@ -17164,6 +17348,31 @@ export interface components {
             /** Groups */
             groups: components["schemas"]["TransferGroup"][];
         };
+        /** TransportKey */
+        TransportKey: {
+            /**
+             * Algorithm
+             * @default ECDSA-P256-SHA256
+             * @constant
+             */
+            algorithm: "ECDSA-P256-SHA256";
+            /**
+             * Key Id
+             * @description 公钥的指纹（SHA-256 的前 16 位十六进制）
+             */
+            key_id: string;
+            /**
+             * Mode
+             * @description 是否强制加密
+             * @enum {string}
+             */
+            mode: "required" | "optional" | "off";
+            /**
+             * Public Key
+             * @description 服务器公钥：SubjectPublicKeyInfo DER 的 base64
+             */
+            public_key: string;
+        };
         /**
          * UnassignedCustomerOut
          * @description 企业微信里待分配的离职成员客户。
@@ -17565,6 +17774,12 @@ export interface components {
         /** WarehouseSettingsOut */
         WarehouseSettingsOut: {
             /**
+             * By Role
+             * @description 没有指定仓管，有“仓管”角色的员工都是仓管（§25.15）
+             * @default false
+             */
+            by_role: boolean;
+            /**
              * Can Edit
              * @description 可以修改（有订单设置权限）
              */
@@ -17573,10 +17788,13 @@ export interface components {
             confirm_required: boolean;
             /**
              * Effective Keeper Id
-             * @description 实际的仓管：指定的员工；没有指定（或已停用）时是最早创建的工人
+             * @description 实际的仓管：指定的员工；没有指定（或已停用）时是最早创建的工人（有“仓管”角色的员工时为空，见 by_role）
              */
             effective_keeper_id: string | null;
-            /** Effective Keeper Name */
+            /**
+             * Effective Keeper Name
+             * @description 实际的仓管的姓名；有“仓管”角色的员工时是他们的姓名（用顿号隔开）
+             */
             effective_keeper_name: string | null;
             /**
              * Fallback
@@ -25956,6 +26174,8 @@ export interface operations {
                 stale?: boolean;
                 /** @description 只看必读知识 */
                 must_read?: boolean;
+                /** @description 只看 7 天内到期的已发布知识（快到期的排在前面） */
+                expiring?: boolean;
                 space_id?: string | null;
                 /** @description 包括它的下级分类 */
                 category_id?: string | null;
@@ -36875,6 +37095,158 @@ export interface operations {
             };
         };
     };
+    get_console_api_v1_tenant_console_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleSettingsOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    put_console_api_v1_tenant_console_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConsoleSettingsIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleSettingsOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     list_exports_api_v1_tenant_exports_get: {
         parameters: {
             query?: never;
@@ -39761,6 +40133,158 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TransferOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    handshake_api_v1_transport_handshake_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HandshakeIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HandshakeOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    transport_key_api_v1_transport_key_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TransportKey"];
                 };
             };
             /** @description Bad Request */

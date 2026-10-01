@@ -1,10 +1,12 @@
 import httpx
 import pytest
+from cryptography.hazmat.primitives.asymmetric import ec
 from fastapi import FastAPI
 from redis.asyncio import Redis
 
 from app.core.config import Settings
 from app.core.ratelimit import LOGIN_FAILURES, LOGIN_PER_IP, Limit, RateLimiter
+from app.modules.transport.crypto import private_key_b64
 from tests.factories import (
     ADMIN_PASSWORD,
     PLATFORM_PASSWORD,
@@ -96,6 +98,7 @@ def test_prod_settings_require_real_secrets() -> None:
         "EDP_STORAGE_SECRET_KEY",
         "EDP_FILE_URL_SECRET",
         "EDP_DATA_ENCRYPTION_KEY",
+        "EDP_TRANSPORT_SIGNING_KEY",
     ):
         assert name in message
 
@@ -110,4 +113,5 @@ def test_prod_settings_require_real_secrets() -> None:
         storage_secret_key="f" * 40,
         file_url_secret="g" * 40,
         data_encryption_key="h" * 40,
+        transport_signing_key=private_key_b64(ec.generate_private_key(ec.SECP256R1())),
     )

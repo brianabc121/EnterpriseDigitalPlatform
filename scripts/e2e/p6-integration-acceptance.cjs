@@ -475,7 +475,9 @@ async function todoSection(ctx, admin) {
   if (await notify.isChecked()) await admin.locator('[data-testid="done-notify"]').click()
   await admin.click('[data-testid="done-submit"]')
   await toast(admin, '已完成')
+  await admin.locator('textarea[data-testid="done-result"]').waitFor({ state: 'hidden' })
   await admin.keyboard.press('Escape')
+  await box.waitFor({ state: 'hidden' })
   await cli('webhook-jobs')
   const done = await waitFor(async () => got('todo.done', (p) => p.data.todo.external_ref === CRM_REF)[0])
   check(

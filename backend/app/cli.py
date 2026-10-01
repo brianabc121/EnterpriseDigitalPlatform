@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo
 
+from cryptography.hazmat.primitives.asymmetric import ec
 from pydantic import SecretStr
 from sqlalchemy import select
 
@@ -48,6 +49,7 @@ from app.modules.tenancy.schemas import TenantAdminCreate, TenantCreate
 from app.modules.todos.extract import run_pending as run_todo_extraction
 from app.modules.todos.notify import run_digest as run_todo_digest
 from app.modules.todos.notify import run_timers as run_todo_timers
+from app.modules.transport import crypto as transport_crypto
 from app.modules.usage.service import RollupReport, rollup_day
 from app.modules.wecom.contacts import poll_transfers
 from app.modules.wecom.handlers import on_sync
@@ -424,6 +426,15 @@ def main(argv: list[str] | None = None) -> int:
     openapi = commands.add_parser("export-openapi", help="导出 OpenAPI 描述（供前端生成类型）")
     openapi.add_argument("output", nargs="?", type=Path)
 
+    commands.add_parser(
+        "transport-keygen",
+        help="生成接口传输加密的签名密钥（EDP_TRANSPORT_SIGNING_KEY）和对应的前端公钥",
+    )
+    commands.add_parser(
+        "transport-public-key",
+        help="输出当前签名密钥的公钥（构建前端时写入 VITE_TRANSPORT_PUBLIC_KEY）",
+    )
+
     args = parser.parse_args(argv)
     if args.command == "create-platform-admin":
         asyncio.run(
@@ -507,6 +518,15 @@ def main(argv: list[str] | None = None) -> int:
         return 1 if result["failed"] else 0
     elif args.command == "export-openapi":
         export_openapi(args.output)
+    elif args.command == "transport-keygen":
+        key = ec.generate_private_key(ec.SECP256R1())
+        print(f"EDP_TRANSPORT_SIGNING_KEY={transport_crypto.private_key_b64(key)}")
+        settings = get_settings().model_copy(
+            update={"transport_signing_key": SecretStr(transport_crypto.private_key_b64(key))}
+        )
+        print(f"VITE_TRANSPORT_PUBLIC_KEY={transport_crypto.public_key_b64(settings)}")
+    elif args.command == "transport-public-key":
+        print(transport_crypto.public_key_b64(get_settings()))
     return 0
 
 

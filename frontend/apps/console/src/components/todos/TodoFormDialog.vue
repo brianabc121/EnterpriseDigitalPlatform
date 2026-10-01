@@ -91,8 +91,9 @@ function apply(suggestion: Schemas['TodoSuggestion']): void {
 watch(visible, async (open) => {
   if (!open) return
   reset()
-  await loadOptions()
+  // AI 预填的内容先填上，不等类型和处理人的选项加载完（否则先输入的内容会被覆盖）。
   if (props.prefill) apply(props.prefill)
+  await loadOptions()
 })
 
 watch(

@@ -2,7 +2,8 @@ import { errorMessage, refreshAccessToken, type Permission, type Schemas } from 
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 
-import { api, apiBase, tokens } from '../api'
+import { api, apiBase, tokens, transport } from '../api'
+import { firstAccessiblePath, visibleMenus } from '../menu'
 
 export const useAuthStore = defineStore('auth', () => {
   const me = ref<Schemas['MeResponse'] | null>(null)
@@ -10,6 +11,14 @@ export const useAuthStore = defineStore('auth', () => {
 
   const permissions = computed(() => new Set<Permission>(me.value?.permissions ?? []))
   const isAuthenticated = computed(() => me.value !== null)
+  /** 按岗位显示的菜单（§25.15）和登录后打开的页面（第一个菜单）。 */
+  const menus = computed(() =>
+    visibleMenus(permissions.value, me.value?.features ?? {}, me.value?.console.menus),
+  )
+  const home = computed(() =>
+    firstAccessiblePath(permissions.value, me.value?.features ?? {}, me.value?.console.menus),
+  )
+  const profiles = computed(() => me.value?.console.profiles ?? [])
 
   function can(permission: Permission): boolean {
     return permissions.value.has(permission)
@@ -44,7 +53,7 @@ export const useAuthStore = defineStore('auth', () => {
   /** 页面刷新后恢复登录：用 httpOnly Cookie 中的刷新令牌换取 Access Token（只执行一次）。 */
   function restore(): Promise<void> {
     restoring ??= (async () => {
-      const token = await refreshAccessToken(apiBase)
+      const token = await refreshAccessToken(apiBase, transport)
       if (!token) return
       tokens.set(token)
       try {
@@ -70,6 +79,9 @@ export const useAuthStore = defineStore('auth', () => {
     me,
     permissions,
     isAuthenticated,
+    menus,
+    home,
+    profiles,
     can,
     fetchMe,
     login,
