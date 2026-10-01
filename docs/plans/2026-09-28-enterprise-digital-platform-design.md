@@ -1,7 +1,7 @@
 # 企业数字化转型平台 · 全渠道智能客服 设计文档
 
-> 状态：草案 v0.9（v0.3 增加待办事项与订单管理；v0.4 纳入第三轮决定；v0.5 增加加工与工人角色；v0.6 增加库存；v0.7 增加仓库：材料与成品、领料单与入库单；v0.8 重做开单界面，增加修改历史；v0.9 增加接口传输加密和按岗位的控制台，待评审）
-> 日期：2026-09-28（v0.3–v0.9 更新于 2026-09-30）
+> 状态：草案 v1.0（v0.3 增加待办事项与订单管理；v0.4 纳入第三轮决定；v0.5 增加加工与工人角色；v0.6 增加库存；v0.7 增加仓库：材料与成品、领料单与入库单；v0.8 重做开单界面，增加修改历史；v0.9 增加接口传输加密和按岗位的控制台；v1.0 开单时的商品联想，待评审）
+> 日期：2026-09-28（v0.3–v0.9 更新于 2026-09-30，v1.0 更新于 2026-10-01）
 > 范围：需求 R1–R8 的整体架构、关键决策与分期方案。本文确认后，再按阶段拆解实施计划。
 > 修订记录见附录 B。
 
@@ -1326,7 +1326,7 @@ sequenceDiagram
 | | `todos` | no, type_id, title, detail, fields(jsonb，敏感字段加密), customer_id, session_id, order_id, source(ai_chat/ai_summary/zone/copilot/sidebar/staff/visitor/rule/api), confidence, evidence_message_ids, priority, status(pending/open/in_progress/waiting/done/cancelled/rejected), assignee_id, skill_group_id, due_at, respond_due_at, first_response_at, confirmed_at, closed_at, result, reject_reason, nudge_count, dedupe_key, external_ref（企业系统的单号，租户内唯一，同一个单号重复创建返回原待办）, created_by_type, created_by |
 | | `todo_events` | todo_id, type(created/confirmed/rejected/assigned/claimed/started/waiting/resumed/commented/reminded/escalated/customer_notified/merged/done/cancelled/reopened…), actor_type(ai/staff/system/api/visitor), actor_id, payload(jsonb) |
 | | `todo_extractions` | session_id, status, created, skipped（会话结束后的解析，每个会话一次） |
-| 订单（v0.3） | `products` | code（租户内唯一）, name, model, spec, category, image_url, cost_price（仅有权限可见，不进入 AI）, retail_price, remark, aliases, status, terms（检索词）, embedding；库存（v0.6，§25.12）：stock（现有库存，为空表示不管理库存）, stock_alert（预警值）；仓库（v0.7，§25.13）：kind(goods/material，创建后不能修改), unit, ready_made（现货），stock 与 stock_alert 改为最多三位小数 |
+| 订单（v0.3） | `products` | code（租户内唯一）, name, model, spec, category, image_url, cost_price（仅有权限可见，不进入 AI）, retail_price, remark, aliases, status, terms（检索词）, embedding；库存（v0.6，§25.12）：stock（现有库存，为空表示不管理库存）, stock_alert（预警值）；仓库（v0.7，§25.13）：kind(goods/material，创建后不能修改), unit, ready_made（现货），stock 与 stock_alert 改为最多三位小数；联想（v1.0，§25.16）：search_key（检索键：各字段统一写法后的内容，名称和俗称的全拼与拼音首字母） |
 | | `product_materials`（v0.7） | product_id（成品）, material_id（材料）, quantity（每一件成品的用量）, sort |
 | | `stock_documents`（v0.7） | kind(requisition/receipt), no（LL/RK + 日期 + 序号）, status(pending/confirmed/rejected/voided), order_id（可以为空）, note, created_by, submitted_at, confirmed_by/at, rejected_by/at, reject_reason, voided_by/at, void_reason |
 | | `stock_document_lines`（v0.7） | document_id, product_id, code/name/spec/unit（开单时的快照）, planned（按配方或订单算出的建议数量）, quantity, stock_before/stock_after（确认时） |
@@ -1392,6 +1392,8 @@ POST   /api/v1/products/{id}/stock                  # 调整库存：入库、�
 GET    /api/v1/products/{id}/stock-movements        # 库存记录
 GET|PUT /api/v1/products/{id}/materials             # 成品的配方（v0.7，修改需要 product:manage）
 GET    /api/v1/warehouse/items?kind=material|goods  # 材料库存、成品库存（没有价格）
+GET    /api/v1/products/suggest?q=&limit=           # 下单时联想上架的成品（v1.0，§25.16；不带 q 时是自己最近用过的）
+GET    /api/v1/warehouse/suggest?kind=&q=&limit=    # 开领料单、入库单时联想材料或成品（带库存，不带价格）
 GET    /api/v1/warehouse/drafts?kind=&order_id=     # 给订单开单的预填（领料按配方，入库按订单）
 GET|POST /api/v1/warehouse/documents                # 领料单、入库单（工人只看自己的和自己加工的订单的）
 PUT    /api/v1/warehouse/documents/{id}             # 修改后重新提交（待确认、已退回）
@@ -2548,6 +2550,47 @@ stateDiagram-v2
 
 **不做的**：按员工单独配置菜单（按岗位配置就够了，员工多了难以维护）；隐藏菜单以外的页面内容定制。
 
+### 25.16 开单时的商品联想（v1.0 新增）
+
+需求：所有开单的地方增加辅助输入——输入品名时，自动从商品库（库存商品）里找出品目、代码、规格相近的商品，作为下拉的推荐选项。
+
+**现在的问题**
+
+- 录入行（§25.14）已经能下拉候选，但下单用的是"相邻两字"的词项匹配：输入第一个字时找不到，代码要整段输入（"WIN0"找不到 WIN-01）；仓库开单只做"包含"匹配，不看分类，结果也不排序。
+- 都不认拼音首字母（进销存软件常用的"助记码"），规格写法不同（"1.2*1.5"和"1.2m×1.5m"）、少一个字（"铝窗"和"铝合金窗"）时找不到。
+- 订单里 AI 没有匹配上商品库的明细（客户的说法），要自己再搜一遍对应的商品。
+
+**范围**
+
+- 下单和改单（包括工作台里下单）、开领料单和入库单（仓库、加工）的录入行；
+- 订单里没有匹配的明细的"对应到商品库"；
+- "批量选择"的搜索框，以及商品库、仓库列表的搜索（同样的匹配规则）。
+
+**怎么找**
+
+- 从输入第一个字开始联想，在名称（品名）、俗称、分类（品目）、代码、型号、规格里找，并且认：
+  - 拼音首字母和全拼：由名称和俗称自动生成（"铝合金窗"→ lhjc、lvhejinchuang；ü 也可以输入 u）；需要自定义的叫法写在俗称里。
+  - 不同写法：不分大小写、全角半角，忽略空格、横线和斜线（"win01"→ WIN-01）；数字之间的"*""x""×"视为相同（"1.2*1.5"→ 1.2m×1.5m）。
+  - 几个词组合，先后不限（"1.5 铝合金窗"：规格加名称）。
+  - 写法相近的（少字、多字、错一个字）：字的重合度够高时列为"相近"。
+- 排序：完全一致 > 开头一致 > 包含 > 拼音 > 相近。字段的权重：代码、名称最高，俗称、型号、规格、拼音其次，分类最低；输入了几个词时，每个词都找到的排在前面。分数接近时，最近 90 天开单用得多的、有库存的排在前面。
+- 不带关键词（录入行获得焦点或按 ↓）时，列出自己最近开单用过的商品，最近用的在前。
+
+**显示**
+
+- 每个候选：名称（标出命中的部分）、代码、分类、型号和规格、单位；下单时另有建议零售价和可用库存，开单时有现有和可用库存（不够时标红）。按什么找到的用小标签标出（代码、规格、俗称、拼音、分类、相近）；只有相近的结果时，标题写"没有完全匹配，相近的商品"。
+- 订单里没有匹配的明细：打开"对应到商品库"时，按客户的说法直接列出相近的商品，也可以再输入。
+- 键盘与原来相同：↑↓ 选择、回车加入、Esc 收起；扫码枪扫出代码后回车，代码完全一致的直接加入。
+
+**实现**
+
+- 商品增加 `search_key`（检索键：各字段统一写法后的内容，名称和俗称的全拼和首字母），新建、修改、导入、企业系统同步时和检索词项一起更新；迁移 `0026` 给已有商品补上。拼音用 pypinyin。
+- `GET /api/v1/products/suggest`（下单：上架的成品）和 `GET /api/v1/warehouse/suggest`（开单：材料或成品）：先用检索键和检索词项在数据库里筛出候选（最多几百个），再逐个打分排序，返回前几个、分数和匹配方式；不带关键词时返回最近用过的。权限与原来的商品检索、仓库库存相同。
+- 商品库和仓库列表的搜索也按检索键匹配（因此"批量选择"同样认拼音首字母和不同写法）。
+- 不用大模型：联想在每次输入时都要很快返回；AI 下单时的商品匹配（语义检索，§25.2）不变。
+
+**不做的**：按客户的历史成交价推荐；为每个商品单独维护助记码（自动生成的拼音加俗称够用）。
+
 ---
 
 ## 26. 第三轮问题与决定（待办与订单，2026-09-30 已确认）
@@ -2615,6 +2658,8 @@ stateDiagram-v2
   - HKDF（RFC 5869）：<https://www.rfc-editor.org/rfc/rfc5869>
   - GCM 模式（NIST SP 800-38D）：<https://csrc.nist.gov/pubs/sp/800/38/d/final>
   - cryptography（Python）椭圆曲线：<https://cryptography.io/en/latest/hazmat/primitives/asymmetric/ec/>
+- 开单时的商品联想（v1.0）
+  - pypinyin（汉字转拼音，MIT 许可）：<https://github.com/mozillazg/python-pinyin>
 
 ## 附录 B：修订记录
 
@@ -2627,6 +2672,7 @@ stateDiagram-v2
 | v0.7 | 2026-09-30 | 新增 §25.13 仓库：商品库分成品和材料（单位、小数库存、现货）、成品的配方、领料单（领取订单后按配方预填，库存不够只提示）和入库单（完成订单时开，确认后订单进入"待发货"）、仓管确认（指定的员工，或者最早创建的工人；`warehouse:confirm`）、仓库菜单；成品的占用改为只算要从库存发出的订单行，AI 只对现货商品说有没有现货；相应调整 §15、§16、§25.7、§25.9、§25.11、§25.12 |
 | v0.8 | 2026-09-30 | 新增 §25.14：下单、领料、入库改为统一的单据页（单据头、带表头的明细表、键盘连续录入和扫码、批量选择、合计、固定操作栏、手机卡片），在仓库开领料单时可以关联订单，单据可以打印；订单、领料单、入库单、待办、商品和材料的修改历史（`record_versions`，每次操作一个版本，查看时计算差异，版本列表和"显示更改"），"操作日志"增加"修改历史"；相应调整 §15、§16 |
 | v0.9 | 2026-09-30 | 新增 §25.15：接口传输加密（ECDH 握手、AES-256-GCM 加密请求和响应、防重放、生产环境强制；如实说明能防和不能防的）；按岗位的控制台（管理员、主管、客服、仓管、工人、知识管理员各自的菜单和首页，新增"仓管"系统角色，管理员可以调整每个岗位的菜单）；相应调整 §15、§16、§18 |
+| v1.0 | 2026-10-01 | 新增 §25.16：开单时的商品联想（从第一个字开始，在名称、俗称、分类、代码、型号、规格里找，认拼音首字母和全拼、不同写法和相近的写法；按匹配程度、常用和库存排序；没有输入时列出最近用过的；订单里没有匹配的明细按客户的说法推荐）；相应调整 §15、§16 |
 | v0.6 | 2026-09-30 | 新增 §25.12 库存：现有、占用和可用库存，库存预警，库存记录，手动调整（`inventory:manage`），Excel 导入时选择盘点或入库（可以只有代码和数量两列），发货时出库、已出库的订单被取消时退回，库存不足只提示，AI 只说有没有现货，企业系统同步库存；相应调整 §15、§16、§25.7、§25.9、§25.11 |
 | v0.5 | 2026-09-30 | 新增 §25.11 加工与缺货：工人角色（`production:work`、`production:assign`）、加工页（手机优先）、逐个商品标记完成或缺货、订单中心的"待发货""缺货"视图、"待发货""缺货处理"系统待办；相应调整 §15、§16、§24.2、§25.4、§25.7、§25.9、§25.10 |
 | v0.4 | 2026-09-30 | 纳入第三轮决定（§26）：AI 生成的待办一律进入待确认页；订单增加收款方式与收款记录、应收与催收、修改记录与版本对比、订单跟踪页；商品库改为按用户给出的字段用 Excel 模板上传；AI 只能告知建议零售价，并增加成本价保护；相应调整 §0、§1、§2.2、§11、§15、§16、§17、§18、§19.3、§21、§22 |
