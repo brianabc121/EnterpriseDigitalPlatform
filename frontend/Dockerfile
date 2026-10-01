@@ -19,11 +19,18 @@ RUN --mount=type=secret,id=ca,required=false \
 FROM ${NGINX_IMAGE}
 ARG APP=console
 COPY deploy/nginx.conf /etc/nginx/conf.d/default.conf
+COPY deploy/headers.conf /etc/nginx/edp-headers.conf
 COPY deploy/40-edp-config.sh /docker-entrypoint.d/40-edp-config.sh
 COPY --from=build /src/apps/${APP}/dist /usr/share/nginx/html
+# 控制台和运营后台不允许被别的网站用 iframe 嵌入（防点击劫持）；访客 Widget 要嵌入客户的网站，不加。
 # 以非 root 用户运行：日志写到标准输出，pid、临时文件和运行时配置都在 /tmp，
 # 根文件系统可以只读（K8s 里给 /tmp 挂 emptyDir）。
-RUN sed -i 's#^pid .*#pid /tmp/nginx.pid;#' /etc/nginx/nginx.conf \
+RUN if [ "$APP" != widget ]; then \
+      printf '%s\n' 'add_header X-Frame-Options DENY always;' \
+        "add_header Content-Security-Policy \"frame-ancestors 'none'\" always;" \
+        >> /etc/nginx/edp-headers.conf; \
+    fi \
+    && sed -i 's#^pid .*#pid /tmp/nginx.pid;#' /etc/nginx/nginx.conf \
     && sed -i 's#^user .*##' /etc/nginx/nginx.conf
 USER nginx
 EXPOSE 8080

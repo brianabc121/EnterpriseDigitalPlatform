@@ -54,6 +54,35 @@ def test_presign_uses_path_style_and_encodes_keys() -> None:
         presign(config, "GET", "x", expires=8 * 24 * 3600)
 
 
+def test_presign_signs_required_headers() -> None:
+    """要求的请求头一起签名：名称小写、按字母排序，值去掉多余空白；值不同签名就不同。"""
+    config = StorageConfig(
+        endpoint="http://minio:9000",
+        public_endpoint="http://localhost:9000",
+        access_key="k",
+        secret_key="s",
+        bucket="edp-files",
+    )
+    now = datetime(2026, 9, 1, tzinfo=UTC)
+
+    def sign(headers: dict[str, str] | None) -> dict[str, list[str]]:
+        url = presign(config, "PUT", "a.png", expires=600, now=now, headers=headers)
+        return parse_qs(urlsplit(url).query)
+
+    plain = sign(None)
+    png = sign({"Content-Type": " image/png ", "content-length": "10"})
+
+    assert plain["X-Amz-SignedHeaders"] == ["host"]
+    assert png["X-Amz-SignedHeaders"] == ["content-length;content-type;host"]
+    assert png == sign({"content-length": "10", "content-type": "image/png"})
+    assert png["X-Amz-Signature"] != plain["X-Amz-Signature"]
+    for other in (
+        {"content-type": "text/html", "content-length": "10"},
+        {"content-type": "image/png", "content-length": "11"},
+    ):
+        assert sign(other)["X-Amz-Signature"] != png["X-Amz-Signature"]
+
+
 def test_upload_rules_and_file_links(settings: Settings) -> None:
     ticket = files.new_upload(
         settings,
@@ -65,6 +94,9 @@ def test_upload_rules_and_file_links(settings: Settings) -> None:
     assert ticket.kind == "file"
     assert ticket.key.startswith("acme/") and ticket.key.endswith("/合同_v2.pdf")
     assert ticket.upload_url.startswith(settings.storage_public_endpoint)
+    # 只能按申请时的类型和大小上传。
+    upload = parse_qs(urlsplit(ticket.upload_url).query)
+    assert upload["X-Amz-SignedHeaders"] == ["content-length;content-type;host"]
     sig = parse_qs(urlsplit(ticket.file_url).query)["sig"][0]
     assert files.verify(settings, ticket.key, sig)
     assert not files.verify(settings, ticket.key + "x", sig)
@@ -115,5 +147,22 @@ async def test_staff_upload_and_download_redirect(
     assert redirect.status_code == 302
     assert redirect.headers["location"].startswith(settings.storage_public_endpoint)
     assert "X-Amz-Signature=" in redirect.headers["location"]
+    # 图片按扩展名的类型显示，其他文件以附件方式下载。
+    image = parse_qs(urlsplit(redirect.headers["location"]).query)
+    assert image["response-content-type"] == ["image/png"]
+    assert "response-content-disposition" not in image
     forged = await client.get(f"{path.path}?sig=deadbeef")
     assert forged.status_code == 404
+
+    pdf = await client.post(
+        "/api/v1/uploads",
+        headers=bearer(token),
+        json={"filename": "报价.pdf", "content_type": "application/pdf", "size": 2048},
+    )
+    pdf_path = urlsplit(pdf.json()["file_url"])
+    pdf_redirect = await client.get(f"{pdf_path.path}?{pdf_path.query}")
+    attachment = parse_qs(urlsplit(pdf_redirect.headers["location"]).query)
+    assert attachment["response-content-disposition"] == [
+        "attachment; filename*=UTF-8''%E6%8A%A5%E4%BB%B7.pdf"
+    ]
+    assert "response-content-type" not in attachment

@@ -12,6 +12,7 @@ import re
 import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from pathlib import PurePosixPath
 from urllib.parse import parse_qs, quote, unquote
 
 from app.core.config import Settings
@@ -36,6 +37,14 @@ FILE_TYPES = {
 }
 MAX_IMAGE_BYTES = 10 * 1024 * 1024
 MAX_FILE_BYTES = 20 * 1024 * 1024
+# 下载时图片按扩展名指定类型（在页面里显示），不用上传时存下的类型。
+IMAGE_EXTENSIONS = {
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".gif": "image/gif",
+    ".webp": "image/webp",
+}
 _UNSAFE = re.compile(r"[^\w.\-一-鿿]+")
 
 
@@ -108,19 +117,24 @@ def new_upload(
         raise Unprocessable(f"文件大小不能超过 {limit // 1024 // 1024} MB")
     now = datetime.now(UTC)
     key = f"{tenant_code}/{now:%Y/%m}/{uuid.uuid4().hex}/{safe_filename(filename)}"
+    # 类型和大小一起签名：浏览器只能按申请时的类型和大小上传，换类型或换成更大的文件都会被拒绝。
+    signed = {"content-type": content_type, "content-length": str(size)}
     config = storage_config(settings)
     return UploadTicket(
         key=key,
-        upload_url=presign(config, "PUT", key, expires=UPLOAD_URL_TTL),
+        upload_url=presign(config, "PUT", key, expires=UPLOAD_URL_TTL, headers=signed),
         file_url=file_url(settings, key),
         kind=kind,
     )
 
 
 def download_url(settings: Settings, key: str) -> str:
-    """5 分钟有效的预签名下载 URL；非图片以附件方式下载。"""
+    """5 分钟有效的预签名下载 URL：图片按扩展名的类型显示，其他文件以附件方式下载。"""
     name = key.rsplit("/", 1)[-1]
-    query = {}
-    if not name.lower().endswith((".png", ".jpg", ".jpeg", ".gif", ".webp")):
-        query["response-content-disposition"] = f"attachment; filename*=UTF-8''{quote(name)}"
+    image_type = IMAGE_EXTENSIONS.get(PurePosixPath(name).suffix.lower())
+    query = (
+        {"response-content-type": image_type}
+        if image_type
+        else {"response-content-disposition": f"attachment; filename*=UTF-8''{quote(name)}"}
+    )
     return presign(storage_config(settings), "GET", key, expires=DOWNLOAD_URL_TTL, query=query)

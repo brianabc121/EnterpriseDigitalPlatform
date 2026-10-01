@@ -12,6 +12,9 @@ data:
   EDP_OTEL_ENDPOINT: ""
   EDP_OTEL_SAMPLE_RATIO: "0.2"
   EDP_COOKIE_SECURE: "true"
+  # 镜像只采信内网地址转发来的 X-Forwarded-For（见 backend/Dockerfile）；Ingress 控制器或负载均衡
+  # 不在内网网段时，在这里改成它们的地址，例如：
+  # FORWARDED_ALLOW_IPS: "10.0.0.0/8,203.0.113.10"
   # 接口传输加密（设计文档 §25.15）：生产环境只接受加密的请求。签名私钥在 Secret 里
   # （EDP_TRANSPORT_SIGNING_KEY）；公钥给三个前端（容器启动时写进 /config.js），用
   # python -m app.cli transport-public-key 导出。

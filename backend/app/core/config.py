@@ -236,6 +236,9 @@ class Settings(BaseSettings):
             raise ValueError(f"{', '.join(unset)} must be set in prod")
         if not self.cookie_secure:
             raise ValueError("EDP_COOKIE_SECURE must be true in prod")
+        if self.mail_allow_private_hosts:
+            # 会让租户配置的邮件服务器访问内网、明文发送邮箱授权码。
+            raise ValueError("EDP_MAIL_ALLOW_PRIVATE_HOSTS must be false in prod")
         return self
 
 
