@@ -14,6 +14,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
+from typing import Any
 
 from sqlalchemy import ColumnElement, delete, func, or_, select, true
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -22,6 +23,13 @@ from app.context import AppContext
 from app.core.errors import Conflict, Forbidden, NotFound, Unprocessable
 from app.core.permissions import Permission
 from app.db.counters import next_number
+from app.db.session import current_tenant
+from app.modules.formkb import knowledge as formkb_knowledge
+from app.modules.formkb import record as formkb_record
+from app.modules.formkb import settings as formkb_settings
+from app.modules.formkb.models import Event as FormKbEvent
+from app.modules.formkb.models import Form as FormKbForm
+from app.modules.formkb.models import Status as FormKbStatus
 from app.modules.history import service as history
 from app.modules.iam.models import Staff
 from app.modules.iam.principal import Principal
@@ -171,9 +179,12 @@ async def open_document(
     order: Order | None,
     lines: list[Line],
     note: str,
+    *,
+    traced: list[dict[str, Any]] | None = None,
 ) -> tuple[StockDocument, Todo | None]:
     """开单并提交：仓管开的、或者设置为不需要确认的直接确认；否则提醒仓管确认。返回单据和订单
-    加工完成时生成的"待发货"待办（由调用方提交后分发）。"""
+    加工完成时生成的"待发货"待办（由调用方提交后分发）。traced：录入行的输入和选择（表单知识的
+    证据，§25.18）。"""
     now = order_service.utcnow()
     me = principal.staff_id
     spec = await sla.business_hours(session)
@@ -209,7 +220,44 @@ async def open_document(
             actor_id=me,
             payload={"no": no, "document_id": str(document.id)},
         )
-    return document, await _submitted(ctx, session, principal, document, order, now)
+    todo = await _submitted(ctx, session, principal, document, order, now)
+    _learn(
+        session,
+        document,
+        [line.product.id for line in lines],
+        principal,
+        created=True,
+        traced=traced,
+    )
+    return document, todo
+
+
+def _learn(
+    session: AsyncSession,
+    document: StockDocument,
+    products: list[uuid.UUID],
+    principal: Principal,
+    *,
+    created: bool,
+    traced: list[dict[str, Any]] | None = None,
+) -> None:
+    """记一条学习记录（表单知识，§25.18）：开单、重新提交；仓管确认（或开单即生效）时统计用量和
+    搭配。"""
+    confirmed = document.status == DocumentStatus.CONFIRMED
+    formkb_record.record(
+        session,
+        tenant_id=document.tenant_id,
+        form=FormKbForm(document.kind),
+        event=FormKbEvent.CONFIRMED
+        if confirmed
+        else (FormKbEvent.CREATED if created else FormKbEvent.UPDATED),
+        record_id=document.id,
+        record_no=document.no,
+        actor_id=principal.staff_id,
+        products=products,
+        traced=traced,
+        order_id=document.order_id,
+    )
 
 
 async def _submitted(
@@ -246,7 +294,9 @@ async def create(
     elif not manages(principal):
         raise Forbidden("只有仓库的员工可以开不关联订单的单据")
     checked = await check_lines(session, kind, lines)
-    document, todo = await open_document(ctx, session, principal, kind, order, checked, note)
+    document, todo = await open_document(
+        ctx, session, principal, kind, order, checked, note, traced=formkb_record.traces(lines)
+    )
     await session.commit()
     await _dispatch(ctx, document, todo)
     return document
@@ -313,6 +363,14 @@ async def resubmit(
     await session.flush()
     _track(session, document, "update", principal.staff_id)
     todo = await _submitted(ctx, session, principal, document, order, now)
+    _learn(
+        session,
+        document,
+        [line.product.id for line in checked],
+        principal,
+        created=False,
+        traced=formkb_record.traces(lines),
+    )
     await session.commit()
     await _dispatch(ctx, document, todo)
     return document
@@ -363,6 +421,13 @@ async def confirm(
         await session.flush()
     now = order_service.utcnow()
     todo = await _apply(ctx, session, principal, document, order, now)
+    _learn(
+        session,
+        document,
+        [line.product_id for line in await _lines(session, document.id)],
+        principal,
+        created=False,
+    )
     await session.commit()
     await _dispatch(ctx, document, todo)
     return document
@@ -866,13 +931,19 @@ async def requisition_plan(
     session: AsyncSession, order_id: uuid.UUID, items: list[OrderItem], ready: set[uuid.UUID]
 ) -> Plan:
     """需要加工的商品（不含现货）按配方算用量；没有配方的按以往领料估算；都没有的列为 missing。
-    数量 × 每件用量按材料合计，每个商品的用量四舍五入到三位小数。"""
+    数量 × 每件用量按材料合计，每个商品的用量四舍五入到三位小数。
+
+    表单知识（§25.18）：有配方的补上生效的"常领的材料"（学到的，或知识库里填写的）；没有配方的
+    先用知识库里固定的用量，其余按以往领料估算，停用的材料不列，"先确认再生效"时还没确认的估算
+    不列。和配方不一致的用量只提醒，不改预填。"""
     made = made_items(items, ready)
     product_ids = {i.product_id for i in made if i.product_id}
     recipes = await boms(session, product_ids)
     learned = await usage.history(
         session, {pid for pid in product_ids if not recipes.get(pid)}, exclude=order_id
     )
+    known = await formkb_knowledge.usage_entries(session, product_ids)
+    auto = (await formkb_settings.load(session, current_tenant(session))).auto_activate
     units: dict[uuid.UUID, str] = (
         dict(
             (
@@ -887,10 +958,10 @@ async def requisition_plan(
     plan = Plan(defaultdict(Decimal), defaultdict(list), [], [], [])
 
     def add(item: OrderItem, unit: str, material_id: uuid.UUID, per_unit: Decimal,
-            basis: DraftBasisValue, orders: int | None) -> None:  # fmt: skip
+            basis: DraftBasisValue, orders: int | None) -> bool:  # fmt: skip
         amount = usage.rounded(per_unit * item.quantity)
         if amount <= 0:
-            return
+            return False
         plan.needs[material_id] += amount
         plan.sources[material_id].append(
             DraftSource(
@@ -903,28 +974,59 @@ async def requisition_plan(
                 orders=orders,
             )
         )
+        return True
 
     for item in made:
         label = order_service.item_label(item)
         unit = units.get(item.product_id, "") if item.product_id else ""
         rows = recipes.get(item.product_id) if item.product_id else None
         guess = learned.get(item.product_id) if item.product_id else None
+        entries = known.get(item.product_id, {}) if item.product_id else {}
         basis: DraftItemBasisValue
-        orders: int | None
+        orders: int | None = None
         if rows:
-            basis, orders = "recipe", None
+            basis = "recipe"
             for row in rows:
                 add(item, unit, row.material_id, row.quantity, "recipe", None)
-        elif guess is not None:
-            basis, orders = "history", guess.orders
-            for material_id, per_unit in guess.per_unit.items():
-                add(item, unit, material_id, per_unit, "history", orders)
-            if label not in plan.estimated:
-                plan.estimated.append(label)
+            # 配方里没有、常领的材料（学到的，或知识库里填写的）。
+            in_recipe = {row.material_id for row in rows}
+            for material_id, entry in entries.items():
+                if material_id in in_recipe or entry.status != FormKbStatus.ACTIVE:
+                    continue
+                if entry.value:
+                    pinned = entry.locked
+                    add(item, unit, material_id, entry.value, "manual" if pinned else "learned",
+                        None if pinned else entry.evidence)  # fmt: skip
         else:
-            basis, orders = ("none" if item.product_id else "unmatched"), None
-            if label not in plan.missing:
-                plan.missing.append(label)
+            used_manual = used_history = False
+            fixed = {
+                m: e
+                for m, e in entries.items()
+                if e.status == FormKbStatus.ACTIVE and e.locked and e.value
+            }
+            for material_id, entry in fixed.items():
+                assert entry.value is not None
+                used_manual |= add(item, unit, material_id, entry.value, "manual", None)
+            if guess is not None:
+                for material_id, per_unit in guess.per_unit.items():
+                    found = entries.get(material_id)
+                    if material_id in fixed:
+                        continue
+                    if found is not None and found.status != FormKbStatus.ACTIVE:
+                        continue  # 停用的、还没确认的
+                    if found is None and not auto:
+                        continue  # 先确认再生效：还没判断过的估算也不用
+                    used_history |= add(item, unit, material_id, per_unit, "history", guess.orders)
+            if used_history:
+                basis, orders = "history", guess.orders if guess else None
+                if label not in plan.estimated:
+                    plan.estimated.append(label)
+            elif used_manual:
+                basis = "manual"
+            else:
+                basis = "none" if item.product_id else "unmatched"
+                if label not in plan.missing:
+                    plan.missing.append(label)
         plan.items.append(
             DraftItem(
                 name=item.name,

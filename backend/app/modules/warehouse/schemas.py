@@ -4,6 +4,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
+from app.modules.formkb.schemas import EntryTrace
 from app.modules.products.schemas import ProductKindValue, Qty, QtyIn, SuggestMatchValue
 from app.modules.products.suggest import SuggestField
 
@@ -16,6 +17,9 @@ class DocumentLineIn(BaseModel):
     quantity: QtyIn = Field(description="数量，大于 0；成品只能是整数，材料最多三位小数")
     planned: QtyIn | None = Field(
         default=None, description="按配方或订单算出的建议数量（开单时预填的，只做记录）"
+    )
+    entry: EntryTrace | None = Field(
+        default=None, description="这一行是怎么录入的（表单知识的证据，§25.18；不保存在单据上）"
     )
 
 
@@ -108,8 +112,8 @@ class DocumentBrief(BaseModel):
     reject_reason: str | None
 
 
-DraftBasisValue = Literal["recipe", "history"]
-DraftItemBasisValue = Literal["recipe", "history", "none", "unmatched"]
+DraftBasisValue = Literal["recipe", "history", "learned", "manual"]
+DraftItemBasisValue = Literal["recipe", "history", "manual", "none", "unmatched"]
 
 
 class DraftSource(BaseModel):
@@ -120,8 +124,11 @@ class DraftSource(BaseModel):
     unit: str = Field(description="商品的单位")
     per_unit: Qty = Field(description="每件用量（按以往领料估算的四舍五入到三位小数）")
     amount: Qty = Field(description="这个商品要用的数量")
-    basis: DraftBasisValue = Field(description="recipe 配方；history 按以往领料估算")
-    orders: int | None = Field(description="按以往领料估算时依据的订单数")
+    basis: DraftBasisValue = Field(
+        description="recipe 配方；history 按以往领料估算；learned 学到的常领材料（表单知识）；"
+        "manual 知识库里填写的用量（§25.18）"
+    )
+    orders: int | None = Field(description="按以往领料估算（或学到的）依据的订单数")
 
 
 class DraftLine(BaseModel):
@@ -150,8 +157,8 @@ class DraftItem(BaseModel):
     quantity: int
     unit: str
     basis: DraftItemBasisValue = Field(
-        description="recipe 按配方；history 按以往领料估算；none 没有配方也没有以往的领料；"
-        "unmatched 没有对应到商品库"
+        description="recipe 按配方；history 按以往领料估算；manual 按知识库里填写的用量（§25.18）；"
+        "none 没有配方也没有以往的领料；unmatched 没有对应到商品库"
     )
     orders: int | None = Field(description="按以往领料估算时依据的订单数")
 
@@ -225,11 +232,14 @@ class StockSuggestion(BaseModel):
     score: float = Field(description="匹配程度（约 0 到 1），最近用过的为 0")
     field: SuggestField | None = Field(description="按哪个字段找到的（同 ProductSuggestion）")
     match: SuggestMatchValue
+    note: str | None = Field(description="说明（同 ProductSuggestion）")
 
 
 class StockSuggestions(BaseModel):
     items: list[StockSuggestion]
-    recent: bool = Field(description="没有输入关键词：自己最近开单用过的")
+    recent: bool = Field(
+        description="没有输入关键词时的列表：常和单上的商品一起开的、自己最近开单用过的"
+    )
 
 
 class WarehouseSettingsOut(BaseModel):

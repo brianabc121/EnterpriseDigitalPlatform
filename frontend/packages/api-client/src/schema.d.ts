@@ -1365,6 +1365,241 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/form-kb/entries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Entries
+         * @description 表单知识：叫法、用量、搭配。待确认的在前，然后是最近有变化的。
+         */
+        get: operations["list_entries_api_v1_form_kb_entries_get"];
+        put?: never;
+        /**
+         * Create Entry
+         * @description 手工添加（立即生效、固定）：叫法（输入的文字、商品）、用量（成品、材料、每件用量）、搭配
+         *     （商品、常一起开的商品、表单）。
+         */
+        post: operations["create_entry_api_v1_form_kb_entries_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/form-kb/entries/{entry_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Entry
+         * @description 一条表单知识：依据的单据、变化记录。
+         */
+        get: operations["get_entry_api_v1_form_kb_entries__entry_id__get"];
+        /**
+         * Update Entry
+         * @description 修改（叫法的文字和商品、用量）；改过的知识变为固定，学习不再改动。
+         */
+        put: operations["update_entry_api_v1_form_kb_entries__entry_id__put"];
+        post?: never;
+        /**
+         * Delete Entry
+         * @description 删除手工添加的知识（学到的只能停用）。
+         */
+        delete: operations["delete_entry_api_v1_form_kb_entries__entry_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/form-kb/entries/{entry_id}/apply-recipe": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Apply Recipe
+         * @description 用量写进配方（加上这种材料，或改成这个用量；需要维护商品库的权限）。
+         */
+        post: operations["apply_recipe_api_v1_form_kb_entries__entry_id__apply_recipe_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/form-kb/entries/{entry_id}/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirm Entry
+         * @description 处理待确认：确认生效、换成学到的，或保持不变。
+         */
+        post: operations["confirm_entry_api_v1_form_kb_entries__entry_id__confirm_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/form-kb/entries/{entry_id}/disable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Disable Entry
+         * @description 停用：开单时不再使用；以后再出现同样的证据只记在依据里，不会自动恢复。
+         */
+        post: operations["disable_entry_api_v1_form_kb_entries__entry_id__disable_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/form-kb/entries/{entry_id}/enable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Enable Entry
+         * @description 启用：开单时用上。
+         */
+        post: operations["enable_entry_api_v1_form_kb_entries__entry_id__enable_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/form-kb/entries/{entry_id}/lock": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Lock Entry
+         * @description 固定：学习不再改动这条知识（学到的不一致时标待确认）。
+         */
+        post: operations["lock_entry_api_v1_form_kb_entries__entry_id__lock_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/form-kb/entries/{entry_id}/unlock": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Unlock Entry
+         * @description 取消固定：以后按学到的更新。
+         */
+        post: operations["unlock_entry_api_v1_form_kb_entries__entry_id__unlock_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/form-kb/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Settings */
+        get: operations["get_settings_api_v1_form_kb_settings_get"];
+        /**
+         * Put Settings
+         * @description 学到的知识是否自动生效，三类知识是否学习。
+         */
+        put: operations["put_settings_api_v1_form_kb_settings_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/form-kb/submissions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Submissions
+         * @description 学习记录：每次提交的表单和判断结果（学到、加强、生效、换成新的、待确认、用到，或没有需要
+         *     更新的）。
+         */
+        get: operations["list_submissions_api_v1_form_kb_submissions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/form-kb/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Summary
+         * @description 各状态的数量、待确认的数量、还没判断的学习记录。
+         */
+        get: operations["get_summary_api_v1_form_kb_summary_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/history": {
         parameters: {
             query?: never;
@@ -2967,7 +3202,8 @@ export interface paths {
         };
         /**
          * Suggest Products
-         * @description 下单时的商品联想（§25.16）：上架的成品，按匹配程度、常用程度和库存排序。
+         * @description 下单时的商品联想（§25.16）：上架的成品，按匹配程度、常用程度和库存排序；学到的叫法排在前面，
+         *     没有输入时先列出常一起开的（§25.18）。
          */
         get: operations["suggest_products_api_v1_products_suggest_get"];
         put?: never;
@@ -5226,7 +5462,7 @@ export interface paths {
         /**
          * Suggest Items
          * @description 开领料单、入库单时的商品联想（§25.16）：启用的材料或成品，带库存（没有价格），按匹配程度、
-         *     常用程度和库存排序。
+         *     常用程度和库存排序；学到的叫法排在前面，没有输入时先列出常一起开的（§25.18）。
          */
         get: operations["suggest_items_api_v1_warehouse_suggest_get"];
         put?: never;
@@ -8344,6 +8580,8 @@ export interface components {
         };
         /** DocumentLineIn */
         DocumentLineIn: {
+            /** @description 这一行是怎么录入的（表单知识的证据，§25.18；不保存在单据上） */
+            entry?: components["schemas"]["EntryTrace"] | null;
             /**
              * Planned
              * @description 按配方或订单算出的建议数量（开单时预填的，只做记录）
@@ -8526,10 +8764,10 @@ export interface components {
         DraftItem: {
             /**
              * Basis
-             * @description recipe 按配方；history 按以往领料估算；none 没有配方也没有以往的领料；unmatched 没有对应到商品库
+             * @description recipe 按配方；history 按以往领料估算；manual 按知识库里填写的用量（§25.18）；none 没有配方也没有以往的领料；unmatched 没有对应到商品库
              * @enum {string}
              */
-            basis: "recipe" | "history" | "none" | "unmatched";
+            basis: "recipe" | "history" | "manual" | "none" | "unmatched";
             /** Name */
             name: string;
             /**
@@ -8609,10 +8847,10 @@ export interface components {
             amount: number;
             /**
              * Basis
-             * @description recipe 配方；history 按以往领料估算
+             * @description recipe 配方；history 按以往领料估算；learned 学到的常领材料（表单知识）；manual 知识库里填写的用量（§25.18）
              * @enum {string}
              */
-            basis: "recipe" | "history";
+            basis: "recipe" | "history" | "learned" | "manual";
             /**
              * Item
              * @description 商品（名称和规格）
@@ -8620,7 +8858,7 @@ export interface components {
             item: string;
             /**
              * Orders
-             * @description 按以往领料估算时依据的订单数
+             * @description 按以往领料估算（或学到的）依据的订单数
              */
             orders: number | null;
             /**
@@ -8638,6 +8876,40 @@ export interface components {
              * @description 商品的单位
              */
             unit: string;
+        };
+        /**
+         * EntryTrace
+         * @description 明细行是怎么录入的（§25.18 叫法的证据）：录入行选中商品时的输入、之前没找到的输入，或者
+         *     订单里客户的说法（对应到商品库）。只用于学习，不保存在单据上。
+         */
+        EntryTrace: {
+            /**
+             * Match
+             * @description 选中的候选是怎么找到的（learned 学到的叫法，companion 常一起开）
+             */
+            match?: ("exact" | "prefix" | "contains" | "pinyin" | "similar" | "recent" | "learned" | "companion") | null;
+            /**
+             * Missed
+             * @description 同一次录入里之前没找到的输入（换了说法才找到）；对应到商品库时是客户的说法
+             */
+            missed?: string | null;
+            /**
+             * Query
+             * @description 选中商品时录入行里的输入
+             */
+            query?: string | null;
+            /**
+             * Rank
+             * @description 选中的是第几个候选（从 0 开始）
+             */
+            rank?: number | null;
+            /**
+             * Via
+             * @description suggest 录入行；batch 批量选择；map 对应到商品库
+             * @default suggest
+             * @enum {string}
+             */
+            via: "suggest" | "batch" | "map";
         };
         /** ErasureRequest */
         ErasureRequest: {
@@ -8917,6 +9189,421 @@ export interface components {
             tags: string[];
             /** Userid */
             userid: string;
+        };
+        /** FormKbConfirm */
+        FormKbConfirm: {
+            /**
+             * Decision
+             * @description activate 确认生效；adopt 换成学到的；keep 保持不变
+             * @enum {string}
+             */
+            decision: "activate" | "adopt" | "keep";
+        };
+        /** FormKbEntryCreate */
+        FormKbEntryCreate: {
+            /**
+             * Form
+             * @description 搭配：哪种表单（默认订单）
+             */
+            form?: ("order" | "requisition" | "receipt") | null;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "alias" | "usage" | "companion";
+            /**
+             * Product Id
+             * Format: uuid
+             * @description 叫法对应的商品；用量的成品；搭配的商品
+             */
+            product_id: string;
+            /**
+             * Related Id
+             * @description 用量的材料；搭配里常一起开的商品
+             */
+            related_id?: string | null;
+            /**
+             * Text
+             * @description 叫法：输入的文字
+             */
+            text?: string | null;
+            /**
+             * Value
+             * @description 用量：每件用多少
+             */
+            value?: number | string | null;
+        };
+        /** FormKbEntryDetail */
+        FormKbEntryDetail: {
+            /**
+             * Basis
+             * @description 用量：estimate 没有配方时的估算；extra 配方里没有、常补领的材料；deviation 和配方不一致；recipe 和配方一致
+             */
+            basis: ("estimate" | "extra" | "deviation" | "recipe") | null;
+            /**
+             * Can Apply Recipe
+             * @description 可以把学到的用量写进配方（需要维护商品库的权限）
+             */
+            can_apply_recipe: boolean;
+            /**
+             * Evidence
+             * @description 依据：几次（叫法、搭配是几张单据，用量是几个订单）
+             */
+            evidence: number;
+            /** Evidence Items */
+            evidence_items: components["schemas"]["FormKbEvidence"][];
+            /**
+             * Form
+             * @description 搭配：哪种表单；叫法适用于所有表单（为空）
+             */
+            form: ("order" | "requisition" | "receipt") | null;
+            /** Hits */
+            hits: number;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "alias" | "usage" | "companion";
+            /**
+             * Label
+             * @description 叫法：员工或客户当时的写法
+             */
+            label: string;
+            /** Last Hit At */
+            last_hit_at: string | null;
+            /** Learned At */
+            learned_at: string | null;
+            /**
+             * Locked
+             * @description 固定：学习不会改动（手工添加或改过的）
+             */
+            locked: boolean;
+            /** Log */
+            log: components["schemas"]["FormKbLogOut"][];
+            /** @description 叫法对应的商品；用量的成品；搭配的商品 */
+            product: components["schemas"]["ProductBrief"];
+            /**
+             * Recipe
+             * @description 用量：配方里每件的用量（有配方时）
+             */
+            recipe: number | null;
+            /** @description 用量的材料；搭配里常一起开的商品 */
+            related: components["schemas"]["ProductBrief"] | null;
+            /**
+             * Review
+             * @description 待确认：activate 达到生效条件等确认；conflict 学到的和固定的不一致；recipe 实际用量和配方不一致
+             */
+            review: ("activate" | "conflict" | "recipe") | null;
+            /** Review Note */
+            review_note: string | null;
+            /**
+             * Sentence
+             * @description 写成一句话的知识
+             */
+            sentence: string;
+            /**
+             * Share
+             * @description 叫法：选这个商品的比例；搭配：一起出现的比例
+             */
+            share: number | null;
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "learned" | "manual";
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "observing" | "active" | "disabled";
+            /**
+             * Text
+             * @description 叫法：统一写法后的文字
+             */
+            text: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /**
+             * Value
+             * @description 用量：每件用多少；搭配：一起出现的比例
+             */
+            value: number | null;
+        };
+        /** FormKbEntryOut */
+        FormKbEntryOut: {
+            /**
+             * Basis
+             * @description 用量：estimate 没有配方时的估算；extra 配方里没有、常补领的材料；deviation 和配方不一致；recipe 和配方一致
+             */
+            basis: ("estimate" | "extra" | "deviation" | "recipe") | null;
+            /**
+             * Evidence
+             * @description 依据：几次（叫法、搭配是几张单据，用量是几个订单）
+             */
+            evidence: number;
+            /**
+             * Form
+             * @description 搭配：哪种表单；叫法适用于所有表单（为空）
+             */
+            form: ("order" | "requisition" | "receipt") | null;
+            /** Hits */
+            hits: number;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "alias" | "usage" | "companion";
+            /**
+             * Label
+             * @description 叫法：员工或客户当时的写法
+             */
+            label: string;
+            /** Last Hit At */
+            last_hit_at: string | null;
+            /** Learned At */
+            learned_at: string | null;
+            /**
+             * Locked
+             * @description 固定：学习不会改动（手工添加或改过的）
+             */
+            locked: boolean;
+            /** @description 叫法对应的商品；用量的成品；搭配的商品 */
+            product: components["schemas"]["ProductBrief"];
+            /**
+             * Recipe
+             * @description 用量：配方里每件的用量（有配方时）
+             */
+            recipe: number | null;
+            /** @description 用量的材料；搭配里常一起开的商品 */
+            related: components["schemas"]["ProductBrief"] | null;
+            /**
+             * Review
+             * @description 待确认：activate 达到生效条件等确认；conflict 学到的和固定的不一致；recipe 实际用量和配方不一致
+             */
+            review: ("activate" | "conflict" | "recipe") | null;
+            /** Review Note */
+            review_note: string | null;
+            /**
+             * Sentence
+             * @description 写成一句话的知识
+             */
+            sentence: string;
+            /**
+             * Share
+             * @description 叫法：选这个商品的比例；搭配：一起出现的比例
+             */
+            share: number | null;
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "learned" | "manual";
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "observing" | "active" | "disabled";
+            /**
+             * Text
+             * @description 叫法：统一写法后的文字
+             */
+            text: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /**
+             * Value
+             * @description 用量：每件用多少；搭配：一起出现的比例
+             */
+            value: number | null;
+        };
+        /** FormKbEntryPage */
+        FormKbEntryPage: {
+            /** Items */
+            items: components["schemas"]["FormKbEntryOut"][];
+            /** Total */
+            total: number;
+        };
+        /**
+         * FormKbEntryUpdate
+         * @description 修改（改过的知识变为固定）。
+         */
+        FormKbEntryUpdate: {
+            /** Product Id */
+            product_id?: string | null;
+            /** Text */
+            text?: string | null;
+            /** Value */
+            value?: number | string | null;
+        };
+        /** FormKbEvidence */
+        FormKbEvidence: {
+            /** Actor Name */
+            actor_name: string | null;
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+            /**
+             * Detail
+             * @description 这次的内容（例如：输入「大窗」选了铝合金窗；每樘 6.5 米）
+             */
+            detail: string;
+            /**
+             * Form
+             * @enum {string}
+             */
+            form: "order" | "requisition" | "receipt";
+            /** Record Id */
+            record_id: string | null;
+            /** Record No */
+            record_no: string;
+        };
+        /** FormKbLogOut */
+        FormKbLogOut: {
+            /**
+             * Action
+             * @enum {string}
+             */
+            action: "created" | "strengthened" | "activated" | "updated" | "deactivated" | "review" | "hit" | "added" | "edited" | "enabled" | "disabled" | "locked" | "unlocked" | "confirmed" | "adopted" | "kept" | "recipe";
+            /**
+             * Actor Name
+             * @description 操作人；系统学习时为空
+             */
+            actor_name: string | null;
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+            /** Note */
+            note: string;
+            /**
+             * Record No
+             * @description 哪次提交（单号）引起的
+             */
+            record_no: string | null;
+        };
+        /** FormKbResult */
+        FormKbResult: {
+            /**
+             * Action
+             * @enum {string}
+             */
+            action: "created" | "strengthened" | "activated" | "updated" | "deactivated" | "review" | "hit" | "added" | "edited" | "enabled" | "disabled" | "locked" | "unlocked" | "confirmed" | "adopted" | "kept" | "recipe";
+            /** Entry Id */
+            entry_id: string | null;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "alias" | "usage" | "companion";
+            /** Text */
+            text: string;
+        };
+        /** FormKbSettingsIn */
+        FormKbSettingsIn: {
+            /** Auto Activate */
+            auto_activate: boolean;
+            /** Learn Aliases */
+            learn_aliases: boolean;
+            /** Learn Companions */
+            learn_companions: boolean;
+            /** Learn Usage */
+            learn_usage: boolean;
+        };
+        /** FormKbSettingsOut */
+        FormKbSettingsOut: {
+            /** Auto Activate */
+            auto_activate: boolean;
+            /** Can Edit */
+            can_edit: boolean;
+            /** Learn Aliases */
+            learn_aliases: boolean;
+            /** Learn Companions */
+            learn_companions: boolean;
+            /** Learn Usage */
+            learn_usage: boolean;
+        };
+        /** FormKbSubmissionOut */
+        FormKbSubmissionOut: {
+            /** Actor Name */
+            actor_name: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Event
+             * @enum {string}
+             */
+            event: "created" | "updated" | "confirmed";
+            /**
+             * Form
+             * @enum {string}
+             */
+            form: "order" | "requisition" | "receipt";
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Processed At */
+            processed_at: string | null;
+            /**
+             * Record Id
+             * Format: uuid
+             */
+            record_id: string;
+            /** Record No */
+            record_no: string;
+            /** Result */
+            result: components["schemas"]["FormKbResult"][];
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "pending" | "done" | "failed";
+        };
+        /** FormKbSubmissionPage */
+        FormKbSubmissionPage: {
+            /** Items */
+            items: components["schemas"]["FormKbSubmissionOut"][];
+            /** Total */
+            total: number;
+        };
+        /** FormKbSummary */
+        FormKbSummary: {
+            /** Active */
+            active: number;
+            /** Disabled */
+            disabled: number;
+            /** Observing */
+            observing: number;
+            /**
+             * Pending
+             * @description 还没判断的学习记录
+             */
+            pending: number;
+            /** Review */
+            review: number;
         };
         /** GroupChatOut */
         GroupChatOut: {
@@ -10792,6 +11479,8 @@ export interface components {
         };
         /** LineIn */
         LineIn: {
+            /** @description 这一行是怎么录入的：录入行的输入、对应到商品库时客户的说法（表单知识的证据，§25.18；不保存在订单上） */
+            entry?: components["schemas"]["EntryTrace"] | null;
             /**
              * Name
              * @description 没有匹配商品库时的名称
@@ -13329,7 +14018,7 @@ export interface components {
          * Permission
          * @enum {string}
          */
-        Permission: "dashboard:view" | "workbench:use" | "customer:read" | "customer:read_all" | "customer:create" | "customer:assign" | "customer:view_sensitive" | "customer:export" | "customer:manage" | "session:read_all" | "session:read_team" | "session:transfer" | "session:transfer_any" | "session:monitor" | "routing:manage" | "staff:read" | "staff:manage" | "quick_reply:manage" | "kb:read" | "kb:manage" | "kb:publish" | "report:view" | "settings:manage" | "broadcast:manage" | "tenant:manage" | "audit:read" | "todo:read" | "todo:handle" | "todo:assign" | "todo:config" | "todo:export" | "order:read" | "order:create" | "order:review" | "order:price" | "order:payment" | "order:credit" | "order:export" | "order:config" | "product:manage" | "product:view_cost" | "inventory:manage" | "warehouse:confirm" | "production:work" | "production:assign" | "integration:manage";
+        Permission: "dashboard:view" | "workbench:use" | "customer:read" | "customer:read_all" | "customer:create" | "customer:assign" | "customer:view_sensitive" | "customer:export" | "customer:manage" | "session:read_all" | "session:read_team" | "session:transfer" | "session:transfer_any" | "session:monitor" | "routing:manage" | "staff:read" | "staff:manage" | "quick_reply:manage" | "kb:read" | "kb:manage" | "kb:publish" | "form_kb:manage" | "report:view" | "settings:manage" | "broadcast:manage" | "tenant:manage" | "audit:read" | "todo:read" | "todo:handle" | "todo:assign" | "todo:config" | "todo:export" | "order:read" | "order:create" | "order:review" | "order:price" | "order:payment" | "order:credit" | "order:export" | "order:config" | "product:manage" | "product:view_cost" | "inventory:manage" | "warehouse:confirm" | "production:work" | "production:assign" | "integration:manage";
         /** PermissionInfo */
         PermissionInfo: {
             code: components["schemas"]["Permission"];
@@ -13784,6 +14473,27 @@ export interface components {
             /** Requested By Name */
             requested_by_name: string | null;
         };
+        /** ProductBrief */
+        ProductBrief: {
+            /** Code */
+            code: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "goods" | "material";
+            /** Name */
+            name: string;
+            /** Spec */
+            spec: string;
+            /** Unit */
+            unit: string;
+        };
         /** ProductCandidate */
         ProductCandidate: {
             product: components["schemas"]["ProductOut"];
@@ -14057,15 +14767,20 @@ export interface components {
         ProductSuggestion: {
             /**
              * Field
-             * @description 按哪个字段找到的：code 代码、model 型号、name 名称、alias 俗称、spec 规格、category 分类、pinyin 拼音（最近用过的为空）
+             * @description 按哪个字段找到的：code 代码、model 型号、name 名称、alias 俗称、spec 规格、category 分类、pinyin 拼音、learned 学到的叫法（表单知识，§25.18；最近用过的、常一起开的为空）
              */
-            field: ("code" | "model" | "name" | "alias" | "spec" | "category" | "pinyin") | null;
+            field: ("code" | "model" | "name" | "alias" | "spec" | "category" | "pinyin" | "learned") | null;
             /**
              * Match
-             * @description exact 完全一致、prefix 开头一致、contains 包含、pinyin 拼音、similar 相近、recent 最近用过
+             * @description exact 完全一致、prefix 开头一致、contains 包含、pinyin 拼音、similar 相近、recent 最近用过、companion 常和单上的商品一起开
              * @enum {string}
              */
-            match: "exact" | "prefix" | "contains" | "pinyin" | "similar" | "recent";
+            match: "exact" | "prefix" | "contains" | "pinyin" | "similar" | "recent" | "companion";
+            /**
+             * Note
+             * @description 说明，例如常一起开的：“和 铝合金窗 一起开过 9/12 次”
+             */
+            note: string | null;
             product: components["schemas"]["ProductOut"];
             /**
              * Score
@@ -14079,7 +14794,7 @@ export interface components {
             items: components["schemas"]["ProductSuggestion"][];
             /**
              * Recent
-             * @description 没有输入关键词：自己最近开单用过的商品
+             * @description 没有输入关键词时的列表：常和单上的商品一起开的、自己最近开单用过的商品
              */
             recent: boolean;
         };
@@ -15894,13 +16609,18 @@ export interface components {
              * Field
              * @description 按哪个字段找到的（同 ProductSuggestion）
              */
-            field: ("code" | "model" | "name" | "alias" | "spec" | "category" | "pinyin") | null;
+            field: ("code" | "model" | "name" | "alias" | "spec" | "category" | "pinyin" | "learned") | null;
             item: components["schemas"]["StockItemOut"];
             /**
              * Match
              * @enum {string}
              */
-            match: "exact" | "prefix" | "contains" | "pinyin" | "similar" | "recent";
+            match: "exact" | "prefix" | "contains" | "pinyin" | "similar" | "recent" | "companion";
+            /**
+             * Note
+             * @description 说明（同 ProductSuggestion）
+             */
+            note: string | null;
             /**
              * Score
              * @description 匹配程度（约 0 到 1），最近用过的为 0
@@ -15913,7 +16633,7 @@ export interface components {
             items: components["schemas"]["StockSuggestion"][];
             /**
              * Recent
-             * @description 没有输入关键词：自己最近开单用过的
+             * @description 没有输入关键词时的列表：常和单上的商品一起开的、自己最近开单用过的
              */
             recent: boolean;
         };
@@ -24937,6 +25657,1164 @@ export interface operations {
             };
         };
     };
+    list_entries_api_v1_form_kb_entries_get: {
+        parameters: {
+            query?: {
+                kind?: ("alias" | "usage" | "companion") | null;
+                status?: ("observing" | "active" | "disabled") | null;
+                source?: ("learned" | "manual") | null;
+                /** @description 只看待确认的（true）或不需要确认的 */
+                review?: boolean | null;
+                /** @description 商品名称、代码或叫法 */
+                q?: string | null;
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FormKbEntryPage"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    create_entry_api_v1_form_kb_entries_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FormKbEntryCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FormKbEntryDetail"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_entry_api_v1_form_kb_entries__entry_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                entry_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FormKbEntryDetail"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    update_entry_api_v1_form_kb_entries__entry_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                entry_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FormKbEntryUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FormKbEntryDetail"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    delete_entry_api_v1_form_kb_entries__entry_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                entry_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    apply_recipe_api_v1_form_kb_entries__entry_id__apply_recipe_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                entry_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FormKbEntryDetail"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    confirm_entry_api_v1_form_kb_entries__entry_id__confirm_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                entry_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FormKbConfirm"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FormKbEntryDetail"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    disable_entry_api_v1_form_kb_entries__entry_id__disable_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                entry_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FormKbEntryDetail"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    enable_entry_api_v1_form_kb_entries__entry_id__enable_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                entry_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FormKbEntryDetail"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    lock_entry_api_v1_form_kb_entries__entry_id__lock_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                entry_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FormKbEntryDetail"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    unlock_entry_api_v1_form_kb_entries__entry_id__unlock_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                entry_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FormKbEntryDetail"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_settings_api_v1_form_kb_settings_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FormKbSettingsOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    put_settings_api_v1_form_kb_settings_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FormKbSettingsIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FormKbSettingsOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    list_submissions_api_v1_form_kb_submissions_get: {
+        parameters: {
+            query?: {
+                form?: ("order" | "requisition" | "receipt") | null;
+                /** @description 只看有更新的 */
+                changed?: boolean;
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FormKbSubmissionPage"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_summary_api_v1_form_kb_summary_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FormKbSummary"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     history_feed_api_v1_history_get: {
         parameters: {
             query?: {
@@ -32174,6 +34052,8 @@ export interface operations {
                 /** @description 输入的名称、代码、规格、拼音首字母等；为空时返回自己最近下单用过的 */
                 q?: string;
                 limit?: number;
+                /** @description 单上已经有的商品：没有输入时先列出常和它们一起开的（表单知识，§25.18） */
+                with?: string[];
             };
             header?: never;
             path?: never;
@@ -42978,6 +44858,8 @@ export interface operations {
                 /** @description 输入的名称、代码、规格、拼音首字母等；为空时返回自己最近开单用过的 */
                 q?: string;
                 limit?: number;
+                /** @description 单上已经有的商品：没有输入时先列出常和它们一起开的（表单知识，§25.18） */
+                with?: string[];
             };
             header?: never;
             path?: never;

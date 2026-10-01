@@ -4678,6 +4678,17 @@
       },
       "DocumentLineIn": {
         "properties": {
+          "entry": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EntryTrace"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "这一行是怎么录入的（表单知识的证据，§25.18；不保存在单据上）"
+          },
           "planned": {
             "anyOf": [
               {
@@ -5149,10 +5160,11 @@
         "description": "领料单：这次加工的商品，以及用量从哪里来（§25.17）。",
         "properties": {
           "basis": {
-            "description": "recipe 按配方；history 按以往领料估算；none 没有配方也没有以往的领料；unmatched 没有对应到商品库",
+            "description": "recipe 按配方；history 按以往领料估算；manual 按知识库里填写的用量（§25.18）；none 没有配方也没有以往的领料；unmatched 没有对应到商品库",
             "enum": [
               "recipe",
               "history",
+              "manual",
               "none",
               "unmatched"
             ],
@@ -5323,10 +5335,12 @@
             "type": "number"
           },
           "basis": {
-            "description": "recipe 配方；history 按以往领料估算",
+            "description": "recipe 配方；history 按以往领料估算；learned 学到的常领材料（表单知识）；manual 知识库里填写的用量（§25.18）",
             "enum": [
               "recipe",
-              "history"
+              "history",
+              "learned",
+              "manual"
             ],
             "title": "Basis",
             "type": "string"
@@ -5345,7 +5359,7 @@
                 "type": "null"
               }
             ],
-            "description": "按以往领料估算时依据的订单数",
+            "description": "按以往领料估算（或学到的）依据的订单数",
             "title": "Orders"
           },
           "per_unit": {
@@ -5374,6 +5388,86 @@
           "orders"
         ],
         "title": "DraftSource",
+        "type": "object"
+      },
+      "EntryTrace": {
+        "description": "明细行是怎么录入的（§25.18 叫法的证据）：录入行选中商品时的输入、之前没找到的输入，或者\n订单里客户的说法（对应到商品库）。只用于学习，不保存在单据上。",
+        "properties": {
+          "match": {
+            "anyOf": [
+              {
+                "enum": [
+                  "exact",
+                  "prefix",
+                  "contains",
+                  "pinyin",
+                  "similar",
+                  "recent",
+                  "learned",
+                  "companion"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "选中的候选是怎么找到的（learned 学到的叫法，companion 常一起开）",
+            "title": "Match"
+          },
+          "missed": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "同一次录入里之前没找到的输入（换了说法才找到）；对应到商品库时是客户的说法",
+            "title": "Missed"
+          },
+          "query": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "选中商品时录入行里的输入",
+            "title": "Query"
+          },
+          "rank": {
+            "anyOf": [
+              {
+                "maximum": 100.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "选中的是第几个候选（从 0 开始）",
+            "title": "Rank"
+          },
+          "via": {
+            "default": "suggest",
+            "description": "suggest 录入行；batch 批量选择；map 对应到商品库",
+            "enum": [
+              "suggest",
+              "batch",
+              "map"
+            ],
+            "title": "Via",
+            "type": "string"
+          }
+        },
+        "title": "EntryTrace",
         "type": "object"
       },
       "ErasureRequest": {
@@ -6078,6 +6172,1067 @@
           "deleted"
         ],
         "title": "FollowOut",
+        "type": "object"
+      },
+      "FormKbConfirm": {
+        "properties": {
+          "decision": {
+            "description": "activate 确认生效；adopt 换成学到的；keep 保持不变",
+            "enum": [
+              "activate",
+              "adopt",
+              "keep"
+            ],
+            "title": "Decision",
+            "type": "string"
+          }
+        },
+        "required": [
+          "decision"
+        ],
+        "title": "FormKbConfirm",
+        "type": "object"
+      },
+      "FormKbEntryCreate": {
+        "properties": {
+          "form": {
+            "anyOf": [
+              {
+                "enum": [
+                  "order",
+                  "requisition",
+                  "receipt"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "搭配：哪种表单（默认订单）",
+            "title": "Form"
+          },
+          "kind": {
+            "enum": [
+              "alias",
+              "usage",
+              "companion"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "product_id": {
+            "description": "叫法对应的商品；用量的成品；搭配的商品",
+            "format": "uuid",
+            "title": "Product Id",
+            "type": "string"
+          },
+          "related_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "用量的材料；搭配里常一起开的商品",
+            "title": "Related Id"
+          },
+          "text": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "叫法：输入的文字",
+            "title": "Text"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "maximum": 100000.0,
+                "type": "number"
+              },
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,9}|(?=[\\d.]{1,13}0*$)\\d{0,9}\\.\\d{0,3}0*$)",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "用量：每件用多少",
+            "title": "Value"
+          }
+        },
+        "required": [
+          "kind",
+          "product_id"
+        ],
+        "title": "FormKbEntryCreate",
+        "type": "object"
+      },
+      "FormKbEntryDetail": {
+        "properties": {
+          "basis": {
+            "anyOf": [
+              {
+                "enum": [
+                  "estimate",
+                  "extra",
+                  "deviation",
+                  "recipe"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "用量：estimate 没有配方时的估算；extra 配方里没有、常补领的材料；deviation 和配方不一致；recipe 和配方一致",
+            "title": "Basis"
+          },
+          "can_apply_recipe": {
+            "description": "可以把学到的用量写进配方（需要维护商品库的权限）",
+            "title": "Can Apply Recipe",
+            "type": "boolean"
+          },
+          "evidence": {
+            "description": "依据：几次（叫法、搭配是几张单据，用量是几个订单）",
+            "title": "Evidence",
+            "type": "integer"
+          },
+          "evidence_items": {
+            "items": {
+              "$ref": "#/components/schemas/FormKbEvidence"
+            },
+            "title": "Evidence Items",
+            "type": "array"
+          },
+          "form": {
+            "anyOf": [
+              {
+                "enum": [
+                  "order",
+                  "requisition",
+                  "receipt"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "搭配：哪种表单；叫法适用于所有表单（为空）",
+            "title": "Form"
+          },
+          "hits": {
+            "title": "Hits",
+            "type": "integer"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "alias",
+              "usage",
+              "companion"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "label": {
+            "description": "叫法：员工或客户当时的写法",
+            "title": "Label",
+            "type": "string"
+          },
+          "last_hit_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Hit At"
+          },
+          "learned_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Learned At"
+          },
+          "locked": {
+            "description": "固定：学习不会改动（手工添加或改过的）",
+            "title": "Locked",
+            "type": "boolean"
+          },
+          "log": {
+            "items": {
+              "$ref": "#/components/schemas/FormKbLogOut"
+            },
+            "title": "Log",
+            "type": "array"
+          },
+          "product": {
+            "$ref": "#/components/schemas/ProductBrief",
+            "description": "叫法对应的商品；用量的成品；搭配的商品"
+          },
+          "recipe": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "用量：配方里每件的用量（有配方时）",
+            "title": "Recipe"
+          },
+          "related": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ProductBrief"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "用量的材料；搭配里常一起开的商品"
+          },
+          "review": {
+            "anyOf": [
+              {
+                "enum": [
+                  "activate",
+                  "conflict",
+                  "recipe"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "待确认：activate 达到生效条件等确认；conflict 学到的和固定的不一致；recipe 实际用量和配方不一致",
+            "title": "Review"
+          },
+          "review_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Review Note"
+          },
+          "sentence": {
+            "description": "写成一句话的知识",
+            "title": "Sentence",
+            "type": "string"
+          },
+          "share": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "叫法：选这个商品的比例；搭配：一起出现的比例",
+            "title": "Share"
+          },
+          "source": {
+            "enum": [
+              "learned",
+              "manual"
+            ],
+            "title": "Source",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "observing",
+              "active",
+              "disabled"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "text": {
+            "description": "叫法：统一写法后的文字",
+            "title": "Text",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "用量：每件用多少；搭配：一起出现的比例",
+            "title": "Value"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "form",
+          "text",
+          "label",
+          "product",
+          "related",
+          "value",
+          "status",
+          "source",
+          "locked",
+          "review",
+          "review_note",
+          "evidence",
+          "share",
+          "basis",
+          "recipe",
+          "sentence",
+          "hits",
+          "last_hit_at",
+          "learned_at",
+          "updated_at",
+          "evidence_items",
+          "log",
+          "can_apply_recipe"
+        ],
+        "title": "FormKbEntryDetail",
+        "type": "object"
+      },
+      "FormKbEntryOut": {
+        "properties": {
+          "basis": {
+            "anyOf": [
+              {
+                "enum": [
+                  "estimate",
+                  "extra",
+                  "deviation",
+                  "recipe"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "用量：estimate 没有配方时的估算；extra 配方里没有、常补领的材料；deviation 和配方不一致；recipe 和配方一致",
+            "title": "Basis"
+          },
+          "evidence": {
+            "description": "依据：几次（叫法、搭配是几张单据，用量是几个订单）",
+            "title": "Evidence",
+            "type": "integer"
+          },
+          "form": {
+            "anyOf": [
+              {
+                "enum": [
+                  "order",
+                  "requisition",
+                  "receipt"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "搭配：哪种表单；叫法适用于所有表单（为空）",
+            "title": "Form"
+          },
+          "hits": {
+            "title": "Hits",
+            "type": "integer"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "alias",
+              "usage",
+              "companion"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "label": {
+            "description": "叫法：员工或客户当时的写法",
+            "title": "Label",
+            "type": "string"
+          },
+          "last_hit_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Hit At"
+          },
+          "learned_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Learned At"
+          },
+          "locked": {
+            "description": "固定：学习不会改动（手工添加或改过的）",
+            "title": "Locked",
+            "type": "boolean"
+          },
+          "product": {
+            "$ref": "#/components/schemas/ProductBrief",
+            "description": "叫法对应的商品；用量的成品；搭配的商品"
+          },
+          "recipe": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "用量：配方里每件的用量（有配方时）",
+            "title": "Recipe"
+          },
+          "related": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ProductBrief"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "用量的材料；搭配里常一起开的商品"
+          },
+          "review": {
+            "anyOf": [
+              {
+                "enum": [
+                  "activate",
+                  "conflict",
+                  "recipe"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "待确认：activate 达到生效条件等确认；conflict 学到的和固定的不一致；recipe 实际用量和配方不一致",
+            "title": "Review"
+          },
+          "review_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Review Note"
+          },
+          "sentence": {
+            "description": "写成一句话的知识",
+            "title": "Sentence",
+            "type": "string"
+          },
+          "share": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "叫法：选这个商品的比例；搭配：一起出现的比例",
+            "title": "Share"
+          },
+          "source": {
+            "enum": [
+              "learned",
+              "manual"
+            ],
+            "title": "Source",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "observing",
+              "active",
+              "disabled"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "text": {
+            "description": "叫法：统一写法后的文字",
+            "title": "Text",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "用量：每件用多少；搭配：一起出现的比例",
+            "title": "Value"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "form",
+          "text",
+          "label",
+          "product",
+          "related",
+          "value",
+          "status",
+          "source",
+          "locked",
+          "review",
+          "review_note",
+          "evidence",
+          "share",
+          "basis",
+          "recipe",
+          "sentence",
+          "hits",
+          "last_hit_at",
+          "learned_at",
+          "updated_at"
+        ],
+        "title": "FormKbEntryOut",
+        "type": "object"
+      },
+      "FormKbEntryPage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/FormKbEntryOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total"
+        ],
+        "title": "FormKbEntryPage",
+        "type": "object"
+      },
+      "FormKbEntryUpdate": {
+        "description": "修改（改过的知识变为固定）。",
+        "properties": {
+          "product_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Product Id"
+          },
+          "text": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Text"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "maximum": 100000.0,
+                "type": "number"
+              },
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,9}|(?=[\\d.]{1,13}0*$)\\d{0,9}\\.\\d{0,3}0*$)",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          }
+        },
+        "title": "FormKbEntryUpdate",
+        "type": "object"
+      },
+      "FormKbEvidence": {
+        "properties": {
+          "actor_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actor Name"
+          },
+          "at": {
+            "format": "date-time",
+            "title": "At",
+            "type": "string"
+          },
+          "detail": {
+            "description": "这次的内容（例如：输入「大窗」选了铝合金窗；每樘 6.5 米）",
+            "title": "Detail",
+            "type": "string"
+          },
+          "form": {
+            "enum": [
+              "order",
+              "requisition",
+              "receipt"
+            ],
+            "title": "Form",
+            "type": "string"
+          },
+          "record_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Record Id"
+          },
+          "record_no": {
+            "title": "Record No",
+            "type": "string"
+          }
+        },
+        "required": [
+          "at",
+          "form",
+          "record_id",
+          "record_no",
+          "actor_name",
+          "detail"
+        ],
+        "title": "FormKbEvidence",
+        "type": "object"
+      },
+      "FormKbLogOut": {
+        "properties": {
+          "action": {
+            "enum": [
+              "created",
+              "strengthened",
+              "activated",
+              "updated",
+              "deactivated",
+              "review",
+              "hit",
+              "added",
+              "edited",
+              "enabled",
+              "disabled",
+              "locked",
+              "unlocked",
+              "confirmed",
+              "adopted",
+              "kept",
+              "recipe"
+            ],
+            "title": "Action",
+            "type": "string"
+          },
+          "actor_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "操作人；系统学习时为空",
+            "title": "Actor Name"
+          },
+          "at": {
+            "format": "date-time",
+            "title": "At",
+            "type": "string"
+          },
+          "note": {
+            "title": "Note",
+            "type": "string"
+          },
+          "record_no": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "哪次提交（单号）引起的",
+            "title": "Record No"
+          }
+        },
+        "required": [
+          "at",
+          "action",
+          "note",
+          "actor_name",
+          "record_no"
+        ],
+        "title": "FormKbLogOut",
+        "type": "object"
+      },
+      "FormKbResult": {
+        "properties": {
+          "action": {
+            "enum": [
+              "created",
+              "strengthened",
+              "activated",
+              "updated",
+              "deactivated",
+              "review",
+              "hit",
+              "added",
+              "edited",
+              "enabled",
+              "disabled",
+              "locked",
+              "unlocked",
+              "confirmed",
+              "adopted",
+              "kept",
+              "recipe"
+            ],
+            "title": "Action",
+            "type": "string"
+          },
+          "entry_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entry Id"
+          },
+          "kind": {
+            "enum": [
+              "alias",
+              "usage",
+              "companion"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "entry_id",
+          "kind",
+          "action",
+          "text"
+        ],
+        "title": "FormKbResult",
+        "type": "object"
+      },
+      "FormKbSettingsIn": {
+        "properties": {
+          "auto_activate": {
+            "title": "Auto Activate",
+            "type": "boolean"
+          },
+          "learn_aliases": {
+            "title": "Learn Aliases",
+            "type": "boolean"
+          },
+          "learn_companions": {
+            "title": "Learn Companions",
+            "type": "boolean"
+          },
+          "learn_usage": {
+            "title": "Learn Usage",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "auto_activate",
+          "learn_aliases",
+          "learn_usage",
+          "learn_companions"
+        ],
+        "title": "FormKbSettingsIn",
+        "type": "object"
+      },
+      "FormKbSettingsOut": {
+        "properties": {
+          "auto_activate": {
+            "title": "Auto Activate",
+            "type": "boolean"
+          },
+          "can_edit": {
+            "title": "Can Edit",
+            "type": "boolean"
+          },
+          "learn_aliases": {
+            "title": "Learn Aliases",
+            "type": "boolean"
+          },
+          "learn_companions": {
+            "title": "Learn Companions",
+            "type": "boolean"
+          },
+          "learn_usage": {
+            "title": "Learn Usage",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "auto_activate",
+          "learn_aliases",
+          "learn_usage",
+          "learn_companions",
+          "can_edit"
+        ],
+        "title": "FormKbSettingsOut",
+        "type": "object"
+      },
+      "FormKbSubmissionOut": {
+        "properties": {
+          "actor_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actor Name"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "event": {
+            "enum": [
+              "created",
+              "updated",
+              "confirmed"
+            ],
+            "title": "Event",
+            "type": "string"
+          },
+          "form": {
+            "enum": [
+              "order",
+              "requisition",
+              "receipt"
+            ],
+            "title": "Form",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "processed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Processed At"
+          },
+          "record_id": {
+            "format": "uuid",
+            "title": "Record Id",
+            "type": "string"
+          },
+          "record_no": {
+            "title": "Record No",
+            "type": "string"
+          },
+          "result": {
+            "items": {
+              "$ref": "#/components/schemas/FormKbResult"
+            },
+            "title": "Result",
+            "type": "array"
+          },
+          "status": {
+            "enum": [
+              "pending",
+              "done",
+              "failed"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "form",
+          "event",
+          "record_id",
+          "record_no",
+          "actor_name",
+          "status",
+          "created_at",
+          "processed_at",
+          "result"
+        ],
+        "title": "FormKbSubmissionOut",
+        "type": "object"
+      },
+      "FormKbSubmissionPage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/FormKbSubmissionOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total"
+        ],
+        "title": "FormKbSubmissionPage",
+        "type": "object"
+      },
+      "FormKbSummary": {
+        "properties": {
+          "active": {
+            "title": "Active",
+            "type": "integer"
+          },
+          "disabled": {
+            "title": "Disabled",
+            "type": "integer"
+          },
+          "observing": {
+            "title": "Observing",
+            "type": "integer"
+          },
+          "pending": {
+            "description": "还没判断的学习记录",
+            "title": "Pending",
+            "type": "integer"
+          },
+          "review": {
+            "title": "Review",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "active",
+          "observing",
+          "review",
+          "disabled",
+          "pending"
+        ],
+        "title": "FormKbSummary",
         "type": "object"
       },
       "GroupChatOut": {
@@ -10584,6 +11739,17 @@
       },
       "LineIn": {
         "properties": {
+          "entry": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EntryTrace"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "这一行是怎么录入的：录入行的输入、对应到商品库时客户的说法（表单知识的证据，§25.18；不保存在订单上）"
+          },
           "name": {
             "anyOf": [
               {
@@ -17463,6 +18629,7 @@
           "kb:read",
           "kb:manage",
           "kb:publish",
+          "form_kb:manage",
           "report:view",
           "settings:manage",
           "broadcast:manage",
@@ -18595,6 +19762,56 @@
         "title": "PrivacyRequestOut",
         "type": "object"
       },
+      "ProductBrief": {
+        "properties": {
+          "code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Code"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "goods",
+              "material"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "spec": {
+            "title": "Spec",
+            "type": "string"
+          },
+          "unit": {
+            "title": "Unit",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "code",
+          "name",
+          "spec",
+          "unit",
+          "kind"
+        ],
+        "title": "ProductBrief",
+        "type": "object"
+      },
       "ProductCandidate": {
         "properties": {
           "product": {
@@ -19185,7 +20402,8 @@
                   "alias",
                   "spec",
                   "category",
-                  "pinyin"
+                  "pinyin",
+                  "learned"
                 ],
                 "type": "string"
               },
@@ -19193,21 +20411,34 @@
                 "type": "null"
               }
             ],
-            "description": "按哪个字段找到的：code 代码、model 型号、name 名称、alias 俗称、spec 规格、category 分类、pinyin 拼音（最近用过的为空）",
+            "description": "按哪个字段找到的：code 代码、model 型号、name 名称、alias 俗称、spec 规格、category 分类、pinyin 拼音、learned 学到的叫法（表单知识，§25.18；最近用过的、常一起开的为空）",
             "title": "Field"
           },
           "match": {
-            "description": "exact 完全一致、prefix 开头一致、contains 包含、pinyin 拼音、similar 相近、recent 最近用过",
+            "description": "exact 完全一致、prefix 开头一致、contains 包含、pinyin 拼音、similar 相近、recent 最近用过、companion 常和单上的商品一起开",
             "enum": [
               "exact",
               "prefix",
               "contains",
               "pinyin",
               "similar",
-              "recent"
+              "recent",
+              "companion"
             ],
             "title": "Match",
             "type": "string"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "说明，例如常一起开的：“和 铝合金窗 一起开过 9/12 次”",
+            "title": "Note"
           },
           "product": {
             "$ref": "#/components/schemas/ProductOut"
@@ -19222,7 +20453,8 @@
           "product",
           "score",
           "field",
-          "match"
+          "match",
+          "note"
         ],
         "title": "ProductSuggestion",
         "type": "object"
@@ -19237,7 +20469,7 @@
             "type": "array"
           },
           "recent": {
-            "description": "没有输入关键词：自己最近开单用过的商品",
+            "description": "没有输入关键词时的列表：常和单上的商品一起开的、自己最近开单用过的商品",
             "title": "Recent",
             "type": "boolean"
           }
@@ -23725,7 +24957,8 @@
                   "alias",
                   "spec",
                   "category",
-                  "pinyin"
+                  "pinyin",
+                  "learned"
                 ],
                 "type": "string"
               },
@@ -23746,10 +24979,23 @@
               "contains",
               "pinyin",
               "similar",
-              "recent"
+              "recent",
+              "companion"
             ],
             "title": "Match",
             "type": "string"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "说明（同 ProductSuggestion）",
+            "title": "Note"
           },
           "score": {
             "description": "匹配程度（约 0 到 1），最近用过的为 0",
@@ -23761,7 +25007,8 @@
           "item",
           "score",
           "field",
-          "match"
+          "match",
+          "note"
         ],
         "title": "StockSuggestion",
         "type": "object"
@@ -23776,7 +25023,7 @@
             "type": "array"
           },
           "recent": {
-            "description": "没有输入关键词：自己最近开单用过的",
+            "description": "没有输入关键词时的列表：常和单上的商品一起开的、自己最近开单用过的",
             "title": "Recent",
             "type": "boolean"
           }
@@ -38590,6 +39837,1625 @@
         ]
       }
     },
+    "/api/v1/form-kb/entries": {
+      "get": {
+        "description": "表单知识：叫法、用量、搭配。待确认的在前，然后是最近有变化的。",
+        "operationId": "list_entries_api_v1_form_kb_entries_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "kind",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "alias",
+                    "usage",
+                    "companion"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Kind"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "observing",
+                    "active",
+                    "disabled"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "source",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "learned",
+                    "manual"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Source"
+            }
+          },
+          {
+            "description": "只看待确认的（true）或不需要确认的",
+            "in": "query",
+            "name": "review",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "只看待确认的（true）或不需要确认的",
+              "title": "Review"
+            }
+          },
+          {
+            "description": "商品名称、代码或叫法",
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "商品名称、代码或叫法",
+              "title": "Q"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FormKbEntryPage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Entries",
+        "tags": [
+          "form-knowledge"
+        ]
+      },
+      "post": {
+        "description": "手工添加（立即生效、固定）：叫法（输入的文字、商品）、用量（成品、材料、每件用量）、搭配\n（商品、常一起开的商品、表单）。",
+        "operationId": "create_entry_api_v1_form_kb_entries_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FormKbEntryCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FormKbEntryDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Create Entry",
+        "tags": [
+          "form-knowledge"
+        ]
+      }
+    },
+    "/api/v1/form-kb/entries/{entry_id}": {
+      "delete": {
+        "description": "删除手工添加的知识（学到的只能停用）。",
+        "operationId": "delete_entry_api_v1_form_kb_entries__entry_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "entry_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Entry Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Delete Entry",
+        "tags": [
+          "form-knowledge"
+        ]
+      },
+      "get": {
+        "description": "一条表单知识：依据的单据、变化记录。",
+        "operationId": "get_entry_api_v1_form_kb_entries__entry_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "entry_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Entry Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FormKbEntryDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Entry",
+        "tags": [
+          "form-knowledge"
+        ]
+      },
+      "put": {
+        "description": "修改（叫法的文字和商品、用量）；改过的知识变为固定，学习不再改动。",
+        "operationId": "update_entry_api_v1_form_kb_entries__entry_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "entry_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Entry Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FormKbEntryUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FormKbEntryDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Update Entry",
+        "tags": [
+          "form-knowledge"
+        ]
+      }
+    },
+    "/api/v1/form-kb/entries/{entry_id}/apply-recipe": {
+      "post": {
+        "description": "用量写进配方（加上这种材料，或改成这个用量；需要维护商品库的权限）。",
+        "operationId": "apply_recipe_api_v1_form_kb_entries__entry_id__apply_recipe_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "entry_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Entry Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FormKbEntryDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Apply Recipe",
+        "tags": [
+          "form-knowledge"
+        ]
+      }
+    },
+    "/api/v1/form-kb/entries/{entry_id}/confirm": {
+      "post": {
+        "description": "处理待确认：确认生效、换成学到的，或保持不变。",
+        "operationId": "confirm_entry_api_v1_form_kb_entries__entry_id__confirm_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "entry_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Entry Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FormKbConfirm"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FormKbEntryDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Confirm Entry",
+        "tags": [
+          "form-knowledge"
+        ]
+      }
+    },
+    "/api/v1/form-kb/entries/{entry_id}/disable": {
+      "post": {
+        "description": "停用：开单时不再使用；以后再出现同样的证据只记在依据里，不会自动恢复。",
+        "operationId": "disable_entry_api_v1_form_kb_entries__entry_id__disable_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "entry_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Entry Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FormKbEntryDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Disable Entry",
+        "tags": [
+          "form-knowledge"
+        ]
+      }
+    },
+    "/api/v1/form-kb/entries/{entry_id}/enable": {
+      "post": {
+        "description": "启用：开单时用上。",
+        "operationId": "enable_entry_api_v1_form_kb_entries__entry_id__enable_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "entry_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Entry Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FormKbEntryDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Enable Entry",
+        "tags": [
+          "form-knowledge"
+        ]
+      }
+    },
+    "/api/v1/form-kb/entries/{entry_id}/lock": {
+      "post": {
+        "description": "固定：学习不再改动这条知识（学到的不一致时标待确认）。",
+        "operationId": "lock_entry_api_v1_form_kb_entries__entry_id__lock_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "entry_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Entry Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FormKbEntryDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Lock Entry",
+        "tags": [
+          "form-knowledge"
+        ]
+      }
+    },
+    "/api/v1/form-kb/entries/{entry_id}/unlock": {
+      "post": {
+        "description": "取消固定：以后按学到的更新。",
+        "operationId": "unlock_entry_api_v1_form_kb_entries__entry_id__unlock_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "entry_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Entry Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FormKbEntryDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Unlock Entry",
+        "tags": [
+          "form-knowledge"
+        ]
+      }
+    },
+    "/api/v1/form-kb/settings": {
+      "get": {
+        "operationId": "get_settings_api_v1_form_kb_settings_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FormKbSettingsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Settings",
+        "tags": [
+          "form-knowledge"
+        ]
+      },
+      "put": {
+        "description": "学到的知识是否自动生效，三类知识是否学习。",
+        "operationId": "put_settings_api_v1_form_kb_settings_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FormKbSettingsIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FormKbSettingsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Put Settings",
+        "tags": [
+          "form-knowledge"
+        ]
+      }
+    },
+    "/api/v1/form-kb/submissions": {
+      "get": {
+        "description": "学习记录：每次提交的表单和判断结果（学到、加强、生效、换成新的、待确认、用到，或没有需要\n更新的）。",
+        "operationId": "list_submissions_api_v1_form_kb_submissions_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "form",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "order",
+                    "requisition",
+                    "receipt"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Form"
+            }
+          },
+          {
+            "description": "只看有更新的",
+            "in": "query",
+            "name": "changed",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "只看有更新的",
+              "title": "Changed",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FormKbSubmissionPage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Submissions",
+        "tags": [
+          "form-knowledge"
+        ]
+      }
+    },
+    "/api/v1/form-kb/summary": {
+      "get": {
+        "description": "各状态的数量、待确认的数量、还没判断的学习记录。",
+        "operationId": "get_summary_api_v1_form_kb_summary_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FormKbSummary"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Summary",
+        "tags": [
+          "form-knowledge"
+        ]
+      }
+    },
     "/api/v1/history": {
       "get": {
         "description": "全部记录的修改历史，新的在前：时间、操作人、类型、单号或名称、操作、改动摘要。",
@@ -48787,7 +51653,7 @@
     },
     "/api/v1/products/suggest": {
       "get": {
-        "description": "下单时的商品联想（§25.16）：上架的成品，按匹配程度、常用程度和库存排序。",
+        "description": "下单时的商品联想（§25.16）：上架的成品，按匹配程度、常用程度和库存排序；学到的叫法排在前面，\n没有输入时先列出常一起开的（§25.18）。",
         "operationId": "suggest_products_api_v1_products_suggest_get",
         "parameters": [
           {
@@ -48813,6 +51679,23 @@
               "minimum": 1,
               "title": "Limit",
               "type": "integer"
+            }
+          },
+          {
+            "description": "单上已经有的商品：没有输入时先列出常和它们一起开的（表单知识，§25.18）",
+            "in": "query",
+            "name": "with",
+            "required": false,
+            "schema": {
+              "default": [],
+              "description": "单上已经有的商品：没有输入时先列出常和它们一起开的（表单知识，§25.18）",
+              "items": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "maxItems": 50,
+              "title": "With",
+              "type": "array"
             }
           }
         ],
@@ -63428,7 +66311,7 @@
     },
     "/api/v1/warehouse/suggest": {
       "get": {
-        "description": "开领料单、入库单时的商品联想（§25.16）：启用的材料或成品，带库存（没有价格），按匹配程度、\n常用程度和库存排序。",
+        "description": "开领料单、入库单时的商品联想（§25.16）：启用的材料或成品，带库存（没有价格），按匹配程度、\n常用程度和库存排序；学到的叫法排在前面，没有输入时先列出常一起开的（§25.18）。",
         "operationId": "suggest_items_api_v1_warehouse_suggest_get",
         "parameters": [
           {
@@ -63470,6 +66353,23 @@
               "minimum": 1,
               "title": "Limit",
               "type": "integer"
+            }
+          },
+          {
+            "description": "单上已经有的商品：没有输入时先列出常和它们一起开的（表单知识，§25.18）",
+            "in": "query",
+            "name": "with",
+            "required": false,
+            "schema": {
+              "default": [],
+              "description": "单上已经有的商品：没有输入时先列出常和它们一起开的（表单知识，§25.18）",
+              "items": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "maxItems": 100,
+              "title": "With",
+              "type": "array"
             }
           }
         ],

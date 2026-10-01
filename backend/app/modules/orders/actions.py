@@ -26,6 +26,9 @@ from app.modules.conversation import notices, outbox
 from app.modules.conversation.models import ChatSession
 from app.modules.customer.models import Customer
 from app.modules.customer.service import visible_to as customer_visible_to
+from app.modules.formkb import record as formkb_record
+from app.modules.formkb.models import Event as FormKbEvent
+from app.modules.formkb.models import Form as FormKbForm
 from app.modules.iam.models import Staff, StaffStatus
 from app.modules.iam.principal import Principal
 from app.modules.orders import service
@@ -238,9 +241,32 @@ async def create(
         actor_id=me,
         payload={"source": order.source, "submitted": payload.submit},
     )
+    _learn(session, order, items, me, FormKbEvent.CREATED, payload.items)
     await session.commit()
     await _after(ctx, order, [], todos)
     return order
+
+
+def _learn(
+    session: AsyncSession,
+    order: Order,
+    items: list[Any],
+    actor_id: uuid.UUID,
+    event: FormKbEvent,
+    lines: list[Any],
+) -> None:
+    """员工下单、改单：记一条学习记录（表单知识，§25.18）。"""
+    formkb_record.record(
+        session,
+        tenant_id=order.tenant_id,
+        form=FormKbForm.ORDER,
+        event=event,
+        record_id=order.id,
+        record_no=order.no,
+        actor_id=actor_id,
+        products=[i.product_id for i in items],
+        traced=formkb_record.traces(lines),
+    )
 
 
 async def _submit(
@@ -417,6 +443,8 @@ async def update(
         payload={"reason": payload.reason, "fields": sorted(changes)},
         public=order.status not in (OrderStatus.DRAFT,) and content,
     )
+    if payload.items is not None:
+        _learn(session, order, items, me, FormKbEvent.UPDATED, payload.items)
     if content:
         record_audit(
             session,

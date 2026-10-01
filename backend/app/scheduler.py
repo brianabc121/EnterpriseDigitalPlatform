@@ -52,6 +52,7 @@ from app.modules.ai.summaries import run_pending as run_session_summaries
 from app.modules.billing.service import run_invoices, run_lifecycle
 from app.modules.conversation.outbox import dispatch_due
 from app.modules.conversation.reconcile import reconcile_all
+from app.modules.formkb.learn import purge as purge_form_learning
 from app.modules.integration.delivery import purge_events as purge_webhook_events
 from app.modules.integration.delivery import run as run_webhooks
 from app.modules.kb.extraction import run_extraction
@@ -128,6 +129,7 @@ JOBS = (
     Job("webhook-events-purge", 3600, purge_webhook_events),
     Job("metrics-state", state.INTERVAL_SECONDS, state.refresh),
     Job("partitions", 3600, ensure_partitions),
+    Job("form-kb-purge", 3600, purge_form_learning),
 )
 
 

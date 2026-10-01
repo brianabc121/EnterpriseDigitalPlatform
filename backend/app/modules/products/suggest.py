@@ -20,7 +20,8 @@ from sqlalchemy import ColumnElement, and_, case, literal, or_
 
 from app.modules.products.models import Product
 
-SuggestField = Literal["code", "model", "name", "alias", "spec", "category", "pinyin"]
+# learned：表单知识里学到的叫法（§25.18，由 lookup 加上，打分本身不会产生）。
+SuggestField = Literal["code", "model", "name", "alias", "spec", "category", "pinyin", "learned"]
 SuggestMatch = Literal["exact", "prefix", "contains", "pinyin", "similar"]
 
 # 字段的权重：代码、名称最高，俗称、型号、规格、拼音其次，分类最低。

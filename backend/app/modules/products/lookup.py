@@ -1,10 +1,13 @@
 """开单时的商品联想（设计文档 §25.16）：数据库里粗筛、打分排序，常用程度，自己最近用过的商品。
 
 下单（source=orders）看订单明细，开领料单和入库单（source=documents）看单据明细。
+表单知识（§25.18）：输入和学到的叫法一致（或是它的开头）的商品排在前面；没有输入、单上已经有
+商品时，先列出常和它们一起开的。
 """
 
 import math
 import uuid
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Literal
@@ -12,6 +15,7 @@ from typing import Literal
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.modules.formkb import knowledge
 from app.modules.iam.principal import Principal
 from app.modules.orders.models import Order, OrderItem
 from app.modules.products import suggest
@@ -28,7 +32,8 @@ class Suggestion:
     product: Product
     score: float
     field: suggest.SuggestField | None
-    match: suggest.SuggestMatch | Literal["recent"]
+    match: suggest.SuggestMatch | Literal["recent", "companion"]
+    note: str | None = None
 
 
 def _since() -> datetime:
@@ -117,24 +122,55 @@ async def suggestions(
     kind: ProductKind,
     source: Source,
     limit: int,
+    with_ids: Sequence[uuid.UUID] = (),
 ) -> tuple[list[Suggestion], bool]:
-    """联想的结果，以及是不是"最近用过的"（没有关键词时）。只找上架或启用的商品。"""
+    """联想的结果，以及是不是没有关键词时的列表（常一起开的、最近用过的）。只找上架或启用的商品。
+    with_ids：单上已经有的商品（列出常和它们一起开的）。"""
     if not query.strip():
-        found = await recent(session, principal, kind=kind, source=source, limit=limit)
-        return [Suggestion(p, 0.0, None, "recent") for p in found], True
+        found: list[Suggestion] = []
+        if with_ids:
+            form = knowledge.form_for(source, kind)
+            for c in await knowledge.companions(session, form, with_ids, kind=kind, limit=limit):
+                note = f"和 {c.anchor.name} 一起开过 {c.together}/{c.forms} 次"
+                found.append(Suggestion(c.product, 0.0, None, "companion", note))
+        listed = {s.product.id for s in found}
+        for p in await recent(session, principal, kind=kind, source=source, limit=limit):
+            if p.id not in listed:
+                found.append(Suggestion(p, 0.0, None, "recent"))
+        return found[:limit], True
+    learned = await knowledge.aliases(session, query)
     filtering = suggest.prefilter(query)
-    if filtering is None:
+    if filtering is None and not learned:
         return [], False
-    condition, rank = filtering
-    candidates = (
-        await session.scalars(
-            select(Product)
-            .where(Product.kind == kind, Product.status == ProductStatus.ON, condition)
-            .order_by(rank.desc(), Product.name)
-            .limit(suggest.CANDIDATES)
+    candidates: list[Product] = []
+    if filtering is not None:
+        condition, rank = filtering
+        candidates = list(
+            (
+                await session.scalars(
+                    select(Product)
+                    .where(Product.kind == kind, Product.status == ProductStatus.ON, condition)
+                    .order_by(rank.desc(), Product.name)
+                    .limit(suggest.CANDIDATES)
+                )
+            ).all()
         )
-    ).all()
+    known = {p.id for p in candidates}
+    if learned.keys() - known:
+        candidates += (
+            await session.scalars(
+                select(Product).where(
+                    Product.id.in_(learned.keys() - known),
+                    Product.kind == kind,
+                    Product.status == ProductStatus.ON,
+                )
+            )
+        ).all()
     scores = suggest.score_all(query, candidates)
+    for index, product in enumerate(candidates):
+        hit = learned.get(product.id)
+        if hit is not None and hit.score >= scores[index].score:
+            scores[index] = suggest.Scored(hit.score, "learned", "exact" if hit.exact else "prefix")
     floor = suggest.keep([s.score for s in scores])
     scored = [(p, s) for p, s in zip(candidates, scores, strict=True) if s.score >= floor]
     uses = await usage_counts(session, [p.id for p, _ in scored], source)
