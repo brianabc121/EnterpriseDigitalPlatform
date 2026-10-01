@@ -512,6 +512,7 @@ async function update(): Promise<OrderDetail | null> {
                 />
                 <ProductPicker
                   placeholder="对应到商品库"
+                  :seed="line.raw_text"
                   :testid="`order-line-map-${index}`"
                   @pick="(p) => mapLine(index, p)"
                 />

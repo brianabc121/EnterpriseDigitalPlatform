@@ -1,35 +1,46 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import type { Schemas } from '@edp/api-client'
+import { computed, ref } from 'vue'
 
 import { api } from '../../api'
+import { fromProductSuggestion, matchLabel, suggestionTitle } from '../../documents'
 import { money, type Product } from '../../orders'
 
 /**
- * 选择商品：按名称、代码、型号、规格或俗称检索商品库（与 AI 使用的检索相同），只列出上架的商品。
+ * 选择商品（设计文档 §25.16）：联想上架的成品——名称、俗称、分类、代码、型号、规格，拼音首字母和
+ * 相近的写法都认，标出按什么找到的。打开时先按 seed（订单里客户的说法）列出相近的商品，也可以再输入。
  * 选中后把商品交给上层（带建议零售价）。
  */
-const props = defineProps<{ placeholder?: string; testid?: string }>()
+const props = defineProps<{ placeholder?: string; testid?: string; seed?: string | null }>()
 const emit = defineEmits<{ pick: [product: Product] }>()
 
-const options = ref<Product[]>([])
+const options = ref<Schemas['ProductSuggestion'][]>([])
+const recent = ref(false)
 const loading = ref(false)
 const value = ref('')
+let seq = 0
+
+const title = computed(() => suggestionTitle(options.value.map(fromProductSuggestion), recent.value))
 
 async function search(q: string): Promise<void> {
-  if (!q.trim()) {
-    options.value = []
-    return
-  }
+  const mine = ++seq
   loading.value = true
-  const { data } = await api.GET('/api/v1/products/search', {
-    params: { query: { q: q.trim(), limit: 10 } },
+  const { data } = await api.GET('/api/v1/products/suggest', {
+    params: { query: { q: q.trim().slice(0, 100), limit: 10 } },
   })
+  if (mine !== seq) return
   loading.value = false
-  options.value = (data?.items ?? []).map((c) => c.product)
+  options.value = data?.items ?? []
+  recent.value = data?.recent ?? false
+}
+
+/** 打开时按客户的说法联想（没有说法时是最近用过的）。 */
+function onVisible(visible: boolean): void {
+  if (visible) void search(props.seed ?? '')
 }
 
 function pick(id: string): void {
-  const product = options.value.find((p) => p.id === id)
+  const product = options.value.find((s) => s.product.id === id)?.product
   value.value = ''
   if (product) emit('pick', product)
 }
@@ -46,17 +57,25 @@ function label(p: Product): string {
     remote
     :remote-method="search"
     :loading="loading"
-    :placeholder="props.placeholder ?? '搜索商品：名称、代码、型号'"
+    :placeholder="props.placeholder ?? '搜索商品：名称、代码、规格或拼音首字母'"
     class="picker"
     :data-testid="props.testid ?? 'product-picker'"
+    @visible-change="onVisible"
     @change="pick"
   >
-    <el-option v-for="p in options" :key="p.id" :label="label(p)" :value="p.id">
-      <span class="name">{{ label(p) }}</span>
-      <span v-if="p.code" class="code">{{ p.code }}</span>
-      <span class="price">{{ money(p.retail_price) }}</span>
-      <span v-if="p.stock_available !== null" class="stock" :class="{ short: p.stock_available <= 0 }"
-        >可用 {{ p.stock_available }}</span
+    <template v-if="title" #header>
+      <span class="title" :data-testid="`${props.testid ?? 'product-picker'}-title`">{{ title }}</span>
+    </template>
+    <el-option v-for="s in options" :key="s.product.id" :label="label(s.product)" :value="s.product.id">
+      <span class="name">{{ label(s.product) }}</span>
+      <span v-if="matchLabel(s)" class="tag" :class="{ similar: s.match === 'similar' }">{{ matchLabel(s) }}</span>
+      <span v-if="s.product.code" class="code">{{ s.product.code }}</span>
+      <span class="price">{{ money(s.product.retail_price) }}</span>
+      <span
+        v-if="s.product.stock_available !== null"
+        class="stock"
+        :class="{ short: s.product.stock_available <= 0 }"
+        >可用 {{ s.product.stock_available }}</span
       >
     </el-option>
   </el-select>
@@ -67,8 +86,28 @@ function label(p: Product): string {
   width: 100%;
 }
 
+.title {
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+}
+
 .name {
   margin-right: 8px;
+}
+
+.tag {
+  margin-right: 8px;
+  padding: 0 4px;
+  border: 1px solid var(--el-color-primary-light-5);
+  border-radius: 3px;
+  color: var(--el-color-primary);
+  font-size: 11px;
+  line-height: 16px;
+}
+
+.tag.similar {
+  border-color: var(--el-color-warning-light-5);
+  color: var(--el-color-warning-dark-2);
 }
 
 .code {

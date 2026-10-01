@@ -57,6 +57,7 @@ jobs:
           g5-ai-knowledge g6-ops-observability p6-todos-acceptance p6-orders-acceptance
           p6-integration-acceptance p7-production-acceptance p8-inventory-acceptance
           p9-warehouse-acceptance p10-entry-history-acceptance p11-transport-consoles-acceptance
+          p12-suggest-acceptance
       - if: always()
         uses: actions/upload-artifact@v4
         with:
