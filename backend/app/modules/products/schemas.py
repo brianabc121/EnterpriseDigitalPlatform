@@ -297,3 +297,10 @@ class BomLineOut(BaseModel):
 
 class BomOut(BaseModel):
     items: list[BomLineOut]
+
+
+class BomHistory(BaseModel):
+    """按以往领料估算的每件用量（§25.17）：最近几张只加工这个成品、领料单已确认的订单。"""
+
+    orders: int = Field(description="依据的订单数，0 表示没有以往的领料")
+    items: list[BomLineOut] = Field(description="估算的每件用量（四舍五入到三位小数）")

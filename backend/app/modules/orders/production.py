@@ -44,7 +44,7 @@ from app.modules.products.models import Product, ProductMaterial
 from app.modules.todos import assign as todo_assign
 from app.modules.todos import notify as todo_notify
 from app.modules.todos.models import ActorType, Todo
-from app.modules.warehouse import documents
+from app.modules.warehouse import documents, usage
 from app.modules.warehouse.models import (
     OPEN as DOCUMENT_OPEN,
 )
@@ -56,6 +56,7 @@ from app.modules.warehouse.models import (
 from app.modules.warehouse.schemas import DocumentLineIn
 
 STAFF = ActorType.STAFF
+ZERO = Decimal(0)
 NOT_FOUND = "订单不存在，或不在你的加工列表里"
 DONE_LIMIT = 50
 
@@ -206,6 +207,8 @@ async def outs(
     )
     docs = await documents.for_orders(session, list(items))
     short_materials = await _material_short(session, orders, items, ready, recipes, docs)
+    todo = await _requisition_todo(session, orders, items, ready, recipes, docs)
+    estimable = await _estimable(session, items, ready, recipes)
     staff_ids = {o.worker_id for o in orders if o.worker_id}
     staff_ids |= {i.done_by for rows in items.values() for i in rows if i.done_by}
     staff = dict(
@@ -233,6 +236,12 @@ async def outs(
             short,
             Progress.of(items[o.id], ready, recipes, docs.get(o.id, [])),
             short_materials.get(o.id, []),
+            todo.get(o.id, []),
+            any(
+                i.product_id in estimable
+                for i in documents.made_items(items[o.id], ready)
+                if i.product_id and not recipes.get(i.product_id)
+            ),
         )
         for o in orders
     ]
@@ -339,6 +348,69 @@ async def _material_short(
     return result
 
 
+async def _requisition_todo(
+    session: AsyncSession,
+    orders: list[Order],
+    items: dict[uuid.UUID, list[OrderItem]],
+    ready: set[uuid.UUID],
+    recipes: dict[uuid.UUID, list[ProductMaterial]],
+    docs: dict[uuid.UUID, list[StockDocument]],
+) -> dict[uuid.UUID, list[str]]:
+    """已经开过领料单的订单：按配方还没领的材料（订单改了数量、加了商品时要补领，§25.17）。"""
+    opened = [
+        o.id
+        for o in orders
+        if any(
+            d.kind == DocumentKind.REQUISITION
+            and d.status in (DocumentStatus.PENDING, DocumentStatus.CONFIRMED)
+            for d in docs.get(o.id, [])
+        )
+    ]
+    taken = await documents.requisition_taken(session, opened)
+    remaining: dict[uuid.UUID, dict[uuid.UUID, Decimal]] = {}
+    for order_id in opened:
+        total: dict[uuid.UUID, Decimal] = defaultdict(Decimal)
+        for item in documents.made_items(items[order_id], ready):
+            for row in recipes.get(item.product_id, []) if item.product_id else []:
+                total[row.material_id] += usage.rounded(row.quantity * item.quantity)
+        got = taken.get(order_id, {})
+        left = {m: q - got.get(m, ZERO) for m, q in total.items() if q > got.get(m, ZERO)}
+        if left:
+            remaining[order_id] = left
+    materials = {m for left in remaining.values() for m in left}
+    if not materials:
+        return {}
+    info = {
+        pid: (name, unit)
+        for pid, name, unit in await session.execute(
+            select(Product.id, Product.name, Product.unit).where(Product.id.in_(materials))
+        )
+    }
+    return {
+        order_id: [
+            f"{info[m][0]} {stock.fmt(q)} {info[m][1]}".strip()
+            for m, q in sorted(left.items(), key=lambda mq: info[mq[0]][0])
+        ]
+        for order_id, left in remaining.items()
+    }
+
+
+async def _estimable(
+    session: AsyncSession,
+    items: dict[uuid.UUID, list[OrderItem]],
+    ready: set[uuid.UUID],
+    recipes: dict[uuid.UUID, list[ProductMaterial]],
+) -> set[uuid.UUID]:
+    """没有配方、但能按以往领料估算用量的商品（§25.17）。"""
+    without = {
+        i.product_id
+        for rows in items.values()
+        for i in documents.made_items(rows, ready)
+        if i.product_id and not recipes.get(i.product_id)
+    }
+    return set(await usage.history(session, without))
+
+
 def _out(
     principal: Principal,
     order: Order,
@@ -349,6 +421,8 @@ def _out(
     short: set[uuid.UUID],
     progress: Progress,
     material_short: list[str],
+    requisition_todo: list[str],
+    requisition_estimated: bool,
 ) -> ProductionOrder:
     mine = order.worker_id == principal.staff_id
     manage = principal.has(Permission.PRODUCTION_ASSIGN)
@@ -402,6 +476,16 @@ def _out(
         receipt=documents.brief(progress.receipt) if progress.receipt else None,
         documents=[documents.brief(d) for d in progress.documents],
         material_short=material_short,
+        requisition_estimated=requisition_estimated,
+        requisition_todo=requisition_todo,
+        requisition_rejected=next(
+            (
+                documents.brief(d)
+                for d in reversed(progress.documents)
+                if d.kind == DocumentKind.REQUISITION and d.status == DocumentStatus.REJECTED
+            ),
+            None,
+        ),
     )
 
 

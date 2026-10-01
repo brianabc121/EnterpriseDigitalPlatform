@@ -5,7 +5,9 @@ import {
   expectedState,
   itemLabel,
   needsRequisition,
+  opensRequisition,
   progressText,
+  requisitionAction,
   viewOf,
   type ProductionItem,
   type ProductionOrder,
@@ -59,6 +61,9 @@ const order = (items: ProductionItem[], extra: Partial<ProductionOrder> = {}): P
   receipt: null,
   documents: [],
   material_short: [],
+  requisition_estimated: false,
+  requisition_todo: [],
+  requisition_rejected: null,
   ...extra,
 })
 
@@ -142,3 +147,50 @@ describe('viewOf', () => {
     expect(viewOf(order([]), 'boss')).toBe('all')
   })
 })
+
+describe('一键领料的入口（§25.17）', () => {
+  const doc = (status: 'pending' | 'rejected' | 'confirmed', kind: 'requisition' | 'receipt' = 'requisition') => ({
+    id: `d-${status}`,
+    kind,
+    no: 'LL1',
+    status,
+    reject_reason: status === 'rejected' ? '密封条不够' : null,
+  })
+
+  it('还没领料：有配方或者能估算时是主按钮', () => {
+    const required = { requisition_required: true, requisition_ready: false }
+    expect(requisitionAction(order([item('窗', 'pending')], required))).toEqual({
+      action: 'open',
+      label: '开领料单',
+      primary: true,
+    })
+    expect(requisitionAction(order([item('窗', 'pending')], { requisition_estimated: true })).primary).toBe(true)
+    expect(requisitionAction(order([item('窗', 'pending')])).primary).toBe(false)
+  })
+
+  it('被退回的领料单：修改领料单', () => {
+    const rejected = doc('rejected')
+    expect(
+      requisitionAction(order([item('窗', 'pending')], { documents: [rejected], requisition_rejected: rejected })),
+    ).toEqual({ action: 'fix', label: '修改领料单', primary: true })
+  })
+
+  it('领过以后：补领材料（按配方还有没领的时候是主按钮）', () => {
+    const opened = { documents: [doc('confirmed')], requisition_required: true, requisition_ready: true }
+    expect(requisitionAction(order([item('窗', 'pending')], opened))).toEqual({
+      action: 'open',
+      label: '补领材料',
+      primary: false,
+    })
+    expect(
+      requisitionAction(order([item('窗', 'pending')], { ...opened, requisition_todo: ['铝合金型材 6.5 米'] })).primary,
+    ).toBe(true)
+  })
+
+  it('领取后自动打开：有配方或者能估算', () => {
+    expect(opensRequisition({ requisition_required: true, requisition_estimated: false })).toBe(true)
+    expect(opensRequisition({ requisition_required: false, requisition_estimated: true })).toBe(true)
+    expect(opensRequisition({ requisition_required: false, requisition_estimated: false })).toBe(false)
+  })
+})
+

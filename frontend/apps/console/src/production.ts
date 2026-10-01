@@ -45,6 +45,44 @@ export function needsRequisition(
   return order.requisition_required && !order.requisition_ready
 }
 
+type RequisitionState = Pick<
+  ProductionOrder,
+  | 'documents'
+  | 'requisition_required'
+  | 'requisition_ready'
+  | 'requisition_estimated'
+  | 'requisition_todo'
+  | 'requisition_rejected'
+>
+
+/**
+ * 订单卡片上领料的按钮（设计文档 §25.17）：被退回的领料单 → "修改领料单"；开过领料单 → "补领材料"
+ * （订单改了数量、按配方还有没领的时候是主按钮）；还没开 → "开领料单"（有配方或者能按以往领料估算
+ * 时是主按钮）。
+ */
+export function requisitionAction(order: RequisitionState): {
+  action: 'open' | 'fix'
+  label: string
+  primary: boolean
+} {
+  if (order.requisition_rejected) return { action: 'fix', label: '修改领料单', primary: true }
+  if (order.documents.some((d) => d.kind === 'requisition')) {
+    return { action: 'open', label: '补领材料', primary: order.requisition_todo.length > 0 }
+  }
+  return {
+    action: 'open',
+    label: '开领料单',
+    primary: needsRequisition(order) || order.requisition_estimated,
+  }
+}
+
+/** 领取订单后自动打开领料单：有配方，或者能按以往领料估算（有可以自动填的内容）。 */
+export function opensRequisition(
+  order: Pick<ProductionOrder, 'requisition_required' | 'requisition_estimated'>,
+): boolean {
+  return order.requisition_required || order.requisition_estimated
+}
+
 export interface CompletePlan {
   /** 不能完成的原因（有缺货的商品、还没开领料单）；可以完成时为 null。 */
   blocked: string | null

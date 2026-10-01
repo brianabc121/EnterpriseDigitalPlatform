@@ -35,6 +35,7 @@ from app.modules.todos import sla
 from app.modules.todos.models import ActorType, Todo
 from app.modules.warehouse import history as document_history
 from app.modules.warehouse import settings as warehouse_settings
+from app.modules.warehouse import usage
 from app.modules.warehouse.models import (
     KIND_LABELS,
     OPEN,
@@ -50,7 +51,11 @@ from app.modules.warehouse.schemas import (
     DocumentLineIn,
     DocumentLineOut,
     DocumentOut,
+    DraftBasisValue,
+    DraftItem,
+    DraftItemBasisValue,
     DraftLine,
+    DraftSource,
 )
 
 STAFF = ActorType.STAFF
@@ -845,22 +850,92 @@ def made_items(items: list[OrderItem], ready: set[uuid.UUID]) -> list[OrderItem]
     return [i for i in items if i.product_id is None or i.product_id not in ready]
 
 
-async def needs(
-    session: AsyncSession, items: list[OrderItem], ready: set[uuid.UUID]
-) -> tuple[dict[uuid.UUID, Decimal], list[str]]:
-    """按配方算要领的材料：需要加工的商品数量 × 配方用量，按材料汇总；以及没有配方的商品。"""
+@dataclass
+class Plan:
+    """领料单按什么算（§25.17）：每种材料要用多少（还没减去已领的）和怎么算的、这次加工的商品、
+    按以往领料估算的商品、算不出用量的商品。"""
+
+    needs: dict[uuid.UUID, Decimal]
+    sources: dict[uuid.UUID, list[DraftSource]]
+    items: list[DraftItem]
+    estimated: list[str]
+    missing: list[str]
+
+
+async def requisition_plan(
+    session: AsyncSession, order_id: uuid.UUID, items: list[OrderItem], ready: set[uuid.UUID]
+) -> Plan:
+    """需要加工的商品（不含现货）按配方算用量；没有配方的按以往领料估算；都没有的列为 missing。
+    数量 × 每件用量按材料合计，每个商品的用量四舍五入到三位小数。"""
     made = made_items(items, ready)
-    recipes = await boms(session, {i.product_id for i in made if i.product_id})
-    total: dict[uuid.UUID, Decimal] = defaultdict(Decimal)
-    missing: list[str] = []
+    product_ids = {i.product_id for i in made if i.product_id}
+    recipes = await boms(session, product_ids)
+    learned = await usage.history(
+        session, {pid for pid in product_ids if not recipes.get(pid)}, exclude=order_id
+    )
+    units: dict[uuid.UUID, str] = (
+        dict(
+            (
+                await session.execute(
+                    select(Product.id, Product.unit).where(Product.id.in_(product_ids))
+                )
+            ).all()
+        )
+        if product_ids
+        else {}
+    )
+    plan = Plan(defaultdict(Decimal), defaultdict(list), [], [], [])
+
+    def add(item: OrderItem, unit: str, material_id: uuid.UUID, per_unit: Decimal,
+            basis: DraftBasisValue, orders: int | None) -> None:  # fmt: skip
+        amount = usage.rounded(per_unit * item.quantity)
+        if amount <= 0:
+            return
+        plan.needs[material_id] += amount
+        plan.sources[material_id].append(
+            DraftSource(
+                item=order_service.item_label(item),
+                quantity=item.quantity,
+                unit=unit,
+                per_unit=usage.rounded(per_unit),
+                amount=amount,
+                basis=basis,
+                orders=orders,
+            )
+        )
+
     for item in made:
+        label = order_service.item_label(item)
+        unit = units.get(item.product_id, "") if item.product_id else ""
         rows = recipes.get(item.product_id) if item.product_id else None
-        if not rows:
-            missing.append(order_service.item_label(item))
-            continue
-        for row in rows:
-            total[row.material_id] += row.quantity * item.quantity
-    return dict(total), missing
+        guess = learned.get(item.product_id) if item.product_id else None
+        basis: DraftItemBasisValue
+        orders: int | None
+        if rows:
+            basis, orders = "recipe", None
+            for row in rows:
+                add(item, unit, row.material_id, row.quantity, "recipe", None)
+        elif guess is not None:
+            basis, orders = "history", guess.orders
+            for material_id, per_unit in guess.per_unit.items():
+                add(item, unit, material_id, per_unit, "history", orders)
+            if label not in plan.estimated:
+                plan.estimated.append(label)
+        else:
+            basis, orders = ("none" if item.product_id else "unmatched"), None
+            if label not in plan.missing:
+                plan.missing.append(label)
+        plan.items.append(
+            DraftItem(
+                name=item.name,
+                spec=item.spec,
+                quantity=item.quantity,
+                unit=unit,
+                basis=basis,
+                orders=orders,
+            )
+        )
+    return plan
 
 
 async def _taken(
@@ -910,26 +985,71 @@ async def _draft_lines(session: AsyncSession, planned: dict[uuid.UUID, Decimal])
             quantity=planned[product.id],
             stock=known[product.id].stock if product.id in known else None,
             available=known[product.id].available if product.id in known else None,
+            sources=[],
+            taken=ZERO,
+            estimated=False,
         )
         for product in products.values()
     ]
     return sorted(lines, key=lambda line: (line.name, line.spec))
 
 
-async def requisition_draft(
-    session: AsyncSession, order: Order
-) -> tuple[list[DraftLine], list[str]]:
-    """领料单的预填：按配方算要领的材料，减去这个订单已经开过的领料单（再开时只剩没领的）。"""
+async def requisition_taken(
+    session: AsyncSession, order_ids: list[uuid.UUID]
+) -> dict[uuid.UUID, dict[uuid.UUID, Decimal]]:
+    """这些订单已经领过的材料（待确认和已确认的领料单）：订单 → 材料 → 数量。"""
+    result: dict[uuid.UUID, dict[uuid.UUID, Decimal]] = defaultdict(dict)
+    if not order_ids:
+        return result
+    rows = await session.execute(
+        select(
+            StockDocument.order_id,
+            StockDocumentLine.product_id,
+            func.sum(StockDocumentLine.quantity),
+        )
+        .join(StockDocument, StockDocument.id == StockDocumentLine.document_id)
+        .where(
+            StockDocument.order_id.in_(order_ids),
+            StockDocument.kind == DocumentKind.REQUISITION,
+            StockDocument.status.in_((DocumentStatus.PENDING, DocumentStatus.CONFIRMED)),
+        )
+        .group_by(StockDocument.order_id, StockDocumentLine.product_id)
+    )
+    for order_id, product_id, quantity in rows:
+        if order_id is not None:
+            result[order_id][product_id] = Decimal(quantity)
+    return result
+
+
+@dataclass(frozen=True)
+class RequisitionDraft:
+    lines: list[DraftLine]
+    items: list[DraftItem]
+    estimated: list[str]
+    missing: list[str]
+    covered: bool
+
+
+async def requisition_draft(session: AsyncSession, order: Order) -> RequisitionDraft:
+    """领料单的预填（§25.17）：按配方（没有配方时按以往领料估算）算要领的材料，减去这个订单已经
+    开过的领料单（再开时只剩没领的）；每行带上怎么算的和已领的数量。"""
     items = await order_service.load_items(session, order.id)
     ready = await order_service.ready_made_ids(session, items)
-    total, missing = await needs(session, items, ready)
-    taken = await _taken(
-        session,
-        order.id,
-        DocumentKind.REQUISITION,
-        (DocumentStatus.PENDING, DocumentStatus.CONFIRMED),
+    plan = await requisition_plan(session, order.id, items, ready)
+    taken = (await requisition_taken(session, [order.id])).get(order.id, {})
+    remaining = _remaining(plan.needs, taken)
+    lines = await _draft_lines(session, remaining)
+    for line in lines:
+        line.sources = plan.sources.get(line.product_id, [])
+        line.taken = taken.get(line.product_id, ZERO)
+        line.estimated = any(s.basis == "history" for s in line.sources)
+    return RequisitionDraft(
+        lines=lines,
+        items=plan.items,
+        estimated=plan.estimated,
+        missing=plan.missing,
+        covered=bool(plan.needs) and not remaining,
     )
-    return await _draft_lines(session, _remaining(total, taken)), missing
 
 
 async def receipt_draft(session: AsyncSession, order: Order) -> tuple[list[DraftLine], list[str]]:
