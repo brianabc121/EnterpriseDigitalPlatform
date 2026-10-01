@@ -406,7 +406,15 @@ async def draft(
             covered=plan.covered,
         )
     lines, missing = await documents.receipt_draft(session, order)
-    return DocumentDraft(kind=kind, order_id=order.id, lines=lines, missing=missing)
+    return DocumentDraft(
+        kind=kind,
+        order_id=order.id,
+        lines=lines,
+        missing=missing,
+        items=[],
+        estimated=[],
+        covered=False,
+    )
 
 
 @router.get("/orders", response_model=LinkableOrderList)

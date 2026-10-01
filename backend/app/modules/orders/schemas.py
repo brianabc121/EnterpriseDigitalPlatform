@@ -540,16 +540,14 @@ class ProductionOrder(BaseModel):
         description="还没领料时，按配方算库存不够的材料（只提示，可以领）"
     )
     requisition_estimated: bool = Field(
-        default=False,
-        description="有没有配方、但能按以往领料估算用量的商品（领料单可以自动填，§25.17）",
+        description="有没有配方、但能按以往领料估算用量的商品（领料单可以自动填，§25.17）"
     )
     requisition_todo: list[str] = Field(
-        default_factory=list,
         description="已经开过领料单，按配方还没领的材料，例如“铝合金型材 6.5 米”"
-        "（订单改了数量时补领）",
+        "（订单改了数量时补领）"
     )
     requisition_rejected: DocumentBrief | None = Field(
-        default=None, description="被仓管退回、还没修改的领料单（带退回原因）"
+        description="被仓管退回、还没修改的领料单（带退回原因）"
     )
 
 

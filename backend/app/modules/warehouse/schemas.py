@@ -1,5 +1,4 @@
 from datetime import datetime
-from decimal import Decimal
 from typing import Literal
 from uuid import UUID
 
@@ -137,13 +136,10 @@ class DraftLine(BaseModel):
     stock: Qty | None = Field(description="现有库存")
     available: Qty | None = Field(description="可用库存（材料：现有减去待确认的领料单）")
     sources: list[DraftSource] = Field(
-        default_factory=list,
-        description="领料单：建议数量是怎么算的（各商品的用量合计，减去已领的就是建议数量）",
+        description="领料单：建议数量是怎么算的（各商品的用量合计，减去已领的就是建议数量）"
     )
-    taken: Qty = Field(
-        default=Decimal(0), description="领料单：这个订单已经领过的（待确认和已确认的领料单）"
-    )
-    estimated: bool = Field(default=False, description="领料单：有按以往领料估算的部分")
+    taken: Qty = Field(description="领料单：这个订单已经领过的（待确认和已确认的领料单）")
+    estimated: bool = Field(description="领料单：有按以往领料估算的部分")
 
 
 class DraftItem(BaseModel):
@@ -168,13 +164,9 @@ class DocumentDraft(BaseModel):
         description="领料单：既没有配方、也没有以往领料的商品（或没有对应到商品库的订单行），要手动"
         "添加；入库单：没有对应到成品的订单行"
     )
-    items: list[DraftItem] = Field(default_factory=list, description="领料单：这次加工的商品")
-    estimated: list[str] = Field(
-        default_factory=list, description="领料单：没有配方、按以往领料估算的商品"
-    )
-    covered: bool = Field(
-        default=False, description="领料单：按配方和估算要领的材料这个订单都已经领了"
-    )
+    items: list[DraftItem] = Field(description="领料单：这次加工的商品")
+    estimated: list[str] = Field(description="领料单：没有配方、按以往领料估算的商品")
+    covered: bool = Field(description="领料单：按配方和估算要领的材料这个订单都已经领了")
 
 
 class LinkableOrder(BaseModel):

@@ -985,6 +985,9 @@ async def _draft_lines(session: AsyncSession, planned: dict[uuid.UUID, Decimal])
             quantity=planned[product.id],
             stock=known[product.id].stock if product.id in known else None,
             available=known[product.id].available if product.id in known else None,
+            sources=[],
+            taken=ZERO,
+            estimated=False,
         )
         for product in products.values()
     ]
