@@ -487,8 +487,10 @@ M1-1 至 M1-8 全部完成，验收标准已满足：
   篡改签名参数和错误密钥被拒绝、上传地址只接受签名时的类型和大小、下载时指定返回的类型；已在 MinIO
   （bitnamilegacy 2024.1.11）和 SeaweedFS 4.48 上通过，SeaweedFS 也正确响应浏览器直传所需的 CORS 预检。
   CI 的后端测试用 MinIO 运行它；换用其他存储前先跑这个测试。
-- **开发环境**：`make dev-up` 暂时沿用已冻结的 `bitnamilegacy/minio:2024.1.11`（已缓存的镜像可继续使用，
-  可用 `EDP_MINIO_IMAGE` 替换）；计划改为 SeaweedFS（本次因 Docker Hub 限流未能拉取镜像验证 Compose 配置）。
+- **开发环境**（2026-10-01 起）：`make dev-up` 用 SeaweedFS 4.48（`chrislusf/seaweedfs`，可用
+  `EDP_STORAGE_IMAGE` 替换），S3 网关映射到本机 9000，凭证在 `deploy/compose/seaweedfs/s3.json`；
+  `edp-files` 桶由 `make migrate`（`storage-init`）创建，浏览器验收的 `start-stack.sh` 也会创建。
+  CI 的后端测试、P0 验收和全部验收都用它。
 
 ### 13.3 验收
 

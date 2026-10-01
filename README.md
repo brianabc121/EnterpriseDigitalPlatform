@@ -20,10 +20,10 @@
 
 ```bash
 # 1. 启动依赖，安装后端依赖并执行迁移
-make dev-up          # PostgreSQL（含 pgvector）、Redis 和对象存储 MinIO（自动创建 edp-files 桶）
+make dev-up          # PostgreSQL（含 pgvector）、Redis 和对象存储 SeaweedFS（S3 网关 :9000）
 make im-up           # OpenIM 及其依赖（MongoDB、Kafka、etcd、MinIO）；首次需要拉取约 3 GB 镜像
 make backend-install
-make migrate
+make migrate         # 数据库迁移，并创建对象存储桶 edp-files
 
 # 2. 创建平台运营账号（不带 --password 时交互输入密码）
 (cd backend && uv run python -m app.cli create-platform-admin --username ops)
@@ -38,7 +38,8 @@ make platform-dev    # 运营后台：http://localhost:5174
 make widget-dev      # 访客 Widget：http://localhost:5175/?key=<渠道 key>
 ```
 
-在运营后台开通租户（企业代码 + 首个管理员），然后用"企业代码 / 用户名 / 密码"登录控制台。
+在运营后台开通租户（企业代码 + 首个管理员），然后用"企业代码 / 用户名 / 密码"登录控制台。运营后台登录后
+12 小时内刷新页面不用重新登录（刷新令牌在 httpOnly Cookie 里，`EDP_PLATFORM_REFRESH_TTL_SECONDS`）。
 控制台"设置"页列出本租户的接入渠道，点"打开访客测试页"即可以访客身份与服务群对话；
 访客消息会进入平台消息库（`GET /api/v1/rooms`、`GET /api/v1/rooms/{id}/messages`）。
 
@@ -51,11 +52,13 @@ make widget-dev      # 访客 Widget：http://localhost:5175/?key=<渠道 key>
 同一处可以设置窗口标题、欢迎语、隐私提示和允许嵌入的网站，并启用实名访客：网站后端用渠道的签名密钥
 为登录用户计算 `HMAC-SHA256(密钥, "<external_id>:<name>:<timestamp>")`，在加载 `embed.js` 之前设置
 `window.EDPWidgetConfig = { user: { external_id, name, timestamp, signature } }`（示例代码见设置页）。
-聊天中的图片和文件保存在对象存储里；其他环境首次部署时执行
-`cd backend && uv run python -m app.cli storage-init` 创建存储桶。
+手机等窄屏（宽度不超过 600px）上打开 Widget 时全屏显示，用右上角的"收起"关闭。
+聊天中的图片和文件保存在对象存储里；`make migrate` 已经创建了存储桶，其他环境首次部署时执行
+`cd backend && uv run python -m app.cli storage-init` 创建。
 
 访客的第一条消息会开启一个会话，按路由策略排队并分配给在线坐席：坐席登录控制台后进入"工作台"即自动上线，
-在工作台里接待、使用快捷话术、编辑客户资料、转接或结束会话。管理员在"设置"里配置技能组、路由策略
+在工作台里接待（输入回复时网页访客会看到"客服 正在输入"）、使用快捷话术、编辑客户资料、转接或结束会话。
+管理员在"设置"里配置技能组、路由策略
 （工作时间、排队超时、空闲结束、会话续接）和坐席并发，在"会话记录""留言""报表"里查看服务情况，
 在"设置 → 用量"里查看每日用量；运营后台的租户列表显示各租户用量。用量由调度进程每 10 分钟汇总，
 也可以执行 `cd backend && uv run python -m app.cli usage-rollup` 立即汇总（`--day`、`--to` 补算历史日期）。
@@ -382,6 +385,8 @@ OpenIM 的镜像名都可以用环境变量替换（见 `deploy/compose/openim/d
   （`kubectl apply -k deploy/k8s/overlays/production/migrate`，等待完成），再 `kubectl apply -k deploy/k8s/overlays/production`。
 - **数据库账号**：迁移用表的所有者账号（`EDP_DATABASE_URL_OWNER`，不需要是超级用户），`vector` 扩展由数据库管理员
   预先安装；应用和平台分别用 `edp_app`、`edp_platform`（见 `deploy/compose/postgres/init/01-roles.sql`）。
+- **出站地址**：租户填写的推送地址、要抓取的网站和自带的大模型接口，生产环境只允许公网 https 地址，并在每次请求前
+  重新解析、固定连到解析出的 IP（Host 和证书校验仍按域名），域名改指向内网也没有用。
 - **客户端 IP**：API 镜像只采信内网地址（Ingress、负载均衡）转发来的 `X-Forwarded-For`
   （`FORWARDED_ALLOW_IPS`，默认是 127.0.0.1 和内网网段），登录限流和审计日志用它记录的地址；反向代理不在内网网段时，
   在 `base/config.yaml` 里改成代理的地址。
@@ -398,7 +403,8 @@ make alerts-check    # 告警规则（promtool）
 
 - 前端是 pnpm 工作区：`apps/console`、`apps/platform-admin`、`apps/widget`，`packages/api-client`（接口类型）、
   `packages/im-client`（OpenIM 连接）和 `packages/ui`（控制台与 Widget 共用的消息展示组件，如链接识别）。
-- CI（`.github/workflows/ci.yml`）每次推送运行后端检查与测试（对象存储契约测试用 MinIO）、前端检查与构建、
+- CI（`.github/workflows/ci.yml`）每次推送运行后端检查与测试（含真实对象存储、真实 OpenIM 的契约测试和
+  ffmpeg 转码）、前端检查与构建、
   部署文件检查（告警规则、kustomize + kubeconform、镜像构建）和 P0 浏览器验收；`.github/workflows/e2e-full.yml` 每天夜里、手动触发或提交说明
   带 `[e2e-full]` 时运行全部浏览器验收（含 OpenIM），截图和日志作为构建产物保存。
 - 后端接口变更后执行 `make openapi`，重新导出 `openapi.json` 并生成前端类型（CI 会检查两者是否一致）。
@@ -433,7 +439,7 @@ make alerts-check    # 告警规则（promtool）
   运营后台的租户用量。前置同上，另外还需要运营后台（汇总用量时会执行 `app.cli usage-rollup`）。
 - **P1 M3**（`scripts/e2e/m3-widget-acceptance.cjs`）：管理员在控制台完成 Widget 设置；脚本起一个"客户网站"
   （端口 5176）用 `embed.js` 嵌入 Widget 并为会员签名。检查实名访客与换设备续接、欢迎语与隐私提示、
-  双方收发图片和文件、收起时的未读角标、满意度评价、留言、未授权网站被拒绝。前置同上，另需 MinIO。
+  双方收发图片和文件、收起时的未读角标、满意度评价、留言、未授权网站被拒绝。前置同上，另需对象存储（`make dev-up` 已包含）。
 
 - **P3**（`scripts/e2e/p3-ai-acceptance.cjs`）：管理员维护知识库（新建、CSV 导入、检索测试）、启用 AI 接待并
   试一试和评测；访客得到 AI 依据知识的回答，要求人工后 AI 写好摘要转给坐席；坐席用 AI 建议和知识检索回复；

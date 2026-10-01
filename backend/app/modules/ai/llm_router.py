@@ -259,6 +259,8 @@ class LlmRouter:
             fast_model=str(byo.get("fast_model") or ""),
             name="tenant",
             supports_tools=bool(byo.get("supports_tools")),
+            # 生产环境只允许公网 https 地址，并在每次调用时固定解析到的 IP。
+            pinned=self._settings.env == "prod",
         )
 
     async def chat_client(self, tenant_id: uuid.UUID, scene: str = "reply") -> LLMClient:

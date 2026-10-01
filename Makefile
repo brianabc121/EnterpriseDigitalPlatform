@@ -45,8 +45,9 @@ alerts-check:
 backend-install:
 	cd backend && uv sync
 
+# 迁移数据库，并创建对象存储桶（已存在时跳过）
 migrate:
-	cd backend && uv run alembic upgrade head
+	cd backend && uv run alembic upgrade head && uv run python -m app.cli storage-init
 
 # 监听 0.0.0.0：OpenIM 容器通过 host.docker.internal 回调后端
 backend-dev:

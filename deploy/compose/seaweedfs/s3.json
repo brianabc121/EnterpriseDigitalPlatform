@@ -1,0 +1,9 @@
+{
+  "identities": [
+    {
+      "name": "edp",
+      "credentials": [{ "accessKey": "edp", "secretKey": "edp-dev-storage-secret" }],
+      "actions": ["Admin", "Read", "Write", "List", "Tagging"]
+    }
+  ]
+}

@@ -33,7 +33,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.context import AppContext
 from app.core.errors import Unprocessable
 from app.core.ids import new_id
-from app.core.urls import check_outbound_url
+from app.core.urls import resolve_outbound
 from app.modules.integration import payloads
 from app.modules.integration.models import (
     DeliveryStatus,
@@ -181,21 +181,23 @@ class Attempt:
 async def post(
     ctx: AppContext, url: str, secret: str, *, delivery_id: uuid.UUID, event: str, body: str
 ) -> Attempt:
-    """发一次推送。生产环境每次都重新检查地址（防止域名解析到内网）；不跟随跳转。"""
+    """发一次推送。生产环境每次重新检查地址并固定解析到的 IP（防域名重绑定）；不跟随跳转。"""
     started = time.monotonic()
     try:
-        await check_outbound_url(url, allow_private=ctx.settings.env != "prod")
+        target = await resolve_outbound(url, allow_private=ctx.settings.env != "prod")
         timestamp = int(time.time())
         response = await ctx.web.post(
-            url,
+            target.request_url,
             content=body.encode(),
             headers={
+                **target.headers,
                 "Content-Type": "application/json; charset=utf-8",
                 "User-Agent": USER_AGENT,
                 "X-EDP-Event": event,
                 "X-EDP-Delivery": str(delivery_id),
                 "X-EDP-Signature": sign(secret, timestamp, body),
             },
+            extensions=target.extensions,
             timeout=TIMEOUT_SECONDS,
         )
     except Unprocessable as exc:

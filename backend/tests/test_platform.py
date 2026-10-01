@@ -1,3 +1,5 @@
+import re
+
 import httpx
 from fastapi import FastAPI
 from sqlalchemy import select
@@ -6,6 +8,7 @@ from app.db.session import Database
 from app.modules.audit.models import AuditLog
 from tests.factories import (
     ADMIN_PASSWORD,
+    PLATFORM_PASSWORD,
     bearer,
     create_platform_admin,
     login,
@@ -41,6 +44,35 @@ async def test_platform_login_rejects_wrong_password(
         "/platform/v1/auth/login", json={"username": "ops", "password": "wrong"}
     )
     assert response.status_code == 401
+
+
+async def test_platform_session_is_restored_from_the_refresh_cookie(
+    app: FastAPI, client: httpx.AsyncClient
+) -> None:
+    """登录写入 httpOnly 的刷新令牌 Cookie；刷新换取新令牌但不延长登录；退出后作废。"""
+    await create_platform_admin(app)
+    assert (await client.post("/platform/v1/auth/refresh")).status_code == 401
+
+    login = await client.post(
+        "/platform/v1/auth/login", json={"username": "ops", "password": PLATFORM_PASSWORD}
+    )
+    assert login.status_code == 200, login.text
+    cookie = login.headers["set-cookie"]
+    assert "edp_platform_refresh=" in cookie and "HttpOnly" in cookie
+    assert "Path=/platform/v1/auth" in cookie and "samesite=strict" in cookie.lower()
+
+    refreshed = await client.post("/platform/v1/auth/refresh")
+    assert refreshed.status_code == 200, refreshed.text
+    token = refreshed.json()["access_token"]
+    me = await client.get("/platform/v1/me", headers=bearer(token))
+    assert me.status_code == 200 and me.json()["username"] == "ops"
+    # 新 Cookie 的有效期不超过登录时的（登录后最多 12 小时要重新登录）。
+    match = re.search(r"Max-Age=(\d+)", refreshed.headers["set-cookie"])
+    assert match is not None and 12 * 3600 - 60 < int(match.group(1)) <= 12 * 3600
+
+    assert (await client.post("/platform/v1/auth/logout")).status_code == 204
+    assert (await client.post("/platform/v1/auth/refresh")).status_code == 401
+    assert (await client.get("/platform/v1/me", headers=bearer(token))).status_code == 200
 
 
 async def test_platform_endpoints_require_platform_login(client: httpx.AsyncClient) -> None:

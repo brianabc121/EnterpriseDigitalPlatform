@@ -185,6 +185,16 @@ async function run(browser) {
     .count()
   check('坐席实时收到访客消息，消息不重复', dupCount === 1 && replyCount === 1, { dupCount, replyCount })
 
+  // 6b. 坐席输入时访客看到"正在输入"
+  await agent.fill('textarea[data-testid="composer-input"]', '让我查一下')
+  const typingShown = await visitor
+    .locator('[data-testid="typing"]', { hasText: '小爱' })
+    .waitFor({ timeout: 15000 })
+    .then(() => true)
+    .catch(() => false)
+  check('坐席输入时访客看到"小爱 正在输入"', typingShown)
+  await agent.fill('textarea[data-testid="composer-input"]', '')
+
   // 7. 快捷话术
   await agent.click('[data-testid="quick-replies-button"]')
   await agent.locator('[data-testid="quick-reply-item"]', { hasText: '报价' }).click()

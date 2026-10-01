@@ -202,6 +202,7 @@ MATRIX: list[tuple[str, str, dict[str, Any] | None]] = [
     ("GET", "/api/v1/admin/webhook-deliveries/{delivery_id}", None),
     ("POST", "/api/v1/admin/webhook-deliveries/{delivery_id}/resend", None),
     ("POST", "/api/v1/sessions/{session_id}/read", None),
+    ("POST", "/api/v1/sessions/{session_id}/typing", None),
     ("GET", "/api/v1/mail/accounts/{account_id}", None),
     (
         "PUT",

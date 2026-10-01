@@ -267,6 +267,18 @@ async function send(): Promise<void> {
   }
 }
 
+/** 输入时最多每 4 秒通知访客一次"正在输入"（Widget 显示 6 秒）。 */
+const TYPING_INTERVAL_MS = 4000
+let typingSentAt = 0
+
+function onTyping(): void {
+  if (!session.value || isEmail.value || !draft.value.trim()) return
+  const now = Date.now()
+  if (now - typingSentAt < TYPING_INTERVAL_MS) return
+  typingSentAt = now
+  void wb.typing(session.value)
+}
+
 function onKeydown(event: KeyboardEvent): void {
   if (event.key !== 'Enter' || event.isComposing) return
   // 邮件：Enter 换行，Ctrl+Enter（Mac 上 ⌘+Enter）发送；聊天：Enter 发送，Shift+Enter 换行。
@@ -584,6 +596,7 @@ function insert(text: string, origin: ReplyOrigin = 'quick_reply'): void {
           "
           data-testid="composer-input"
           @keydown="onKeydown"
+          @input="onTyping"
         />
         <div class="actions">
           <el-button

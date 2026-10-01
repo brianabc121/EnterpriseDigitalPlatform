@@ -79,8 +79,10 @@ export const router = createRouter({
   ],
 })
 
-router.beforeEach((to) => {
+router.beforeEach(async (to) => {
   const auth = useAuthStore()
+  // 页面刷新后先用刷新令牌恢复登录。
+  await auth.restore()
   if (to.meta.public) return true
   if (!auth.isAuthenticated) return { name: 'login' }
   // 平台要求二次验证而账号还没有设置：先完成设置。
@@ -89,6 +91,6 @@ router.beforeEach((to) => {
 })
 
 onUnauthorized(() => {
-  useAuthStore().logout()
+  void useAuthStore().logout()
   void router.push({ name: 'login' })
 })
