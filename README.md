@@ -17,6 +17,7 @@
 ## 快速开始
 
 需要 Docker（含 Compose）、[uv](https://docs.astral.sh/uv/)、Node.js 22 和 pnpm 10（执行 `corepack enable` 即可获得）。
+Windows 用户可按下方「Windows / PyCharm 本地启动」操作，无需安装 `make`。
 
 ```bash
 # 1. 启动依赖，安装后端依赖并执行迁移
@@ -37,6 +38,96 @@ make console-dev     # 控制台：http://localhost:5173
 make platform-dev    # 运营后台：http://localhost:5174
 make widget-dev      # 访客 Widget：http://localhost:5175/?key=<渠道 key>
 ```
+
+### Windows / PyCharm 本地启动
+
+以下路径是示例：代码位于 `C:\brian WorkFile\EnterpriseDigitalPlafform\EnterpriseDigitalPlatform`，
+PyCharm 已创建的虚拟环境位于 `C:\brian WorkFile\EnterpriseDigitalPlafform\.venv`。按实际位置替换，
+并在 PyCharm 的 Python 解释器设置中选择该环境的 `Scripts\python.exe`。Python 需要 3.12 或以上；
+下面的步骤使用已激活该环境的 PowerShell 终端。
+
+**1. 安装后端依赖到现有虚拟环境**
+
+先确认 `sys.executable` 指向 PyCharm 配置的 `.venv`，再安装 uv 并同步依赖：
+
+```powershell
+python -c "import sys; print(sys.executable); print(sys.version)"
+python -m pip install uv
+cd "C:\brian WorkFile\EnterpriseDigitalPlafform\EnterpriseDigitalPlatform\backend"
+$env:UV_PROJECT_ENVIRONMENT = "C:\brian WorkFile\EnterpriseDigitalPlafform\.venv"
+python -m uv sync --locked --inexact --python "C:\brian WorkFile\EnterpriseDigitalPlafform\.venv\Scripts\python.exe"
+```
+
+`UV_PROJECT_ENVIRONMENT` 指定依赖安装位置，避免另外创建 `backend/.venv`；新开终端时需要重新设置。
+`--locked` 使用仓库锁文件，`--inexact` 保留环境中的额外包（包括刚安装的 uv）。
+后端依赖已包含 `tzdata`，Windows 上无需单独安装时区数据包。
+
+**2. 启动 Docker 服务**
+
+打开 Docker Desktop，等待 Linux 引擎运行后，在项目根目录执行：
+
+```powershell
+cd "C:\brian WorkFile\EnterpriseDigitalPlafform\EnterpriseDigitalPlatform"
+docker compose -f deploy/compose/docker-compose.yml up -d --wait
+docker compose -f deploy/compose/docker-compose.yml ps
+docker compose -f deploy/compose/openim/docker-compose.yml up -d --wait
+```
+
+第一份 Compose 启动 PostgreSQL、Redis、SeaweedFS，三个服务应显示 `healthy`。
+第二份启动聊天服务 OpenIM 及其依赖，首次需要下载较多镜像。
+
+**3. 初始化配置、数据库、存储桶和平台账号**
+
+每条命令成功后再执行下一条；账号密码按提示交互输入：
+
+```powershell
+cd "C:\brian WorkFile\EnterpriseDigitalPlafform\EnterpriseDigitalPlatform\backend"
+if (!(Test-Path .env)) { Copy-Item .env.example .env }
+# 显式使用 UTF-8 读取配置，避免 Windows 默认 GBK 导致 UnicodeDecodeError。
+python -c "from alembic.config import Config; from alembic import command; c=Config(); c.file_config.read('alembic.ini', encoding='utf-8'); command.upgrade(c, 'head'); print('数据库迁移完成')"
+python -m app.cli storage-init
+python -m app.cli create-platform-admin --username ops
+```
+
+默认 `.env.example` 与本地 Docker 服务匹配。数据库迁移在升级代码后也需要执行；创建平台账号只需首次执行。
+
+**4. 在 PyCharm 中右键运行后端**
+
+右键 `backend/run.py`，选择 **Run** 或 **Debug**，使用上述虚拟环境解释器。
+入口自动将工作目录和应用搜索路径设置为 `backend`，读取 `backend/.env`，在 `0.0.0.0:8000` 启动 API。
+也可以在已激活虚拟环境的终端执行 `python run.py`。不要直接运行 `backend/app/main.py`。
+
+- 就绪检查：<http://localhost:8000/readyz>，正常返回 `{"status":"ok"}`。
+- 接口文档：<http://localhost:8000/docs>。
+- 为方便断点调试，入口关闭自动重载，修改代码后手动重启；启动前停止占用 8000 端口的旧后端进程。
+
+`run.py` 只启动 API。完整聊天接待还需要 OpenIM、实时消费和调度进程。
+当前 `app.worker`、`app.scheduler` 使用 Unix 信号处理，原生 Windows 运行会遇到 `NotImplementedError`；
+这两个进程应在 Linux / WSL 或后端容器中运行，并配置能访问数据库、Redis 和 OpenIM 的地址。
+Linux 环境的启动命令见上面的 `make worker-dev`、`make scheduler-dev`。
+
+**5. 启动前端**
+
+使用现有 Node.js 24 和 pnpm 11 时，在前端终端设置以下环境变量，保持使用当前 pnpm，
+避免按仓库的 `packageManager` 自动切换到 pnpm 10：
+
+```powershell
+cd "C:\brian WorkFile\EnterpriseDigitalPlafform\EnterpriseDigitalPlatform\frontend"
+$env:COREPACK_ENABLE_PROJECT_SPEC = "0"
+$env:npm_config_manage_package_manager_versions = "false"
+pnpm --version
+pnpm install --frozen-lockfile
+```
+
+安装完成后，在三个独立终端中进入上述 `frontend` 目录、设置相同的两个环境变量，分别执行：
+
+```powershell
+pnpm --filter @edp/console dev         # 企业控制台 http://localhost:5173
+pnpm --filter @edp/platform-admin dev  # 平台运营后台 http://localhost:5174
+pnpm --filter @edp/widget dev          # 访客页面 http://localhost:5175/?key=<渠道 key>
+```
+
+保持这些终端运行，先用 `ops` 登录运营后台创建租户，再使用企业代码和租户管理员账号登录控制台。
 
 在运营后台开通租户（企业代码 + 首个管理员），然后用"企业代码 / 用户名 / 密码"登录控制台。运营后台登录后
 12 小时内刷新页面不用重新登录（刷新令牌在 httpOnly Cookie 里，`EDP_PLATFORM_REFRESH_TTL_SECONDS`）。
