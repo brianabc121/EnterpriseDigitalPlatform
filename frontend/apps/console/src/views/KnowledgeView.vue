@@ -6,6 +6,7 @@ import { useRoute, useRouter } from 'vue-router'
 
 import { KB_KIND, KB_STATUS, KB_STATUS_TAG, KB_VISIBILITY } from '../ai'
 import { api, formatDateTime } from '../api'
+import FormKbPanel from '../components/knowledge/FormKbPanel.vue'
 import KbDigestPanel from '../components/knowledge/KbDigestPanel.vue'
 import KbImportDialog from '../components/knowledge/KbImportDialog.vue'
 import KbItemEditor from '../components/knowledge/KbItemEditor.vue'
@@ -155,8 +156,9 @@ async function remove(item: Item): Promise<void> {
 watch([status, kind, stale, mine], reload)
 watch(() => route.query.item, openFromQuery)
 onMounted(async () => {
-  // 首页的"去审核台"（/knowledge?tab=review）。
+  // 首页的"去审核台"（/knowledge?tab=review）；表单知识（/knowledge?tab=form）。
   if (route.query.tab === 'review' && canManage.value) tab.value = 'review'
+  if (route.query.tab === 'form') tab.value = 'form'
   await Promise.all([load(), spaces.load(), openFromQuery()])
   // 待审核候选数显示在"审核台"页签上。
   if (canManage.value) {
@@ -335,6 +337,9 @@ onMounted(async () => {
           <el-badge v-if="pendingCandidates" :value="pendingCandidates" class="badge" />
         </template>
         <ReviewDesk @reviewed="load" @pending="(n: number) => (pendingCandidates = n)" />
+      </el-tab-pane>
+      <el-tab-pane label="表单知识" name="form" lazy>
+        <FormKbPanel />
       </el-tab-pane>
       <el-tab-pane v-if="canManage" label="运营数据" name="metrics" lazy>
         <KbMetricsPanel />

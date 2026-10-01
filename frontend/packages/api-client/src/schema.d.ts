@@ -1538,6 +1538,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/form-kb/products": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Search Products
+         * @description 新增、修改表单知识时选择商品（成品或材料；按开单时的联想规则找，不带价格和库存）。
+         */
+        get: operations["search_products_api_v1_form_kb_products_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/form-kb/settings": {
         parameters: {
             query?: never;
@@ -14494,6 +14514,11 @@ export interface components {
             /** Unit */
             unit: string;
         };
+        /** ProductBriefList */
+        ProductBriefList: {
+            /** Items */
+            items: components["schemas"]["ProductBrief"][];
+        };
         /** ProductCandidate */
         ProductCandidate: {
             product: components["schemas"]["ProductOut"];
@@ -26451,6 +26476,85 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["FormKbEntryDetail"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    search_products_api_v1_form_kb_products_get: {
+        parameters: {
+            query?: {
+                kind?: "goods" | "material";
+                /** @description 名称、代码、规格或拼音首字母 */
+                q?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProductBriefList"];
                 };
             };
             /** @description Bad Request */

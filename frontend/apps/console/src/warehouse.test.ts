@@ -70,6 +70,11 @@ describe('一键领料（§25.17）', () => {
       '铝合金窗 1.2m×1.5m 6.5 米/樘 × 2 樘（按以往 3 个订单估算）',
     )
     expect(sourceText({ ...source, unit: '' }, '')).toBe('铝合金窗 1.2m×1.5m 6.5/件 × 2 件')
+    // 表单知识（§25.18）：学到的常领材料、知识库里填写的用量。
+    expect(sourceText({ ...source, basis: 'learned', orders: 4 }, '米')).toBe(
+      '铝合金窗 1.2m×1.5m 6.5 米/樘 × 2 樘（学到的：以往 4 个订单常领）',
+    )
+    expect(sourceText({ ...source, basis: 'manual' }, '米')).toBe('铝合金窗 1.2m×1.5m 6.5 米/樘 × 2 樘（知识库）')
   })
 
   it('这次加工的商品和用量的来源', () => {
@@ -78,6 +83,7 @@ describe('一键领料（§25.17）', () => {
     expect(draftItemText({ ...item, spec: '', unit: '' })).toBe('铝合金窗 × 2')
     expect(draftItemBasis(item)).toBe('按配方')
     expect(draftItemBasis({ ...item, basis: 'history', orders: 3 })).toBe('按以往 3 个订单估算')
+    expect(draftItemBasis({ ...item, basis: 'manual' })).toBe('按知识库里的用量')
     expect(draftItemBasis({ ...item, basis: 'none' })).toBe('没有配方，也没有以往的领料')
     expect(draftItemBasis({ ...item, basis: 'unmatched' })).toBe('没有对应到商品库')
   })

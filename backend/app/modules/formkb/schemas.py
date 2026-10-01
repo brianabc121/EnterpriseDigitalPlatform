@@ -71,6 +71,10 @@ class ProductBrief(BaseModel):
     kind: ProductKindValue
 
 
+class ProductBriefList(BaseModel):
+    items: list[ProductBrief]
+
+
 class FormKbEntryOut(BaseModel):
     id: UUID
     kind: KindValue

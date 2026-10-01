@@ -27,11 +27,14 @@ from app.modules.formkb.schemas import (
     FormKbSummary,
     FormValue,
     KindValue,
+    ProductBriefList,
     SourceValue,
     StatusValue,
 )
 from app.modules.iam.deps import CurrentPrincipal, TenantDb, require_permission
 from app.modules.iam.principal import Principal
+from app.modules.products import lookup
+from app.modules.products.models import ProductKind
 
 router = APIRouter(prefix="/api/v1/form-kb", tags=["form-knowledge"], responses=ERROR_RESPONSES)
 
@@ -205,6 +208,26 @@ async def list_submissions(
         session, form=form, changed=changed, limit=limit, offset=offset
     )
     return FormKbSubmissionPage(items=items, total=total)
+
+
+@router.get("/products", response_model=ProductBriefList)
+async def search_products(
+    session: TenantDb,
+    principal: CanRead,
+    kind: Literal["goods", "material"] = "goods",
+    q: Annotated[str, Query(max_length=64, description="名称、代码、规格或拼音首字母")] = "",
+    limit: Annotated[int, Query(ge=1, le=20)] = 10,
+) -> ProductBriefList:
+    """新增、修改表单知识时选择商品（成品或材料；按开单时的联想规则找，不带价格和库存）。"""
+    found, _ = await lookup.suggestions(
+        session,
+        principal,
+        q,
+        kind=ProductKind(kind),
+        source="orders" if kind == "goods" else "documents",
+        limit=limit,
+    )
+    return ProductBriefList(items=[service.brief(s.product) for s in found])
 
 
 @router.get("/settings", response_model=FormKbSettingsOut)
