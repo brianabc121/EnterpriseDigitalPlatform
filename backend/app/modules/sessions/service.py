@@ -6,20 +6,26 @@
 - 另有 session:read_team 时：所带技能组的会话、组员接待的会话、组员名下客户的会话。
 """
 
+from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
 from sqlalchemy import ColumnElement, Select, and_, func, or_, select, true
+from sqlalchemy.dialects.postgresql import distinct_on
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
 
 from app.context import AppContext
 from app.core.errors import Forbidden, NotFound
 from app.core.permissions import Permission
+from app.modules.channels.models import ChannelAccount, ChannelType
 from app.modules.conversation.models import (
     ChatSession,
     CloseReason,
+    Direction,
+    Message,
     Room,
+    SenderType,
     SessionEvent,
     SessionStatus,
     SessionWatcher,
@@ -98,14 +104,90 @@ def _sessions(principal: Principal) -> Select[ChatSession, str, str | None, str]
     )
 
 
+async def session_extras(
+    session: AsyncSession, principal: Principal, chats: list[ChatSession]
+) -> dict[UUID, dict[str, Any]]:
+    """渠道类型、接待坐席的未读数、邮件会话最近一封客户邮件的主题。
+
+    未读：坐席看过之后到达平台的客户消息。按到达平台的时间（created_at）而不是发送时间算：
+    邮件的时间是邮件服务器收到的时间，收取有间隔，可能早于坐席看过的时间。
+    """
+    if not chats:
+        return {}
+    types: dict[UUID, str] = dict(
+        (
+            await session.execute(
+                select(ChannelAccount.id, ChannelAccount.type).where(
+                    ChannelAccount.id.in_({c.channel_account_id for c in chats})
+                )
+            )
+        ).all()
+    )
+    mine = [
+        c.id
+        for c in chats
+        if c.assignee_id == principal.staff_id and c.status != SessionStatus.CLOSED
+    ]
+    unread: dict[UUID, int] = {}
+    if mine:
+        rows = await session.execute(
+            select(Message.session_id, func.count())
+            .join(
+                ChatSession,
+                and_(
+                    ChatSession.tenant_id == Message.tenant_id, ChatSession.id == Message.session_id
+                ),
+            )
+            .where(
+                Message.session_id.in_(mine),
+                Message.sender_type == SenderType.CUSTOMER,
+                or_(ChatSession.read_at.is_(None), Message.created_at > ChatSession.read_at),
+            )
+            .group_by(Message.session_id)
+        )
+        unread = {session_id: int(n) for session_id, n in rows if session_id}
+    emails = [c.id for c in chats if types.get(c.channel_account_id) == ChannelType.EMAIL]
+    subjects: dict[UUID, str] = {}
+    if emails:
+        found = await session.execute(
+            select(Message.session_id, Message.content["subject"].astext)
+            .where(
+                Message.session_id.in_(emails),
+                Message.content_type == "email",
+                Message.direction == Direction.IN,
+            )
+            .order_by(Message.session_id, Message.sent_at.desc())
+            .ext(distinct_on(Message.session_id))
+        )
+        subjects = {session_id: subject for session_id, subject in found if session_id}
+    return {
+        c.id: {
+            "channel_type": types.get(c.channel_account_id),
+            "unread": unread.get(c.id, 0),
+            "email_subject": subjects.get(c.id),
+        }
+        for c in chats
+    }
+
+
+async def mark_read(session: AsyncSession, principal: Principal, session_id: UUID) -> None:
+    """接待坐席看过了这个会话：之前客户的消息不再算未读。其他人查看不影响。"""
+    chat, *_ = await visible_session(session, principal, session_id)
+    if chat.assignee_id == principal.staff_id and chat.status != SessionStatus.CLOSED:
+        chat.read_at = datetime.now(UTC)
+        await session.commit()
+
+
 def _session_out(
     chat: ChatSession,
     customer_name: str,
     assignee_name: str | None,
     group_id: str,
     role: str | None = None,
+    extras: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     return {
+        **(extras or {}),
         "id": chat.id,
         "room_id": chat.room_id,
         "im_group_id": group_id,
@@ -188,9 +270,14 @@ async def list_sessions(
         )
         order = (activity.desc(), ChatSession.id.desc())
     rows = (await session.execute(query.order_by(*order).limit(limit).offset(offset))).all()
-    roles = await my_roles(session, principal, [row[0] for row in rows])
+    chats = [row[0] for row in rows]
+    roles = await my_roles(session, principal, chats)
+    extras = await session_extras(session, principal, chats)
     return SessionPage(
-        items=[SessionOut(**_session_out(*row, roles.get(row[0].id))) for row in rows],
+        items=[
+            SessionOut(**_session_out(*row, roles.get(row[0].id), extras.get(row[0].id)))
+            for row in rows
+        ],
         total=total or 0,
     )
 
@@ -217,6 +304,7 @@ async def get_session(
         )
     ).all()
     roles = await my_roles(session, principal, [row[0]])
+    extras = await session_extras(session, principal, [row[0]])
     watchers = await session.execute(
         select(SessionWatcher, Staff.display_name)
         .join(
@@ -227,7 +315,7 @@ async def get_session(
         .order_by(SessionWatcher.joined_at)
     )
     return SessionDetail(
-        **_session_out(*row, roles.get(session_id)),
+        **_session_out(*row, roles.get(session_id), extras.get(session_id)),
         watchers=[
             WatcherOut(staff_id=w.staff_id, display_name=name, role=w.role, joined_at=w.joined_at)
             for w, name in watchers
@@ -265,4 +353,6 @@ async def close_session(
         actor_id=principal.staff_id,
     )
     session.expire_all()
-    return SessionOut(**_session_out(*await visible_session(session, principal, session_id)))
+    row = await visible_session(session, principal, session_id)
+    extras = await session_extras(session, principal, [row[0]])
+    return SessionOut(**_session_out(*row, None, extras.get(session_id)))

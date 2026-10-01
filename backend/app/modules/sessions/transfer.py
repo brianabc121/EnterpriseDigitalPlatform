@@ -273,6 +273,7 @@ async def _hand_over(
     chat.status = SessionStatus.HUMAN_SERVING
     chat.assignee_id = target.id
     chat.assigned_at = now
+    chat.read_at = None
     await leave_as_watcher(session, chat.id, target.id, now)
     transfer.status = TransferStatus.ACCEPTED if accepted else TransferStatus.COMPLETED
     transfer.decided_at = now

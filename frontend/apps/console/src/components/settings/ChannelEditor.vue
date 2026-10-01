@@ -41,6 +41,8 @@ async function loadSpaces(): Promise<void> {
 onMounted(loadSpaces)
 const isWeb = computed(() => props.channel?.type === 'web')
 const isKf = computed(() => props.channel?.type === 'wecom_kf')
+/** 邮件渠道（§10.8）：不经过 AI 接待；邮箱的服务器、授权码在"设置 → 邮箱"里改。 */
+const isEmail = computed(() => props.channel?.type === 'email')
 const secret = ref<string | null>(null)
 const showSecret = ref(false)
 const saving = ref(false)
@@ -175,7 +177,9 @@ async function rotate(): Promise<void> {
       <el-form-item label="状态">
         <el-radio-group v-model="form.status">
           <el-radio value="active">启用</el-radio>
-          <el-radio value="disabled">停用（访客无法发起新对话）</el-radio>
+          <el-radio value="disabled">{{
+            isEmail ? '停用（不再收信，也不能回复）' : '停用（访客无法发起新对话）'
+          }}</el-radio>
         </el-radio-group>
       </el-form-item>
       <el-form-item label="路由策略">
@@ -184,9 +188,17 @@ async function rotate(): Promise<void> {
         </el-select>
       </el-form-item>
 
-      <h4>AI 接待</h4>
-      <p class="hint">不填表示使用"AI 接待"设置里的值。不同渠道的客户群体不同，可以单独调整。</p>
-      <div class="ai-row">
+      <template v-if="isEmail">
+        <h4>邮件</h4>
+        <p class="hint" data-testid="email-channel-hint">
+          客户的邮件不经过 AI 接待，直接交给客服；邮箱地址、授权码和签名在「设置 → 邮箱」里修改。
+        </p>
+      </template>
+      <h4 v-else>AI 接待</h4>
+      <p v-if="!isEmail" class="hint">
+        不填表示使用"AI 接待"设置里的值。不同渠道的客户群体不同，可以单独调整。
+      </p>
+      <div v-if="!isEmail" class="ai-row">
         <el-form-item label="转人工灵敏度">
           <el-input-number
             v-model="form.handoff_threshold"

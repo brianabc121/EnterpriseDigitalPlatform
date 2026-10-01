@@ -126,6 +126,14 @@ class Settings(BaseSettings):
     clamav_port: int = 3310
     clamav_timeout_seconds: float = 30.0
 
+    # 邮件渠道（设计文档 §10.8）：每个邮箱多久收一次信、连接超时、单封邮件和单个附件的大小上限；
+    # mail_allow_private_hosts 允许内网和本机的邮件服务器、不加密的连接（只用于开发和测试）。
+    mail_poll_seconds: int = 60
+    mail_timeout_seconds: float = 30.0
+    mail_max_message_bytes: int = 30 * 1024 * 1024
+    mail_max_attachment_bytes: int = 20 * 1024 * 1024
+    mail_allow_private_hosts: bool = False
+
     # 渠道凭证（企业微信永久授权码等）的加密密钥，任意长度的随机字符串。
     data_encryption_key: SecretStr = SecretStr(_DEV_DATA_ENCRYPTION_KEY)
 

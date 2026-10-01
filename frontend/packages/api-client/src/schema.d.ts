@@ -2226,6 +2226,165 @@ export interface paths {
         patch: operations["update_space_api_v1_kb_spaces__space_id__patch"];
         trace?: never;
     };
+    "/api/v1/mail/accounts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Accounts */
+        get: operations["list_accounts_api_v1_mail_accounts_get"];
+        put?: never;
+        /**
+         * Create Account
+         * @description 添加邮箱：测试连接通过才保存，同时建一个邮件渠道；之后收到的新邮件进入人工排队。
+         */
+        post: operations["create_account_api_v1_mail_accounts_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/mail/accounts/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Test Account
+         * @description 测试收信（IMAP）和发信（SMTP）能不能登录，不保存。
+         */
+        post: operations["test_account_api_v1_mail_accounts_test_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/mail/accounts/{account_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Account */
+        get: operations["get_account_api_v1_mail_accounts__account_id__get"];
+        /**
+         * Update Account
+         * @description 修改邮箱；改了服务器、登录名或授权码时先测试连接。暂停收信的邮箱测试通过后恢复。
+         */
+        put: operations["update_account_api_v1_mail_accounts__account_id__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/mail/accounts/{account_id}/disable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Disable Account
+         * @description 停用：不再收信，也不能回复。
+         */
+        post: operations["disable_account_api_v1_mail_accounts__account_id__disable_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/mail/accounts/{account_id}/enable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Enable Account */
+        post: operations["enable_account_api_v1_mail_accounts__account_id__enable_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/mail/accounts/{account_id}/fetch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Fetch Account
+         * @description 立即收取一次新邮件。
+         */
+        post: operations["fetch_account_api_v1_mail_accounts__account_id__fetch_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/mail/messages/{message_id}/original": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Original Mail
+         * @description 原邮件（能看这个会话的员工）：HTML 在沙箱里显示，不执行脚本、不加载外部图片。
+         */
+        get: operations["original_mail_api_v1_mail_messages__message_id__original_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/mail/providers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Providers
+         * @description 支持的邮箱类型和预设的服务器（163、QQ、Gmail、企业邮箱……）。
+         */
+        get: operations["list_providers_api_v1_mail_providers_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/me": {
         parameters: {
             query?: never;
@@ -3817,6 +3976,26 @@ export interface paths {
          * @description 旁听：加入服务群实时查看消息，客户看不到旁听者。
          */
         post: operations["monitor_session_api_v1_sessions__session_id__monitor_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sessions/{session_id}/read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mark Read
+         * @description 接待坐席看过了这个会话（打开会话、看到新消息时调用）：会话列表的未读数从这之后算。
+         */
+        post: operations["mark_read_api_v1_sessions__session_id__read_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -11850,6 +12029,283 @@ export interface components {
             /** Username */
             username: string;
         };
+        /**
+         * MailAccountIn
+         * @description 添加或修改邮箱。修改时不填授权码表示不变。
+         */
+        MailAccountIn: {
+            /**
+             * Address
+             * @description 邮箱地址
+             */
+            address: string;
+            /**
+             * Display Name
+             * @description 回复邮件时的发件人名称
+             * @default
+             */
+            display_name: string;
+            /**
+             * Ignore Senders
+             * @description 不导入的发件人：完整地址或 @域名
+             */
+            ignore_senders?: string[];
+            /** @description 收信服务器；不填时用邮箱类型的预设 */
+            imap?: components["schemas"]["MailServer"] | null;
+            /**
+             * Name
+             * @description 渠道名称，例如：售后邮箱
+             */
+            name: string;
+            /**
+             * Provider
+             * @description 邮箱类型（见 /mail/providers）
+             */
+            provider: string;
+            /**
+             * Secret
+             * @description 授权码或密码；修改时不填表示不变
+             */
+            secret?: string | null;
+            /**
+             * Signature
+             * @description 回复邮件末尾的签名
+             */
+            signature?: string | null;
+            /** @description 发信服务器；不填时用邮箱类型的预设 */
+            smtp?: components["schemas"]["MailServer"] | null;
+            /**
+             * Username
+             * @description 登录名，默认是邮箱地址
+             */
+            username?: string | null;
+        };
+        /** MailAccountList */
+        MailAccountList: {
+            /** Items */
+            items: components["schemas"]["MailAccountOut"][];
+        };
+        /** MailAccountOut */
+        MailAccountOut: {
+            /** Address */
+            address: string;
+            /**
+             * Channel Account Id
+             * Format: uuid
+             */
+            channel_account_id: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Display Name */
+            display_name: string;
+            /**
+             * Failures
+             * @description 连续失败的次数
+             */
+            failures: number;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Ignore Senders */
+            ignore_senders: string[];
+            /**
+             * Ignored
+             * @description 没有导入的邮件数（自动回复、退信、群发、忽略的发件人）
+             */
+            ignored: number;
+            imap: components["schemas"]["MailServer"];
+            /** Last Error */
+            last_error: string | null;
+            /**
+             * Last Polled At
+             * @description 最近一次收信
+             */
+            last_polled_at: string | null;
+            /**
+             * Last Received At
+             * @description 最近收到邮件的时间
+             */
+            last_received_at: string | null;
+            /** Name */
+            name: string;
+            /**
+             * Next Poll At
+             * Format: date-time
+             */
+            next_poll_at: string;
+            /** Provider */
+            provider: string;
+            /** Signature */
+            signature: string | null;
+            smtp: components["schemas"]["MailServer"];
+            /**
+             * Status
+             * @description active 正常收信；paused 登录连续失败已暂停；disabled 已停用
+             * @enum {string}
+             */
+            status: "active" | "paused" | "disabled";
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Username */
+            username: string;
+        };
+        /** MailFetchOut */
+        MailFetchOut: {
+            account: components["schemas"]["MailAccountOut"];
+            /** Error */
+            error: string | null;
+            /**
+             * Ignored
+             * @description 这次没有导入的邮件数
+             */
+            ignored: number;
+            /**
+             * Imported
+             * @description 这次导入的邮件数
+             */
+            imported: number;
+        };
+        /**
+         * MailOriginalOut
+         * @description 原邮件：在沙箱 iframe 里显示的 HTML（不执行脚本、不加载外部资源）。
+         */
+        MailOriginalOut: {
+            /** Html */
+            html: string;
+            /** Subject */
+            subject: string;
+        };
+        /** MailProviderList */
+        MailProviderList: {
+            /**
+             * Allow Insecure
+             * @description 可以选择不加密的连接（只在测试环境）
+             */
+            allow_insecure: boolean;
+            /** Items */
+            items: components["schemas"]["MailProviderOut"][];
+        };
+        /** MailProviderOut */
+        MailProviderOut: {
+            /**
+             * Domains
+             * @description 按地址的域名自动选择这个邮箱类型
+             */
+            domains: string[];
+            /**
+             * Help
+             * @description 怎么开启 IMAP/SMTP、获取授权码
+             */
+            help: string;
+            imap: components["schemas"]["MailServer"];
+            /** Key */
+            key: string;
+            /** Name */
+            name: string;
+            /**
+             * Secret Label
+             * @description 密码输入框的名称：授权码、应用专用密码……
+             */
+            secret_label: string;
+            smtp: components["schemas"]["MailServer"];
+        };
+        /** MailServer */
+        MailServer: {
+            /**
+             * Host
+             * @description 服务器地址
+             */
+            host: string;
+            /** Port */
+            port: number;
+            /**
+             * Security
+             * @description ssl 连接时就加密；starttls 连接后升级为加密；none 不加密（只用于测试环境）
+             * @enum {string}
+             */
+            security: "ssl" | "starttls" | "none";
+        };
+        /** MailTestIn */
+        MailTestIn: {
+            /**
+             * Account Id
+             * @description 修改已有邮箱时：没填授权码就用保存的授权码测试
+             */
+            account_id?: string | null;
+            /**
+             * Address
+             * @description 邮箱地址
+             */
+            address: string;
+            /**
+             * Display Name
+             * @description 回复邮件时的发件人名称
+             * @default
+             */
+            display_name: string;
+            /**
+             * Ignore Senders
+             * @description 不导入的发件人：完整地址或 @域名
+             */
+            ignore_senders?: string[];
+            /** @description 收信服务器；不填时用邮箱类型的预设 */
+            imap?: components["schemas"]["MailServer"] | null;
+            /**
+             * Name
+             * @description 渠道名称，例如：售后邮箱
+             */
+            name: string;
+            /**
+             * Provider
+             * @description 邮箱类型（见 /mail/providers）
+             */
+            provider: string;
+            /**
+             * Secret
+             * @description 授权码或密码；修改时不填表示不变
+             */
+            secret?: string | null;
+            /**
+             * Signature
+             * @description 回复邮件末尾的签名
+             */
+            signature?: string | null;
+            /** @description 发信服务器；不填时用邮箱类型的预设 */
+            smtp?: components["schemas"]["MailServer"] | null;
+            /**
+             * Username
+             * @description 登录名，默认是邮箱地址
+             */
+            username?: string | null;
+        };
+        /** MailTestOut */
+        MailTestOut: {
+            /**
+             * Imap Error
+             * @description 收信（IMAP）的错误；为空表示正常
+             */
+            imap_error: string | null;
+            /**
+             * Inbox
+             * @description 收件箱里的邮件数（收信正常时）
+             */
+            inbox: number | null;
+            /** Ok */
+            ok: boolean;
+            /**
+             * Smtp Error
+             * @description 发信（SMTP）的错误；为空表示正常
+             */
+            smtp_error: string | null;
+        };
         /** MePlan */
         MePlan: {
             /** Code */
@@ -15831,7 +16287,20 @@ export interface components {
              * @enum {string}
              */
             origin: "manual" | "quick_reply" | "suggestion" | "knowledge";
-            /** Text */
+            /**
+             * Reply To
+             * @description 回复哪一封客户邮件（消息 ID，只用于邮件；默认最近的一封）
+             */
+            reply_to?: string | null;
+            /**
+             * Subject
+             * @description 邮件主题（只用于邮件；默认 Re: 原主题）
+             */
+            subject?: string | null;
+            /**
+             * Text
+             * @description 文字；聊天渠道最长 4000 个字，邮件最长 20000 个字
+             */
             text?: string | null;
             /**
              * Type
@@ -15858,6 +16327,11 @@ export interface components {
              * Format: uuid
              */
             channel_account_id: string;
+            /**
+             * Channel Type
+             * @description 渠道类型：web、wecom_kf、email……
+             */
+            channel_type?: string | null;
             /** Close Reason */
             close_reason: string | null;
             /** Closed At */
@@ -15881,6 +16355,11 @@ export interface components {
              * Format: uuid
              */
             customer_id: string;
+            /**
+             * Email Subject
+             * @description 邮件会话：客户最近一封邮件的主题
+             */
+            email_subject?: string | null;
             /** Events */
             events: components["schemas"]["SessionEventOut"][];
             /** First Response At */
@@ -15929,6 +16408,12 @@ export interface components {
             skill_group_id: string | null;
             status: components["schemas"]["SessionStatus"];
             /**
+             * Unread
+             * @description 接待坐席还没看过的客户消息数（只对接待坐席计算）
+             * @default 0
+             */
+            unread: number;
+            /**
              * Watchers
              * @description 正在旁听、协助的员工
              */
@@ -15975,6 +16460,11 @@ export interface components {
              * Format: uuid
              */
             channel_account_id: string;
+            /**
+             * Channel Type
+             * @description 渠道类型：web、wecom_kf、email……
+             */
+            channel_type?: string | null;
             /** Close Reason */
             close_reason: string | null;
             /** Closed At */
@@ -15998,6 +16488,11 @@ export interface components {
              * Format: uuid
              */
             customer_id: string;
+            /**
+             * Email Subject
+             * @description 邮件会话：客户最近一封邮件的主题
+             */
+            email_subject?: string | null;
             /** First Response At */
             first_response_at: string | null;
             /**
@@ -16043,6 +16538,12 @@ export interface components {
             /** Skill Group Id */
             skill_group_id: string | null;
             status: components["schemas"]["SessionStatus"];
+            /**
+             * Unread
+             * @description 接待坐席还没看过的客户消息数（只对接待坐席计算）
+             * @default 0
+             */
+            unread: number;
         };
         /** SessionPage */
         SessionPage: {
@@ -29876,6 +30377,770 @@ export interface operations {
             };
         };
     };
+    list_accounts_api_v1_mail_accounts_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MailAccountList"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    create_account_api_v1_mail_accounts_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MailAccountIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MailAccountOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    test_account_api_v1_mail_accounts_test_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MailTestIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MailTestOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_account_api_v1_mail_accounts__account_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                account_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MailAccountOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    update_account_api_v1_mail_accounts__account_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                account_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MailAccountIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MailAccountOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    disable_account_api_v1_mail_accounts__account_id__disable_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                account_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MailAccountOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    enable_account_api_v1_mail_accounts__account_id__enable_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                account_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MailAccountOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    fetch_account_api_v1_mail_accounts__account_id__fetch_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                account_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MailFetchOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    original_mail_api_v1_mail_messages__message_id__original_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                message_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MailOriginalOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    list_providers_api_v1_mail_providers_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MailProviderList"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     me_api_v1_me_get: {
         parameters: {
             query?: never;
@@ -37198,6 +38463,80 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["SessionDetail"];
                 };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    mark_read_api_v1_sessions__session_id__read_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Bad Request */
             400: {

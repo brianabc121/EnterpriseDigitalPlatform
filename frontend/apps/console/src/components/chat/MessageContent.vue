@@ -2,13 +2,25 @@
 import { MessageBody } from '@edp/ui'
 
 import type { WorkbenchMessage } from '../../workbench/messages'
+import EmailContent from './EmailContent.vue'
 
-/** 工作台里的一条消息：内容由共享组件展示，图片用 Element Plus 的大图预览，微信客服菜单显示可点选的按钮。 */
-defineProps<{ message: WorkbenchMessage }>()
+/**
+ * 工作台里的一条消息：内容由共享组件展示，图片用 Element Plus 的大图预览，微信客服菜单显示可点选的
+ * 按钮，邮件显示主题、发件人和正文（replyable 时可以选择回复这封）。
+ */
+defineProps<{ message: WorkbenchMessage; replyable?: boolean }>()
+const emit = defineEmits<{ reply: [message: WorkbenchMessage] }>()
 </script>
 
 <template>
-  <MessageBody :message="message">
+  <EmailContent
+    v-if="message.email"
+    :message="message"
+    :email="message.email"
+    :replyable="replyable"
+    @reply="(m) => emit('reply', m)"
+  />
+  <MessageBody v-else :message="message">
     <template #image="{ url }">
       <el-image
         :src="url"

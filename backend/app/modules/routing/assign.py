@@ -7,7 +7,7 @@ from datetime import UTC, datetime, timedelta
 from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.modules.channels.models import ChannelAccount
+from app.modules.channels.models import ChannelAccount, ChannelType
 from app.modules.conversation.models import ChatSession, SessionStatus
 from app.modules.iam.models import Staff, StaffStatus
 from app.modules.routing.models import (
@@ -134,7 +134,20 @@ class PolicyResolver:
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
         self._by_channel: dict[uuid.UUID, RoutingPolicy] = {}
+        self._types: dict[uuid.UUID, str | None] = {}
         self._default: RoutingPolicy | None = None
+
+    async def channel_type(self, channel_account_id: uuid.UUID) -> str | None:
+        """渠道类型（web、wecom_kf、email……）。"""
+        if channel_account_id not in self._types:
+            self._types[channel_account_id] = await self._session.scalar(
+                select(ChannelAccount.type).where(ChannelAccount.id == channel_account_id)
+            )
+        return self._types[channel_account_id]
+
+    async def is_email(self, channel_account_id: uuid.UUID) -> bool:
+        """邮件渠道（设计文档 §10.8）：不经 AI、不看工作时间、不会排队超时，直接交给客服。"""
+        return await self.channel_type(channel_account_id) == ChannelType.EMAIL
 
     async def for_channel(self, channel_account_id: uuid.UUID) -> RoutingPolicy:
         cached = self._by_channel.get(channel_account_id)

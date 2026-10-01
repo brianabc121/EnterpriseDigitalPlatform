@@ -12,6 +12,7 @@ class ChannelType(StrEnum):
     WEB = "web"
     WECOM_KF = "wecom_kf"  # 微信客服账号
     WECOM_CONTACT = "wecom_contact"  # 企业微信客户联系（只同步客户，不能经 API 发消息）
+    EMAIL = "email"  # 邮箱（IMAP 收信、SMTP 回复，设计文档 §10.8）
 
 
 class ChannelStatus(StrEnum):

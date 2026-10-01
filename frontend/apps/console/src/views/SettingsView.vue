@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
 
 import AgentsTab from '../components/settings/AgentsTab.vue'
 import BillingTab from '../components/settings/BillingTab.vue'
@@ -7,6 +8,7 @@ import ChannelsTab from '../components/settings/ChannelsTab.vue'
 import ConsoleTab from '../components/settings/ConsoleTab.vue'
 import DataTab from '../components/settings/DataTab.vue'
 import IntegrationTab from '../components/settings/IntegrationTab.vue'
+import MailboxesTab from '../components/settings/MailboxesTab.vue'
 import RetentionTab from '../components/settings/RetentionTab.vue'
 import RoutingPoliciesTab from '../components/settings/RoutingPoliciesTab.vue'
 import SkillGroupsTab from '../components/settings/SkillGroupsTab.vue'
@@ -24,7 +26,15 @@ const canIntegrate = computed(() => auth.can('integration:manage'))
 const canConfigOrders = computed(
   () => auth.can('order:config') && auth.me?.features?.orders !== false,
 )
-const tab = ref('channels')
+// 站内信等链接可以直接打开某个页签（/settings?tab=mail）。
+const route = useRoute()
+const tab = ref(typeof route.query.tab === 'string' ? route.query.tab : 'channels')
+watch(
+  () => route.query.tab,
+  (value) => {
+    if (typeof value === 'string') tab.value = value
+  },
+)
 </script>
 
 <template>
@@ -35,6 +45,9 @@ const tab = ref('channels')
     <el-tabs v-model="tab" data-testid="settings-tabs">
       <el-tab-pane label="接入渠道" name="channels" lazy>
         <ChannelsTab />
+      </el-tab-pane>
+      <el-tab-pane label="邮箱" name="mail" lazy>
+        <MailboxesTab />
       </el-tab-pane>
       <el-tab-pane v-if="canRoute" label="技能组" name="groups" lazy>
         <SkillGroupsTab />

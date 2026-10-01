@@ -142,8 +142,22 @@ onMounted(() => void wb.start())
           @click="select(s)"
         >
           <div class="row">
-            <span class="name">{{ s.customer_display_name }}</span>
+            <span class="name">
+              <el-tag
+                v-if="s.channel_type === 'email'"
+                size="small"
+                type="info"
+                class="channel"
+                data-testid="email-tag"
+              >
+                邮件
+              </el-tag>
+              {{ s.customer_display_name }}
+            </span>
             <span class="time">{{ lastActivity(s) }}</span>
+          </div>
+          <div v-if="s.email_subject" class="subject" data-testid="session-email-subject">
+            {{ s.email_subject }}
           </div>
           <div class="row">
             <span class="meta">
@@ -352,6 +366,19 @@ onMounted(() => void wb.start())
 .meta {
   font-size: 12px;
   color: var(--el-text-color-secondary);
+}
+
+.channel {
+  margin-right: 4px;
+}
+
+.subject {
+  margin: 2px 0;
+  font-size: 12px;
+  color: var(--el-text-color-regular);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .side {

@@ -38,6 +38,7 @@ from app.modules.conversation.schemas import MessageOut
 from app.modules.conversation.service import messages_out
 from app.modules.files.service import IMAGE_TYPES
 from app.modules.iam.principal import Principal
+from app.modules.mail import delivery as mail_delivery
 from app.modules.platform.content import check_agent_text
 from app.modules.sessions.engine import touch_session
 from app.modules.sessions.schemas import SendMessageRequest
@@ -45,6 +46,7 @@ from app.modules.sessions.service import visible_session
 from app.modules.wecom.kf import reply_window
 
 SENDABLE = (SessionStatus.HUMAN_SERVING, SessionStatus.TRANSFERRING)
+CHAT_TEXT_LIMIT = 4000
 SEND_FAILED = "消息发送失败，请稍后重试"
 # 同一条消息（client_msg_id）的并发重试串行执行：消息表按发送时间分区，唯一约束带着发送时间，
 # 不能单靠它去重（咨询锁命名空间，见 outbox、engine）。
@@ -97,10 +99,16 @@ async def send_message(
             Message.client_msg_id == payload.client_msg_id,
         )
     )
+    channel = await session.get(ChannelAccount, chat.channel_account_id)
+    email = channel is not None and channel.type == ChannelType.EMAIL
+    if payload.text is not None and not email and len(payload.text) > CHAT_TEXT_LIMIT:
+        raise Unprocessable(f"消息最长 {CHAT_TEXT_LIMIT} 个字")
     if message is None:
         await check_agent_text(session, payload.text)
-    channel = await session.get(ChannelAccount, chat.channel_account_id)
-    if channel is not None and channel.type == ChannelType.WECOM_KF:
+    # 回复了就是看过了：之前客户的消息不再算未读。
+    if chat.assignee_id == principal.staff_id:
+        chat.read_at = datetime.now(UTC)
+    if channel is not None and channel.type in (ChannelType.WECOM_KF, ChannelType.EMAIL):
         return await _send_via_channel(ctx, session, principal, chat, message, payload)
     if message is None:
         now = datetime.now(UTC)
@@ -179,18 +187,32 @@ async def _send_via_channel(
     message: Message | None,
     payload: SendMessageRequest,
 ) -> MessageOut:
-    """外部渠道（微信客服）：先检查回复窗口，写库后经发件箱投递给客户，成功后再镜像到服务群。
+    """外部渠道（微信客服、邮件）：写库后经发件箱投递给客户，成功后再镜像到服务群。
 
-    投递立即尝试；企业微信暂时不可用时消息保持"发送中"，由发件箱稍后重试。
+    微信客服先检查回复窗口；邮件按"Re: 原主题"回复客户最近的一封邮件（或指定的那封）。
+    投递立即尝试；渠道暂时不可用时消息保持"发送中"，由发件箱稍后重试。
     """
     if message is not None and message.send_status == SendStatus.SENT:
         return (await messages_out(session, [message]))[0]
+    channel = await session.get(ChannelAccount, chat.channel_account_id)
+    email = channel is not None and channel.type == ChannelType.EMAIL
     if message is None or message.send_status == SendStatus.FAILED:
-        window = await reply_window(session, chat.room_id, datetime.now(UTC))
-        if not window.open:
-            raise Conflict(window.reason or SEND_FAILED)
+        if not email:
+            window = await reply_window(session, chat.room_id, datetime.now(UTC))
+            if not window.open:
+                raise Conflict(window.reason or SEND_FAILED)
         if message is None:
             content_type, content, text = _content(ctx, payload)
+            if email:
+                content_type, content, text = await mail_delivery.outgoing(
+                    session,
+                    chat,
+                    content_type=content_type,
+                    content=content,
+                    text=text,
+                    subject=payload.subject,
+                    reply_to=payload.reply_to,
+                )
             message = Message(
                 id=new_id(),
                 tenant_id=chat.tenant_id,

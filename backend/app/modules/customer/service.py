@@ -189,7 +189,10 @@ async def get_customer_detail(
                 channel_type=channel_type,
                 channel_name=channel_name,
                 verified=identity.verified,
-                profile=identity.profile,
+                # 加密保存的字段（邮件渠道的发件人地址）不返回；地址见客户档案的邮箱（脱敏）。
+                profile={
+                    k: v for k, v in (identity.profile or {}).items() if not k.endswith("_enc")
+                },
                 last_seen_at=identity.last_seen_at,
                 created_at=identity.created_at,
             )

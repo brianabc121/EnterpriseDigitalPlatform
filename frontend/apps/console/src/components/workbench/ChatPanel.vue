@@ -3,6 +3,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { computed, nextTick, ref, watch } from 'vue'
 
 import { ALERT_KIND, HANDOFF_REASON, WATCHER_ROLE } from '../../labels'
+import { replySubject, replyTarget } from '../../mail'
 import { useAuthStore } from '../../stores/auth'
 import { useWorkbenchStore } from '../../stores/workbench'
 import type { ReplyOrigin, WorkbenchMessage } from '../../workbench/messages'
@@ -39,6 +40,15 @@ const scroller = ref<HTMLElement | null>(null)
 const fileInput = ref<HTMLInputElement | null>(null)
 
 const session = computed(() => wb.active)
+/** 邮件会话（§10.8）：回复是一封邮件，可以改主题、选择回复哪一封。 */
+const isEmail = computed(() => session.value?.channel_type === 'email')
+/** 选择回复的那封客户邮件；为空时回复最近的一封。 */
+const emailReplyTo = ref<string | null>(null)
+const emailSubject = ref('')
+const emailTarget = computed(() =>
+  isEmail.value ? replyTarget(wb.activeMessages, emailReplyTo.value) : null,
+)
+const defaultSubject = computed(() => replySubject(emailTarget.value?.email?.subject ?? ''))
 const pendingTransfer = computed(() =>
   session.value ? (wb.outgoing[session.value.id] ?? null) : null,
 )
@@ -193,9 +203,16 @@ watch(
   () => session.value?.id,
   () => {
     suggestions.value = null
+    emailReplyTo.value = null
+    emailSubject.value = ''
     void scrollToBottom()
   },
 )
+
+function chooseReply(m: WorkbenchMessage): void {
+  emailReplyTo.value = m.id
+  emailSubject.value = ''
+}
 // 知识检索面板点"插入回复框"。
 watch(
   () => wb.composerInsert?.seq,
@@ -233,9 +250,16 @@ async function send(): Promise<void> {
   if (!text || sending.value) return
   sending.value = true
   const origin = draftOrigin.value
+  const email = isEmail.value
+    ? { subject: emailSubject.value.trim() || null, replyTo: emailReplyTo.value }
+    : {}
   draft.value = ''
   try {
-    await wb.send({ type: 'text', text, origin })
+    await wb.send({ type: 'text', text, origin, ...email })
+    if (isEmail.value) {
+      emailSubject.value = ''
+      emailReplyTo.value = null
+    }
   } catch (e) {
     ElMessage.error(e instanceof Error ? e.message : String(e))
   } finally {
@@ -244,8 +268,10 @@ async function send(): Promise<void> {
 }
 
 function onKeydown(event: KeyboardEvent): void {
-  // Enter 发送，Shift+Enter 换行；输入法组字时不发送。
-  if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) {
+  if (event.key !== 'Enter' || event.isComposing) return
+  // 邮件：Enter 换行，Ctrl+Enter（Mac 上 ⌘+Enter）发送；聊天：Enter 发送，Shift+Enter 换行。
+  const sendNow = isEmail.value ? event.ctrlKey || event.metaKey : !event.shiftKey
+  if (sendNow) {
     event.preventDefault()
     void send()
   }
@@ -261,8 +287,11 @@ async function retry(m: WorkbenchMessage): Promise<void> {
 
 async function closeSession(): Promise<void> {
   if (!session.value) return
+  const message = isEmail.value
+    ? '结束后不会给客户发邮件；客户再来信时会开始新的会话。'
+    : '结束后客户会收到结束提示，再发消息时会开始新的会话。'
   try {
-    await ElMessageBox.confirm('结束后客户会收到结束提示，再发消息时会开始新的会话。', '结束会话', {
+    await ElMessageBox.confirm(message, '结束会话', {
       confirmButtonText: '结束',
       cancelButtonText: '取消',
       type: 'warning',
@@ -313,6 +342,9 @@ function insert(text: string, origin: ReplyOrigin = 'quick_reply'): void {
           <span class="title" data-testid="chat-title">{{ session.customer_display_name }}</span>
           <el-tag size="small" :type="session.status === 'closed' ? 'info' : 'success'" class="tag">
             {{ STATUS_TEXT[session.status] ?? session.status }}
+          </el-tag>
+          <el-tag v-if="isEmail" size="small" type="info" class="tag" data-testid="chat-email-tag">
+            邮件
           </el-tag>
           <span
             v-if="replyWindow"
@@ -377,7 +409,9 @@ function insert(text: string, origin: ReplyOrigin = 'quick_reply'): void {
             邀请协助
           </el-button>
           <el-button
-            v-if="session.status === 'human_serving' && canTransfer && role !== 'assist'"
+            v-if="
+              session.status === 'human_serving' && canTransfer && role !== 'assist' && !isEmail
+            "
             size="small"
             :loading="acting"
             data-testid="return-to-ai"
@@ -447,7 +481,9 @@ function insert(text: string, origin: ReplyOrigin = 'quick_reply'): void {
               <span v-if="m.senderType === 'bot'" class="ai-badge">AI</span>
               · {{ time(m) }}
             </div>
-            <div class="bubble"><MessageContent :message="m" /></div>
+            <div class="bubble" :class="{ email: !!m.email }">
+              <MessageContent :message="m" :replyable="replyable" @reply="chooseReply" />
+            </div>
             <div v-if="m.status === 'pending'" class="status">发送中…</div>
             <div v-else-if="m.status === 'failed'" class="status failed" data-testid="send-failed">
               发送失败<template v-if="m.error">：{{ m.error }}</template>
@@ -514,13 +550,38 @@ function insert(text: string, origin: ReplyOrigin = 'quick_reply'): void {
         <div v-if="windowClosed" class="window-closed" data-testid="window-closed">
           {{ replyWindow?.reason }}
         </div>
+        <div v-if="isEmail" class="email-head" data-testid="email-compose">
+          <div class="email-target">
+            <span v-if="emailTarget" data-testid="email-reply-target">
+              回复：{{ emailTarget.email?.subject || '（无主题）' }}
+              <template v-if="!emailReplyTo">（最近的一封）</template>
+            </span>
+            <span v-else>回复客户的邮件</span>
+            <el-button v-if="emailReplyTo" link size="small" @click="emailReplyTo = null">
+              改回最近的一封
+            </el-button>
+          </div>
+          <el-input
+            v-model="emailSubject"
+            size="small"
+            maxlength="300"
+            :placeholder="defaultSubject"
+            data-testid="email-subject-input"
+          >
+            <template #prepend>主题</template>
+          </el-input>
+        </div>
         <el-input
           v-model="draft"
           type="textarea"
-          :rows="3"
+          :rows="isEmail ? 6 : 3"
           resize="none"
           :disabled="windowClosed"
-          placeholder="输入回复，Enter 发送，Shift+Enter 换行"
+          :placeholder="
+            isEmail
+              ? '输入邮件正文，Ctrl+Enter 发送；签名和引用的原邮件会自动附上'
+              : '输入回复，Enter 发送，Shift+Enter 换行'
+          "
           data-testid="composer-input"
           @keydown="onKeydown"
         />
@@ -532,7 +593,7 @@ function insert(text: string, origin: ReplyOrigin = 'quick_reply'): void {
             data-testid="send-button"
             @click="send"
           >
-            发送
+            {{ isEmail ? '发送邮件' : '发送' }}
           </el-button>
         </div>
       </footer>
@@ -675,6 +736,25 @@ function insert(text: string, origin: ReplyOrigin = 'quick_reply'): void {
   border: 1px solid var(--el-border-color-lighter);
   white-space: pre-wrap;
   word-break: break-word;
+}
+
+.bubble.email {
+  max-width: 86%;
+}
+
+.email-head {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 6px;
+}
+
+.email-target {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
 }
 
 .mine .bubble {

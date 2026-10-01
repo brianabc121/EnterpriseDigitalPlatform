@@ -38,6 +38,9 @@ class SessionOut(BaseModel):
         default=None,
         description="当前员工在会话里的身份：assignee（接待）、monitor（旁听）、assist（协助）",
     )
+    channel_type: str | None = Field(default=None, description="渠道类型：web、wecom_kf、email……")
+    unread: int = Field(default=0, description="接待坐席还没看过的客户消息数（只对接待坐席计算）")
+    email_subject: str | None = Field(default=None, description="邮件会话：客户最近一封邮件的主题")
     created_at: datetime
 
 
@@ -85,9 +88,20 @@ class SendMessageRequest(BaseModel):
         min_length=8, max_length=64, description="客户端生成的唯一 ID，重试时保持不变（幂等键）"
     )
     type: Literal["text", "image", "file"] = "text"
-    text: str | None = Field(default=None, min_length=1, max_length=4000)
+    text: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=20000,
+        description="文字；聊天渠道最长 4000 个字，邮件最长 20000 个字",
+    )
     attachment: Attachment | None = Field(
         default=None, description="图片或文件（type 为 image、file 时）"
+    )
+    subject: str | None = Field(
+        default=None, max_length=300, description="邮件主题（只用于邮件；默认 Re: 原主题）"
+    )
+    reply_to: UUID | None = Field(
+        default=None, description="回复哪一封客户邮件（消息 ID，只用于邮件；默认最近的一封）"
     )
     origin: Literal["manual", "quick_reply", "suggestion", "knowledge"] = Field(
         default="manual",

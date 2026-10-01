@@ -33,6 +33,7 @@ from app.modules.kb.router import router as kb_router
 from app.modules.lifecycle.router import platform_router as platform_lifecycle_router
 from app.modules.lifecycle.router import public_router as signup_router
 from app.modules.lifecycle.router import router as tenant_router
+from app.modules.mail.router import router as mail_router
 from app.modules.notifications.router import router as notifications_router
 from app.modules.orders.production_router import router as production_router
 from app.modules.orders.public import router as order_public_router
@@ -145,6 +146,7 @@ def create_app(
     app.include_router(openim_hooks_router)
     app.include_router(wecom_router)
     app.include_router(wecom_hooks_router)
+    app.include_router(mail_router)
     app.include_router(reports_router)
     app.include_router(usage_router)
     app.include_router(audit_router)
