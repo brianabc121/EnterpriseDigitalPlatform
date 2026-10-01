@@ -33,6 +33,7 @@ from app.modules.conversation.models import (
 from app.modules.iam.models import Role, Staff, StaffRole, StaffStatus
 from app.modules.iam.principal import Principal
 from app.modules.iam.service import role_permissions
+from app.modules.routing.assign import PolicyResolver
 from app.modules.sessions import engine
 from app.modules.sessions.engine import ActorType, Signal, record_event
 from app.modules.sessions.service import visible_session
@@ -96,6 +97,9 @@ async def return_to_ai(
         Permission.SESSION_TRANSFER_ANY
     ):
         raise Forbidden("只能交还自己接待的会话")
+    if await PolicyResolver(session).is_email(chat.channel_account_id):
+        # 邮件会话不经过 AI（§10.8），AI 的回复也不会发成邮件。
+        raise Conflict("邮件会话由客服回复，不能交还 AI")
     blocker = await _ai_blocker(ctx, session, principal.tenant_id)
     if blocker:
         raise Conflict(f"AI 接待暂时不可用：{reasons.label(blocker)}")

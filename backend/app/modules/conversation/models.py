@@ -187,6 +187,8 @@ class ChatSession(IdMixin, TimestampMixin, TenantMixin, Base):
     # 识别出的意图（按意图分配到技能组）；排队溢出到备用技能组的时间。
     intent: Mapped[str | None] = mapped_column(String(32))
     overflowed_at: Mapped[datetime | None]
+    # 接待坐席最后一次查看会话的时间：之后客户发来的消息算未读（换了接待坐席时清空）。
+    read_at: Mapped[datetime | None]
 
 
 class SessionEvent(IdMixin, TenantMixin, Base):

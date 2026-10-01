@@ -101,6 +101,7 @@ export const CUSTOMER_SOURCE: Record<string, string> = {
   web: '网页',
   wecom_kf: '微信客服',
   wecom_contact: '企业微信',
+  email: '邮件',
 }
 
 /** 操作日志里的操作名称（没有列出的直接显示代码）。 */

@@ -25,6 +25,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.context import AppContext
 from app.core.ids import new_id
+from app.integrations.mail import MailUnavailable
 from app.integrations.openim import ContentType, OpenIMError
 from app.integrations.storage import StorageError
 from app.integrations.wecom import WeComUnavailable
@@ -68,7 +69,7 @@ _STAGE_DELIVER = "deliver"  # 投递到外部渠道
 _STAGE_MIRROR = "mirror"  # 镜像到服务群
 _LANE_IM = "im"
 _LANE_CHANNEL = "channel"
-_RETRYABLE = (OpenIMError, ValueError, WeComUnavailable, StorageError)
+_RETRYABLE = (OpenIMError, ValueError, WeComUnavailable, MailUnavailable, StorageError)
 
 
 def enqueue_invite(session: AsyncSession, room_id: UUID, staff_id: UUID, nickname: str) -> None:
@@ -176,8 +177,8 @@ async def dispatch_due(ctx: AppContext, *, now: datetime | None = None) -> int:
 
 
 def _channel_first(channel: ChannelAccount | None) -> bool:
-    """以平台消息库为准、经外部渠道收发的 Room（微信客服）。"""
-    return channel is not None and channel.type == ChannelType.WECOM_KF
+    """以平台消息库为准、经外部渠道收发的 Room（微信客服、邮件）。"""
+    return channel is not None and channel.type in (ChannelType.WECOM_KF, ChannelType.EMAIL)
 
 
 def _stage(op: ImOp) -> str | None:
@@ -298,8 +299,12 @@ async def _step(
         raise ValueError("room is not a platform room")
     tenant_code = parsed.tenant_code
     if _channel_first(channel):
+        assert channel is not None
+        if channel.type == ChannelType.EMAIL and op.op in (ImOpType.NOTICE, ImOpType.BOT_MESSAGE):
+            # 邮件里不发系统提示（排队位置、接待提示、结束提示）和 AI 回复：对客户是打扰。
+            return True
         if op.op in (ImOpType.NOTICE, ImOpType.BOT_MESSAGE, ImOpType.CHANNEL_SEND):
-            return await _channel_step(ctx, session, room, op, now, created)
+            return await _channel_step(ctx, session, room, channel, op, now, created)
         if op.op == ImOpType.MIRROR:
             await _mirror(ctx, session, room, UUID(op.payload["message_id"]))
             return True
@@ -312,6 +317,7 @@ async def _channel_step(
     ctx: AppContext,
     session: AsyncSession,
     room: Room,
+    channel: ChannelAccount,
     op: ImOp,
     now: datetime,
     created: list[UUID],
@@ -343,8 +349,11 @@ async def _channel_step(
         return False
     message_id = UUID(op.payload["message_id"])
     if stage == _STAGE_DELIVER:
-        # 延迟导入：企业微信模块依赖发件箱来写入镜像操作。
-        from app.modules.wecom.kf import deliver
+        # 延迟导入：企业微信、邮件模块依赖发件箱来写入镜像操作。
+        if channel.type == ChannelType.EMAIL:
+            from app.modules.mail.delivery import deliver
+        else:
+            from app.modules.wecom.kf import deliver
 
         pending = await session.get(Message, message_id)
         if pending is None or pending.send_status == SendStatus.FAILED:

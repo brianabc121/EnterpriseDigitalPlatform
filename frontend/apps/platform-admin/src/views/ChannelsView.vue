@@ -9,6 +9,7 @@ const CHANNEL_TYPES: Record<string, string> = {
   web: '网页',
   wecom_kf: '微信客服',
   wecom_contact: '企业微信客户联系',
+  email: '邮件',
 }
 const CORP_STATUS: Record<string, string> = { active: '已授权', cancelled: '已取消授权' }
 

@@ -212,12 +212,15 @@ async def on_message_received(ctx: AppContext, event: Event) -> None:
 
 
 async def _ai_answers(session: AsyncSession, chat: ChatSession) -> bool:
+    if chat.status not in (SessionStatus.AI_SERVING, SessionStatus.QUEUED):
+        return False
+    resolver = PolicyResolver(session)
+    if await resolver.is_email(chat.channel_account_id):
+        return False
     if chat.status == SessionStatus.AI_SERVING:
         return True
-    if chat.status == SessionStatus.QUEUED:
-        policy = await PolicyResolver(session).for_channel(chat.channel_account_id)
-        return bool(policy.ai_while_queued)
-    return False
+    policy = await resolver.for_channel(chat.channel_account_id)
+    return bool(policy.ai_while_queued)
 
 
 async def open_session_of_room(session: AsyncSession, room_id: uuid.UUID) -> ChatSession | None:
@@ -262,9 +265,12 @@ async def start_session(
     否则工作时间内进入排队，非工作时间转为留言。text 用于留言内容。
     AI 优先却不能接待时（额度用完、未启用等），原因记为会话的转人工原因，便于管理员排查。
     """
-    policy = await PolicyResolver(session).for_channel(room.channel_account_id)
+    resolver = PolicyResolver(session)
+    policy = await resolver.for_channel(room.channel_account_id)
+    # 邮件（§10.8）：直接交给客服，不经 AI、不看工作时间，也不给客户发排队提示。
+    email = await resolver.is_email(room.channel_account_id)
     blocker: str | None = None
-    if ai_blocker is not None and policy.mode == RoutingMode.AI_FIRST:
+    if ai_blocker is not None and policy.mode == RoutingMode.AI_FIRST and not email:
         blocker = await ai_blocker()
         if blocker is None:
             chat = ChatSession(
@@ -281,7 +287,7 @@ async def start_session(
             record_event(session, chat, "created", actor_type=ActorType.VISITOR)
             record_event(session, chat, "ai_serving", actor_type=ActorType.AI)
             return chat
-    if not in_business_hours(policy.business_hours, now):
+    if not email and not in_business_hours(policy.business_hours, now):
         return await _leave_off_hours_message(
             session, room, text, now, todo, policy.default_skill_group_id
         )
@@ -302,9 +308,12 @@ async def start_session(
     await session.flush()
     record_event(session, chat, "created", actor_type=ActorType.VISITOR)
     payload = {"reason": reason} if blocker is None else {"reason": "ai_unavailable", "ai": blocker}
+    if email:
+        payload = {"reason": "email"}
     record_event(session, chat, "queued", payload={**payload, **placed})
     todo.assign = True
-    todo.newly_queued.add(chat.id)
+    if not email:
+        todo.newly_queued.add(chat.id)
     return chat
 
 
@@ -639,6 +648,8 @@ async def assign_to(
     chat.status = SessionStatus.HUMAN_SERVING
     chat.assignee_id = agent.staff_id
     chat.assigned_at = now
+    # 新的接待坐席还没看过：客户的消息都算未读。
+    chat.read_at = None
     await leave_as_watcher(session, chat.id, agent.staff_id, now)
     agent.load += 1
     agent.last_assigned_at = now
@@ -914,9 +925,11 @@ async def _run_tenant_timers(
         groups = {g.id: g for g in (await session.scalars(select(SkillGroup))).all()}
         for chat in open_chats:
             policy = await policies.for_channel(chat.channel_account_id)
+            email = await policies.is_email(chat.channel_account_id)
             if chat.status == SessionStatus.QUEUED:
                 waited_since = chat.queued_at or chat.created_at
-                if waited_since <= now - timedelta(seconds=policy.max_wait_seconds):
+                # 邮件会话不会排队超时转成留言：等客服上线后分配。
+                if not email and waited_since <= now - timedelta(seconds=policy.max_wait_seconds):
                     await _queue_timeout(session, chat, now)
                     rooms.add(chat.room_id)
                     report.queue_timeouts += 1
@@ -936,6 +949,9 @@ async def _run_tenant_timers(
                     rooms.add(chat.room_id)
                     report.idle_closed += 1
             else:
+                if email and not _answered(chat):
+                    # 客户的邮件还没有回复：不自动结束。
+                    continue
                 last = max(
                     t
                     for t in (
@@ -960,6 +976,13 @@ async def _run_tenant_timers(
         await session.commit()
     await outbox.flush_rooms(ctx, tenant_id, rooms)
     report.assigned += await assign_queued(ctx, tenant_id, now=now)
+
+
+def _answered(chat: ChatSession) -> bool:
+    """坐席在客户最后一条消息之后回复过。"""
+    if chat.last_agent_message_at is None:
+        return False
+    return chat.last_agent_message_at >= (chat.last_customer_message_at or chat.created_at)
 
 
 def _overflow(

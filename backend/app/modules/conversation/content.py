@@ -32,4 +32,9 @@ def im_payload(message: Message) -> tuple[int, dict[str, Any]]:
             "fileSize": content.get("size") or 0,
             "fileType": content.get("mime") or "",
         }
+    if message.content_type == "email":
+        # 服务群里以文字显示邮件：主题和正文（工作台按平台接口里的内容显示邮件格式）。
+        subject = str(content.get("subject") or "")
+        body = str(content.get("text") or "")
+        return ContentType.TEXT, {"content": f"[邮件] {subject}\n{body}".strip()}
     return ContentType.TEXT, {"content": message.text_plain or ""}

@@ -12,6 +12,7 @@ const CHANNEL_TYPES: Record<string, string> = {
   web: '网页',
   wecom_kf: '微信客服',
   wecom_contact: '客户联系',
+  email: '邮件',
 }
 
 const channels = ref<Channel[]>([])

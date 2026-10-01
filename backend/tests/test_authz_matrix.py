@@ -6,6 +6,7 @@
 """
 
 import base64
+import json
 import uuid
 from dataclasses import dataclass
 from typing import Any
@@ -200,6 +201,17 @@ MATRIX: list[tuple[str, str, dict[str, Any] | None]] = [
     ("POST", "/api/v1/admin/webhooks/{endpoint_id}/test", None),
     ("GET", "/api/v1/admin/webhook-deliveries/{delivery_id}", None),
     ("POST", "/api/v1/admin/webhook-deliveries/{delivery_id}/resend", None),
+    ("POST", "/api/v1/sessions/{session_id}/read", None),
+    ("GET", "/api/v1/mail/accounts/{account_id}", None),
+    (
+        "PUT",
+        "/api/v1/mail/accounts/{account_id}",
+        {"name": "越权修改", "address": "evil@example.com", "provider": "netease163"},
+    ),
+    ("POST", "/api/v1/mail/accounts/{account_id}/fetch", None),
+    ("POST", "/api/v1/mail/accounts/{account_id}/enable", None),
+    ("POST", "/api/v1/mail/accounts/{account_id}/disable", None),
+    ("GET", "/api/v1/mail/messages/{message_id}/original", None),
 ]
 # 凭随机令牌访问的公开接口（订单跟踪页）：令牌本身就是访问凭证，不属于租户内的越权检查，
 # 令牌的有效期和失效见 test_orders.py。
@@ -333,9 +345,11 @@ async def build(desk: Desk) -> Tenant:
         chat["customer_id"],
     )
     order_ids = await orders(desk, chat)
+    mail_ids = await mail(desk, chat)
     await desk.flush()
     ids = {
         **order_ids,
+        **mail_ids,
         "customer_id": str(chat["customer_id"]),
         "staff_id": str(agent.staff_id),
         "channel_id": channel["id"],
@@ -482,6 +496,45 @@ async def orders(desk: Desk, chat: Any) -> dict[str, str]:
     }
 
 
+async def mail(desk: Desk, chat: Any) -> dict[str, str]:
+    """一个邮箱和会话里的一封客户邮件（直接写库，收信和回复见 test_mail.py）。"""
+    channel_id = uuid.uuid4()
+    await desk.sql(
+        "INSERT INTO channel_accounts (id, tenant_id, type, name, public_key)"
+        " VALUES ($1, $2, 'email', '售后邮箱', $3)",
+        channel_id,
+        desk.tenant_id,
+        f"pk_mail_{desk.code}",
+    )
+    [account] = await desk.sql(
+        "INSERT INTO mail_accounts (id, tenant_id, channel_account_id, address, provider,"
+        " imap_host, imap_port, imap_security, smtp_host, smtp_port, smtp_security, username,"
+        " secret_enc) VALUES ($1, $2, $3, $4, 'netease163', 'imap.163.com', 993, 'ssl',"
+        " 'smtp.163.com', 465, 'ssl', $4, 'sealed') RETURNING id",
+        uuid.uuid4(),
+        desk.tenant_id,
+        channel_id,
+        f"support@{desk.code}.example.com",
+    )
+    return {"account_id": str(account["id"]), "message_id": await email(desk, chat)}
+
+
+async def email(desk: Desk, chat: Any) -> str:
+    [row] = await desk.sql(
+        "INSERT INTO messages (id, tenant_id, room_id, channel_account_id, session_id, direction,"
+        " sender_type, content_type, content, text_plain, source, sent_at)"
+        " VALUES ($1, $2, $3, $4, $5, 'in', 'customer', 'email', $6, '询价', 'channel', now())"
+        " RETURNING id",
+        uuid.uuid4(),
+        desk.tenant_id,
+        chat["room_id"],
+        chat["channel_account_id"],
+        chat["id"],
+        json.dumps({"subject": "询价", "text": "请报价"}),
+    )
+    return str(row["id"])
+
+
 async def first_item(desk: Desk, order_id: str) -> str:
     [item] = await desk.sql(
         "SELECT id FROM order_items WHERE order_id = $1 ORDER BY sort LIMIT 1", uuid.UUID(order_id)
@@ -570,7 +623,7 @@ async def call(
 async def snapshot(desk: Desk) -> list[Any]:
     """对方租户里可能被越权修改的数据。"""
     tables = {
-        "sessions": "id, status, assignee_id, closed_at",
+        "sessions": "id, status, assignee_id, closed_at, read_at",
         "customers": "id, owner_id, notes, display_name",
         "channel_accounts": "id, name, config",
         "session_transfers": "id, status",
@@ -615,6 +668,7 @@ async def snapshot(desk: Desk) -> list[Any]:
         "stock_document_lines": "id, quantity",
         "record_versions": "id, seq, action",
         "form_kb_entries": "id, status, text, value, locked",
+        "mail_accounts": "id, status, address, display_name, secret_enc, last_uid, failures",
     }
     rows = []
     for table, columns in tables.items():
@@ -968,6 +1022,8 @@ async def test_agents_only_reach_their_own_sessions_and_customers(
         "entry_id": acme.ids["entry_id"],
         "record_type": "order",
         "record_id": dave_order_id,
+        "account_id": acme.ids["account_id"],
+        "message_id": await email(desk, chat),
     }
     before = await snapshot(desk)
 

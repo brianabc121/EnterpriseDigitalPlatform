@@ -84,6 +84,11 @@ async def update_channel(
         if value is None and field != "routing_policy_id":
             continue
         setattr(channel, field, value)
+    if channel.type == ChannelType.EMAIL and "status" in changes:
+        # 邮件渠道停用或启用时，邮箱一起停止或恢复收信（避免循环导入，在这里导入）。
+        from app.modules.mail.service import sync_channel_status
+
+        await sync_channel_status(session, channel)
     record_audit(
         session,
         action="channel.update",

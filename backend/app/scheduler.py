@@ -23,7 +23,8 @@
 - 向企业系统推送订单和待办的变化：分发新事件、投递到期的推送（每 10 秒），删除过期的发件箱
   记录（每小时）；
 - 读取排队、坐席、发件箱、事件积压等状态类指标（每 15 秒，见 app/observability/state.py）；
-- 建好本月和之后 3 个月的消息分区（每小时，见 app/db/partitions.py）。
+- 建好本月和之后 3 个月的消息分区（每小时，见 app/db/partitions.py）；
+- 收取到期的邮箱的新邮件（每 10 秒检查，每个邮箱按设置的间隔收取，见 app/modules/mail/inbox.py）。
 
 每个任务的执行次数、耗时和最近一次成功的时间计入 Prometheus 指标，每次执行是一个 span。
 
@@ -62,6 +63,7 @@ from app.modules.kb.reminders import remind_expiring
 from app.modules.kb.service import expire_items
 from app.modules.lifecycle.closure import run_purges
 from app.modules.lifecycle.export import run_exports
+from app.modules.mail.inbox import poll_due as poll_mailboxes
 from app.modules.orders.jobs import run_collections as run_order_collections
 from app.modules.orders.jobs import run_draft_followups as run_order_followups
 from app.modules.products.service import embed_pending as embed_products
@@ -130,6 +132,7 @@ JOBS = (
     Job("metrics-state", state.INTERVAL_SECONDS, state.refresh),
     Job("partitions", 3600, ensure_partitions),
     Job("form-kb-purge", 3600, purge_form_learning),
+    Job("mail-poll", 10, poll_mailboxes),
 )
 
 

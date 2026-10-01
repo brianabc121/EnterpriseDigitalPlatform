@@ -68,6 +68,11 @@ def _email_index(email: str) -> str:
     return "email:" + email
 
 
+async def email_index(keys: TenantKeyring, tenant_id: uuid.UUID, email: str) -> str:
+    """邮箱的盲索引（email 应已规范化）：与客户档案的 email_hash 相同，邮件渠道的身份标识也用它。"""
+    return await keys.blind_index(tenant_id, _email_index(email))
+
+
 async def set_phone(keys: TenantKeyring, customer: Customer, phone: str | None) -> None:
     """phone 应已规范化；为空时清除。"""
     if not phone:

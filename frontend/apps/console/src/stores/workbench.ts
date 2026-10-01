@@ -60,6 +60,8 @@ export const STATUS_LABEL: Record<AgentStatus, string> = {
  * - 会话列表以平台接口为准；信令（新分配、结束、退回）只是提示"该刷新了"，
  *   另外每次心跳时也刷新一次，信令丢失时最多延迟一个心跳周期。
  * - 消息历史走平台接口，增量走 IM；坐席发送走平台接口（见 workbench/messages.ts）。
+ * - 未读数以平台记录为准（我接待的会话，刷新页面后也在）：打开会话、正在看的会话来了新消息时
+ *   标记已读；两次刷新之间按 IM 推送的客户消息累加。
  */
 export const useWorkbenchStore = defineStore('workbench', () => {
   const auth = useAuthStore()
@@ -92,6 +94,10 @@ export const useWorkbenchStore = defineStore('workbench', () => {
   let im: ImClient | null = null
   let systemUserId = ''
   let myImUser = ''
+  /** 正在标记已读的会话（避免重复请求）。 */
+  const marking = new Set<string>()
+  /** 邮件会话来了新消息，等一会儿从平台接口取完整的邮件（IM 里只是文字镜像）。 */
+  const emailReloads = new Map<string, ReturnType<typeof setTimeout>>()
   let timer: ReturnType<typeof setInterval> | null = null
   let pollTimer: ReturnType<typeof setInterval> | null = null
   let starting: Promise<void> | null = null
@@ -180,6 +186,8 @@ export const useWorkbenchStore = defineStore('workbench', () => {
     messages.value = {}
     unread.value = {}
     agent.value = null
+    emailReloads.forEach((pending) => clearTimeout(pending))
+    emailReloads.clear()
   }
 
   async function connectIm(): Promise<void> {
@@ -215,6 +223,7 @@ export const useWorkbenchStore = defineStore('workbench', () => {
     })
     if (mine.data) {
       sessions.value = mine.data.items
+      syncUnread(mine.data.items)
       // 正在查看的会话如果不在列表里了（已结束或被退回），保留它并刷新状态，只读展示。
       if (active.value && !mine.data.items.some((s) => s.id === active.value!.id)) {
         await refreshActive()
@@ -236,6 +245,47 @@ export const useWorkbenchStore = defineStore('workbench', () => {
       if (waiting.data) queued.value = waiting.data.items
       if (serving.data) ongoing.value = serving.data.items.filter((s) => !isMine(s))
     }
+  }
+
+  /** 我接待的会话的未读数以平台为准；正在看的会话是 0（平台上还有未读时标记已读）。 */
+  function syncUnread(list: Session[]): void {
+    const next = { ...unread.value }
+    for (const s of list) {
+      if (active.value?.id === s.id) {
+        next[s.id] = 0
+        if (s.unread) void markRead(s)
+      } else {
+        next[s.id] = s.unread ?? 0
+      }
+    }
+    unread.value = next
+  }
+
+  /** 接待坐席看过了这个会话（其他人查看不改变接待坐席的未读）。 */
+  async function markRead(session: Session): Promise<void> {
+    if (!isMine(session) || session.status === 'closed' || marking.has(session.id)) return
+    marking.add(session.id)
+    try {
+      await api.POST('/api/v1/sessions/{session_id}/read', {
+        params: { path: { session_id: session.id } },
+      })
+    } catch {
+      // 下次刷新列表时再标记。
+    } finally {
+      marking.delete(session.id)
+    }
+  }
+
+  function reloadEmails(session: Session): void {
+    const pending = emailReloads.get(session.room_id)
+    if (pending) clearTimeout(pending)
+    emailReloads.set(
+      session.room_id,
+      setTimeout(() => {
+        emailReloads.delete(session.room_id)
+        void loadHistory(session.room_id, undefined, false).catch(() => undefined)
+      }, 300),
+    )
   }
 
   async function loadClosed(): Promise<void> {
@@ -266,6 +316,7 @@ export const useWorkbenchStore = defineStore('workbench', () => {
       refreshReplyWindow(),
       refreshActive(),
       loadAlerts(session.id),
+      markRead(session),
     ])
   }
 
@@ -464,11 +515,16 @@ export const useWorkbenchStore = defineStore('workbench', () => {
       return
     }
     addMessages(session.room_id, [fromIm(message)])
-    // 客户发来新消息时，渠道的回复额度会重置。
-    if (active.value?.id === session.id && senderTypeOf(message.sendID) === 'customer') {
-      void refreshReplyWindow()
-    }
-    if (active.value?.id !== session.id && message.sendID !== myImUser) {
+    const fromCustomer = senderTypeOf(message.sendID) === 'customer'
+    if (active.value?.id === session.id) {
+      // 邮件在 IM 里只是文字镜像：正在看的会话从平台接口取完整的邮件（其他会话打开时加载）。
+      if (session.channel_type === 'email' && message.sendID !== myImUser) reloadEmails(session)
+      // 正在看：客户的新消息直接算已读；渠道的回复额度会重置。
+      if (fromCustomer) {
+        void markRead(session)
+        void refreshReplyWindow()
+      }
+    } else if (fromCustomer) {
       unread.value = { ...unread.value, [session.id]: (unread.value[session.id] ?? 0) + 1 }
     }
   }

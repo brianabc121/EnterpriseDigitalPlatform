@@ -3,6 +3,7 @@ import type { ChatMessage } from '@edp/im-client'
 import { describe, expect, it } from 'vitest'
 
 import {
+  emailOf,
   fromApi,
   fromIm,
   mergeMessages,
@@ -13,6 +14,7 @@ import {
   removedOf,
   sendBody,
   senderTypeOf,
+  showAddress,
   type Outgoing,
 } from './messages'
 
@@ -317,5 +319,64 @@ describe('removedOf', () => {
     })
     expect(removedOf('file', { url: 'https://x/y', name: 'a' })).toBeNull()
     expect(removedOf('text', { expired: true })).toBeNull()
+  })
+})
+
+describe('email', () => {
+  const content = {
+    subject: '订购 100 个保温杯',
+    from: { name: '王小明', address: 'wang@customer.test' },
+    to: [{ name: '', address: 'support@acme.test' }],
+    cc: [],
+    text: '我们公司想订 100 个保温杯',
+    quoted: '在 2026年9月30日，Acme 客服 写道：\n> 您好',
+    html: false,
+    url: 'http://localhost:8000/api/v1/files/acme/email/x/原邮件.eml?sig=1',
+    attachments: 1,
+  }
+
+  it('reads an email from the platform', () => {
+    const m = fromApi(api({ content_type: 'email', content, text_plain: '订购 100 个保温杯\n…' }))
+    expect(m.email).toEqual({ ...content, from: content.from })
+    expect(emailOf('text', content)).toBeNull()
+    expect(showAddress(m.email!.from)).toBe('王小明 <wang@customer.test>')
+    expect(showAddress({ name: '', address: 'a@b.test' })).toBe('a@b.test')
+  })
+
+  it('keeps the email when its IM mirror arrives', () => {
+    const platform = fromApi(api({ content_type: 'email', content }))
+    const mirror = fromIm(im({ text: '[邮件] 订购 100 个保温杯\n我们公司想订', ex: '{"pmid":"p1"}' }))
+    for (const merged of [
+      mergeMessages([platform], [mirror]),
+      mergeMessages(mergeMessages([], [mirror]), [platform]),
+    ]) {
+      expect(merged).toHaveLength(1)
+      expect(merged[0]!.contentType).toBe('email')
+      expect(merged[0]!.email?.subject).toBe('订购 100 个保温杯')
+    }
+  })
+
+  it('sends a subject and the email being answered', () => {
+    expect(
+      sendBody('c9', { type: 'text', text: '好的', subject: 'Re: 订购', replyTo: 'p1' }),
+    ).toEqual({
+      client_msg_id: 'c9',
+      type: 'text',
+      text: '好的',
+      origin: 'manual',
+      subject: 'Re: 订购',
+      reply_to: 'p1',
+    })
+    expect(sendBody('c9', text('好的'))).not.toHaveProperty('subject')
+    const reply = fromApi(
+      api({
+        sender_type: 'agent',
+        direction: 'out',
+        content_type: 'email',
+        content: { subject: 'Re: 订购', text: '好的' },
+        send_status: 'failed',
+      }),
+    )
+    expect(outgoingOf(reply)).toEqual({ type: 'text', text: '好的', subject: 'Re: 订购' })
   })
 })

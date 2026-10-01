@@ -30,6 +30,7 @@ const CHANNEL_TYPE: Record<string, string> = {
   web: '网页',
   wecom_kf: '微信客服',
   wecom_contact: '企业微信客户联系',
+  email: '邮件',
 }
 
 const CLOSE_REASON: Record<string, string> = {
@@ -230,6 +231,12 @@ onMounted(load)
           <dt>unionid</dt>
           <dd>{{ identity.profile.unionid ? '已关联' : '—' }}</dd>
           <dt>最近联系</dt>
+          <dd>{{ identity.last_seen_at ? formatDateTime(identity.last_seen_at) : '—' }}</dd>
+        </dl>
+        <dl v-else-if="identity.channel_type === 'email'" data-testid="email-identity">
+          <dt>发件人名称</dt>
+          <dd>{{ profileText(identity.profile.name) }}</dd>
+          <dt>最近来信</dt>
           <dd>{{ identity.last_seen_at ? formatDateTime(identity.last_seen_at) : '—' }}</dd>
         </dl>
         <dl v-else>

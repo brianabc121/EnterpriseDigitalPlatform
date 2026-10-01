@@ -28,7 +28,8 @@ from app.modules.tenancy.models import Tenant
 
 logger = logging.getLogger(__name__)
 
-ATTACHMENTS = ("image", "file", "voice", "video")
+# 带对象存储文件的消息；邮件的原文（.eml）也存在对象存储里。
+ATTACHMENTS = ("image", "file", "voice", "video", "email")
 BATCH = 500
 
 

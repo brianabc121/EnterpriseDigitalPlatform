@@ -69,6 +69,9 @@ async def send(
             outbox.enqueue_notice(session, room.id, text)
             return CustomerNotice("sent", channel.type, None, room.id)
         return CustomerNotice("unreachable", channel.type, window.reason, room.id)
+    if channel.type == ChannelType.EMAIL:
+        # 邮件里不自动发系统通知（§10.8）：由客服在会话里回复邮件告知。
+        return CustomerNotice("manual", channel.type, "邮件客户请在会话里回复邮件告知", room.id)
     return CustomerNotice(
         "manual", channel.type, "企业微信客户联系不能直接发送，请在侧边栏发送", room.id
     )

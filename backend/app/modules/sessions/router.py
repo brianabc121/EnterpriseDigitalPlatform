@@ -87,6 +87,13 @@ async def session_messages(
     return await message_page(session, Message.session_id == chat.id, before=before, limit=limit)
 
 
+@router.post("/sessions/{session_id}/read", status_code=status.HTTP_204_NO_CONTENT)
+async def mark_read(session_id: UUID, session: TenantDb, principal: CanServe) -> Response:
+    """接待坐席看过了这个会话（打开会话、看到新消息时调用）：会话列表的未读数从这之后算。"""
+    await service.mark_read(session, principal, session_id)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
 @router.post("/sessions/{session_id}/close", response_model=SessionOut)
 async def close_session(
     session_id: UUID, ctx: Context, session: TenantDb, principal: CanServe

@@ -260,9 +260,9 @@ async def _link_platform_message(
 
 
 async def _channel_first(session: AsyncSession, room: Room) -> bool:
-    """以平台消息库为准、经外部渠道收发的 Room（微信客服）：服务群里只是镜像。"""
+    """以平台消息库为准、经外部渠道收发的 Room（微信客服、邮件）：服务群里只是镜像。"""
     channel = await session.get(ChannelAccount, room.channel_account_id)
-    return channel is not None and channel.type == ChannelType.WECOM_KF
+    return channel is not None and channel.type in (ChannelType.WECOM_KF, ChannelType.EMAIL)
 
 
 def _classify_sender(tenant_code: str, room: Room, msg: IMGroupMessage) -> _Sender | None:

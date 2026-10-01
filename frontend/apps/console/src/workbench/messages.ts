@@ -48,6 +48,30 @@ export interface WorkbenchMessage {
   menu?: MenuOption[] | null
   /** 附件已被删除：超过保留期（expired）或含有病毒被拦截（blocked）。 */
   removed?: RemovedAttachment | null
+  /** 邮件（content_type email）：客户发来的邮件或坐席的回复。 */
+  email?: EmailView | null
+}
+
+export interface EmailAddress {
+  name: string
+  address: string
+}
+
+/** 邮件消息的内容（见后端 mail/inbox.py 的入站邮件、mail/delivery.py 的回复）。 */
+export interface EmailView {
+  subject: string
+  from: EmailAddress | null
+  to: EmailAddress[]
+  cc: EmailAddress[]
+  /** 新写的正文（客户邮件里引用的历史内容放在 quoted）。 */
+  text: string
+  quoted: string
+  /** 正文只有 HTML（已转成文字），原样在"查看原邮件"里。 */
+  html: boolean
+  /** 原邮件（.eml）的下载链接；坐席的回复、超过保留期的邮件没有。 */
+  url: string | null
+  /** 跟在这封邮件后面的附件消息数。 */
+  attachments: number
 }
 
 export interface RemovedAttachment {
@@ -104,6 +128,41 @@ export function removedOf(
   return reason ? { reason, name: str(content.name) } : null
 }
 
+function addressOf(value: unknown): EmailAddress | null {
+  if (typeof value !== 'object' || value === null) return null
+  const v = value as Record<string, unknown>
+  const address = str(v.address)
+  return address ? { name: str(v.name) ?? '', address } : null
+}
+
+function addressesOf(value: unknown): EmailAddress[] {
+  return Array.isArray(value)
+    ? value.map(addressOf).filter((a): a is EmailAddress => a !== null)
+    : []
+}
+
+/** 邮件消息的内容；不是邮件时为 null。 */
+export function emailOf(contentType: string, content: Record<string, unknown>): EmailView | null {
+  if (contentType !== 'email') return null
+  return {
+    subject: typeof content.subject === 'string' ? content.subject : '',
+    from: addressOf(content.from),
+    to: addressesOf(content.to),
+    cc: addressesOf(content.cc),
+    text: typeof content.text === 'string' ? content.text : '',
+    quoted: typeof content.quoted === 'string' ? content.quoted : '',
+    html: content.html === true,
+    url: str(content.url),
+    attachments: num(content.attachments) ?? 0,
+  }
+}
+
+/** 显示一个邮件地址：有名称时"名称 <地址>"。 */
+export function showAddress(a: EmailAddress | null): string {
+  if (!a) return ''
+  return a.name ? `${a.name} <${a.address}>` : a.address
+}
+
 export function fromApi(m: Schemas['MessageOut']): WorkbenchMessage {
   return {
     key: m.channel_msg_id ?? m.id,
@@ -122,6 +181,7 @@ export function fromApi(m: Schemas['MessageOut']): WorkbenchMessage {
     transcript: str(m.content.transcript),
     menu: menuOf(m.content.menu),
     removed: removedOf(m.content_type, m.content),
+    email: emailOf(m.content_type, m.content),
   }
 }
 
@@ -182,9 +242,18 @@ export function fromIm(m: ChatMessage): WorkbenchMessage {
 /** 回复的来源（用于统计 AI 建议的采纳率）。 */
 export type ReplyOrigin = Schemas['SendMessageRequest']['origin']
 
-/** 坐席要发送的内容：文本（及其来源），或已上传的图片、文件。 */
+/**
+ * 坐席要发送的内容：文本（及其来源），或已上传的图片、文件。
+ * 邮件会话的文本可以指定主题（subject，默认"Re: 原主题"）和回复哪一封（replyTo，默认最近的一封）。
+ */
 export type Outgoing =
-  | { type: 'text'; text: string; origin?: ReplyOrigin }
+  | {
+      type: 'text'
+      text: string
+      origin?: ReplyOrigin
+      subject?: string | null
+      replyTo?: string | null
+    }
   | {
       type: 'image' | 'file'
       attachment: Attachment & { name: string; size: number; mime: string }
@@ -193,12 +262,15 @@ export type Outgoing =
 /** 发送接口的请求体。 */
 export function sendBody(clientMsgID: string, out: Outgoing): Schemas['SendMessageRequest'] {
   if (out.type === 'text') {
-    return {
+    const body: Schemas['SendMessageRequest'] = {
       client_msg_id: clientMsgID,
       type: 'text',
       text: out.text,
       origin: out.origin ?? 'manual',
     }
+    if (out.subject) body.subject = out.subject
+    if (out.replyTo) body.reply_to = out.replyTo
+    return body
   }
   const { url, name, size, mime, width, height } = out.attachment
   return {
@@ -212,6 +284,10 @@ export function sendBody(clientMsgID: string, out: Outgoing): Schemas['SendMessa
 /** 从已有消息还原发送内容（重试用）；不能还原时返回 null。 */
 export function outgoingOf(m: WorkbenchMessage): Outgoing | null {
   if (m.contentType === 'text' && m.text) return { type: 'text', text: m.text }
+  // 邮件重试时服务器按保存的内容重发，这里的正文只用于通过校验。
+  if (m.contentType === 'email' && m.email) {
+    return { type: 'text', text: m.email.text || ' ', subject: m.email.subject || null }
+  }
   const a = m.attachment
   if ((m.contentType === 'image' || m.contentType === 'file') && a?.name && a.size && a.mime) {
     return { type: m.contentType, attachment: { ...a, name: a.name, size: a.size, mime: a.mime } }
@@ -257,9 +333,14 @@ function combine(current: WorkbenchMessage, incoming: WorkbenchMessage): Workben
   const tracked = current.status !== null || incoming.status !== null
   const status = !tracked ? null : serverMsgID ? 'sent' : (incoming.status ?? current.status)
   const id = incoming.id ?? current.id
+  // IM 推送的邮件只是服务群里的文字镜像：保留平台记录里的邮件内容。
+  const platform = !incoming.email && current.email ? current : incoming
   return {
     ...current,
     ...incoming,
+    contentType: platform.contentType,
+    text: platform.text,
+    email: platform.email ?? null,
     error: status === 'failed' ? (incoming.error ?? current.error ?? null) : null,
     key: serverMsgID ?? id ?? current.key,
     id,
