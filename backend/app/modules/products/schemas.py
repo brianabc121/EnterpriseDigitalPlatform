@@ -6,6 +6,7 @@ from uuid import UUID
 from pydantic import BaseModel, Field, PlainSerializer, field_validator
 
 from app.modules.products.service import normalize_category, split_aliases
+from app.modules.products.suggest import SuggestField
 
 Money = Decimal
 ProductStatusValue = Literal["on", "off"]
@@ -76,6 +77,29 @@ class ProductCandidate(BaseModel):
 
 class ProductSearchResult(BaseModel):
     items: list[ProductCandidate]
+
+
+SuggestMatchValue = Literal["exact", "prefix", "contains", "pinyin", "similar", "recent"]
+
+
+class ProductSuggestion(BaseModel):
+    """开单时联想的一个商品（§25.16）。"""
+
+    product: ProductOut
+    score: float = Field(description="匹配程度（约 0 到 1），最近用过的为 0")
+    field: SuggestField | None = Field(
+        description="按哪个字段找到的：code 代码、model 型号、name 名称、alias 俗称、spec 规格、"
+        "category 分类、pinyin 拼音（最近用过的为空）"
+    )
+    match: SuggestMatchValue = Field(
+        description="exact 完全一致、prefix 开头一致、contains 包含、pinyin 拼音、similar 相近、"
+        "recent 最近用过"
+    )
+
+
+class ProductSuggestions(BaseModel):
+    items: list[ProductSuggestion]
+    recent: bool = Field(description="没有输入关键词：自己最近开单用过的商品")
 
 
 class ProductWrite(BaseModel):

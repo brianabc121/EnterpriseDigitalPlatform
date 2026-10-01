@@ -2958,6 +2958,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/products/suggest": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Suggest Products
+         * @description 下单时的商品联想（§25.16）：上架的成品，按匹配程度、常用程度和库存排序。
+         */
+        get: operations["suggest_products_api_v1_products_suggest_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/products/template": {
         parameters: {
             query?: never;
@@ -5169,6 +5189,27 @@ export interface paths {
         get: operations["get_settings_api_v1_warehouse_settings_get"];
         /** Put Settings */
         put: operations["put_settings_api_v1_warehouse_settings_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/warehouse/suggest": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Suggest Items
+         * @description 开领料单、入库单时的商品联想（§25.16）：启用的材料或成品，带库存（没有价格），按匹配程度、
+         *     常用程度和库存排序。
+         */
+        get: operations["suggest_items_api_v1_warehouse_suggest_get"];
+        put?: never;
         post?: never;
         delete?: never;
         options?: never;
@@ -13876,6 +13917,39 @@ export interface components {
             /** Items */
             items: components["schemas"]["ProductCandidate"][];
         };
+        /**
+         * ProductSuggestion
+         * @description 开单时联想的一个商品（§25.16）。
+         */
+        ProductSuggestion: {
+            /**
+             * Field
+             * @description 按哪个字段找到的：code 代码、model 型号、name 名称、alias 俗称、spec 规格、category 分类、pinyin 拼音（最近用过的为空）
+             */
+            field: ("code" | "model" | "name" | "alias" | "spec" | "category" | "pinyin") | null;
+            /**
+             * Match
+             * @description exact 完全一致、prefix 开头一致、contains 包含、pinyin 拼音、similar 相近、recent 最近用过
+             * @enum {string}
+             */
+            match: "exact" | "prefix" | "contains" | "pinyin" | "similar" | "recent";
+            product: components["schemas"]["ProductOut"];
+            /**
+             * Score
+             * @description 匹配程度（约 0 到 1），最近用过的为 0
+             */
+            score: number;
+        };
+        /** ProductSuggestions */
+        ProductSuggestions: {
+            /** Items */
+            items: components["schemas"]["ProductSuggestion"][];
+            /**
+             * Recent
+             * @description 没有输入关键词：自己最近开单用过的商品
+             */
+            recent: boolean;
+        };
         /** ProductUpload */
         ProductUpload: {
             /**
@@ -15665,6 +15739,38 @@ export interface components {
             items: components["schemas"]["StockMovementOut"][];
             /** Total */
             total: number;
+        };
+        /**
+         * StockSuggestion
+         * @description 开领料单、入库单时联想的一个商品（§25.16，没有价格）。
+         */
+        StockSuggestion: {
+            /**
+             * Field
+             * @description 按哪个字段找到的（同 ProductSuggestion）
+             */
+            field: ("code" | "model" | "name" | "alias" | "spec" | "category" | "pinyin") | null;
+            item: components["schemas"]["StockItemOut"];
+            /**
+             * Match
+             * @enum {string}
+             */
+            match: "exact" | "prefix" | "contains" | "pinyin" | "similar" | "recent";
+            /**
+             * Score
+             * @description 匹配程度（约 0 到 1），最近用过的为 0
+             */
+            score: number;
+        };
+        /** StockSuggestions */
+        StockSuggestions: {
+            /** Items */
+            items: components["schemas"]["StockSuggestion"][];
+            /**
+             * Recent
+             * @description 没有输入关键词：自己最近开单用过的
+             */
+            recent: boolean;
         };
         /**
          * SubscriptionCreate
@@ -31917,6 +32023,84 @@ export interface operations {
             };
         };
     };
+    suggest_products_api_v1_products_suggest_get: {
+        parameters: {
+            query?: {
+                /** @description 输入的名称、代码、规格、拼音首字母等；为空时返回自己最近下单用过的 */
+                q?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProductSuggestions"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     download_template_api_v1_products_template_get: {
         parameters: {
             query?: never;
@@ -42507,6 +42691,86 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["WarehouseSettingsOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    suggest_items_api_v1_warehouse_suggest_get: {
+        parameters: {
+            query?: {
+                /** @description 成品或材料 */
+                kind?: "goods" | "material";
+                /** @description 输入的名称、代码、规格、拼音首字母等；为空时返回自己最近开单用过的 */
+                q?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StockSuggestions"];
                 };
             };
             /** @description Bad Request */

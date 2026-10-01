@@ -210,7 +210,7 @@ onMounted(refresh)
           <el-input
             v-model="filters.q"
             clearable
-            placeholder="名称、代码、型号、规格、别名"
+            placeholder="名称、代码、规格、俗称或拼音首字母"
             class="search"
             data-testid="product-search"
             @keyup.enter="load"

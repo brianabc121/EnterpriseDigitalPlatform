@@ -4,7 +4,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
-from app.modules.products.schemas import ProductKindValue, Qty, QtyIn
+from app.modules.products.schemas import ProductKindValue, Qty, QtyIn, SuggestMatchValue
+from app.modules.products.suggest import SuggestField
 
 DocumentKindValue = Literal["requisition", "receipt"]
 DocumentStatusValue = Literal["pending", "confirmed", "rejected", "voided"]
@@ -176,6 +177,20 @@ class StockItemPage(BaseModel):
     items: list[StockItemOut]
     total: int
     low_stock: int = Field(description="这个类别里库存不足的数量（不受其他筛选条件影响）")
+
+
+class StockSuggestion(BaseModel):
+    """开领料单、入库单时联想的一个商品（§25.16，没有价格）。"""
+
+    item: StockItemOut
+    score: float = Field(description="匹配程度（约 0 到 1），最近用过的为 0")
+    field: SuggestField | None = Field(description="按哪个字段找到的（同 ProductSuggestion）")
+    match: SuggestMatchValue
+
+
+class StockSuggestions(BaseModel):
+    items: list[StockSuggestion]
+    recent: bool = Field(description="没有输入关键词：自己最近开单用过的")
 
 
 class WarehouseSettingsOut(BaseModel):

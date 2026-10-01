@@ -409,7 +409,7 @@ function savedMessage(data: WarehouseDocument | Schemas['ProductionOrder']): str
                 source="warehouse"
                 :kind="itemKind"
                 testid="document-add"
-                :placeholder="`添加${noun}：输入名称或代码回车加入，也可以扫码`"
+                :placeholder="`添加${noun}：输入名称、代码、规格或拼音首字母，也可以扫码`"
                 @add="addItems"
               />
             </td>

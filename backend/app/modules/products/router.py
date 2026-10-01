@@ -26,7 +26,7 @@ from app.modules.history import service as history
 from app.modules.iam.deps import CurrentPrincipal, TenantDb, require_permission
 from app.modules.iam.principal import Principal
 from app.modules.products import history as product_history
-from app.modules.products import imports, service, sheet, stock
+from app.modules.products import imports, lookup, service, sheet, stock, suggest
 from app.modules.products.models import (
     ImportStatus,
     Product,
@@ -50,6 +50,8 @@ from app.modules.products.schemas import (
     ProductOut,
     ProductPage,
     ProductSearchResult,
+    ProductSuggestion,
+    ProductSuggestions,
     ProductUpload,
     ProductWrite,
     StockAdjustIn,
@@ -250,6 +252,8 @@ def _filters(q: str | None, category: str | None, status_: str | None) -> Column
     conditions: list[ColumnElement[bool]] = []
     if q and q.strip():
         like = f"%{q.strip()}%"
+        # 也按联想的检索键找（§25.16）：拼音首字母、不同写法的代码和规格、几个词组合。
+        by_key = suggest.keyword_condition(q)
         conditions.append(
             or_(
                 Product.name.ilike(like),
@@ -257,6 +261,7 @@ def _filters(q: str | None, category: str | None, status_: str | None) -> Column
                 Product.model.ilike(like),
                 Product.spec.ilike(like),
                 func.array_to_string(Product.aliases, " ").ilike(like),
+                *([by_key] if by_key is not None else []),
             )
         )
     if category:
@@ -342,6 +347,33 @@ async def search_products(
         items=[
             ProductCandidate(product=out, score=c.score) for out, c in zip(outs, found, strict=True)
         ]
+    )
+
+
+@router.get("/suggest", response_model=ProductSuggestions)
+async def suggest_products(
+    session: TenantDb,
+    principal: CanRead,
+    q: Annotated[
+        str,
+        Query(
+            max_length=100,
+            description="输入的名称、代码、规格、拼音首字母等；为空时返回自己最近下单用过的",
+        ),
+    ] = "",
+    limit: Annotated[int, Query(ge=1, le=20)] = 8,
+) -> ProductSuggestions:
+    """下单时的商品联想（§25.16）：上架的成品，按匹配程度、常用程度和库存排序。"""
+    found, recent = await lookup.suggestions(
+        session, principal, q, kind=ProductKind.GOODS, source="orders", limit=limit
+    )
+    outs = await product_outs(session, [s.product for s in found], principal)
+    return ProductSuggestions(
+        items=[
+            ProductSuggestion(product=out, score=s.score, field=s.field, match=s.match)
+            for out, s in zip(outs, found, strict=True)
+        ],
+        recent=recent,
     )
 
 

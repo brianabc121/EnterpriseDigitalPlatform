@@ -135,7 +135,7 @@ function confirm(): void {
           <el-input
             v-model="q"
             clearable
-            :placeholder="`搜索${noun}：名称、代码、型号`"
+            :placeholder="`搜索${noun}：名称、代码、规格或拼音首字母`"
             data-testid="item-picker-search"
             @input="onSearch"
             @clear="load"

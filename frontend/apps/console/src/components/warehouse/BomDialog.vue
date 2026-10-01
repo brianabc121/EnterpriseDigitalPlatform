@@ -162,7 +162,7 @@ async function save(): Promise<void> {
         clearable
         :remote-method="search"
         :loading="searching"
-        placeholder="添加材料（输入名称或代码搜索）"
+        placeholder="添加材料（名称、代码或拼音首字母）"
         class="picker"
         data-testid="bom-add"
         @focus="search('')"

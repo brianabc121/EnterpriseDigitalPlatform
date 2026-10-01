@@ -367,7 +367,7 @@ onMounted(async () => {
         <el-input
           v-model="itemFilters.q"
           clearable
-          :placeholder="tab === 'material' ? '材料名称、代码、规格' : '成品名称、代码、规格'"
+          :placeholder="tab === 'material' ? '材料名称、代码、规格或拼音首字母' : '成品名称、代码、规格或拼音首字母'"
           class="search"
           data-testid="warehouse-item-search"
           @keyup.enter="searchItems"

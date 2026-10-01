@@ -22,7 +22,7 @@ from app.modules.iam.deps import CurrentPrincipal, TenantDb, require_permission
 from app.modules.iam.models import Staff, StaffStatus
 from app.modules.iam.principal import Principal
 from app.modules.orders.models import Order
-from app.modules.products import stock
+from app.modules.products import lookup, stock, suggest
 from app.modules.products.models import Product, ProductKind, ProductMaterial, StockKind
 from app.modules.products.models import StockMovement as Movement
 from app.modules.products.schemas import CategoryList, StockMovementPage
@@ -43,6 +43,8 @@ from app.modules.warehouse.schemas import (
     ReasonIn,
     StockItemOut,
     StockItemPage,
+    StockSuggestion,
+    StockSuggestions,
     WarehouseCounts,
     WarehouseSettingsIn,
     WarehouseSettingsOut,
@@ -178,6 +180,8 @@ def _item_filters(
     conditions: list[ColumnElement[bool]] = [Product.kind == kind]
     if q and q.strip():
         like = f"%{q.strip()}%"
+        # 也按联想的检索键找（§25.16）：拼音首字母、不同写法的代码和规格、几个词组合。
+        by_key = suggest.keyword_condition(q)
         conditions.append(
             or_(
                 Product.name.ilike(like),
@@ -185,6 +189,7 @@ def _item_filters(
                 Product.model.ilike(like),
                 Product.spec.ilike(like),
                 func.array_to_string(Product.aliases, " ").ilike(like),
+                *([by_key] if by_key is not None else []),
             )
         )
     if category:
@@ -262,6 +267,35 @@ async def list_items(
         ).all()
     )
     return StockItemPage(items=await item_outs(session, rows), total=total, low_stock=low)
+
+
+@router.get("/suggest", response_model=StockSuggestions)
+async def suggest_items(
+    session: TenantDb,
+    principal: CanWork,
+    kind: Annotated[Literal["goods", "material"], Query(description="成品或材料")] = "material",
+    q: Annotated[
+        str,
+        Query(
+            max_length=100,
+            description="输入的名称、代码、规格、拼音首字母等；为空时返回自己最近开单用过的",
+        ),
+    ] = "",
+    limit: Annotated[int, Query(ge=1, le=20)] = 8,
+) -> StockSuggestions:
+    """开领料单、入库单时的商品联想（§25.16）：启用的材料或成品，带库存（没有价格），按匹配程度、
+    常用程度和库存排序。"""
+    found, recent = await lookup.suggestions(
+        session, principal, q, kind=ProductKind(kind), source="documents", limit=limit
+    )
+    outs = await item_outs(session, [s.product for s in found])
+    return StockSuggestions(
+        items=[
+            StockSuggestion(item=out, score=s.score, field=s.field, match=s.match)
+            for out, s in zip(outs, found, strict=True)
+        ],
+        recent=recent,
+    )
 
 
 async def item_outs(session: TenantDb, products: list[Product]) -> list[StockItemOut]:
