@@ -1593,4 +1593,8 @@ M1-1 至 M1-8 全部完成，验收标准已满足：
 - 浏览器验收 `p12-suggest-acceptance`（20 项）全部通过，已加入 `e2e-full.yml`；验收中发现 Esc 会连同整张单据一起关掉
   （原来就有），已修。开单、商品、仓库相关的 `p10-entry-history`、`p9-warehouse`、`p6-orders`、`p7-production`、
   `p8-inventory`、`p6-integration`、`p11-transport-consoles`、`m4-workbench`、`p3-ai` 和 `p0` 验收重新跑过，全部通过。
+- CI：新增依赖（pypinyin）改变了 `uv.lock`，uv 的缓存没有命中，P0 浏览器验收本身通过，但收尾时 setup-uv 的
+  `uv cache prune --ci` 等不到缓存锁（`start-stack.sh` 用 `uv run` 启动的后端进程运行期间一直占着锁）而失败。改为同步
+  一次虚拟环境后直接用 `.venv/bin/python` 启动这些进程（用 CI 的 uv 0.12.21 复现过：`uv run` 的进程在时 prune 超时，
+  直接用虚拟环境里的 python 时 prune 正常）。
 - 未做（设计文档 §25.16）：按客户的历史成交价推荐；为每个商品单独维护助记码（自动生成的拼音加俗称够用）。

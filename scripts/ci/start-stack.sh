@@ -42,14 +42,18 @@ wait_port() { # 端口 [秒]
   done
 }
 
+# 后端进程直接用虚拟环境里的 python 启动，不用 `uv run`：`uv run` 在进程运行期间一直占着 uv 的
+# 缓存锁，CI 里 setup-uv 收尾时的 `uv cache prune` 会等锁超时（依赖变化、缓存没有命中时）。
 cd "$ROOT/backend"
-start fake-llm "$ROOT/backend" uv run python -m tests.fake_llm --port 8900
-start fake-clamd "$ROOT/backend" uv run python -m tests.fake_clamd --port 3310
-start fake-wecom "$ROOT/backend" uv run python -m tests.fake_wecom --port 8901 --platform http://127.0.0.1:8000
+uv sync --quiet
+PY="$ROOT/backend/.venv/bin/python"
+start fake-llm "$ROOT/backend" "$PY" -m tests.fake_llm --port 8900
+start fake-clamd "$ROOT/backend" "$PY" -m tests.fake_clamd --port 3310
+start fake-wecom "$ROOT/backend" "$PY" -m tests.fake_wecom --port 8901 --platform http://127.0.0.1:8000
 start api "$ROOT/backend" env EDP_METRICS_PORT=9464 \
-  uv run uvicorn app.main:create_app --factory --host 0.0.0.0 --port 8000
-start worker "$ROOT/backend" env EDP_METRICS_PORT=9465 uv run python -m app.worker
-start scheduler "$ROOT/backend" env EDP_METRICS_PORT=9466 uv run python -m app.scheduler
+  "$PY" -m uvicorn app.main:create_app --factory --host 0.0.0.0 --port 8000
+start worker "$ROOT/backend" env EDP_METRICS_PORT=9465 "$PY" -m app.worker
+start scheduler "$ROOT/backend" env EDP_METRICS_PORT=9466 "$PY" -m app.scheduler
 
 start console "$ROOT/frontend" env VITE_WECOM_JSSDK_URLS=http://127.0.0.1:8901/jssdk/jwxwork.js \
   pnpm --filter @edp/console dev --host 127.0.0.1 --strictPort
