@@ -21,8 +21,9 @@ import ItemPicker from './ItemPicker.vue'
 /**
  * 明细表最后的录入行（设计文档 §25.14、§25.16）：从输入第一个字开始联想，在名称、俗称、分类、代码、
  * 型号、规格里找，认拼音首字母和全拼、不同写法（"win01"、"1.2*1.5"）和相近的写法；下拉标出按什么
- * 找到的，↑↓ 选择、回车加入，Esc 收起。没有输入时点一下或按 ↓ 列出自己最近开单用过的。还没出候选
- * 就回车（例如扫码枪扫出代码后回车）时先检索，代码完全一致的直接加入。旁边的"批量选择"一次勾选多个。
+ * 找到的，↑↓ 选择、回车加入，Esc 收起（再点一下重新列出）。没有输入时点一下或按 ↓ 列出自己最近开单
+ * 用过的。还没出候选就回车（例如扫码枪扫出代码后回车）时先检索，代码完全一致的直接加入。旁边的
+ * "批量选择"一次勾选多个。
  *
  * source：sales 是可以销售的成品（下单，带建议零售价）；warehouse 是仓库里的材料或成品（开单）。
  */
@@ -101,6 +102,11 @@ function showRecent(): void {
   if (!text.value.trim() && !open.value) void search(true)
 }
 
+/** 点一下录入行：空着时列出最近用过的；有输入而下拉收起了（例如按过 Esc）时重新列出候选。 */
+function onClick(): void {
+  if (!open.value) void search(!text.value.trim())
+}
+
 function choose(item: PickedItem): void {
   clearTimeout(timer)
   seq++
@@ -175,7 +181,7 @@ defineExpose({ focus })
         clearable
         :data-testid="`${testid}-input`"
         @input="onInput"
-        @click="showRecent"
+        @click="onClick"
         @keydown.enter.prevent="onEnter"
         @keydown.down.prevent="move(1)"
         @keydown.up.prevent="move(-1)"

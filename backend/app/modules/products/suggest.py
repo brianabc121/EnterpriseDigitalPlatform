@@ -234,14 +234,20 @@ def _near_cjk(token: str, value: str) -> float | None:
     return 0.35 + 0.35 * ratio if ratio >= 0.5 else None
 
 
-def _distance(a: str, b: str) -> int:
+def _within(a: str, b: str, limit: int) -> bool:
+    """a 和 b 的编辑距离不超过 limit（长度差得多的、a 里有好几个字 b 里没有的直接不算，算到一半已经
+    超过时提前结束）。"""
+    if abs(len(a) - len(b)) > limit or len(set(a) - set(b)) > limit:
+        return False
     previous = list(range(len(b) + 1))
     for i, ca in enumerate(a, 1):
         current = [i]
         for j, cb in enumerate(b, 1):
             current.append(min(previous[j] + 1, current[j - 1] + 1, previous[j - 1] + (ca != cb)))
+        if min(current) > limit:
+            return False
         previous = current
-    return previous[-1]
+    return previous[-1] <= limit
 
 
 def _near_latin(token: str, value: str) -> float | None:
@@ -251,7 +257,7 @@ def _near_latin(token: str, value: str) -> float | None:
     squeezed = value.replace(" ", "")
     allowed = 1 if len(token) < 6 else 2
     candidates = [squeezed, squeezed[: len(token)], *value.split()]
-    if any(_distance(token, c) <= allowed for c in candidates if c):
+    if any(c and _within(token, c, allowed) for c in candidates):
         return 0.6
     return None
 
@@ -338,7 +344,7 @@ def _whole(whole: str, f: Fields) -> Scored | None:
             found.append(Scored(PREFIX * WEIGHT[where], where, "prefix"))
         elif len(whole) >= 4:
             allowed = 1 if len(whole) < 8 else 2
-            if min(_distance(whole, squeezed), _distance(whole, squeezed[: len(whole)])) <= allowed:
+            if _within(whole, squeezed, allowed) or _within(whole, squeezed[: len(whole)], allowed):
                 found.append(Scored(0.6 * WEIGHT[where], where, "similar"))
     return max(found, key=lambda s: s.score, default=None)
 

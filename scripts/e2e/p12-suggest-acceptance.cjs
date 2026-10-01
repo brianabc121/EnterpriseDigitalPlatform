@@ -291,7 +291,19 @@ async function orderSection(browser, ctx) {
   await page.waitForTimeout(300)
   const sheetOpen = await form.isVisible()
   const listGone = (await form.locator(`[data-testid="${entry}-options"]`).count()) === 0
-  check('Esc 只收起联想的下拉，单据还开着', sheetOpen && listGone, { sheetOpen, listGone })
+  // 再点一下录入行：重新列出这次输入的候选。
+  await form.locator(`input[data-testid="${entry}-input"]`).click()
+  await page.waitForFunction(
+    ([sel, query]) => document.querySelector(sel)?.getAttribute('data-query') === query,
+    [`[data-testid="${entry}-options"]`, 'znms'],
+  )
+  const reopened = await dropdown(form, entry)
+  await form.locator(`input[data-testid="${entry}-input"]`).press('Escape')
+  check(
+    'Esc 只收起联想的下拉，单据还开着；再点一下录入行重新列出候选',
+    sheetOpen && listGone && reopened.options[0]?.code === 'LOCK-X1',
+    { sheetOpen, listGone, reopened: brief(reopened) },
+  )
 
   // 扫码：代码没有横线、型号，也直接加入；已经有的累加数量。
   await scan(form, entry, 'win01')
