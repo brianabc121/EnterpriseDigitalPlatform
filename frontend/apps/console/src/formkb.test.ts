@@ -4,6 +4,7 @@ import {
   actionTag,
   evidenceText,
   eventText,
+  kindText,
   recordSummary,
   reviewDecisions,
   statusTag,
@@ -42,6 +43,13 @@ describe('表单知识（§25.18）', () => {
       }),
     ).toBe('1 处更新')
     expect(recordSummary({ status: 'failed', result: [] })).toBe('判断失败（已重试 3 次）')
+  })
+
+  it('类型：搭配写明是哪种表单', () => {
+    expect(kindText({ kind: 'alias', form: null })).toBe('叫法')
+    expect(kindText({ kind: 'usage', form: 'requisition' })).toBe('用量')
+    expect(kindText({ kind: 'companion', form: 'requisition' })).toBe('搭配·领料单')
+    expect(kindText({ kind: 'companion', form: 'order' })).toBe('搭配·订单')
   })
 
   it('标签颜色', () => {

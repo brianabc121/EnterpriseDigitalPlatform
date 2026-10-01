@@ -14,6 +14,7 @@ import {
   STATUS_LABEL,
   actionTag,
   evidenceText,
+  kindText,
   reviewDecisions,
   statusTag,
   type FormKbDetail,
@@ -165,15 +166,12 @@ function onSaved(data: FormKbDetail): void {
       <template v-if="entry">
         <p class="sentence" data-testid="formkb-drawer-sentence">{{ entry.sentence }}</p>
         <div class="tags">
-          <el-tag size="small" type="info">{{ KIND_LABEL[entry.kind] }}</el-tag>
+          <el-tag size="small" type="info">{{ kindText(entry) }}</el-tag>
           <el-tag size="small" :type="statusTag(entry.status)" data-testid="formkb-drawer-status">
             {{ STATUS_LABEL[entry.status] }}
           </el-tag>
           <el-tag size="small" type="info" effect="plain">{{ SOURCE_LABEL[entry.source] }}</el-tag>
           <el-tag v-if="entry.locked" size="small" type="warning" effect="plain">固定</el-tag>
-          <el-tag v-if="entry.form" size="small" type="info" effect="plain">
-            {{ FORM_LABEL[entry.form] }}
-          </el-tag>
         </div>
 
         <el-alert
@@ -304,7 +302,7 @@ function onSaved(data: FormKbDetail): void {
           <el-table-column label="时间" width="150">
             <template #default="{ row }">{{ formatDateTime(row.at) }}</template>
           </el-table-column>
-          <el-table-column label="单据" width="150">
+          <el-table-column label="单据" width="210">
             <template #default="{ row }">
               {{ FORM_LABEL[row.form as FormKbForm] }} {{ row.record_no }}
             </template>

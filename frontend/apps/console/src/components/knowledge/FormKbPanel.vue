@@ -13,6 +13,7 @@ import {
   actionTag,
   evidenceText,
   eventText,
+  kindText,
   recordSummary,
   statusTag,
   type FormKbAction,
@@ -249,6 +250,7 @@ onMounted(() => Promise.all([loadSummary(), loadEntries()]))
           v-model="filters.kind"
           size="small"
           class="narrow"
+          placeholder="全部类型"
           data-testid="formkb-kind-filter"
           @change="reloadEntries"
         >
@@ -266,7 +268,13 @@ onMounted(() => Promise.all([loadSummary(), loadEntries()]))
             {{ text }}
           </el-radio-button>
         </el-radio-group>
-        <el-select v-model="filters.source" size="small" class="narrow" @change="reloadEntries">
+        <el-select
+          v-model="filters.source"
+          size="small"
+          class="narrow"
+          placeholder="全部来源"
+          @change="reloadEntries"
+        >
           <el-option label="全部来源" value="" />
           <el-option v-for="(text, value) in SOURCE_LABEL" :key="value" :label="text" :value="value" />
         </el-select>
@@ -295,7 +303,7 @@ onMounted(() => Promise.all([loadSummary(), loadEntries()]))
       >
         <el-table-column label="知识" min-width="320">
           <template #default="{ row }">
-            <el-tag size="small" type="info" class="kind">{{ KIND_LABEL[row.kind as FormKbKind] }}</el-tag>
+            <el-tag size="small" type="info" class="kind">{{ kindText(row) }}</el-tag>
             <span>{{ row.sentence }}</span>
             <el-tag v-if="row.review" size="small" type="warning" class="flag">待确认</el-tag>
           </template>
@@ -306,7 +314,7 @@ onMounted(() => Promise.all([loadSummary(), loadEntries()]))
             <el-tag v-if="row.locked" size="small" type="warning" effect="plain" class="flag">固定</el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="依据" width="130">
+        <el-table-column label="依据" width="150">
           <template #default="{ row }">{{ evidenceText(row) }}</template>
         </el-table-column>
         <el-table-column label="开单时用到" width="100" align="right">
@@ -333,6 +341,7 @@ onMounted(() => Promise.all([loadSummary(), loadEntries()]))
           v-model="recordForm"
           size="small"
           class="narrow"
+          placeholder="全部表单"
           data-testid="formkb-record-form"
           @change="reloadRecords"
         >

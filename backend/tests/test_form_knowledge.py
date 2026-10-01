@@ -175,11 +175,8 @@ async def test_aliases_learned_from_entry_are_used_in_suggestions_and_ai(desk: D
         "输入「大窗」没找到，换了说法选了 铝合金窗 1.5m×1.8m",
     ]
     assert {e["actor_name"] for e in detail["evidence_items"]} >= {"Alice", "Bob"}
-    assert [log["action"] for log in detail["log"]][::-1] == [
-        "created",
-        "strengthened",
-        "activated",
-    ]
+    # 多了一次依据又开始生效时只记"生效"（不另记"加强"）。
+    assert [log["action"] for log in detail["log"]][::-1] == ["created", "activated"]
 
 
 async def test_learned_alias_is_replaced_when_people_pick_another_product(desk: Desk) -> None:
@@ -199,6 +196,12 @@ async def test_learned_alias_is_replaced_when_people_pick_another_product(desk: 
     for _ in range(3):
         await pick(big)
     assert aliases(await entries(desk))[("窗户", "WIN-01")] == "active"
+    # 还没达到条件：多了一次依据，记为"加强"。
+    [result] = (await records(desk))[0]["result"]
+    assert (result["action"], result["text"]) == (
+        "strengthened",
+        "叫法：输入「窗户」→ 铝合金窗 1.5m×1.8m（又选了一次，最近 5 次里 3 次选了它）",
+    )
     await pick(big)
     assert aliases(await entries(desk)) == {
         ("窗户", "WIN-01"): "observing",
@@ -324,10 +327,10 @@ async def test_companions_and_learning_records(desk: Desk) -> None:
     }
     assert pairs == {("铝合金窗", "纱窗"): ("active", 3), ("纱窗", "铝合金窗"): ("active", 3)}
 
-    # 录入行空着、单上已经有铝合金窗：先列出常一起开的纱窗，再列最近用过的。
+    # 录入行空着、单上已经有铝合金窗：先列出常一起开的纱窗，再列最近用过的（单上已有的不列）。
     found = await suggestions(desk, alice, with_=(window["id"],))
     assert found[0] == ("纱窗", None, "companion", "和 铝合金窗 一起开过 3/4 次")
-    assert [s[2] for s in found[1:]] == ["recent", "recent"]
+    assert [(s[0], s[2]) for s in found[1:]] == [("门锁", "recent")]
 
     # 采用了推荐：记一次"用到"。
     await new_order(

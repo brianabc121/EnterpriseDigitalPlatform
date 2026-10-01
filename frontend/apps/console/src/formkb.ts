@@ -75,6 +75,12 @@ export const ACTION_LABEL: Record<FormKbAction, string> = {
   recipe: '写进配方',
 }
 
+/** 列表里的类型：搭配写明是哪种表单（订单里常一起开的、领料单里常一起领的）。 */
+export function kindText(entry: Pick<FormKbEntry, 'kind' | 'form'>): string {
+  if (entry.kind === 'companion' && entry.form) return `${KIND_LABEL.companion}·${FORM_LABEL[entry.form]}`
+  return KIND_LABEL[entry.kind]
+}
+
 export function statusTag(status: FormKbStatus): TagType {
   if (status === 'active') return 'success'
   if (status === 'disabled') return 'info'

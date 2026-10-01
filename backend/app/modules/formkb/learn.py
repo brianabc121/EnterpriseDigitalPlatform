@@ -407,6 +407,7 @@ class Judge:
             n = counts.get(product_id, 0)
             share = n / total if total else 0.0
             entry = existing.get(product_id)
+            stronger = False
             if entry is None:
                 if not n:
                     continue
@@ -423,40 +424,61 @@ class Judge:
                 await self.session.flush()
                 self.note(entry, "created", f"第一次：最近 {total} 次里 {n} 次选了它")
             else:
-                stronger = n > entry.evidence
+                stronger = (
+                    n > entry.evidence
+                    and entry.status != Status.DISABLED
+                    and entry.id not in self.hit
+                )
                 entry.evidence, entry.share = n, share
                 entry.stats = {**entry.stats, "window": total}
                 if not entry.locked and product_id in labels:
                     entry.label = labels[product_id]
-                if stronger and entry.status != Status.DISABLED and entry.id not in self.hit:
-                    self.note(entry, "strengthened", f"第 {n} 次（最近 {total} 次里）")
             entry.learned_at = self.now
             why = f"最近 {total} 次里 {n} 次选了它"
-            if entry.locked:
-                rival = leader if leader is not None and leader != product_id else None
-                if (
-                    rival is not None
-                    and counts[rival] >= ALIAS_MIN
-                    and counts[rival] / total >= ALIAS_SHARE
-                    and entry.review != Review.CONFLICT
-                    and entry.status != Status.DISABLED
-                    and entry.stats.get("kept") != str(rival)
-                ):
-                    other = self.products.get(rival)
-                    entry.stats = {**entry.stats, "rival": str(rival)}
-                    entry.review = Review.CONFLICT.value
-                    entry.review_note = (
-                        f"最近 {total} 次输入「{entry.label or key}」，"
-                        f"{counts[rival]} 次选了 {other.name if other else '另一个商品'}"
-                    )
-                    self.note(entry, "review", entry.review_note)
-                continue
-            self.qualify(
-                entry,
-                product_id in qualified,
-                drop=share < ALIAS_FLOOR or bool(qualified - {product_id}),
-                why=why,
-            )
+            noted = len(self.results)
+            self._judge_alias(entry, key, product_id, why, total, counts, leader, qualified)
+            # 多了一次依据：这次没有别的变化（生效、待确认……）时记为"加强"。
+            if stronger and len(self.results) == noted:
+                self.note(entry, "strengthened", f"又选了一次，{why}")
+
+    def _judge_alias(
+        self,
+        entry: FormKbEntry,
+        key: str,
+        product_id: uuid.UUID,
+        why: str,
+        total: int,
+        counts: Counter[uuid.UUID],
+        leader: uuid.UUID | None,
+        qualified: set[uuid.UUID],
+    ) -> None:
+        """固定的叫法：别的商品达到条件时标待确认；学到的：达到条件生效，比例太低回到观察中。"""
+        share = counts.get(product_id, 0) / total if total else 0.0
+        if entry.locked:
+            rival = leader if leader is not None and leader != product_id else None
+            if (
+                rival is not None
+                and counts[rival] >= ALIAS_MIN
+                and counts[rival] / total >= ALIAS_SHARE
+                and entry.review != Review.CONFLICT
+                and entry.status != Status.DISABLED
+                and entry.stats.get("kept") != str(rival)
+            ):
+                other = self.products.get(rival)
+                entry.stats = {**entry.stats, "rival": str(rival)}
+                entry.review = Review.CONFLICT.value
+                entry.review_note = (
+                    f"最近 {total} 次输入「{entry.label or key}」，"
+                    f"{counts[rival]} 次选了 {other.name if other else '另一个商品'}"
+                )
+                self.note(entry, "review", entry.review_note)
+            return
+        self.qualify(
+            entry,
+            product_id in qualified,
+            drop=share < ALIAS_FLOOR or bool(qualified - {product_id}),
+            why=why,
+        )
 
     # ---- 用量 ----
 

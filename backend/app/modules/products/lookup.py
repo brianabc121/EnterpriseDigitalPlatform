@@ -133,7 +133,8 @@ async def suggestions(
             for c in await knowledge.companions(session, form, with_ids, kind=kind, limit=limit):
                 note = f"和 {c.anchor.name} 一起开过 {c.together}/{c.forms} 次"
                 found.append(Suggestion(c.product, 0.0, None, "companion", note))
-        listed = {s.product.id for s in found}
+        # 单上已经有的商品不再列出。
+        listed = {s.product.id for s in found} | set(with_ids)
         for p in await recent(session, principal, kind=kind, source=source, limit=limit):
             if p.id not in listed:
                 found.append(Suggestion(p, 0.0, None, "recent"))
