@@ -1,7 +1,7 @@
 # 企业数字化转型平台 · 全渠道智能客服 设计文档
 
-> 状态：草案 v1.2（v0.3 增加待办事项与订单管理；v0.4 纳入第三轮决定；v0.5 增加加工与工人角色；v0.6 增加库存；v0.7 增加仓库：材料与成品、领料单与入库单；v0.8 重做开单界面，增加修改历史；v0.9 增加接口传输加密和按岗位的控制台；v1.0 开单时的商品联想；v1.1 加工时的一键领料；v1.2 表单填写知识库，待评审）
-> 日期：2026-09-28（v0.3–v0.9 更新于 2026-09-30，v1.0–v1.2 更新于 2026-10-01）
+> 状态：草案 v1.3（v0.3 增加待办事项与订单管理；v0.4 纳入第三轮决定；v0.5 增加加工与工人角色；v0.6 增加库存；v0.7 增加仓库：材料与成品、领料单与入库单；v0.8 重做开单界面，增加修改历史；v0.9 增加接口传输加密和按岗位的控制台；v1.0 开单时的商品联想；v1.1 加工时的一键领料；v1.2 表单填写知识库；v1.3 邮件渠道，待评审）
+> 日期：2026-09-28（v0.3–v0.9 更新于 2026-09-30，v1.0–v1.3 更新于 2026-10-01）
 > 范围：需求 R1–R8 的整体架构、关键决策与分期方案。本文确认后，再按阶段拆解实施计划。
 > 修订记录见附录 B。
 
@@ -773,6 +773,7 @@ class ChannelAdapter(Protocol):
 | 微信客服 | 只能在客户最后一次发消息后的 48 小时内联系 |
 | 企业微信客户联系、客户群 | 需要员工确认群发任务，或由员工在侧边栏发送 |
 | WhatsApp | 需要使用已审核的模板消息 |
+| 邮件（v1.3） | 回复客户的来信；不主动群发（见 §10.8） |
 
 这些差异由 `capabilities` 描述。后续的营销触达（P5）统一建立在这层抽象上。
 
@@ -903,6 +904,167 @@ sequenceDiagram
 | 钉钉 | 开放平台的机器人 / 服务群 | 同上 |
 
 新增一个渠道，只需要实现一个 `ChannelAdapter` 并补充配置页面，不需要改动会话、AI 和知识模块。
+
+### 10.8 邮件（v1.3 新增）
+
+需求：平台还没有邮件收发。接入 163、QQ、Gmail 等主流邮箱；客户发来的邮件（包括邮件里的订单需求）直接交给客服处理，进来就是一个未读会话。
+
+**现在的情况**
+
+- 平台里没有邮件收发，客户档案只有一个加密保存的"邮箱"字段。
+- 客户发到企业邮箱的咨询和下单需求只能在邮箱客户端里处理：不进客服工作台，没有分配、统计、客户档案，也不能在会话里直接下单、建待办。
+
+**接入邮箱**
+
+- 每个邮箱是一个渠道账号（类型 `email`），在"设置 → 邮箱"里添加：
+  - 选择邮箱类型，填写邮箱地址和授权码（各家的"客户端专用密码"）；
+  - 平台自动带出收信（IMAP）、发信（SMTP）服务器和端口，可以在"高级设置"里改；
+  - 保存前测试连接：IMAP 登录并打开收件箱，SMTP 登录。
+- 输入地址时按域名自动选择邮箱类型（`@163.com` → 163 邮箱，`@qq.com`、`@foxmail.com` → QQ 邮箱，`@gmail.com` → Gmail）。
+
+| 邮箱 | 收信（IMAP，SSL） | 发信（SMTP，SSL） | 密码 | 说明 |
+|---|---|---|---|---|
+| 163 / 126 / yeah.net | `imap.163.com:993`（126、yeah.net 同理） | `smtp.163.com:465` | 授权码 | 网页版"设置 → POP3/SMTP/IMAP"里开启 IMAP/SMTP 服务后生成；登录后要先发 IMAP ID 命令，否则打开收件箱时被拒（Unsafe Login） |
+| QQ 邮箱（含 foxmail.com） | `imap.qq.com:993` | `smtp.qq.com:465` | 授权码 | "设置 → 账号"里开启 IMAP/SMTP 服务后生成 |
+| 腾讯企业邮 | `imap.exmail.qq.com:993` | `smtp.exmail.qq.com:465` | 邮箱密码或客户端专用密码 | 开启了安全登录时用客户端专用密码 |
+| 网易企业邮 | `imap.qiye.163.com:993` | `smtp.qiye.163.com:994` | 邮箱密码或客户端授权码 | |
+| 阿里企业邮 | `imap.qiye.aliyun.com:993` | `smtp.qiye.aliyun.com:465` | 邮箱密码 | |
+| Gmail | `imap.gmail.com:993` | `smtp.gmail.com:465` | 应用专用密码 | 账号开启两步验证后生成；服务器要能访问 Google |
+| 其他 | 手工填写 | 手工填写 | | SSL 或 STARTTLS |
+
+- Outlook、Microsoft 365 已经只支持 OAuth 授权登录，这一版不支持（见下文"不做的"）。
+- 授权码用租户数据密钥加密保存，接口不返回明文；修改时重新输入。
+
+**收信**
+
+- 调度进程每 10 秒检查到期的邮箱，每个邮箱默认 60 秒收一次；"立即收取"马上收一次。
+- IMAP 只读打开收件箱（`EXAMINE`），按 UID 增量收取（记下 UIDVALIDITY 和收到的最后一个 UID）。不改邮件的已读状态，不删除邮件，邮箱客户端里照常可以看。
+- 添加邮箱时只记下当前位置，之后收到的新邮件才导入，不导入以前的邮件。UIDVALIDITY 变化（邮箱被重建）时从当前位置重新开始。
+- 服务器支持 ID 扩展时，登录后先发 `ID`（网易邮箱必需）。
+- 解析：
+  - 头部：主题、发件人、Reply-To、收件人、抄送、时间、Message-ID、In-Reply-To、References；
+  - 正文：优先用纯文本，只有 HTML 时转成文字；GBK、GB2312 声明的内容按 GB18030 解码；
+  - 引用：回复里引用的历史内容（"在……写道："、"------------------ 原始邮件 ------------------"、"On … wrote:"、"> " 开头的行等）折叠起来，会话里只显示新写的部分，可以展开。
+- 附件：
+  - 每个附件作为一条图片或文件消息跟在邮件后面，复用聊天附件的存储、病毒扫描和保留期；
+  - 正文里引用的内嵌图片（`cid:`）不单独列出，在"查看原邮件"里显示；
+  - 单个附件超过 20 MB、整封邮件超过 30 MB 时不导入内容，会话里提示到邮箱查看。
+- 原邮件（`.eml`）存到对象存储，可以下载。"查看原邮件"在沙箱里显示 HTML：不执行脚本，不加载外部图片。
+- 不导入以下邮件，数量记在邮箱状态里：
+  - 自动回复（`Auto-Submitted`、`X-Autoreply` 等）；
+  - 退信（`MAILER-DAEMON`、`postmaster`）；
+  - 邮件列表和群发（`List-Id`、`List-Unsubscribe`、`Precedence: bulk/list/junk`）；
+  - 本邮箱自己发出的邮件；
+  - 设置里"忽略的发件人"（地址或 `@域名`）。
+- 客户：按发件人地址找客户，依次是：
+  1. 这个邮箱里已有这个地址的身份：用原来的客户；
+  2. 档案里邮箱相同的客户（盲索引精确匹配）；
+  3. 都没有时新建客户：名称用发件人显示名，没有时用地址 @ 前的部分；邮箱加密写入档案；来源渠道记为"邮件"。
+
+  身份的标识用地址的盲索引，地址本身加密保存在身份里。
+- 每封邮件是一条消息（类型 `email`）：
+  - 内容：主题、发件人、收件人、抄送、新写的正文、折叠的引用、原邮件链接；
+  - 纯文本（主题 + 正文）供坐席助手、知识提炼、待办和会话摘要使用；
+  - 按 Message-ID 去重。
+
+**进会话：直接交给客服，进来就是未读**
+
+```mermaid
+flowchart LR
+  box[企业邮箱<br/>163 QQ Gmail ...] -- IMAP 每分钟增量收取 --> poll[调度进程<br/>解析 过滤 存附件]
+  poll --> cust[找到或新建客户<br/>按发件人地址]
+  cust --> msg[邮件消息入库<br/>附件消息 原邮件]
+  msg --> sess{这个客户有<br/>进行中的会话}
+  sess -- 有 --> add[追加到会话<br/>对接待客服是未读]
+  sess -- 没有 --> queue[新会话直接排队<br/>不经 AI 不看工作时间]
+  queue --> assign[按路由策略分配<br/>没有在线客服就等]
+  assign --> desk[客服工作台<br/>未读会话]
+  add --> desk
+  desk -- 回复 --> out[发件箱]
+  out -- SMTP Re: 原主题 --> box2[客户邮箱]
+```
+
+- 邮件进来后与其他渠道一样，按客户的 Room 归入会话；这个客户没有进行中的会话时新建会话。
+- 邮件会话不经过 AI 接待（不管路由策略是不是 AI 优先，排队期间 AI 也不回答），也不受工作时间限制：
+  - 直接进入排队，按路由策略（技能组、归属坐席优先、按意图分配、优先级）分配给在线的客服；
+  - 没有在线客服时留在排队里，客服上线后分配；
+  - 邮件会话不会因为排队超时转成留言。
+- 不给客户发系统提示：排队位置、"客服 xx 为您服务"、结束提示、满意度邀请在邮件里都是打扰。
+- 未读：
+  - 会话记下接待客服最后一次查看的时间（`sessions.read_at`），之后客户发来的消息都算未读；
+  - 会话列表显示未读数，刷新页面后也在；
+  - 打开会话就是已读；转给别的客服后，对新客服是未读；
+  - 网页、微信客服的会话同样适用（以前未读数只在页面打开期间累计）。
+- 结束：
+  - 客服回复后，客户在一段时间（路由策略的空闲结束时间）内没有再来信，会话自动结束；
+  - 客户的邮件还没有回复时，不会自动结束；
+  - 客户再来信开始新的会话，会话续接窗口内优先分配给上次的客服；
+  - 客服也可以直接结束（例如广告邮件）。
+- 邮件里的订单需求由客服在会话里处理：工作台的"订单"页签直接为这个客户下单，"待办"页签建待办。
+
+**回复**
+
+- 客服在工作台回复，默认回复会话里最近的一封客户邮件，也可以在某封邮件上点"回复"。
+- 主题自动带"Re: 原主题"，可以修改。In-Reply-To 和 References 指向原邮件，客户的邮箱里会归到同一个邮件会话下。
+- 正文后面附上签名（在邮箱设置里填写）和引用的原邮件；同时生成纯文本和 HTML 两种格式。
+- 发到原邮件的 Reply-To 地址，没有时发到发件人地址。发件人是这个邮箱，显示名称在邮箱设置里填写。
+- 图片、文件：每次发送一封带这个附件的邮件。
+- 与微信客服相同，经发件箱投递：先写入消息库，投递成功后镜像到服务群。
+  - 网络问题自动重试；
+  - 授权码错误、收件人被拒绝等直接显示失败原因，可以重试；
+  - 邮箱停用后不能回复。
+- 不保存到邮箱的"已发送"，平台里有完整记录。
+
+**邮箱状态与故障**
+
+- 邮箱列表显示状态（正常、连接失败、已暂停、已停用）、最近一次收信、最近收到邮件的时间、最近的错误、忽略的邮件数。
+- 连接失败时退避重试（1、2、5、15、30 分钟）。
+- 登录失败（授权码错误、服务被关闭）连续 3 次后暂停收信，并给有设置权限的员工发站内信；修改授权码或"立即收取"成功后恢复。
+
+**安全**
+
+- 授权码加密保存，接口不返回明文。
+- 服务器地址不允许内网和本机地址，防止借邮箱设置探测内网；开发和测试环境可以放开（`EDP_MAIL_ALLOW_PRIVATE_HOSTS`）。
+- 连接一律加密（SSL 或 STARTTLS）并校验证书；不加密只在放开内网地址的环境里可选。
+- 原邮件的 HTML 只在沙箱 iframe 里显示（不执行脚本，不加载外部资源）；附件和其他聊天附件一样做病毒扫描。
+- 发件人地址可能被伪造。按地址归到已有客户只决定会话归属，不会自动执行任何操作，由客服判断。
+
+**数据**（迁移 `0028`）
+
+- `mail_accounts`，一个邮箱一行，字段如下：
+  - `channel_account_id`：对应的渠道账号；
+  - 邮箱本身：address、display_name、provider；
+  - 服务器：imap_host、imap_port、imap_security、smtp_host、smtp_port、smtp_security；
+  - 登录：username、secret_enc（加密）；
+  - 回复和过滤：signature、ignore_senders；
+  - 收信位置：uidvalidity、last_uid；
+  - 状态：status(active/paused/disabled)、last_polled_at、last_received_at、next_poll_at、failures、last_error、ignored。
+- `sessions.read_at`：接待客服最后一次查看会话的时间。
+- `channel_accounts.type` 增加 `email`。
+
+**接口**
+
+- 邮箱管理（需要 `settings:manage`）：
+  - `GET /api/v1/mail/providers`：邮箱类型和服务器预设；
+  - `GET|POST /api/v1/mail/accounts`、`GET|PUT /api/v1/mail/accounts/{id}`；
+  - `POST /api/v1/mail/accounts/test`：保存前测试；
+  - `POST /api/v1/mail/accounts/{id}/fetch`：立即收取；
+  - `POST /api/v1/mail/accounts/{id}/enable|disable`。
+- `GET /api/v1/mail/messages/{message_id}/original`：原邮件的 HTML，能看这个会话的员工可以查看。
+- 会话：
+  - `POST /api/v1/sessions/{id}/read`：标记已读；
+  - 会话列表增加 `unread`（未读数）、`channel_type`（渠道类型）；
+  - 发送消息增加 `subject`、`reply_to`（只用于邮件）。
+
+**不做的**：
+
+- OAuth 授权登录（Gmail OAuth、Outlook / Microsoft 365）；
+- IMAP IDLE 推送（用轮询）；
+- 收件箱以外的文件夹；
+- 把回复保存到邮箱的"已发送"；
+- 富文本编辑器（回复是纯文本，自动生成 HTML）；
+- 主动给客户发新邮件、群发营销邮件；
+- AI 自动回复邮件（客服可以用"AI 建议"）。
 
 ---
 
@@ -1300,10 +1462,11 @@ sequenceDiagram
 | | `customer_identities` | customer_id, channel, channel_account_id, external_id, unionid, im_user_id, profile(jsonb), verified；唯一键 (tenant_id, channel_account_id, external_id) |
 | | `customer_owner_history` | customer_id, from_owner, to_owner, reason, operator_id, wecom_sync_status |
 | | `tags` / `customer_tags` / `customer_notes` | 标签字典（与企业微信企业标签同步）、客户标签、备注 |
-| 渠道 | `channel_accounts` | type(web/wecom_kf/wecom_contact/...), name, config_enc(jsonb), routing_policy_id, status |
+| 渠道 | `channel_accounts` | type(web/wecom_kf/wecom_contact/email/...), name, config_enc(jsonb), routing_policy_id, status |
+| | `mail_accounts`（v1.3） | channel_account_id, address, display_name, provider, imap_host/port/security, smtp_host/port/security, username, secret_enc, signature, ignore_senders, uidvalidity, last_uid, status, next_poll_at, failures, last_error（§10.8） |
 | | `channel_cursors` | channel_account_id, cursor, updated_at（sync_msg 游标等） |
 | 会话 | `rooms` | customer_id, identity_id, channel_account_id, im_group_id, last_message_at |
-| | `sessions` | room_id, customer_id, status, assignee_id, skill_group_id, started_at, first_response_at, handoff_at, human_joined_at, closed_at, close_reason, handoff_reason, ai_summary, csat, resolved |
+| | `sessions` | room_id, customer_id, status, assignee_id, skill_group_id, started_at, first_response_at, handoff_at, human_joined_at, closed_at, close_reason, handoff_reason, ai_summary, csat, resolved, read_at（v1.3：接待客服最后一次查看的时间，之后客户的消息算未读） |
 | | `session_events` | session_id, type(created/ai_reply/handoff/queued/assigned/transfer_*/closed…), actor_id, payload(jsonb) |
 | | `messages`（按月分区） | room_id, session_id, direction, sender_type(customer/agent/bot/system), sender_id, content_type, content(jsonb), text_plain, channel_msg_id, im_msg_id, client_msg_id, delivery_status；唯一键 (channel_account_id, channel_msg_id) |
 | | `routing_policies` | mode(ai_first/human_first), business_hours, default_skill_group_id, overflow_rules, max_wait_seconds |
@@ -1368,6 +1531,11 @@ GET    /api/v1/sessions?status=&scope=mine|team|all
 GET    /api/v1/sessions/{id}  |  /sessions/{id}/messages?before=
 POST   /api/v1/sessions/{id}/messages                # 坐席发送（clientMsgId 幂等）
 POST   /api/v1/sessions/{id}/accept | close | transfer | return-to-ai
+POST   /api/v1/sessions/{id}/read                    # 标记已读（v1.3）：会话列表的 unread 从这之后算
+GET|POST /api/v1/mail/accounts                       # 邮箱（v1.3，§10.8）：163、QQ、Gmail 等，授权码加密保存
+GET|PUT /api/v1/mail/accounts/{id}  |  POST /mail/accounts/test  |  /mail/accounts/{id}/fetch|enable|disable
+GET    /api/v1/mail/providers                        # 邮箱类型和服务器预设
+GET    /api/v1/mail/messages/{message_id}/original   # 原邮件的 HTML（沙箱里显示）
 GET    /api/v1/sessions/{id}/copilot/suggestions
 GET    /api/v1/customers  |  /customers/{id}      PATCH /customers/{id}
 POST   /api/v1/customers/transfer                   # 批量客户转移（管理员）
@@ -1513,7 +1681,7 @@ POST   /hooks/wecom/{callbackType}                  # 指令回调：授权变�
 | 数据看板 | 实时排队、在线坐席、AI 解决率、满意度 |
 | 员工与角色 | 员工、角色、权限点 |
 | 技能组与路由策略 | 技能组、分配规则、工作时间、溢出策略 |
-| 渠道接入 | 生成 Widget 嵌入代码、企业微信授权向导、微信客服账号绑定 |
+| 渠道接入 | 生成 Widget 嵌入代码、企业微信授权向导、微信客服账号绑定、邮箱（v1.3：选择邮箱类型、填授权码、测试连接） |
 | 客户管理 | 全部客户、批量转移、合并客户、企业微信客户群 |
 | 会话监控 | 实时旁听、强制转接 |
 | 知识库 | 知识空间、知识条目、文档、审核台、缺口榜 |
@@ -2879,6 +3047,7 @@ flowchart LR
 | v0.9 | 2026-09-30 | 新增 §25.15：接口传输加密（ECDH 握手、AES-256-GCM 加密请求和响应、防重放、生产环境强制；如实说明能防和不能防的）；按岗位的控制台（管理员、主管、客服、仓管、工人、知识管理员各自的菜单和首页，新增"仓管"系统角色，管理员可以调整每个岗位的菜单）；相应调整 §15、§16、§18 |
 | v1.0 | 2026-10-01 | 新增 §25.16：开单时的商品联想（从第一个字开始，在名称、俗称、分类、代码、型号、规格里找，认拼音首字母和全拼、不同写法和相近的写法；按匹配程度、常用和库存排序；没有输入时列出最近用过的；订单里没有匹配的明细按客户的说法推荐）；相应调整 §15、§16 |
 | v1.2 | 2026-10-01 | 新增 §25.18：表单填写知识库（叫法、用量、搭配三类表单知识；每次提交表单都在同一事务里记一条学习记录，由实时消费进程判断要不要更新：证据、生效条件、不一致时换成新的或待确认，自动生效可以关掉；开单时联想、一键领料、AI 下单用上学到的知识；知识库增加"表单知识"页签：列表、依据、变化记录、手工添加和修改、学习记录；新权限 `form_kb:manage`）；相应调整 §12、§15、§16、§25.16、§25.17 |
+| v1.3 | 2026-10-01 | 新增 §10.8：邮件渠道（163、126、QQ、腾讯企业邮、网易企业邮、阿里企业邮、Gmail 和自定义 IMAP/SMTP，授权码加密保存、保存前测试连接；调度进程按 UID 增量收信，解析主题、正文、引用和附件，过滤自动回复、退信和群发；按发件人地址找到或新建客户；邮件会话不经 AI、不看工作时间，直接排队分配给客服，不给客户发系统提示；未读数改为服务端记录；回复带 Re: 主题和 In-Reply-To，经发件箱用 SMTP 发出；邮箱状态、退避和暂停；内网地址限制、HTML 沙箱）；相应调整 §10.1、§15、§16、§17 |
 | v1.1 | 2026-10-01 | 新增 §25.17：加工时的一键领料（领取订单后自动打开填好的领料单：配方 × 数量，没有配方时按以往领料估算，减去已经领过的；每种材料写明怎么算的，估算、库存不够、改过的标出来；退回、补领、已领齐时卡片上的入口；按以往领料形成配方）；相应调整 §16、§25.13 |
 | v0.6 | 2026-09-30 | 新增 §25.12 库存：现有、占用和可用库存，库存预警，库存记录，手动调整（`inventory:manage`），Excel 导入时选择盘点或入库（可以只有代码和数量两列），发货时出库、已出库的订单被取消时退回，库存不足只提示，AI 只说有没有现货，企业系统同步库存；相应调整 §15、§16、§25.7、§25.9、§25.11 |
 | v0.5 | 2026-09-30 | 新增 §25.11 加工与缺货：工人角色（`production:work`、`production:assign`）、加工页（手机优先）、逐个商品标记完成或缺货、订单中心的"待发货""缺货"视图、"待发货""缺货处理"系统待办；相应调整 §15、§16、§24.2、§25.4、§25.7、§25.9、§25.10 |
