@@ -410,6 +410,8 @@ make alerts-check    # 告警规则（promtool）
 - 后端接口变更后执行 `make openapi`，重新导出 `openapi.json` 并生成前端类型（CI 会检查两者是否一致）。
 - `backend/tests/test_openim_contract.py` 同时验证内存版 OpenIM 和真实 OpenIM 的行为是否一致：
   `make im-up` 之后执行 `cd backend && EDP_TEST_OPENIM_URL=http://localhost:10002 uv run pytest tests/test_openim_contract.py`。
+  OpenIM 建群前会回调宿主机 8000 端口上的后端；没有开发后端在跑时（CI 就是这样），测试自己应答回调
+  （`tests/openim_hooks.py`，答复与后端相同）。
 - `backend/tests/test_storage_contract.py` 用真实的 S3 兼容服务验证对象存储签名与接口：
   `make dev-up` 之后执行 `cd backend && EDP_TEST_STORAGE_URL=http://localhost:9000 uv run pytest tests/test_storage_contract.py`。
 - `backend/tests/test_authz_matrix.py` 是越权矩阵：新增带 ID 的接口需要加入其中的 `MATRIX`，否则测试失败。

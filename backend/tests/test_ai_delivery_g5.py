@@ -58,7 +58,9 @@ async def test_long_answers_are_segmented_after_typing(desk: Desk) -> None:
     await desk.say(visitor, "发货和送达有什么说明")
     texts = bot_texts(desk, visitor)
     assert texts == split_reply(LONG) and len(texts) >= 2
-    assert {"type": "typing"} in desk.im.group_signals(visitor.group_id)
+    assert {"type": "typing", "sender": "bot", "name": ""} in desk.im.group_signals(
+        visitor.group_id
+    )
     # 关闭分段后整段发送，也不再提示正在输入。
     await desk.client.put(
         "/api/v1/ai/settings", headers=desk.admin, json={"segment_replies": False}

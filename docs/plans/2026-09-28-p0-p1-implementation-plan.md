@@ -1907,7 +1907,7 @@ M1-1 至 M1-8 全部完成，验收标准已满足：
 | 事项 | 来源 | 做法 |
 |---|---|---|
 | 出站地址固定解析结果（部署前） | §28.4 | `core/urls.resolve_outbound`：发请求前检查并解析一次，连解析到的 IP，`Host` 和 SNI 仍是原域名、证书按域名校验。用于企业系统推送、知识库抓取的每一跳、租户自带的大模型接口（生产环境）。`tests/test_outbound.py` |
-| CI 跑真实 OpenIM 契约测试和 ffmpeg 转码（上线前） | §28.4、§7 | 后端 CI 启动 OpenIM compose、安装 ffmpeg；每次推送都验证 `tests/fake_openim.py` 与真实 OpenIM 一致 |
+| CI 跑真实 OpenIM 契约测试和 ffmpeg 转码（上线前） | §28.4、§7 | 后端 CI 启动 OpenIM compose、安装 ffmpeg；每次推送都验证 `tests/fake_openim.py` 与真实 OpenIM 一致。OpenIM 建群前回调宿主机 8000 端口的后端，CI 的后端测试作业没有后端在跑（第一次 CI 就因此失败，建群报 90004），所以契约测试在端口空闲时自己应答回调（`tests/openim_hooks.py`，答复用后端同一个 `hooks.decide`），并断言真实 OpenIM 确实回调了建群前钩子 |
 | 运营后台令牌刷新（M6） | §6 | 登录写入 httpOnly 的刷新令牌 Cookie（`/platform/v1/auth`，12 小时，刷新不延长）；`POST /platform/v1/auth/refresh` 换新的 Access Token，`/auth/logout` 清除；运营后台页面刷新后自动恢复登录，401 时自动刷新一次。P0 验收加了"刷新页面后仍然登录" |
 | 坐席输入中提示（按需） | §12.4 | `POST /api/v1/sessions/{id}/typing`：接待中的坐席、网页渠道才发在线信令（带坐席名），马上刷发件箱；工作台输入时最多每 4 秒一次、发出消息后重新计时；Widget 显示"小爱 正在输入"6 秒，坐席消息到了就消失。M4 验收加了检查 |
 | 手机上 Widget 全屏（M6 之后） | §12.4 | `embed.js` 在宽度不超过 600px 的屏幕上打开时全屏（`matchMedia`，转屏时跟着变），隐藏悬浮按钮，用 Widget 里的"收起"关闭 |

@@ -2,6 +2,8 @@
 
 真实 OpenIM 只在设置了 EDP_TEST_OPENIM_URL 时参与（例如 make im-up 之后
 EDP_TEST_OPENIM_URL=http://localhost:10002），用来保证 tests/fake_openim.py 与实际行为一致。
+真实 OpenIM 建群前会回调宿主机 8000 端口上的后端；没有开发后端在跑时（CI 的后端测试作业），
+测试自己应答回调（tests/openim_hooks.py）。端口可用 EDP_TEST_OPENIM_HOOK_PORT 改。
 """
 
 import asyncio
@@ -23,10 +25,13 @@ from app.integrations.openim import (
     SeqRange,
     group_conversation_id,
 )
+from app.modules.conversation import hooks
 from tests.fake_openim import SECRET, FakeOpenIM
+from tests.openim_hooks import HookResponder
 
 REAL_URL = os.environ.get("EDP_TEST_OPENIM_URL")
 REAL_SECRET = os.environ.get("EDP_TEST_OPENIM_SECRET", "openim-dev-secret")
+HOOK_PORT = int(os.environ.get("EDP_TEST_OPENIM_HOOK_PORT", "8000"))
 
 
 @dataclass
@@ -34,6 +39,7 @@ class Backend:
     client: OpenIMClient
     fake: FakeOpenIM | None
     prefix: str
+    hooks: HookResponder | None = None
 
     def uid(self, name: str) -> str:
         return f"{self.prefix}_{name}"
@@ -59,11 +65,17 @@ async def backend(request: pytest.FixtureRequest) -> AsyncIterator[Backend]:
         fake = FakeOpenIM()
         client = OpenIMClient("http://openim", secret=SECRET, transport=fake.transport())
         yield Backend(client, fake, prefix)
-    else:
-        assert REAL_URL is not None
-        client = OpenIMClient(REAL_URL, secret=REAL_SECRET)
-        yield Backend(client, None, prefix)
-    await client.aclose()
+        await client.aclose()
+        return
+    assert REAL_URL is not None
+    responder = HookResponder(HOOK_PORT)
+    await responder.start()
+    client = OpenIMClient(REAL_URL, secret=REAL_SECRET)
+    try:
+        yield Backend(client, None, prefix, hooks=responder)
+    finally:
+        await client.aclose()
+        await responder.stop()
 
 
 async def _room(b: Backend) -> str:
@@ -111,6 +123,9 @@ async def test_ensure_group_is_idempotent(backend: Backend) -> None:
         member_user_ids=[backend.uid("c")],
     )
     assert created_again is False
+    if backend.hooks is not None and backend.hooks.active:
+        # 真实 OpenIM 建群前确实回调了平台，平台的服务群规则放行了这个群。
+        assert hooks.BEFORE_CREATE_GROUP in backend.hooks.commands
 
 
 async def test_seq_and_pull(backend: Backend) -> None:
