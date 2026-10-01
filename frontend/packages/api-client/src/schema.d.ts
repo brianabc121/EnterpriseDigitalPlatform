@@ -8295,19 +8295,18 @@ export interface components {
             /**
              * Covered
              * @description 领料单：按配方和估算要领的材料这个订单都已经领了
-             * @default false
              */
             covered: boolean;
             /**
              * Estimated
              * @description 领料单：没有配方、按以往领料估算的商品
              */
-            estimated?: string[];
+            estimated: string[];
             /**
              * Items
              * @description 领料单：这次加工的商品
              */
-            items?: components["schemas"]["DraftItem"][];
+            items: components["schemas"]["DraftItem"][];
             /**
              * Kind
              * @enum {string}
@@ -8557,7 +8556,6 @@ export interface components {
             /**
              * Estimated
              * @description 领料单：有按以往领料估算的部分
-             * @default false
              */
             estimated: boolean;
             /**
@@ -8583,7 +8581,7 @@ export interface components {
              * Sources
              * @description 领料单：建议数量是怎么算的（各商品的用量合计，减去已领的就是建议数量）
              */
-            sources?: components["schemas"]["DraftSource"][];
+            sources: components["schemas"]["DraftSource"][];
             /** Spec */
             spec: string;
             /**
@@ -8594,7 +8592,6 @@ export interface components {
             /**
              * Taken
              * @description 领料单：这个订单已经领过的（待确认和已确认的领料单）
-             * @default 0
              */
             taken: number;
             /** Unit */
@@ -14339,7 +14336,6 @@ export interface components {
             /**
              * Requisition Estimated
              * @description 有没有配方、但能按以往领料估算用量的商品（领料单可以自动填，§25.17）
-             * @default false
              */
             requisition_estimated: boolean;
             /**
@@ -14348,7 +14344,7 @@ export interface components {
              */
             requisition_ready: boolean;
             /** @description 被仓管退回、还没修改的领料单（带退回原因） */
-            requisition_rejected?: components["schemas"]["DocumentBrief"] | null;
+            requisition_rejected: components["schemas"]["DocumentBrief"] | null;
             /**
              * Requisition Required
              * @description 要先开领料单：需要加工的商品有配方（§25.13）
@@ -14358,7 +14354,7 @@ export interface components {
              * Requisition Todo
              * @description 已经开过领料单，按配方还没领的材料，例如“铝合金型材 6.5 米”（订单改了数量时补领）
              */
-            requisition_todo?: string[];
+            requisition_todo: string[];
             /**
              * Shortage
              * @description 有缺货的商品

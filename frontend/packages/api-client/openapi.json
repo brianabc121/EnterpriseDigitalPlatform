@@ -4562,7 +4562,6 @@
       "DocumentDraft": {
         "properties": {
           "covered": {
-            "default": false,
             "description": "领料单：按配方和估算要领的材料这个订单都已经领了",
             "title": "Covered",
             "type": "boolean"
@@ -4623,7 +4622,10 @@
           "kind",
           "order_id",
           "lines",
-          "missing"
+          "missing",
+          "items",
+          "estimated",
+          "covered"
         ],
         "title": "DocumentDraft",
         "type": "object"
@@ -5223,7 +5225,6 @@
             "title": "Code"
           },
           "estimated": {
-            "default": false,
             "description": "领料单：有按以往领料估算的部分",
             "title": "Estimated",
             "type": "boolean"
@@ -5286,7 +5287,6 @@
             "title": "Stock"
           },
           "taken": {
-            "default": 0.0,
             "description": "领料单：这个订单已经领过的（待确认和已确认的领料单）",
             "title": "Taken",
             "type": "number"
@@ -5306,7 +5306,10 @@
           "planned",
           "quantity",
           "stock",
-          "available"
+          "available",
+          "sources",
+          "taken",
+          "estimated"
         ],
         "title": "DraftLine",
         "type": "object"
@@ -19773,7 +19776,6 @@
             "description": "还没生效的入库单（待仓管确认或被退回）；有时订单等仓管确认后才加工完成"
           },
           "requisition_estimated": {
-            "default": false,
             "description": "有没有配方、但能按以往领料估算用量的商品（领料单可以自动填，§25.17）",
             "title": "Requisition Estimated",
             "type": "boolean"
@@ -19872,7 +19874,10 @@
           "needs_receipt",
           "receipt",
           "documents",
-          "material_short"
+          "material_short",
+          "requisition_estimated",
+          "requisition_todo",
+          "requisition_rejected"
         ],
         "title": "ProductionOrder",
         "type": "object"

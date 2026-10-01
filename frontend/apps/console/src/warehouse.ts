@@ -6,6 +6,8 @@ export type WarehouseDocument = Schemas['DocumentOut']
 export type DocumentLine = Schemas['DocumentLineOut']
 export type DocumentBrief = Schemas['DocumentBrief']
 export type DraftLine = Schemas['DraftLine']
+export type DraftSource = Schemas['DraftSource']
+export type DraftItem = Schemas['DraftItem']
 export type DocumentKind = WarehouseDocument['kind']
 export type DocumentStatus = WarehouseDocument['status']
 export type ItemKind = StockItem['kind']
@@ -86,3 +88,29 @@ export function precisionOf(kind: ItemKind): number {
 export function shortMaterials(lines: { name: string; quantity: number; stock: number | null }[]): string[] {
   return lines.filter((line) => (line.stock ?? 0) < line.quantity).map((line) => line.name)
 }
+
+/**
+ * 领料单的建议数量是怎么算的（设计文档 §25.17）：一个商品的用量，例如"铝合金窗 6.5 米/樘 × 2 樘"；
+ * 按以往领料估算的另外写依据。单位为空时按"件"。
+ */
+export function sourceText(source: DraftSource, materialUnit: string): string {
+  const per = source.unit || '件'
+  const usage = `${qtyUnit(source.per_unit, materialUnit)}/${per}`
+  const text = `${source.item} ${usage} × ${source.quantity} ${per}`
+  return source.basis === 'history' ? `${text}（按以往 ${source.orders ?? 0} 个订单估算）` : text
+}
+
+/** 这次加工的商品："铝合金窗 1.2m×1.5m × 2 樘"。 */
+export function draftItemText(item: DraftItem): string {
+  const name = item.spec ? `${item.name} ${item.spec}` : item.name
+  return `${name} × ${item.quantity}${item.unit ? ` ${item.unit}` : ''}`
+}
+
+/** 这次加工的商品的用量从哪里来。 */
+export function draftItemBasis(item: DraftItem): string {
+  if (item.basis === 'recipe') return '按配方'
+  if (item.basis === 'history') return `按以往 ${item.orders ?? 0} 个订单估算`
+  if (item.basis === 'none') return '没有配方，也没有以往的领料'
+  return '没有对应到商品库'
+}
+

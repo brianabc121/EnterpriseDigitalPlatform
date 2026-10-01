@@ -7,10 +7,16 @@ import { api } from '../../api'
 import { focusField, mergeInto, quantityTotal, today, type PickedItem } from '../../documents'
 import { useAuthStore } from '../../stores/auth'
 import {
+  draftItemBasis,
+  draftItemText,
   KIND_LABEL,
   qty,
+  qtyUnit,
+  sourceText,
   stockAfterDocument,
   type DocumentKind,
+  type DraftItem,
+  type DraftSource,
   type ItemKind,
   type WarehouseDocument,
 } from '../../warehouse'
@@ -25,6 +31,10 @@ import ItemEntry from '../documents/ItemEntry.vue'
  * 给订单开单时按配方（领料单：订单数量 × 配方用量，减去已经领过的）或订单（入库单：需要加工的成品）
  * 预填；在仓库页面开领料单时也可以选择关联的订单，按配方带入。领料时库存不够只提示（确认后库存变成
  * 负数），也可以领。仓管开的单、或者设置为不需要确认时提交即生效。
+ *
+ * 一键领料（§25.17）：领料单列出这次加工的商品，每种材料写明怎么算的（"铝合金窗 6.5 米/樘 × 2 樘"、
+ * 已领多少）；没有配方时按以往领料估算（标"估算"）；改过数量的标出建议数量，可以恢复；手动添加的标
+ * 出来。修改被退回的领料单时显示退回原因，并按订单补上每行的计算依据。
  *
  * mode：create 开单；edit 修改后重新提交（待确认或被退回的单据）；complete 完成加工（开入库单，调用
  * 加工的"完成"接口，还没标记的商品一并标记完成）。
@@ -49,6 +59,10 @@ interface Row {
   planned: number | null
   quantity: number
   stock: number | null
+  /** 领料单：建议数量是怎么算的、这个订单已经领过的、有没有估算的部分（§25.17）。 */
+  sources: DraftSource[]
+  taken: number
+  estimated: boolean
 }
 
 type Focusable = { focus: () => void }
@@ -56,6 +70,10 @@ type Focusable = { focus: () => void }
 const auth = useAuthStore()
 const rows = ref<Row[]>([])
 const missing = ref<string[]>([])
+// 领料单（§25.17）：这次加工的商品、按以往领料估算的商品、是不是已经领齐了。
+const making = ref<DraftItem[]>([])
+const estimated = ref<string[]>([])
+const covered = ref(false)
 const note = ref('')
 const loading = ref(false)
 const saving = ref(false)
@@ -92,14 +110,19 @@ const short = computed(() =>
 const quantitySum = computed(() => quantityTotal(rows.value))
 const submitText = computed(() => {
   if (props.mode === 'complete') return direct.value ? '完成并入库' : '提交入库单'
-  return direct.value ? '提交（直接生效）' : '提交'
+  const action =
+    props.mode === 'edit' ? '重新提交' : props.kind === 'requisition' ? '提交领料单' : '提交'
+  return direct.value ? `${action}（直接生效）` : action
 })
+// 是不是给订单开的领料单（有计算依据、可以按配方重新带入）。
+const forOrder = computed(() => props.kind === 'requisition' && Boolean(orderId.value))
 const keeperText = computed(() => {
   if (direct.value) return '提交后直接生效'
   return settings.value?.effective_keeper_name ?? '管理员'
 })
 
 function toRow(line: Schemas['DraftLine'] | Schemas['DocumentLineOut']): Row {
+  const draft = 'sources' in line ? line : null
   return {
     product_id: line.product_id,
     code: line.code,
@@ -109,26 +132,62 @@ function toRow(line: Schemas['DraftLine'] | Schemas['DocumentLineOut']): Row {
     planned: line.planned,
     quantity: line.quantity,
     stock: line.stock,
+    sources: draft?.sources ?? [],
+    taken: draft?.taken ?? 0,
+    estimated: draft?.estimated ?? false,
   }
 }
 
-async function loadDraft(id: string): Promise<boolean> {
+async function fetchDraft(id: string): Promise<Schemas['DocumentDraft'] | null> {
   const { data, error } = await api.GET('/api/v1/warehouse/drafts', {
     params: { query: { kind: props.kind, order_id: id } },
   })
   if (!data) {
     ElMessage.error(errorMessage(error))
-    return false
+    return null
   }
   missing.value = data.missing
+  making.value = data.items
+  estimated.value = data.estimated
+  covered.value = data.covered
+  return data
+}
+
+async function loadDraft(id: string): Promise<boolean> {
+  const data = await fetchDraft(id)
+  if (!data) return false
   rows.value = data.lines.map(toRow)
   return true
+}
+
+/** 修改订单的领料单（例如被退回的）：数量不变，按订单补上每行的计算依据。 */
+async function explain(id: string): Promise<void> {
+  const data = await fetchDraft(id)
+  if (!data) return
+  const lines = new Map(data.lines.map((line) => [line.product_id, line]))
+  for (const row of rows.value) {
+    const line = lines.get(row.product_id)
+    if (line) Object.assign(row, { sources: line.sources, estimated: line.estimated })
+  }
+  covered.value = false
+}
+
+/** 改过数量的行（和建议数量不一样）。 */
+function edited(row: Row): boolean {
+  return row.planned !== null && Math.round((row.quantity - row.planned) * 1000) !== 0
+}
+
+function restore(row: Row): void {
+  if (row.planned !== null) row.quantity = row.planned
 }
 
 watch(open, async (value) => {
   if (!value) return
   rows.value = []
   missing.value = []
+  making.value = []
+  estimated.value = []
+  covered.value = false
   linked.value = null
   linkable.value = []
   note.value = props.document?.note ?? ''
@@ -136,6 +195,7 @@ watch(open, async (value) => {
   const settingsLoad = api.GET('/api/v1/warehouse/settings')
   if (props.document) {
     rows.value = props.document.lines.map(toRow)
+    if (props.kind === 'requisition' && props.document.order_id) await explain(props.document.order_id)
   } else if (props.orderId) {
     await loadDraft(props.orderId)
   }
@@ -196,6 +256,9 @@ function addItems(items: PickedItem[]): void {
     planned: null,
     quantity: i.quantity,
     stock: i.stock,
+    sources: [],
+    taken: 0,
+    estimated: false,
   }))
   if (index >= 0) void nextTick(() => focusField(qtyInputs.value[index]))
 }
@@ -270,6 +333,15 @@ function savedMessage(data: WarehouseDocument | Schemas['ProductionOrder']): str
     @save="save"
   >
     <el-alert v-if="intro" type="info" :closable="false" show-icon class="tip" :title="intro" />
+    <el-alert
+      v-if="document?.status === 'rejected'"
+      type="error"
+      :closable="false"
+      show-icon
+      class="tip"
+      data-testid="document-rejected"
+      :title="`仓管退回：${document.reject_reason ?? ''}。改好后点「重新提交」。`"
+    />
 
     <section class="doc-section">
       <div class="doc-section-head"><h4>基本信息</h4></div>
@@ -312,8 +384,22 @@ function savedMessage(data: WarehouseDocument | Schemas['ProductionOrder']): str
             size="small"
             data-testid="document-refill"
             @click="refill"
-            >{{ kind === 'requisition' ? '按配方重新带入' : '按订单重新带入' }}</el-button
+            >{{ kind === 'requisition' ? '重新带入建议数量' : '按订单重新带入' }}</el-button
           >
+        </div>
+        <div v-if="making.length" class="doc-field full" data-testid="document-making">
+          <label>这次加工</label>
+          <ul class="making">
+            <li v-for="(item, i) in making" :key="i" data-testid="document-making-item" :data-basis="item.basis">
+              <span>{{ draftItemText(item) }}</span>
+              <el-tag
+                size="small"
+                effect="plain"
+                :type="item.basis === 'recipe' ? 'success' : item.basis === 'history' ? 'warning' : 'info'"
+                >{{ draftItemBasis(item) }}</el-tag
+              >
+            </li>
+          </ul>
         </div>
         <div class="doc-field full">
           <label>备注</label>
@@ -330,6 +416,15 @@ function savedMessage(data: WarehouseDocument | Schemas['ProductionOrder']): str
     <section class="doc-section">
       <div class="doc-section-head"><h4>{{ noun }}明细</h4></div>
       <el-alert
+        v-if="estimated.length"
+        type="warning"
+        :closable="false"
+        show-icon
+        class="tip"
+        data-testid="document-estimated"
+        :title="`${estimated.join('、')}没有配方，按以往领料估算，请仔细核对数量。`"
+      />
+      <el-alert
         v-if="missing.length"
         type="info"
         :closable="false"
@@ -337,9 +432,18 @@ function savedMessage(data: WarehouseDocument | Schemas['ProductionOrder']): str
         data-testid="document-missing"
         :title="
           kind === 'requisition'
-            ? `没有配方的商品：${missing.join('、')}（需要的材料请手动添加）`
+            ? `${missing.join('、')}没有配方，也没有以往的领料：需要的材料请在下面添加`
             : `没有对应到商品库的商品：${missing.join('、')}（不能入库）`
         "
+      />
+      <el-alert
+        v-if="covered && mode === 'create' && !rows.length"
+        type="success"
+        :closable="false"
+        show-icon
+        class="tip"
+        data-testid="document-covered"
+        title="按配方要领的材料这个订单都已经领了。需要多领的（损耗、返工）在下面添加，备注写明原因。"
       />
       <table class="doc-grid" data-testid="document-lines">
         <colgroup>
@@ -368,12 +472,43 @@ function savedMessage(data: WarehouseDocument | Schemas['ProductionOrder']): str
           <tr v-for="(row, index) in rows" :key="row.product_id" data-testid="document-row" :data-name="row.name">
             <td class="seq">{{ index + 1 }}</td>
             <td class="main">
-              <div class="item-name" data-testid="document-line" :data-name="row.name">{{ row.name }}</div>
+              <div class="item-name" data-testid="document-line" :data-name="row.name">
+                {{ row.name }}
+                <el-tag v-if="row.estimated" size="small" type="warning" effect="plain" data-testid="document-line-estimated"
+                  >估算</el-tag
+                >
+                <el-tag
+                  v-else-if="forOrder && row.planned === null"
+                  size="small"
+                  type="info"
+                  effect="plain"
+                  data-testid="document-line-manual"
+                  >手动添加</el-tag
+                >
+              </div>
               <div class="item-sub">{{ [row.code, row.spec].filter(Boolean).join(' · ') }}</div>
+              <div v-for="(source, i) in row.sources" :key="i" class="basis" data-testid="document-line-basis">
+                {{ sourceText(source, row.unit) }}
+              </div>
+              <div v-if="row.taken > 0" class="basis" data-testid="document-line-taken">
+                已领 {{ qtyUnit(row.taken, row.unit) }}，这次领剩下的
+              </div>
             </td>
             <td data-label="单位">{{ row.unit || '—' }}</td>
             <td class="num" data-label="现有">{{ qty(row.stock) }}</td>
-            <td class="num" data-label="建议">{{ row.planned === null ? '—' : qty(row.planned) }}</td>
+            <td class="num" data-label="建议">
+              {{ row.planned === null ? '—' : qty(row.planned) }}
+              <el-button
+                v-if="edited(row)"
+                link
+                type="primary"
+                size="small"
+                class="restore"
+                data-testid="document-line-restore"
+                @click="restore(row)"
+                >恢复</el-button
+              >
+            </td>
             <td :data-label="`本次${verb}`">
               <el-input-number
                 :ref="inputRef(index)"
@@ -384,7 +519,9 @@ function savedMessage(data: WarehouseDocument | Schemas['ProductionOrder']): str
                 :step="1"
                 size="small"
                 controls-position="right"
+                :class="{ edited: edited(row) }"
                 data-testid="document-line-quantity"
+                :data-edited="edited(row)"
                 @keydown.enter.prevent="entry?.focus()"
               />
             </td>
@@ -468,5 +605,34 @@ function savedMessage(data: WarehouseDocument | Schemas['ProductionOrder']): str
   margin-left: 8px;
   color: var(--el-text-color-secondary);
   font-size: 12px;
+}
+
+.making {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.making li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.basis {
+  margin-top: 2px;
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+}
+
+.restore {
+  margin-left: 4px;
+}
+
+:deep(.edited .el-input__wrapper) {
+  box-shadow: 0 0 0 1px var(--el-color-warning) inset;
 }
 </style>

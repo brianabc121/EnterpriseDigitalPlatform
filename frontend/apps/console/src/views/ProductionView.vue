@@ -14,18 +14,21 @@ import {
   expectedState,
   itemLabel,
   needsRequisition,
+  opensRequisition,
   PRODUCTION_VIEWS,
   progressText,
+  requisitionAction,
   viewOf,
   type ProductionItem,
   type ProductionOrder,
   type ProductionView,
 } from '../production'
 import { useAuthStore } from '../stores/auth'
-import { briefText, STATUS_TAG, type DocumentKind } from '../warehouse'
+import { briefText, STATUS_TAG, type DocumentKind, type WarehouseDocument } from '../warehouse'
 
 /**
- * 加工（设计文档 §25.11、§25.13）：工人领取订单，先开领料单（商品有配方时按配方领料），逐个商品
+ * 加工（设计文档 §25.11、§25.13、§25.17）：工人领取订单，先开领料单（领取后自动打开填好的领料单：
+ * 按配方，没有配方时按以往领料估算；被退回时在卡片上修改，订单改了数量时补领），逐个商品
  * 标记完成或缺货，全部完成后点"完成订单"开入库单，仓管确认入库后订单进入订单中心的"待发货"，客服
  * 在待办里收到提醒；登记缺货的订单进入"缺货"。现货商品直接从成品库存发货，不需要加工。
  * 工人只看加工需要的信息：商品、规格、数量、备注、期望时间和客户称呼，没有金额和收货信息。手机上
@@ -59,10 +62,11 @@ const shortage = reactive({
 const editor = reactive({
   open: false,
   kind: 'requisition' as DocumentKind,
-  mode: 'create' as 'create' | 'complete',
+  mode: 'create' as 'create' | 'edit' | 'complete',
   orderId: '',
   orderNo: '',
   intro: '',
+  document: null as WarehouseDocument | null,
 })
 const docDrawer = reactive({ open: false, id: null as string | null })
 let timer: ReturnType<typeof setInterval> | undefined
@@ -158,13 +162,13 @@ async function claim(order: ProductionOrder): Promise<void> {
   const ok = await act(
     order,
     () => api.POST('/api/v1/production/orders/{order_id}/claim', orderPath(order)),
-    order.requisition_required
-      ? `已领取 ${order.no}，先开领料单`
+    opensRequisition(order)
+      ? `已领取 ${order.no}，领料单已经填好，核对后提交`
       : `已领取 ${order.no}，在"我的加工"里标记进度`,
     true,
   )
-  // 商品有配方：领取后接着开领料单（按配方预填）。
-  if (ok && order.requisition_required) openRequisition(order)
+  // 有配方、或者能按以往领料估算：领取后接着打开填好的领料单（§25.17）。
+  if (ok && opensRequisition(order)) openRequisition(order)
 }
 
 function openRequisition(order: ProductionOrder): void {
@@ -175,6 +179,32 @@ function openRequisition(order: ProductionOrder): void {
     orderId: order.id,
     orderNo: order.no,
     intro: '',
+    document: null,
+  })
+}
+
+/** 领料按钮：被退回的领料单打开那张单据修改，其他时候开新的（补领时只填还没领的）。 */
+async function requisitionButton(order: ProductionOrder): Promise<void> {
+  const rejected = order.requisition_rejected
+  if (!rejected) {
+    openRequisition(order)
+    return
+  }
+  const { data, error } = await api.GET('/api/v1/warehouse/documents/{document_id}', {
+    params: { path: { document_id: rejected.id } },
+  })
+  if (!data) {
+    ElMessage.error(errorMessage(error))
+    return
+  }
+  Object.assign(editor, {
+    open: true,
+    kind: 'requisition',
+    mode: 'edit',
+    orderId: order.id,
+    orderNo: order.no,
+    intro: '',
+    document: data,
   })
 }
 
@@ -281,6 +311,7 @@ async function complete(order: ProductionOrder): Promise<void> {
       orderId: order.id,
       orderNo: order.no,
       intro: plan.markAll ? plan.message : '',
+      document: null,
     })
     return
   }
@@ -462,13 +493,31 @@ onBeforeUnmount(() => clearInterval(timer))
           >
         </div>
         <el-alert
-          v-if="order.can_work && needsRequisition(order)"
+          v-if="order.can_work && order.requisition_rejected"
+          type="error"
+          :closable="false"
+          show-icon
+          class="tip"
+          :title="`领料单 ${order.requisition_rejected.no} 被仓管退回：${order.requisition_rejected.reject_reason ?? ''}`"
+          data-testid="production-requisition-rejected"
+        />
+        <el-alert
+          v-else-if="order.can_work && needsRequisition(order)"
           type="warning"
           :closable="false"
           show-icon
           class="tip"
           title="先开领料单：这个订单的商品有配方，按配方领料后再加工。"
           data-testid="production-need-requisition"
+        />
+        <el-alert
+          v-if="order.can_work && order.requisition_todo.length"
+          type="warning"
+          :closable="false"
+          show-icon
+          class="tip"
+          :title="`订单改过，按配方还要领：${order.requisition_todo.join('、')}`"
+          data-testid="production-requisition-todo"
         />
         <el-alert
           v-if="order.receipt"
@@ -589,11 +638,12 @@ onBeforeUnmount(() => clearInterval(timer))
             >
             <template v-else>
               <el-button
-                :type="needsRequisition(order) ? 'primary' : 'default'"
+                :type="requisitionAction(order).primary ? 'primary' : 'default'"
                 :disabled="acting === order.id"
                 data-testid="production-open-requisition"
-                @click="openRequisition(order)"
-                >{{ order.documents.some((d) => d.kind === 'requisition') ? '补领材料' : '开领料单' }}</el-button
+                :data-action="requisitionAction(order).action"
+                @click="requisitionButton(order)"
+                >{{ requisitionAction(order).label }}</el-button
               >
               <el-button
                 type="success"
@@ -623,8 +673,9 @@ onBeforeUnmount(() => clearInterval(timer))
       v-model="editor.open"
       :kind="editor.kind"
       :mode="editor.mode"
-      :order-id="editor.orderId"
-      :order-no="editor.orderNo"
+      :order-id="editor.mode === 'edit' ? null : editor.orderId"
+      :order-no="editor.mode === 'edit' ? null : editor.orderNo"
+      :document="editor.document"
       :intro="editor.intro"
       @saved="onDocument"
     />

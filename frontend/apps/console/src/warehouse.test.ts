@@ -1,7 +1,17 @@
 import { describe, expect, it } from 'vitest'
 
 import { stockDetail } from './inventory'
-import { briefText, minus, qty, qtyUnit, shortMaterials, stockAfterDocument } from './warehouse'
+import {
+  briefText,
+  draftItemBasis,
+  draftItemText,
+  minus,
+  qty,
+  qtyUnit,
+  shortMaterials,
+  sourceText,
+  stockAfterDocument,
+} from './warehouse'
 
 describe('qty', () => {
   it('drops trailing zeros and float noise', () => {
@@ -40,5 +50,35 @@ describe('stockDetail for materials', () => {
     const level = { stock: 10.5, stock_reserved: 2.5, stock_available: 8, stock_low: false }
     expect(stockDetail(level, 'material')).toBe('现有 10.5 · 待领 2.5')
     expect(stockDetail(level)).toBe('现有 10.5 · 占用 2.5')
+  })
+})
+
+describe('一键领料（§25.17）', () => {
+  const source = {
+    item: '铝合金窗 1.2m×1.5m',
+    quantity: 2,
+    unit: '樘',
+    per_unit: 6.5,
+    amount: 13,
+    basis: 'recipe' as const,
+    orders: null,
+  }
+
+  it('写出建议数量是怎么算的', () => {
+    expect(sourceText(source, '米')).toBe('铝合金窗 1.2m×1.5m 6.5 米/樘 × 2 樘')
+    expect(sourceText({ ...source, basis: 'history', orders: 3 }, '米')).toBe(
+      '铝合金窗 1.2m×1.5m 6.5 米/樘 × 2 樘（按以往 3 个订单估算）',
+    )
+    expect(sourceText({ ...source, unit: '' }, '')).toBe('铝合金窗 1.2m×1.5m 6.5/件 × 2 件')
+  })
+
+  it('这次加工的商品和用量的来源', () => {
+    const item = { name: '铝合金窗', spec: '1.2m×1.5m', quantity: 2, unit: '樘', basis: 'recipe' as const, orders: null }
+    expect(draftItemText(item)).toBe('铝合金窗 1.2m×1.5m × 2 樘')
+    expect(draftItemText({ ...item, spec: '', unit: '' })).toBe('铝合金窗 × 2')
+    expect(draftItemBasis(item)).toBe('按配方')
+    expect(draftItemBasis({ ...item, basis: 'history', orders: 3 })).toBe('按以往 3 个订单估算')
+    expect(draftItemBasis({ ...item, basis: 'none' })).toBe('没有配方，也没有以往的领料')
+    expect(draftItemBasis({ ...item, basis: 'unmatched' })).toBe('没有对应到商品库')
   })
 })

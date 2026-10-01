@@ -9,6 +9,7 @@ import { qty } from '../../warehouse'
 /**
  * 成品的配方（设计文档 §25.13）：每一件用多少材料（按材料的单位，可以是小数）。工人开领料单时按
  * 订单数量乘配方用量预填。有维护商品库权限的员工可以修改，其他人只能查看。
+ * 还没有配方时显示按以往领料估算的每件用量，可以一键填入后检查保存（§25.17）。
  */
 const open = defineModel<boolean>({ required: true })
 const props = defineProps<{
@@ -32,11 +33,14 @@ const saving = ref(false)
 const options = ref<Schemas['ProductOut'][]>([])
 const searching = ref(false)
 const picked = ref('')
+// 按以往领料估算的每件用量（还没有配方时）。
+const history = ref<Schemas['BomHistory'] | null>(null)
 
 watch(open, async (value) => {
   if (!value || !props.product) return
   rows.value = []
   picked.value = ''
+  history.value = null
   loading.value = true
   const { data, error } = await api.GET('/api/v1/products/{product_id}/materials', {
     params: { path: { product_id: props.product.id } },
@@ -54,7 +58,29 @@ watch(open, async (value) => {
     quantity: i.quantity,
     stock: i.stock,
   }))
+  if (props.editable && !rows.value.length) void loadHistory(props.product.id)
 })
+
+async function loadHistory(id: string): Promise<void> {
+  const { data } = await api.GET('/api/v1/products/{product_id}/materials/history', {
+    params: { path: { product_id: id } },
+  })
+  history.value = data && data.orders > 0 && data.items.length ? data : null
+}
+
+/** 按以往领料填入（检查后保存成配方）。 */
+function fillHistory(): void {
+  if (!history.value) return
+  rows.value = history.value.items.map((i) => ({
+    material_id: i.material_id,
+    name: i.name,
+    spec: i.spec,
+    unit: i.unit,
+    quantity: i.quantity,
+    stock: i.stock,
+  }))
+  history.value = null
+}
 
 async function search(q: string): Promise<void> {
   searching.value = true
@@ -119,6 +145,23 @@ async function save(): Promise<void> {
     data-testid="bom-dialog"
   >
     <p class="muted">每{{ product?.unit || '件' }}成品用多少材料；开领料单时按订单数量乘这里的用量预填。</p>
+    <el-alert
+      v-if="history && !rows.length"
+      type="info"
+      :closable="false"
+      show-icon
+      class="history"
+      data-testid="bom-history"
+    >
+      <template #title>
+        还没有配方。按以往 {{ history.orders }} 个订单的领料，每{{ product?.unit || '件' }}约用：{{
+          history.items.map((i) => `${i.name} ${qty(i.quantity)} ${i.unit}`.trim()).join('、')
+        }}
+      </template>
+      <el-button size="small" type="primary" plain data-testid="bom-fill-history" @click="fillHistory"
+        >按以往领料填入</el-button
+      >
+    </el-alert>
     <el-table v-loading="loading" :data="rows" size="small" empty-text="还没有配方" data-testid="bom-lines">
       <el-table-column label="材料" min-width="160">
         <template #default="{ row }">
@@ -196,6 +239,10 @@ async function save(): Promise<void> {
 
 .add {
   margin-top: 10px;
+}
+
+.history {
+  margin-bottom: 10px;
 }
 
 .picker {
