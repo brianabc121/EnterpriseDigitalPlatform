@@ -25,6 +25,7 @@ dependencies = [
     "opentelemetry-instrumentation-httpx>=0.66b0",
     "opentelemetry-instrumentation-sqlalchemy>=0.66b0",
     "pypinyin>=0.53",
+    "tzdata>=2026.4",
 ]
 
 [dependency-groups]
