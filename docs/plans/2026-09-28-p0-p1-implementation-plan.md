@@ -1864,7 +1864,10 @@ M1-1 至 M1-8 全部完成，验收标准已满足：
 
 - CI（`ci.yml`）在 main 上全部通过：后端检查与测试、前端检查与构建、部署文件检查、P0 浏览器验收。
 - 全部浏览器验收（`e2e-full.yml`）以前只在本地跑过：推送时都按设计跳过，定时任务还没有触发过。这次在 main 上手动
-  触发，是第一次在 GitHub 上完整运行。
+  触发，是第一次在 GitHub 上完整运行：27 个验收里 25 个通过，企业微信的 `p2-wecom-acceptance` 和 `g1-wecom-extras`
+  失败——CI 的配置和模拟企业微信不一致（见 §28.2）。本地按 CI 的配置（`run-e2e.sh` + `e2e.env`）重现了同样的失败，
+  改正后两个都通过。
+- 那次运行里安装 Playwright 依赖和 ffmpeg 用了 12 分钟，是当时 Ubuntu 软件源下载慢（约 140 kB/s），与仓库无关。
 
 ### 28.2 发现并修正
 
@@ -1876,6 +1879,7 @@ M1-1 至 M1-8 全部完成，验收标准已满足：
 | 控制台和运营后台可以被别的网站用 iframe 嵌入 | 点击劫持（现代浏览器对第三方 Cookie 和存储的隔离降低了实际风险） | 控制台、运营后台的镜像加 `X-Frame-Options: DENY` 和 `frame-ancestors 'none'`；访客 Widget 要嵌入客户的网站，不加 |
 | nginx 的 `Referrer-Policy` 实际没有发出 | location 里有自己的 `add_header` 时不继承上一级的，页面和静态资源都没有这个头 | 安全响应头放进 `headers.conf`，每个 location 都 include |
 | CI 不运行对象存储契约测试 | 签名和上传限制只在本地用真实存储验证过 | CI 的后端测试启动 MinIO，契约测试每次推送都运行 |
+| CI 浏览器验收的企业微信配置和模拟企业微信不一致 | `scripts/ci/e2e.env` 的服务商 ID、Secret、Token、EncodingAESKey 和 `tests/fake_wecom.py` 不同：模拟企业微信推送的 suite_ticket 回调验签失败（403），授权安装返回 500，两个企业微信验收在 GitHub 上失败（本地用的另一份配置是一致的，所以一直通过） | 改成和模拟服务一致；新增 `tests/test_e2e_env.py`，每次推送检查两边一致，不用等夜里的全部验收才发现 |
 
 ### 28.3 检查过、没有发现问题的
 
