@@ -25,9 +25,9 @@ from app.modules.warehouse.models import (
     StockDocumentLine,
 )
 
-# 每个成品最多看最近几张订单；候选订单最多查多少张（其中只加工一个商品的才算）。
+# 每个成品最多看最近几张订单；每个成品最多查最近多少张领过料的订单（其中只加工它的才算）。
 ORDERS = 5
-CANDIDATES = 200
+CANDIDATES = 30
 # 材料的数量最多三位小数。
 THOUSANDTH = Decimal("0.001")
 
@@ -56,18 +56,33 @@ async def history(
         StockDocument.kind == DocumentKind.REQUISITION,
         StockDocument.status == DocumentStatus.CONFIRMED,
     )
-    statement = (
-        select(Order.id)
-        .where(
-            Order.id.in_(select(OrderItem.order_id).where(OrderItem.product_id.in_(product_ids))),
-            confirmed,
+    # 每个成品各取自己最近的订单：做得多的商品不会把做得少的挤出候选。
+    pairs = (
+        select(
+            OrderItem.product_id,
+            Order.id.label("order_id"),
+            func.row_number()
+            .over(
+                partition_by=OrderItem.product_id,
+                order_by=(Order.created_at.desc(), Order.id.desc()),
+            )
+            .label("rank"),
         )
-        .order_by(Order.created_at.desc(), Order.id.desc())
-        .limit(CANDIDATES)
+        .join(Order, Order.id == OrderItem.order_id)
+        .where(OrderItem.product_id.in_(product_ids), confirmed)
+        .group_by(OrderItem.product_id, Order.id, Order.created_at)
     )
     if exclude is not None:
-        statement = statement.where(Order.id != exclude)
-    order_ids = list(await session.scalars(statement))
+        pairs = pairs.where(Order.id != exclude)
+    ranked = pairs.subquery()
+    candidates: dict[uuid.UUID, list[uuid.UUID]] = defaultdict(list)
+    for product_id, order_id in await session.execute(
+        select(ranked.c.product_id, ranked.c.order_id)
+        .where(ranked.c.rank <= CANDIDATES)
+        .order_by(ranked.c.product_id, ranked.c.rank)
+    ):
+        candidates[product_id].append(order_id)
+    order_ids = {order_id for ids in candidates.values() for order_id in ids}
     if not order_ids:
         return {}
     items = list(await session.scalars(select(OrderItem).where(OrderItem.order_id.in_(order_ids))))
@@ -78,17 +93,16 @@ async def history(
 
     # 每个成品：最近几张只加工它的订单，和订单里它的数量（新的在前）。
     chosen: dict[uuid.UUID, list[tuple[uuid.UUID, int]]] = defaultdict(list)
-    for order_id in order_ids:
-        made = [i for i in by_order[order_id] if i.product_id is None or i.product_id not in ready]
-        products = {i.product_id for i in made}
-        if len(products) != 1:
-            continue
-        (product_id,) = products
-        if product_id is None or product_id not in product_ids:
-            continue
-        quantity = sum(i.quantity for i in made)
-        if quantity > 0 and len(chosen[product_id]) < ORDERS:
-            chosen[product_id].append((order_id, quantity))
+    for product_id, ids in candidates.items():
+        for order_id in ids:
+            made = [
+                i for i in by_order[order_id] if i.product_id is None or i.product_id not in ready
+            ]
+            quantity = sum(i.quantity for i in made)
+            if {i.product_id for i in made} == {product_id} and quantity > 0:
+                chosen[product_id].append((order_id, quantity))
+                if len(chosen[product_id]) == ORDERS:
+                    break
     picked = [order_id for rows in chosen.values() for order_id, _ in rows]
     if not picked:
         return {}

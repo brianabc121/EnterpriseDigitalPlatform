@@ -163,6 +163,7 @@ MATRIX: list[tuple[str, str, dict[str, Any] | None]] = [
     ("POST", "/api/v1/products/{product_id}/stock", {"mode": "set", "quantity": 1}),
     ("GET", "/api/v1/products/{product_id}/stock-movements", None),
     ("GET", "/api/v1/products/{product_id}/materials", None),
+    ("GET", "/api/v1/products/{product_id}/materials/history", None),
     ("PUT", "/api/v1/products/{product_id}/materials", {"items": []}),
     ("GET", "/api/v1/warehouse/documents/{document_id}", None),
     (
@@ -940,6 +941,7 @@ async def test_agents_only_reach_their_own_sessions_and_customers(
             ("GET", "/api/v1/products/{product_id}"),
             ("GET", "/api/v1/products/{product_id}/stock-movements"),
             ("GET", "/api/v1/products/{product_id}/materials"),
+            ("GET", "/api/v1/products/{product_id}/materials/history"),
         ):
             continue
         path = fill(template, dave_ids, acme.ids)

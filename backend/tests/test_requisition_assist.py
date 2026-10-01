@@ -10,6 +10,7 @@ import pytest
 from fastapi import FastAPI
 
 from app.core.config import Settings
+from app.modules.warehouse import usage
 from tests.desk import Agent, Desk
 from tests.fake_openim import FakeOpenIM
 from tests.support import DatabaseUrls
@@ -54,6 +55,25 @@ async def requisition(
         lines=[{"product_id": pid, "quantity": q} for pid, q in lines.items()],
     )  # fmt: skip
     return created
+
+
+async def past(
+    desk: Desk,
+    people: tuple[Agent, Agent],
+    customer_id: str,
+    lines: list[tuple[str, int]],
+    used: dict[str, float],
+    confirm: bool = True,
+) -> str:
+    """以往的订单：工人领取、开领料单，仓管确认（confirm=False 时还没确认）。"""
+    wang, cang = people
+    order = await confirmed(desk, customer_id, lines)
+    await call(desk, wang.headers, "POST", f"{PRODUCTION}/orders/{order['id']}/claim")
+    doc = await requisition(desk, wang, order["id"], used)
+    if confirm:
+        await call(desk, cang.headers, "POST", f"{BASE}/documents/{doc['id']}/confirm")
+    order_id: str = order["id"]
+    return order_id
 
 
 async def card(desk: Desk, agent: Agent, order_id: str) -> dict[str, Any]:
@@ -185,25 +205,17 @@ async def test_products_without_recipes_are_estimated_from_past_requisitions(des
     cang = await keeper(desk)
     wang = await worker(desk, "wang")
     customer_id = await customer(desk)
-
-    async def past(
-        lines: list[tuple[str, int]], used: dict[str, float], confirm: bool = True
-    ) -> str:
-        order = await confirmed(desk, customer_id, lines)
-        await call(desk, wang.headers, "POST", f"{PRODUCTION}/orders/{order['id']}/claim")
-        doc = await requisition(desk, wang, order["id"], used)
-        if confirm:
-            await call(desk, cang.headers, "POST", f"{BASE}/documents/{doc['id']}/confirm")
-        order_id: str = order["id"]
-        return order_id
+    people = (wang, cang)
 
     # 以往只做防盗门的订单（每樘：型材 5、6、7 米；螺丝 4、4 个；结构胶只领过一次）。
-    await past([(door["id"], 2)], {profile["id"]: 10, screws["id"]: 8})
-    await past([(door["id"], 2)], {profile["id"]: 12, glue["id"]: 1})
-    await past([(door["id"], 2)], {profile["id"]: 14, screws["id"]: 8})
+    await past(desk, people, customer_id, [(door["id"], 2)], {profile["id"]: 10, screws["id"]: 8})
+    await past(desk, people, customer_id, [(door["id"], 2)], {profile["id"]: 12, glue["id"]: 1})
+    await past(desk, people, customer_id, [(door["id"], 2)], {profile["id"]: 14, screws["id"]: 8})
     # 不算的：同时做了两种商品的订单、还没确认的领料单。
-    await past([(door["id"], 1), (screen["id"], 1)], {profile["id"]: 100})
-    await past([(door["id"], 1)], {profile["id"]: 50}, confirm=False)
+    await past(
+        desk, people, customer_id, [(door["id"], 1), (screen["id"], 1)], {profile["id"]: 100}
+    )
+    await past(desk, people, customer_id, [(door["id"], 1)], {profile["id"]: 50}, confirm=False)
 
     order = await confirmed(desk, customer_id, [(door["id"], 3)])
     pool = await call(desk, wang.headers, "GET", f"{PRODUCTION}/orders?view=pool")
@@ -267,3 +279,43 @@ async def test_products_without_recipes_are_estimated_from_past_requisitions(des
     assert by_recipe["estimated"] == []
     view = await card(desk, wang, order2["id"])
     assert (view["requisition_required"], view["requisition_estimated"]) == (True, False)
+
+
+async def test_each_product_is_estimated_from_its_own_orders(
+    desk: Desk, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """每个成品各看自己最近的订单：做得多的商品不会把做得少的挤掉；已经停用的材料不再列出。"""
+    monkeypatch.setattr(usage, "CANDIDATES", 2)
+    profile = await material(desk, "AL-1", "铝型材")
+    paint = await material(desk, "PT-1", "氟碳漆", unit="桶")
+    for item in (profile, paint):
+        await adjust(desk, item["id"], "set", 1000)
+    gate = await goods(desk, "GATE-01", "庭院门")
+    door = await goods(desk, "DOOR-01", "防盗门")
+    people = (await worker(desk, "wang"), await keeper(desk))
+    customer_id = await customer(desk)
+
+    # 庭院门很少做（最早的一张），防盗门最近做了好几张。
+    await past(desk, people, customer_id, [(gate["id"], 1)], {profile["id"]: 8, paint["id"]: 2})
+    for _ in range(3):
+        await past(desk, people, customer_id, [(door["id"], 1)], {profile["id"]: 5})
+
+    gate_order = await confirmed(desk, customer_id, [(gate["id"], 2)])
+    door_order = await confirmed(desk, customer_id, [(door["id"], 1)])
+    wang = people[0]
+    pool = await call(desk, wang.headers, "GET", f"{PRODUCTION}/orders?view=pool")
+    estimable = {o["id"]: o["requisition_estimated"] for o in pool["items"]}
+    assert (estimable[gate_order["id"]], estimable[door_order["id"]]) == (True, True)
+    await call(desk, wang.headers, "POST", f"{PRODUCTION}/orders/{gate_order['id']}/claim")
+    found = await draft(desk, wang, gate_order["id"])
+    assert {ln["name"]: ln["quantity"] for ln in found["lines"]} == {"铝型材": 16, "氟碳漆": 4}
+
+    # 停用的材料不再按以往领料列出。
+    updated = await desk.client.put(
+        f"{PRODUCTS}/{paint['id']}",
+        headers=desk.admin,
+        json={"code": "PT-1", "name": "氟碳漆", "unit": "桶", "status": "off"},
+    )
+    assert updated.status_code == 200, updated.text
+    found = await draft(desk, wang, gate_order["id"])
+    assert {ln["name"]: ln["quantity"] for ln in found["lines"]} == {"铝型材": 16}
