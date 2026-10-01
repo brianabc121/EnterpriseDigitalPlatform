@@ -1,17 +1,24 @@
+from datetime import UTC, datetime
 from typing import Annotated
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
-from fastapi import APIRouter, Depends, Request, status
+from fastapi import APIRouter, Cookie, Depends, Request, Response, status
 
 from app.core.config import Settings
 from app.core.dates import today
 from app.core.deps import client_ip, get_app_settings, get_rate_limiter
-from app.core.errors import ERROR_RESPONSES, ErrorResponse
+from app.core.errors import ERROR_RESPONSES, ErrorResponse, Unauthorized
 from app.core.ratelimit import RateLimiter, login_attempt
-from app.core.security import encode_platform_token
+from app.core.security import (
+    TokenError,
+    decode_platform_refresh_token,
+    encode_platform_refresh_token,
+    encode_platform_token,
+)
 from app.modules.tenancy import mfa, service
 from app.modules.tenancy.deps import CurrentPlatformUser, PlatformDb, PlatformUserForSetup
+from app.modules.tenancy.models import PlatformUser, PlatformUserStatus
 from app.modules.tenancy.schemas import (
     MfaCode,
     MfaDisable,
@@ -27,25 +34,26 @@ from app.modules.tenancy.schemas import (
 
 router = APIRouter(prefix="/platform/v1", tags=["platform"], responses=ERROR_RESPONSES)
 
+# 运营后台的刷新令牌放在 httpOnly Cookie 里，只随 /platform/v1/auth 下的请求发送。
+REFRESH_COOKIE = "edp_platform_refresh"
+REFRESH_COOKIE_PATH = "/platform/v1/auth"
+RefreshCookie = Annotated[str | None, Cookie(alias=REFRESH_COOKIE, include_in_schema=False)]
+SESSION_EXPIRED = "登录已失效，请重新登录"
 
-@router.post(
-    "/auth/login",
-    response_model=PlatformTokenResponse,
-    responses={429: {"model": ErrorResponse}},
-)
-async def platform_login(
-    payload: PlatformLoginRequest,
-    request: Request,
-    session: PlatformDb,
-    settings: Annotated[Settings, Depends(get_app_settings)],
-    limiter: Annotated[RateLimiter, Depends(get_rate_limiter)],
-) -> PlatformTokenResponse:
-    account = f"platform:{payload.username}"
-    async with login_attempt(limiter, ip=client_ip(request), account=account):
-        user = await service.authenticate_platform_user(
-            session, username=payload.username, password=payload.password
-        )
-        await mfa.verify_login(settings, request.app.state.redis, user, payload.otp)
+
+def _set_refresh_cookie(response: Response, settings: Settings, token: str, max_age: int) -> None:
+    response.set_cookie(
+        REFRESH_COOKIE,
+        token,
+        max_age=max_age,
+        httponly=True,
+        secure=settings.cookie_secure,
+        samesite="strict",
+        path=REFRESH_COOKIE_PATH,
+    )
+
+
+def _token_response(settings: Settings, user: PlatformUser) -> PlatformTokenResponse:
     token = encode_platform_token(
         user_id=user.id,
         secret=settings.platform_jwt_secret.get_secret_value(),
@@ -56,6 +64,83 @@ async def platform_login(
         expires_in=settings.platform_token_ttl_seconds,
         mfa_setup_required=settings.platform_mfa_enforced and user.mfa_enabled_at is None,
     )
+
+
+@router.post(
+    "/auth/login",
+    response_model=PlatformTokenResponse,
+    responses={429: {"model": ErrorResponse}},
+)
+async def platform_login(
+    payload: PlatformLoginRequest,
+    request: Request,
+    response: Response,
+    session: PlatformDb,
+    settings: Annotated[Settings, Depends(get_app_settings)],
+    limiter: Annotated[RateLimiter, Depends(get_rate_limiter)],
+) -> PlatformTokenResponse:
+    """运营人员登录。Access Token 在响应体中返回，刷新令牌写入 httpOnly Cookie。"""
+    account = f"platform:{payload.username}"
+    async with login_attempt(limiter, ip=client_ip(request), account=account):
+        user = await service.authenticate_platform_user(
+            session, username=payload.username, password=payload.password
+        )
+        await mfa.verify_login(settings, request.app.state.redis, user, payload.otp)
+    refresh = encode_platform_refresh_token(
+        user_id=user.id,
+        secret=settings.platform_jwt_secret.get_secret_value(),
+        ttl_seconds=settings.platform_refresh_ttl_seconds,
+    )
+    _set_refresh_cookie(response, settings, refresh, settings.platform_refresh_ttl_seconds)
+    return _token_response(settings, user)
+
+
+@router.post("/auth/refresh", response_model=PlatformTokenResponse)
+async def platform_refresh(
+    response: Response,
+    session: PlatformDb,
+    settings: Annotated[Settings, Depends(get_app_settings)],
+    refresh_token: RefreshCookie = None,
+) -> PlatformTokenResponse:
+    """用 Cookie 里的刷新令牌换取新的 Access Token：页面刷新后不用重新登录。
+
+    刷新不延长登录：登录后最多 platform_refresh_ttl_seconds（默认 12 小时）要重新登录。
+    """
+    if not refresh_token:
+        raise Unauthorized(SESSION_EXPIRED)
+    try:
+        claims = decode_platform_refresh_token(
+            refresh_token, secret=settings.platform_jwt_secret.get_secret_value()
+        )
+    except TokenError as exc:
+        raise Unauthorized(SESSION_EXPIRED) from exc
+    user = await session.get(PlatformUser, claims.user_id)
+    if user is None or user.status != PlatformUserStatus.ACTIVE:
+        raise Unauthorized(SESSION_EXPIRED)
+    remaining = int((claims.expires_at - datetime.now(UTC)).total_seconds())
+    if remaining <= 0:
+        raise Unauthorized(SESSION_EXPIRED)
+    refresh = encode_platform_refresh_token(
+        user_id=user.id,
+        secret=settings.platform_jwt_secret.get_secret_value(),
+        ttl_seconds=remaining,
+    )
+    _set_refresh_cookie(response, settings, refresh, remaining)
+    return _token_response(settings, user)
+
+
+@router.post("/auth/logout", status_code=status.HTTP_204_NO_CONTENT)
+async def platform_logout(settings: Annotated[Settings, Depends(get_app_settings)]) -> Response:
+    """退出登录：清除刷新令牌 Cookie（Access Token 由前端丢弃）。"""
+    response = Response(status_code=status.HTTP_204_NO_CONTENT)
+    response.delete_cookie(
+        REFRESH_COOKIE,
+        path=REFRESH_COOKIE_PATH,
+        secure=settings.cookie_secure,
+        httponly=True,
+        samesite="strict",
+    )
+    return response
 
 
 @router.get("/me", response_model=PlatformMe)

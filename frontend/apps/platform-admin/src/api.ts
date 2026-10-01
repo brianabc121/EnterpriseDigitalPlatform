@@ -1,6 +1,12 @@
-import { createPlatformApi, memoryTokenStore, transportKey } from '@edp/api-client'
+import { createPlatformApi, createTransport, memoryTokenStore, transportKey } from '@edp/api-client'
 
+export const apiBase = import.meta.env.VITE_API_BASE ?? ''
 export const tokens = memoryTokenStore()
+/** 接口传输加密（设计文档 §25.15）：接口客户端和刷新令牌共用一个加密会话。 */
+export const transport = createTransport({
+  baseUrl: apiBase,
+  publicKey: transportKey(import.meta.env.VITE_TRANSPORT_PUBLIC_KEY),
+})
 
 let unauthorizedHandler: () => void = () => {}
 
@@ -8,11 +14,11 @@ export function onUnauthorized(handler: () => void): void {
   unauthorizedHandler = handler
 }
 
-// 运营令牌只保存在内存中：刷新页面后需要重新登录（P1 再补充刷新机制）。
+// Access Token 只保存在内存中；刷新页面后用 httpOnly Cookie 里的刷新令牌恢复登录（stores/auth 的 restore）。
 export const api = createPlatformApi({
-  baseUrl: import.meta.env.VITE_API_BASE ?? '',
+  baseUrl: apiBase,
   tokens,
-  transportKey: transportKey(import.meta.env.VITE_TRANSPORT_PUBLIC_KEY),
+  transport,
   onUnauthorized: () => unauthorizedHandler(),
 })
 

@@ -276,6 +276,20 @@ export const useWorkbenchStore = defineStore('workbench', () => {
     }
   }
 
+  /** 接待坐席正在输入：通知网页访客（服务端只给接待中的网页会话发在线信令）。 */
+  async function typing(session: Session): Promise<void> {
+    if (!isMine(session) || session.status !== 'human_serving' || session.channel_type !== 'web') {
+      return
+    }
+    try {
+      await api.POST('/api/v1/sessions/{session_id}/typing', {
+        params: { path: { session_id: session.id } },
+      })
+    } catch {
+      // 只是提示，失败不影响回复。
+    }
+  }
+
   function reloadEmails(session: Session): void {
     const pending = emailReloads.get(session.room_id)
     if (pending) clearTimeout(pending)
@@ -645,6 +659,7 @@ export const useWorkbenchStore = defineStore('workbench', () => {
     send,
     sendFile,
     retry,
+    typing,
     insertIntoComposer,
     suggest,
     close,

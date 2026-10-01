@@ -249,6 +249,8 @@ async function send(): Promise<void> {
   const text = draft.value.trim()
   if (!text || sending.value) return
   sending.value = true
+  // 发出后再输入时马上提示访客（不等上一次"正在输入"的间隔）。
+  typingSentAt = 0
   const origin = draftOrigin.value
   const email = isEmail.value
     ? { subject: emailSubject.value.trim() || null, replyTo: emailReplyTo.value }
@@ -265,6 +267,18 @@ async function send(): Promise<void> {
   } finally {
     sending.value = false
   }
+}
+
+/** 输入时最多每 4 秒通知访客一次"正在输入"（Widget 显示 6 秒）。 */
+const TYPING_INTERVAL_MS = 4000
+let typingSentAt = 0
+
+function onTyping(): void {
+  if (!session.value || isEmail.value || !draft.value.trim()) return
+  const now = Date.now()
+  if (now - typingSentAt < TYPING_INTERVAL_MS) return
+  typingSentAt = now
+  void wb.typing(session.value)
 }
 
 function onKeydown(event: KeyboardEvent): void {
@@ -584,6 +598,7 @@ function insert(text: string, origin: ReplyOrigin = 'quick_reply'): void {
           "
           data-testid="composer-input"
           @keydown="onKeydown"
+          @input="onTyping"
         />
         <div class="actions">
           <el-button

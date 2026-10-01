@@ -69,15 +69,35 @@ export function createStaffApi(options: ClientOptions): ApiClient {
   })
 }
 
-/** 平台运营使用的客户端。P0 不做令牌刷新，过期后重新登录。 */
+/** 运营后台：用 httpOnly Cookie 中的刷新令牌换取新的 Access Token。会话失效时返回 null。 */
+export async function refreshPlatformToken(
+  baseUrl = '',
+  send: Send = (request) => globalThis.fetch(request),
+): Promise<string | null> {
+  try {
+    const response = await send(
+      new Request(`${baseUrl}/platform/v1/auth/refresh`, { method: 'POST', credentials: 'include' }),
+    )
+    if (!response.ok) return null
+    const body = (await response.json()) as Schemas['PlatformTokenResponse']
+    return body.access_token
+  } catch {
+    return null
+  }
+}
+
+/** 平台运营使用的客户端：自动携带令牌，过期时用刷新令牌 Cookie 自动刷新。 */
 export function createPlatformApi(options: ClientOptions): ApiClient {
   const baseUrl = options.baseUrl ?? ''
+  const secure = options.transport ?? createTransport({ baseUrl, publicKey: options.transportKey })
   return createClient<paths>({
     baseUrl,
+    credentials: 'include',
     fetch: createAuthFetch({
       tokens: options.tokens,
+      refresh: () => refreshPlatformToken(baseUrl, secure),
       onUnauthorized: options.onUnauthorized,
-      fetch: options.transport ?? createTransport({ baseUrl, publicKey: options.transportKey }),
+      fetch: secure,
     }),
   })
 }

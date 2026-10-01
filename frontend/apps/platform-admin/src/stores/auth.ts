@@ -1,8 +1,8 @@
-import { errorCode, errorMessage, type Schemas } from '@edp/api-client'
+import { errorCode, errorMessage, refreshPlatformToken, type Schemas } from '@edp/api-client'
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 
-import { api, tokens } from '../api'
+import { api, apiBase, tokens, transport } from '../api'
 
 /** 登录失败；code 为 mfa_required 时需要输入二次验证码。 */
 export class LoginError extends Error {
@@ -37,10 +37,37 @@ export const useAuthStore = defineStore('platform-auth', () => {
     await refresh()
   }
 
-  function logout(): void {
+  let restoring: Promise<void> | null = null
+
+  /** 页面刷新后恢复登录：用 httpOnly Cookie 中的刷新令牌换取 Access Token（只执行一次）。 */
+  function restore(): Promise<void> {
+    restoring ??= (async () => {
+      if (me.value) return
+      const token = await refreshPlatformToken(apiBase, transport)
+      if (!token) return
+      tokens.set(token)
+      try {
+        await refresh()
+      } catch {
+        clear()
+      }
+    })()
+    return restoring
+  }
+
+  function clear(): void {
     tokens.set(null)
     me.value = null
   }
 
-  return { me, isAuthenticated, needsMfaSetup, login, logout, refresh }
+  async function logout(): Promise<void> {
+    try {
+      await api.POST('/platform/v1/auth/logout')
+    } catch {
+      // 本地状态照样清除。
+    }
+    clear()
+  }
+
+  return { me, isAuthenticated, needsMfaSetup, login, logout, refresh, restore }
 })

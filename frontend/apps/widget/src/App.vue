@@ -41,8 +41,9 @@ const STATE_TEXT: Record<ConnectionState, string> = {
  */
 const SYNC_AFTER_CONNECT_MS = 3000
 const SYNC_INTERVAL_MS = 10000
-/** 智能客服"正在输入"最多显示这么久（分段发送时每段之前都会再提示）。 */
+/** 智能客服"正在输入"最多显示这么久（分段发送时每段之前都会再提示）；坐席输入时每 4 秒提醒一次。 */
 const TYPING_MS = 8000
+const STAFF_TYPING_MS = 6000
 
 const query = new URLSearchParams(location.search)
 const channelKey = query.get('key')
@@ -70,6 +71,9 @@ const csat = ref({ score: 0, comment: '', done: false })
 const visible = ref(!embedded)
 const unread = ref(0)
 const typing = ref(false)
+/** 谁在输入：智能客服或接待坐席（坐席带显示名）。 */
+const typingFrom = ref<'bot' | 'staff'>('bot')
+const typingName = ref('')
 const votes = ref<Record<string, 1 | -1>>({})
 const timers: ReturnType<typeof setTimeout>[] = []
 let typingTimer: ReturnType<typeof setTimeout> | undefined
@@ -164,16 +168,24 @@ im.onState((next) => {
   if (recovered) void syncFromApi()
 })
 im.onSignal((signal) => {
-  // 平台在智能客服回答前发来"正在输入"（系统用户发到服务群的在线信令）。
+  // 平台发来"正在输入"（系统用户发到服务群的在线信令）：智能客服回答前，或接待坐席正在输入。
   if (signal.type !== 'typing' || !signal.sendID.endsWith('_sys')) return
+  typingFrom.value = signal.data.sender === 'staff' ? 'staff' : 'bot'
+  typingName.value = typeof signal.data.name === 'string' ? signal.data.name : ''
   typing.value = true
   clearTimeout(typingTimer)
-  typingTimer = setTimeout(() => (typing.value = false), TYPING_MS)
+  typingTimer = setTimeout(
+    () => (typing.value = false),
+    typingFrom.value === 'staff' ? STAFF_TYPING_MS : TYPING_MS,
+  )
   void nextTick(() => list.value?.scrollTo({ top: list.value.scrollHeight }))
 })
 im.onMessage((message) => {
   if (message.groupID === session.value?.im.group_id) {
-    if (message.sendID.endsWith('_bot')) typing.value = false
+    // 智能客服或坐席的消息到了："正在输入"结束。
+    if (message.sendID !== session.value.im.user_id && !message.sendID.endsWith('_sys')) {
+      typing.value = false
+    }
     receive([fromIm(message, session.value.im.user_id)])
     // 系统提示和智能客服的消息往往伴随服务状态变化（开始接待、转人工），刷新一次横幅。
     if (message.sendID.endsWith('_sys') || message.sendID.endsWith('_bot')) void refreshState()
@@ -471,8 +483,14 @@ onBeforeUnmount(() => {
             </button>
           </span>
         </li>
-        <li v-if="typing" class="message bot typing" data-testid="typing">
-          <span class="sender">{{ session?.widget.title ?? '智能客服' }}</span>
+        <li
+          v-if="typing"
+          :class="['message', 'typing', typingFrom === 'staff' ? 'agent' : 'bot']"
+          data-testid="typing"
+        >
+          <span class="sender">
+            {{ typingFrom === 'staff' ? typingName || '客服' : (session?.widget.title ?? '智能客服') }}
+          </span>
           <span class="bubble"><i></i><i></i><i></i> 正在输入</span>
         </li>
       </ol>

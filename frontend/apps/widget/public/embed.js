@@ -57,17 +57,32 @@
     'border-radius:9px;background:#ff4d4f;color:#fff;font-size:12px;line-height:18px;text-align:center'
   button.appendChild(badge)
 
+  // 手机（窄屏）上打开时全屏显示，收起用 Widget 右上角的"收起"。
+  var mobile = window.matchMedia('(max-width: 600px)')
+  var frameCss = frame.style.cssText
+  var fullCss =
+    'display:block;position:fixed;inset:0;width:100%;height:100%;max-width:none;max-height:none;' +
+    'border:0;border-radius:0;margin:0;background:#fff;z-index:2147483001'
+
   var open = false
   function post(type) {
     if (frame.contentWindow) frame.contentWindow.postMessage({ type: type }, base)
   }
+  function layout() {
+    var full = open && mobile.matches
+    frame.style.cssText = full ? fullCss : frameCss
+    frame.style.display = open ? 'block' : 'none'
+    button.style.display = full ? 'none' : 'block'
+  }
   function setOpen(value) {
     open = value
-    frame.style.display = open ? 'block' : 'none'
+    layout()
     button.firstChild.nodeValue = open ? '收起' : '在线客服'
     if (open) badge.style.display = 'none'
     post(open ? 'edp:open' : 'edp:hidden')
   }
+  if (mobile.addEventListener) mobile.addEventListener('change', layout)
+  else if (mobile.addListener) mobile.addListener(layout)
   button.addEventListener('click', function () {
     setOpen(!open)
   })

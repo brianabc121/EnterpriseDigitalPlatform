@@ -37,15 +37,21 @@ jobs:
     env:
       EDP_TEST_PG_SUPERUSER_URL: postgresql://postgres:postgres@localhost:5432/postgres
       EDP_TEST_REDIS_URL: redis://localhost:6379/15
-      # 对象存储契约测试（签名、上传只接受申请时的类型和大小）用开发环境的 MinIO。
+      # 契约测试用开发环境的对象存储（SeaweedFS）和 OpenIM，保证签名、上传限制和 tests/fake_openim.py
+      # 与真实服务一致。
       EDP_TEST_STORAGE_URL: http://localhost:9000
+      EDP_TEST_OPENIM_URL: http://localhost:10002
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
         with:
           enable-cache: true
-      - name: MinIO
-        run: docker compose -f ../deploy/compose/docker-compose.yml up -d --wait minio
+      - name: Object storage and OpenIM
+        run: |
+          docker compose -f ../deploy/compose/docker-compose.yml up -d --wait storage
+          docker compose -f ../deploy/compose/openim/docker-compose.yml up -d --wait
+      # 微信客服语音（AMR）转 MP3 的测试需要 ffmpeg。
+      - run: sudo apt-get install -y --no-install-recommends ffmpeg
       - run: uv sync --locked
       - run: uv run ruff check .
       - run: uv run ruff format --check .
@@ -123,7 +129,7 @@ jobs:
           node-version: 22
           cache: pnpm
           cache-dependency-path: frontend/pnpm-lock.yaml
-      - name: Dev services (PostgreSQL, Redis, MinIO)
+      - name: Dev services (PostgreSQL, Redis, SeaweedFS)
         run: docker compose -f deploy/compose/docker-compose.yml up -d --wait
       - name: Database and platform account
         working-directory: backend

@@ -18,6 +18,14 @@ URL = os.environ.get("EDP_TEST_STORAGE_URL")
 pytestmark = pytest.mark.skipif(not URL, reason="需要 EDP_TEST_STORAGE_URL（真实对象存储）")
 
 
+async def drop_bucket(storage: StorageConfig, keys: list[str]) -> None:
+    """测试结束删除对象和存储桶（SeaweedFS 每个桶占用若干卷，不清理会把卷用完）。"""
+    async with httpx.AsyncClient(timeout=10) as client:
+        for key in keys:
+            await client.delete(presign(storage, "DELETE", key, expires=60))
+        await client.delete(presign(storage, "DELETE", "", expires=60))
+
+
 def config(bucket: str) -> StorageConfig:
     assert URL is not None
     return StorageConfig(
@@ -37,18 +45,21 @@ async def test_bucket_upload_and_download_round_trip() -> None:
     key = f"acme/2026/09/{uuid.uuid4().hex}/报价 单(1).pdf"
     body = "合同内容 %PDF-1.4".encode()
 
-    async with httpx.AsyncClient(timeout=10) as client:
-        put = await client.put(
-            presign(storage, "PUT", key, expires=60),
-            content=body,
-            headers={"content-type": "application/pdf"},
-        )
-        got = await client.get(presign(storage, "GET", key, expires=60))
-        # 改动签过名的参数、用错误的密钥签名，都会被拒绝。
-        signed = presign(storage, "GET", key, expires=60)
-        tampered = await client.get(signed.replace("X-Amz-Expires=60", "X-Amz-Expires=61"))
-        forged = dataclasses.replace(storage, secret_key="wrong-secret")
-        wrong_key = await client.get(presign(forged, "GET", key, expires=60))
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            put = await client.put(
+                presign(storage, "PUT", key, expires=60),
+                content=body,
+                headers={"content-type": "application/pdf"},
+            )
+            got = await client.get(presign(storage, "GET", key, expires=60))
+            # 改动签过名的参数、用错误的密钥签名，都会被拒绝。
+            signed = presign(storage, "GET", key, expires=60)
+            tampered = await client.get(signed.replace("X-Amz-Expires=60", "X-Amz-Expires=61"))
+            forged = dataclasses.replace(storage, secret_key="wrong-secret")
+            wrong_key = await client.get(presign(forged, "GET", key, expires=60))
+    finally:
+        await drop_bucket(storage, [key])
 
     assert put.status_code == 200, put.text
     assert (got.status_code, got.content) == (200, body)
@@ -72,15 +83,20 @@ async def test_upload_url_only_accepts_the_declared_type_and_size() -> None:
         headers={"content-type": "image/png", "content-length": str(len(body))},
     )
 
-    async with httpx.AsyncClient(timeout=10) as client:
-        wrong_type = await client.put(url, content=body, headers={"content-type": "text/html"})
-        bigger = await client.put(
-            url, content=body + b"<script>", headers={"content-type": "image/png"}
-        )
-        put = await client.put(url, content=body, headers={"content-type": "image/png"})
-        got = await client.get(
-            presign(storage, "GET", key, expires=60, query={"response-content-type": "image/png"})
-        )
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            wrong_type = await client.put(url, content=body, headers={"content-type": "text/html"})
+            bigger = await client.put(
+                url, content=body + b"<script>", headers={"content-type": "image/png"}
+            )
+            put = await client.put(url, content=body, headers={"content-type": "image/png"})
+            got = await client.get(
+                presign(
+                    storage, "GET", key, expires=60, query={"response-content-type": "image/png"}
+                )
+            )
+    finally:
+        await drop_bucket(storage, [key])
 
     assert wrong_type.status_code == 403
     assert bigger.status_code == 403

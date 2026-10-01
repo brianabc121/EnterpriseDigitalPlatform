@@ -111,9 +111,12 @@ def enqueue_signal(
     _enqueue(session, room_id, ImOpType.SIGNAL, {"staff_id": str(staff_id), "signal": signal})
 
 
-def enqueue_typing(session: AsyncSession, room_id: UUID) -> None:
-    """智能客服正在生成回答：给服务群发"正在输入"的在线信令（只用于网页 Widget，不落库）。"""
-    _enqueue(session, room_id, ImOpType.TYPING, {})
+def enqueue_typing(
+    session: AsyncSession, room_id: UUID, *, sender: str = "bot", name: str = ""
+) -> None:
+    """智能客服正在生成回答、接待坐席正在输入：给服务群发"正在输入"的在线信令
+    （只用于网页 Widget，不落库）。sender 为 bot 或 staff，name 是坐席的显示名。"""
+    _enqueue(session, room_id, ImOpType.TYPING, {"sender": sender, "name": name})
 
 
 def enqueue_channel_send(session: AsyncSession, room_id: UUID, message_id: UUID) -> None:
@@ -482,7 +485,13 @@ async def _execute(ctx: AppContext, tenant_code: str, group_id: str, op: ImOp) -
                 group_id=group_id,
                 content_type=ContentType.CUSTOM,
                 content={
-                    "data": json.dumps({"type": "typing"}),
+                    "data": json.dumps(
+                        {
+                            "type": "typing",
+                            "sender": op.payload.get("sender", "bot"),
+                            "name": op.payload.get("name", ""),
+                        }
+                    ),
                     "description": SIGNAL_DESCRIPTION,
                     "extension": "",
                 },

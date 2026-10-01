@@ -94,6 +94,15 @@ async def mark_read(session_id: UUID, session: TenantDb, principal: CanServe) ->
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
+@router.post("/sessions/{session_id}/typing", status_code=status.HTTP_204_NO_CONTENT)
+async def typing(
+    session_id: UUID, ctx: Context, session: TenantDb, principal: CanServe
+) -> Response:
+    """接待坐席正在输入：网页访客的 Widget 显示"客服正在输入"（在线信令，不落库）。"""
+    await service.notify_typing(ctx, session, principal, session_id)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
 @router.post("/sessions/{session_id}/close", response_model=SessionOut)
 async def close_session(
     session_id: UUID, ctx: Context, session: TenantDb, principal: CanServe

@@ -17,7 +17,7 @@ import httpx
 
 from app.context import CRAWLER_AGENT, AppContext
 from app.core.errors import Unprocessable
-from app.core.urls import check_outbound_url
+from app.core.urls import check_outbound_url, resolve_outbound
 from app.modules.kb.parsers import html_to_document
 
 logger = logging.getLogger(__name__)
@@ -99,11 +99,13 @@ async def _get(
     limit = ctx.settings.kb_crawl_max_page_bytes
     for _ in range(MAX_REDIRECTS + 1):
         try:
-            await check_outbound_url(url, allow_private=allow_private)
+            target = await resolve_outbound(url, allow_private=allow_private)
         except Unprocessable as exc:
             raise FetchError(exc.message) from exc
         try:
-            async with ctx.web.stream("GET", url) as response:
+            async with ctx.web.stream(
+                "GET", target.request_url, headers=target.headers, extensions=target.extensions
+            ) as response:
                 if response.status_code in (301, 302, 303, 307, 308):
                     location = response.headers.get("location")
                     if not location:

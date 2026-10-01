@@ -31,6 +31,8 @@ class Settings(BaseSettings):
     access_token_ttl_seconds: int = 15 * 60
     refresh_token_ttl_seconds: int = 7 * 24 * 3600
     platform_token_ttl_seconds: int = 2 * 3600
+    # 运营后台的刷新令牌（httpOnly Cookie）：页面刷新后不用重新登录；登录后最多这么久要重新登录。
+    platform_refresh_ttl_seconds: int = 12 * 3600
     # 平台运营账号是否必须启用二次验证（TOTP）；不设置时生产环境必须启用（设计文档 §13）。
     platform_mfa_required: bool | None = None
 

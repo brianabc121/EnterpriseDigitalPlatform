@@ -19,6 +19,7 @@ from app.context import AppContext
 from app.core.errors import Forbidden, NotFound
 from app.core.permissions import Permission
 from app.modules.channels.models import ChannelAccount, ChannelType
+from app.modules.conversation import outbox
 from app.modules.conversation.models import (
     ChatSession,
     CloseReason,
@@ -168,6 +169,27 @@ async def session_extras(
         }
         for c in chats
     }
+
+
+async def notify_typing(
+    ctx: AppContext, session: AsyncSession, principal: Principal, session_id: UUID
+) -> None:
+    """接待坐席正在输入：给网页访客的 Widget 发"正在输入"（在线信令，不落库、不记未读）。
+
+    只有接待中的坐席、网页渠道才发；其他情况静默忽略，前端不用区分。
+    """
+    chat, *_ = await visible_session(session, principal, session_id)
+    if chat.assignee_id != principal.staff_id or chat.status != SessionStatus.HUMAN_SERVING:
+        return
+    channel_type = await session.scalar(
+        select(ChannelAccount.type).where(ChannelAccount.id == chat.channel_account_id)
+    )
+    if channel_type != ChannelType.WEB:
+        return
+    outbox.enqueue_typing(session, chat.room_id, sender="staff", name=principal.display_name)
+    await session.commit()
+    # 马上发出去（信令只在线上送达，不等调度进程重试）。
+    await outbox.flush_rooms(ctx, principal.tenant_id, [chat.room_id])
 
 
 async def mark_read(session: AsyncSession, principal: Principal, session_id: UUID) -> None:

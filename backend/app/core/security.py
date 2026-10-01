@@ -163,6 +163,29 @@ def decode_platform_token(token: str, *, secret: str) -> PlatformClaims:
     return PlatformClaims(user_id=_uuid(claims, "sub"))
 
 
+@dataclass(frozen=True)
+class PlatformRefreshClaims:
+    user_id: UUID
+    expires_at: datetime
+
+
+def encode_platform_refresh_token(*, user_id: UUID, secret: str, ttl_seconds: int) -> str:
+    """运营后台的刷新令牌（放在 httpOnly Cookie 里）：到期时间不随刷新延长。"""
+    return _encode(
+        {"sub": str(user_id), "typ": "refresh"},
+        secret=secret,
+        audience=PLATFORM_AUDIENCE,
+        ttl_seconds=ttl_seconds,
+    )
+
+
+def decode_platform_refresh_token(token: str, *, secret: str) -> PlatformRefreshClaims:
+    claims = _decode(token, secret=secret, audience=PLATFORM_AUDIENCE, token_type="refresh")
+    return PlatformRefreshClaims(
+        user_id=_uuid(claims, "sub"), expires_at=datetime.fromtimestamp(claims["exp"], tz=UTC)
+    )
+
+
 def encode_visitor_token(
     *, identity_id: UUID, tenant_id: UUID, channel_id: UUID, secret: str, ttl_seconds: int
 ) -> str:

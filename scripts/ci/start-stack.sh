@@ -48,6 +48,8 @@ wait_port() { # 端口 [秒]
 cd "$ROOT/backend"
 uv sync --quiet
 PY="$ROOT/backend/.venv/bin/python"
+# 对象存储桶（已存在时跳过）。
+"$PY" -m app.cli storage-init >/dev/null
 start fake-llm "$ROOT/backend" "$PY" -m tests.fake_llm --port 8900
 start fake-clamd "$ROOT/backend" "$PY" -m tests.fake_clamd --port 3310
 start fake-wecom "$ROOT/backend" "$PY" -m tests.fake_wecom --port 8901 --platform http://127.0.0.1:8000

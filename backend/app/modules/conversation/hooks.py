@@ -95,11 +95,19 @@ async def openim_callback(
     except ValueError:
         return PlainTextResponse("invalid json", status_code=400)
 
-    if command == BEFORE_CREATE_GROUP:
-        return JSONResponse(_before_create_group(body))
     if command == AFTER_SEND_GROUP_MSG:
         await _after_send_group_msg(ctx, body)
-    return JSONResponse(_allow())
+    return JSONResponse(decide(command, body))
+
+
+def decide(command: str, body: Any) -> dict[str, Any]:
+    """不需要数据库的回调答复：建群前回调按服务群规则放行或拒绝，其余回调放行。
+
+    真实 OpenIM 的契约测试在没有开发后端时用同一个函数应答（tests/openim_hooks.py）。
+    """
+    if command == BEFORE_CREATE_GROUP:
+        return _before_create_group(body)
+    return _allow()
 
 
 def _before_create_group(body: Any) -> dict[str, Any]:

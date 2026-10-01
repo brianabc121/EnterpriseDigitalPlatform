@@ -44,6 +44,24 @@ async def send(
     )
 
 
+async def test_agent_typing_reaches_web_visitors_from_the_assignee_only(desk: Desk) -> None:
+    """接待坐席输入时给服务群发"正在输入"信令（带坐席名，不落库）；别人调用不发。"""
+    alice, visitor, session_id = await serving(desk)
+    bob = await desk.agent("bob")
+
+    url = f"/api/v1/sessions/{session_id}/typing"
+    response = await desk.client.post(url, headers=alice.headers)
+    other = await desk.client.post(url, headers=bob.headers)
+
+    assert response.status_code == 204, response.text
+    assert other.status_code in (204, 404)
+    rows = await desk.sql(
+        "SELECT payload::text AS payload FROM im_ops WHERE room_id = $1 AND op = 'typing'",
+        visitor.room_id,
+    )
+    assert [json.loads(r["payload"]) for r in rows] == [{"sender": "staff", "name": "Alice"}]
+
+
 async def test_agent_message_is_stored_once_and_reaches_the_room(desk: Desk) -> None:
     alice, visitor, session_id = await serving(desk)
 

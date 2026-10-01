@@ -116,6 +116,13 @@ async function run(browser) {
       await page.locator('.el-dialog').first().waitFor({ state: 'hidden' })
     }
     await shot(page, '1-platform-tenants')
+    // 刷新页面后用刷新令牌 Cookie 恢复登录，不用重新登录
+    await page.reload()
+    const stillIn = await page
+      .waitForSelector('button:has-text("开通租户")', { timeout: 15000 })
+      .then(() => true)
+      .catch(() => false)
+    check('运营后台刷新页面后仍然登录', stillIn)
     await ctx.close()
   }
 

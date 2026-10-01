@@ -23,6 +23,9 @@ from urllib.parse import urlsplit
 
 import httpx
 
+from app.core.errors import Unprocessable
+from app.core.urls import resolve_outbound
+
 logger = logging.getLogger(__name__)
 
 _RETRYABLE = {408, 409, 425, 429, 500, 502, 503, 504}
@@ -50,6 +53,8 @@ class LLMEndpoint:
     price_output: float = 0.0
     # 模型支持函数调用（tools）；不支持时调用方给的工具被忽略。
     supports_tools: bool = False
+    # 租户自带的接口（生产环境）：每次调用前重新检查地址并固定解析到的 IP（见 core/urls.py）。
+    pinned: bool = False
 
     @property
     def provider(self) -> str:
@@ -271,13 +276,22 @@ class LLMClient:
     ) -> tuple[dict[str, Any], int]:
         url = endpoint.base_url.rstrip("/") + path
         headers = {"authorization": f"Bearer {endpoint.api_key}"} if endpoint.api_key else {}
+        pinned = isinstance(endpoint, LLMEndpoint) and endpoint.pinned
         last = "unknown error"
         for attempt in range(self.retries + 1):
             if attempt:
                 await asyncio.sleep(0.5 * 2 ** (attempt - 1))
             started = time.monotonic()
             try:
-                response = await self._http.post(url, json=body, headers=headers)
+                target = await resolve_outbound(url, allow_private=not pinned)
+                response = await self._http.post(
+                    target.request_url,
+                    json=body,
+                    headers={**headers, **target.headers},
+                    extensions=target.extensions,
+                )
+            except Unprocessable as exc:
+                raise LLMError(f"接口地址不可用：{exc.message}") from exc
             except httpx.HTTPError as exc:
                 last = f"{type(exc).__name__}: {exc}"
                 continue

@@ -1,4 +1,4 @@
-# 开发环境依赖：PostgreSQL（含 pgvector）、Redis 与对象存储（MinIO）。
+# 开发环境依赖：PostgreSQL（含 pgvector）、Redis 与对象存储（SeaweedFS 的 S3 网关）。
 # OpenIM 单独启动，见 openim/docker-compose.yml（make im-up）。
 name: edp
 
@@ -31,23 +31,33 @@ services:
       retries: 30
 
   # 平台自己的对象存储（S3 兼容），保存聊天中的图片和文件；与 OpenIM 自带的 MinIO 相互独立。
-  # 生产环境使用云厂商的 S3 兼容对象存储，见实施计划 §12。启动时自动创建 edp-files 桶。
-  minio:
-    image: ${EDP_MINIO_IMAGE:-bitnamilegacy/minio:2024.1.11}
-    environment:
-      MINIO_ROOT_USER: edp
-      MINIO_ROOT_PASSWORD: edp-dev-storage-secret
-      MINIO_DEFAULT_BUCKETS: edp-files
+  # SeaweedFS（Apache-2.0）的 S3 网关在容器里是 8333 端口，映射到本机 9000；访问凭证在
+  # seaweedfs/s3.json（edp / edp-dev-storage-secret）。edp-files 桶由 make migrate
+  # （python -m app.cli storage-init）创建。生产环境的选型见实施计划 §13.2。
+  storage:
+    image: ${EDP_STORAGE_IMAGE:-chrislusf/seaweedfs:4.48}
+    # 每个存储桶会占用几个卷：卷的上限和大小按开发环境设得小一些（文件按需增长，不预占空间）。
+    command:
+      - server
+      - -dir=/data
+      - -master.volumeSizeLimitMB=256
+      - -volume.max=500
+      - -filer
+      - -s3
+      - -s3.port=8333
+      - -s3.config=/etc/seaweedfs/s3.json
     ports:
-      - "${EDP_MINIO_PORT:-9000}:9000"
+      - "${EDP_STORAGE_PORT:-9000}:8333"
     volumes:
-      - minio:/bitnami/minio/data
+      - storage:/data
+      - ./seaweedfs/s3.json:/etc/seaweedfs/s3.json:ro
     healthcheck:
-      test: ["CMD", "curl", "-fs", "http://localhost:9000/minio/health/live"]
+      # S3 网关就绪后，没有签名的请求返回 403。
+      test: ["CMD-SHELL", "curl -s -o /dev/null -w '%{http_code}' http://localhost:8333/ | grep -q 403"]
       interval: 3s
       timeout: 5s
       retries: 30
 
 volumes:
   pgdata:
-  minio:
+  storage:
