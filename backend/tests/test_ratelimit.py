@@ -102,16 +102,18 @@ def test_prod_settings_require_real_secrets() -> None:
     ):
         assert name in message
 
-    Settings(
-        env="prod",
-        cookie_secure=True,
-        jwt_secret="a" * 40,
-        platform_jwt_secret="b" * 40,
-        visitor_jwt_secret="c" * 40,
-        openim_secret="d" * 40,
-        openim_webhook_secret="e" * 40,
-        storage_secret_key="f" * 40,
-        file_url_secret="g" * 40,
-        data_encryption_key="h" * 40,
-        transport_signing_key=private_key_b64(ec.generate_private_key(ec.SECP256R1())),
-    )
+    secrets = {
+        "jwt_secret": "a" * 40,
+        "platform_jwt_secret": "b" * 40,
+        "visitor_jwt_secret": "c" * 40,
+        "openim_secret": "d" * 40,
+        "openim_webhook_secret": "e" * 40,
+        "storage_secret_key": "f" * 40,
+        "file_url_secret": "g" * 40,
+        "data_encryption_key": "h" * 40,
+        "transport_signing_key": private_key_b64(ec.generate_private_key(ec.SECP256R1())),
+    }
+    Settings(env="prod", cookie_secure=True, **secrets)
+    # 内网邮件服务器和明文连接只用于开发、测试。
+    with pytest.raises(ValueError, match="EDP_MAIL_ALLOW_PRIVATE_HOSTS"):
+        Settings(env="prod", cookie_secure=True, mail_allow_private_hosts=True, **secrets)

@@ -395,7 +395,8 @@ M1-1 至 M1-8 全部完成，验收标准已满足：
     MinIO 相互独立；生产环境的选型在 M6 完成。
   - 上传：`POST /api/v1/uploads`（坐席）或 `POST /api/v1/visitor/uploads`（访客，每小时 30 个）按文件名、
     类型和大小签发 10 分钟有效的上传地址，浏览器直接 PUT 到对象存储。只允许常见图片（10 MB 以内）和
-    PDF、Office、TXT、ZIP 文件（20 MB 以内）。
+    PDF、Office、TXT、ZIP 文件（20 MB 以内）。上传地址连同 `content-type` 和 `content-length` 一起签名，
+    对象存储拒绝换了类型或大小的上传（§28）。
   - 消息里引用平台签发的文件链接 `{EDP_PUBLIC_API_URL}/api/v1/files/<key>?sig=<HMAC>`：
     打开时校验签名后 302 到 5 分钟有效的对象存储地址。链接长期有效、不暴露存储凭证；
     坐席发送附件时只接受这种链接。
@@ -483,8 +484,9 @@ M1-1 至 M1-8 全部完成，验收标准已满足：
   - **不在生产环境使用 MinIO 社区版**：社区版 2025 年起不再发布预编译二进制和镜像，2026 年 2 月仓库标记为不再维护
     并归档（不再有安全修复），2026 年 9 月 Docker Hub 上的 minio/minio 镜像被移除；许可证为 AGPL-3.0。
 - **验证**：`tests/test_storage_contract.py` 用真实服务验证建桶、预签名上传下载（含中文、空格和括号的对象名）、
-  篡改签名参数和错误密钥被拒绝；已在 MinIO（bitnamilegacy 2024.1.11）和 SeaweedFS 4.48 上通过，
-  SeaweedFS 也正确响应浏览器直传所需的 CORS 预检。换用其他存储前先跑这个测试。
+  篡改签名参数和错误密钥被拒绝、上传地址只接受签名时的类型和大小、下载时指定返回的类型；已在 MinIO
+  （bitnamilegacy 2024.1.11）和 SeaweedFS 4.48 上通过，SeaweedFS 也正确响应浏览器直传所需的 CORS 预检。
+  CI 的后端测试用 MinIO 运行它；换用其他存储前先跑这个测试。
 - **开发环境**：`make dev-up` 暂时沿用已冻结的 `bitnamilegacy/minio:2024.1.11`（已缓存的镜像可继续使用，
   可用 `EDP_MINIO_IMAGE` 替换）；计划改为 SeaweedFS（本次因 Docker Hub 限流未能拉取镜像验证 Compose 配置）。
 
@@ -1853,3 +1855,48 @@ M1-1 至 M1-8 全部完成，验收标准已满足：
   更新）；附件消息比邮件晚 1 毫秒（工作台按毫秒排序，原来的 1 微秒会排到邮件前面）。
 - 未做（设计文档 §10.8）：OAuth 授权登录（Gmail OAuth、Outlook / Microsoft 365）；IMAP IDLE 推送；收件箱以外的
   文件夹；把回复保存到"已发送"；富文本编辑；主动发新邮件和群发；AI 自动回复邮件。
+
+## 28. 全面检查（2026-10-01）
+
+需求：开启 GitHub 工作流，检查整个项目还有什么问题。
+
+### 28.1 工作流
+
+- CI（`ci.yml`）在 main 上全部通过：后端检查与测试、前端检查与构建、部署文件检查、P0 浏览器验收。
+- 全部浏览器验收（`e2e-full.yml`）以前只在本地跑过：推送时都按设计跳过，定时任务还没有触发过。这次在 main 上手动
+  触发，是第一次在 GitHub 上完整运行：27 个验收里 25 个通过，企业微信的 `p2-wecom-acceptance` 和 `g1-wecom-extras`
+  失败——CI 的配置和模拟企业微信不一致（见 §28.2）。本地按 CI 的配置（`run-e2e.sh` + `e2e.env`）重现了同样的失败，
+  改正后两个都通过。带着这次的全部修正在 GitHub 上重新运行全部浏览器验收：27 个全部通过（440 项检查）。
+- 那次运行里安装 Playwright 依赖和 ffmpeg 用了 12 分钟，是当时 Ubuntu 软件源下载慢（约 140 kB/s），与仓库无关。
+
+### 28.2 发现并修正
+
+| 问题 | 影响 | 修正 |
+|---|---|---|
+| 上传地址只签了 `host`，不限制类型和大小 | 拿到上传地址的人（包括访客）可以换成任意类型、任意大小的文件：申请 10 字节的 PNG，实际上传 5 MB 的 HTML，打开文件链接时按 `text/html` 显示（存储域名下的钓鱼页面），也绕过了大小上限 | 上传地址连同 `content-type` 和 `content-length` 一起签名，对象存储拒绝不一致的上传（403）；下载图片时按扩展名指定返回类型（`response-content-type`），以前上传的文件也不会被当成网页打开。在 MinIO 和 SeaweedFS 4.48 上验证 |
+| 镜像里 uvicorn 用 `--forwarded-allow-ips "*"` | 信任任何来源的 `X-Forwarded-For` 并取最左边的地址，请求方自己填一个地址就能绕过按 IP 的登录限流、在审计日志里记下假地址 | 只采信内网地址（Ingress、负载均衡）转发的头（`FORWARDED_ALLOW_IPS`），从右往左取第一个不可信的地址；代理不在内网时在 `config.yaml` 里改 |
+| 生产环境可以打开 `EDP_MAIL_ALLOW_PRIVATE_HOSTS` | 这个开关让租户填写的邮件服务器访问内网、用不加密的连接发送授权码，只用于开发和测试 | 生产环境打开时启动失败 |
+| 控制台和运营后台可以被别的网站用 iframe 嵌入 | 点击劫持（现代浏览器对第三方 Cookie 和存储的隔离降低了实际风险） | 控制台、运营后台的镜像加 `X-Frame-Options: DENY` 和 `frame-ancestors 'none'`；访客 Widget 要嵌入客户的网站，不加 |
+| nginx 的 `Referrer-Policy` 实际没有发出 | location 里有自己的 `add_header` 时不继承上一级的，页面和静态资源都没有这个头 | 安全响应头放进 `headers.conf`，每个 location 都 include |
+| CI 不运行对象存储契约测试 | 签名和上传限制只在本地用真实存储验证过 | CI 的后端测试启动 MinIO，契约测试每次推送都运行 |
+| CI 浏览器验收的企业微信配置和模拟企业微信不一致 | `scripts/ci/e2e.env` 的服务商 ID、Secret、Token、EncodingAESKey 和 `tests/fake_wecom.py` 不同：模拟企业微信推送的 suite_ticket 回调验签失败（403），授权安装返回 500，两个企业微信验收在 GitHub 上失败（本地用的另一份配置是一致的，所以一直通过） | 改成和模拟服务一致；新增 `tests/test_e2e_env.py`，每次推送检查两边一致，不用等夜里的全部验收才发现 |
+
+### 28.3 检查过、没有发现问题的
+
+- 依赖漏洞：`pip-audit`（后端锁定的依赖）和 `pnpm audit`（前端）没有已知漏洞；ruff、mypy、ESLint、vue-tsc 通过；
+  代码里没有遗留的 TODO / FIXME。
+- 数据库：ORM 模型和迁移后的表结构一致（只有约束名称不同，以及 `webhook_deliveries` 两列在库里是 SMALLINT）；
+  每张带 `tenant_id` 的表都强制 RLS（有测试），越权矩阵覆盖全部接口。
+- 前端没有 `v-html`；跳转地址、postMessage 来源有校验；原邮件在沙箱 iframe 里显示。
+- 密码用 argon2；刷新令牌是 httpOnly、SameSite=Strict 的 Cookie；CORS 白名单；登录限流；zip 解压有上限；OpenIM
+  回调的共享密钥用常量时间比较；开放接口密钥只存哈希；没有关闭 TLS 证书校验的地方。
+- 容器以非 root 运行，根文件系统只读，`/tmp` 都挂了 emptyDir（导出用的临时文件写在这里）。
+
+### 28.4 遗留（风险低，这次没有改）
+
+- 出站地址（webhook、知识库抓取、自带大模型地址）先解析域名检查，httpx 连接时再解析一次，有 DNS 重绑定的时间窗。
+  生产环境只允许 https 并校验证书，重绑定到内网地址时 TLS 校验失败，读不到内网的内容。邮件渠道已经固定了解析结果。
+- 文件链接 `/api/v1/files/<key>?sig=` 是长期有效的签名链接（M3 的决定），不再校验打开的人能不能看这个会话；转发出去
+  的链接在文件保留期内都能打开。
+- CI 的后端测试没有安装 ffmpeg（AMR 转 MP3 的 1 个测试跳过，`e2e-full.yml` 里装了）；OpenIM 契约测试只在设置
+  `EDP_TEST_OPENIM_URL` 时运行。

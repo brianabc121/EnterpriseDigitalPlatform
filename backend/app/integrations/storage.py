@@ -57,8 +57,13 @@ def presign(
     endpoint: str | None = None,
     now: datetime | None = None,
     query: dict[str, str] | None = None,
+    headers: dict[str, str] | None = None,
 ) -> str:
-    """路径风格（{endpoint}/{bucket}/{key}）的预签名 URL，有效期 expires 秒（最长 7 天）。"""
+    """路径风格（{endpoint}/{bucket}/{key}）的预签名 URL，有效期 expires 秒（最长 7 天）。
+
+    headers 是请求必须原样带上的请求头（一起签名），例如上传时的 content-type 和 content-length：
+    值不一致时对象存储拒绝请求（403）。
+    """
     if not 1 <= expires <= 7 * 24 * 3600:
         raise ValueError("expires must be between 1 second and 7 days")
     base = (endpoint or config.public_endpoint).rstrip("/")
@@ -72,17 +77,21 @@ def presign(
     amz_date = now.strftime("%Y%m%dT%H%M%SZ")
     date = now.strftime("%Y%m%d")
     scope = f"{date}/{config.region}/{_SERVICE}/aws4_request"
+    signed = {name.lower(): " ".join(value.split()) for name, value in (headers or {}).items()}
+    signed["host"] = host
+    signed_names = ";".join(sorted(signed))
     params = {
         **(query or {}),
         "X-Amz-Algorithm": _ALGORITHM,
         "X-Amz-Credential": f"{config.access_key}/{scope}",
         "X-Amz-Date": amz_date,
         "X-Amz-Expires": str(expires),
-        "X-Amz-SignedHeaders": "host",
+        "X-Amz-SignedHeaders": signed_names,
     }
     canonical_query = "&".join(f"{_encode(k)}={_encode(v)}" for k, v in sorted(params.items()))
+    canonical_headers = "".join(f"{name}:{signed[name]}\n" for name in sorted(signed))
     canonical_request = "\n".join(
-        [method, path, canonical_query, f"host:{host}\n", "host", _UNSIGNED]
+        [method, path, canonical_query, canonical_headers, signed_names, _UNSIGNED]
     )
     string_to_sign = "\n".join(
         [_ALGORITHM, amz_date, scope, hashlib.sha256(canonical_request.encode()).hexdigest()]

@@ -382,6 +382,9 @@ OpenIM 的镜像名都可以用环境变量替换（见 `deploy/compose/openim/d
   （`kubectl apply -k deploy/k8s/overlays/production/migrate`，等待完成），再 `kubectl apply -k deploy/k8s/overlays/production`。
 - **数据库账号**：迁移用表的所有者账号（`EDP_DATABASE_URL_OWNER`，不需要是超级用户），`vector` 扩展由数据库管理员
   预先安装；应用和平台分别用 `edp_app`、`edp_platform`（见 `deploy/compose/postgres/init/01-roles.sql`）。
+- **客户端 IP**：API 镜像只采信内网地址（Ingress、负载均衡）转发来的 `X-Forwarded-For`
+  （`FORWARDED_ALLOW_IPS`，默认是 127.0.0.1 和内网网段），登录限流和审计日志用它记录的地址；反向代理不在内网网段时，
+  在 `base/config.yaml` 里改成代理的地址。
 
 ### 检查与测试
 
@@ -395,8 +398,8 @@ make alerts-check    # 告警规则（promtool）
 
 - 前端是 pnpm 工作区：`apps/console`、`apps/platform-admin`、`apps/widget`，`packages/api-client`（接口类型）、
   `packages/im-client`（OpenIM 连接）和 `packages/ui`（控制台与 Widget 共用的消息展示组件，如链接识别）。
-- CI（`.github/workflows/ci.yml`）每次推送运行后端检查与测试、前端检查与构建、部署文件检查（告警规则、
-  kustomize + kubeconform、镜像构建）和 P0 浏览器验收；`.github/workflows/e2e-full.yml` 每天夜里、手动触发或提交说明
+- CI（`.github/workflows/ci.yml`）每次推送运行后端检查与测试（对象存储契约测试用 MinIO）、前端检查与构建、
+  部署文件检查（告警规则、kustomize + kubeconform、镜像构建）和 P0 浏览器验收；`.github/workflows/e2e-full.yml` 每天夜里、手动触发或提交说明
   带 `[e2e-full]` 时运行全部浏览器验收（含 OpenIM），截图和日志作为构建产物保存。
 - 后端接口变更后执行 `make openapi`，重新导出 `openapi.json` 并生成前端类型（CI 会检查两者是否一致）。
 - `backend/tests/test_openim_contract.py` 同时验证内存版 OpenIM 和真实 OpenIM 的行为是否一致：

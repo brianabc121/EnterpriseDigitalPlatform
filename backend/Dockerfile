@@ -28,13 +28,17 @@ RUN apt-get update \
     && useradd --system --uid 10001 --home-dir /app --shell /usr/sbin/nologin edp
 WORKDIR /app
 COPY --from=build --chown=10001:10001 /app /app
+# FORWARDED_ALLOW_IPS：只采信内网地址（Ingress、负载均衡）转发来的 X-Forwarded-For，客户端 IP 取
+# 从右往左第一个不可信的地址，从公网直接连进来的请求伪造不了（登录限流和审计日志按它记录）。
+# 反向代理不在这些网段时用同名环境变量覆盖。
 ENV PATH="/app/.venv/bin:${PATH}" \
     PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     EDP_ENV=prod \
-    EDP_LOG_FORMAT=json
+    EDP_LOG_FORMAT=json \
+    FORWARDED_ALLOW_IPS="127.0.0.1,::1,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,100.64.0.0/10,fc00::/7"
 USER 10001
 # 8000：API；9464：Prometheus 指标（EDP_METRICS_PORT）。
 EXPOSE 8000 9464
 CMD ["uvicorn", "app.main:create_app", "--factory", "--host", "0.0.0.0", "--port", "8000", \
-     "--proxy-headers", "--forwarded-allow-ips", "*", "--no-access-log"]
+     "--proxy-headers", "--no-access-log"]

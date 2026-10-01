@@ -55,3 +55,35 @@ async def test_bucket_upload_and_download_round_trip() -> None:
     assert got.headers["content-type"] == "application/pdf"
     assert tampered.status_code == 403
     assert wrong_key.status_code == 403
+
+
+async def test_upload_url_only_accepts_the_declared_type_and_size() -> None:
+    """上传凭证签了 content-type 和 content-length：换类型、换成更大的文件都被拒绝；
+    下载时可以指定返回的类型（图片按扩展名的类型显示）。"""
+    storage = config(f"edp-contract-{uuid.uuid4().hex[:12]}")
+    await ensure_bucket(storage)
+    key = f"acme/2026/09/{uuid.uuid4().hex}/a.png"
+    body = b"\x89PNG\r\n\x1a\n" + bytes(24)
+    url = presign(
+        storage,
+        "PUT",
+        key,
+        expires=60,
+        headers={"content-type": "image/png", "content-length": str(len(body))},
+    )
+
+    async with httpx.AsyncClient(timeout=10) as client:
+        wrong_type = await client.put(url, content=body, headers={"content-type": "text/html"})
+        bigger = await client.put(
+            url, content=body + b"<script>", headers={"content-type": "image/png"}
+        )
+        put = await client.put(url, content=body, headers={"content-type": "image/png"})
+        got = await client.get(
+            presign(storage, "GET", key, expires=60, query={"response-content-type": "image/png"})
+        )
+
+    assert wrong_type.status_code == 403
+    assert bigger.status_code == 403
+    assert put.status_code == 200, put.text
+    assert (got.status_code, got.content) == (200, body)
+    assert got.headers["content-type"] == "image/png"
