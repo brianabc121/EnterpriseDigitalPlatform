@@ -54,6 +54,9 @@ class EventType(StrEnum):
     WECOM_CALLBACK = "wecom.callback"
     WECOM_SYNC = "wecom.sync"  # key: 企业；data: corp_id, targets（全量同步）
     WECOM_NOTIFY = "wecom.notify"  # key: 租户；data: staff_ids, title, description, url
+    # AI 公司助理（设计文档 §27.3）：收到的 IM 消息（key：机器人 + 会话）；给员工的提醒（key：租户）
+    ASSISTANT_INBOUND = "assistant.inbound"
+    ASSISTANT_NOTIFY = "assistant.notify"
 
 
 @dataclass(frozen=True)

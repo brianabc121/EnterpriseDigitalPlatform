@@ -52,6 +52,10 @@ class Permission(StrEnum):
     PRODUCTION_WORK = "production:work"  # 加工：领取订单，标记商品完成或缺货，完成加工
     PRODUCTION_ASSIGN = "production:assign"  # 指派和改派加工人，查看全部加工进度
     INTEGRATION_MANAGE = "integration:manage"  # 企业系统对接：接口密钥与事件推送
+    TASK_USE = "task:use"  # 个人待办：自己的事项（设计文档 §27.2）
+    TASK_ASSIGN = "task:assign"  # 给别人布置个人待办
+    TASK_READ_ALL = "task:read_all"  # 查看全员的个人待办，代为处理
+    ASSISTANT_USE = "assistant:use"  # 与 AI 公司助理对话、绑定 IM 账号（设计文档 §27.3）
 
 
 ALL_PERMISSIONS = frozenset(Permission)
@@ -79,6 +83,10 @@ PERMISSION_INFO: dict[Permission, tuple[str, str]] = {
     Permission.TODO_ASSIGN: ("分派和改派待办", "待办"),
     Permission.TODO_CONFIG: ("待办类型和待办设置", "待办"),
     Permission.TODO_EXPORT: ("导出待办", "待办"),
+    Permission.TASK_USE: ("个人待办：自己的事项", "待办"),
+    Permission.TASK_ASSIGN: ("给别人布置个人待办", "待办"),
+    Permission.TASK_READ_ALL: ("查看全员的个人待办", "待办"),
+    Permission.ASSISTANT_USE: ("与 AI 公司助理对话、绑定 IM 账号", "基础"),
     Permission.ORDER_READ: ("查看订单", "订单"),
     Permission.ORDER_CREATE: ("新建订单", "订单"),
     Permission.ORDER_REVIEW: ("审核和跟进订单", "订单"),
@@ -136,6 +144,8 @@ DEFAULT_ROLES: tuple[RoleSpec, ...] = (
                 Permission.ORDER_CREATE,
                 Permission.ORDER_REVIEW,
                 Permission.ORDER_PAYMENT,
+                Permission.TASK_USE,
+                Permission.ASSISTANT_USE,
             }
         ),
     ),
@@ -170,6 +180,9 @@ DEFAULT_ROLES: tuple[RoleSpec, ...] = (
                 Permission.PRODUCTION_ASSIGN,
                 Permission.INVENTORY_MANAGE,
                 Permission.FORM_KB_MANAGE,
+                Permission.TASK_USE,
+                Permission.TASK_ASSIGN,
+                Permission.ASSISTANT_USE,
             }
         ),
     ),
@@ -183,17 +196,29 @@ DEFAULT_ROLES: tuple[RoleSpec, ...] = (
                 Permission.KB_MANAGE,
                 Permission.KB_PUBLISH,
                 Permission.FORM_KB_MANAGE,
+                Permission.TASK_USE,
+                Permission.ASSISTANT_USE,
             }
         ),
     ),
     # 工人只做加工（设计文档 §25.11）：看不到金额、客户电话和地址，也进不了订单中心。
-    RoleSpec("worker", "工人", frozenset({Permission.PRODUCTION_WORK})),
+    RoleSpec(
+        "worker",
+        "工人",
+        frozenset({Permission.PRODUCTION_WORK, Permission.TASK_USE, Permission.ASSISTANT_USE}),
+    ),
     # 仓管（设计文档 §25.15）：确认领料单和入库单，管理材料和成品的库存。
     RoleSpec(
         "keeper",
         "仓管",
         frozenset(
-            {Permission.DASHBOARD_VIEW, Permission.INVENTORY_MANAGE, Permission.WAREHOUSE_CONFIRM}
+            {
+                Permission.DASHBOARD_VIEW,
+                Permission.INVENTORY_MANAGE,
+                Permission.WAREHOUSE_CONFIRM,
+                Permission.TASK_USE,
+                Permission.ASSISTANT_USE,
+            }
         ),
     ),
 )

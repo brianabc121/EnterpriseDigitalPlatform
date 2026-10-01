@@ -16,8 +16,8 @@ from tests.test_warehouse import material
 
 ALL = [
     "dashboard", "workbench", "sessions", "todos", "orders", "products", "production",
-    "warehouse", "customers", "knowledge", "ai", "staff", "reports", "broadcasts", "wecom",
-    "audit", "settings",
+    "warehouse", "tasks", "customers", "knowledge", "ai", "assistant", "staff", "reports",
+    "broadcasts", "wecom", "audit", "settings",
 ]  # fmt: skip
 
 
@@ -50,8 +50,10 @@ async def test_each_role_has_its_own_console(desk: Desk) -> None:
             "sessions",
             "todos",
             "orders",
+            "tasks",
             "customers",
             "knowledge",
+            "assistant",
         ],
     }
     boss = await desk.agent("boss", roles=["supervisor"], online=False)
@@ -60,31 +62,34 @@ async def test_each_role_has_its_own_console(desk: Desk) -> None:
         "profiles": ["supervisor"],
         "menus": [
             "dashboard", "workbench", "sessions", "todos", "orders", "products", "warehouse",
-            "customers", "knowledge", "reports", "broadcasts",
+            "tasks", "customers", "knowledge", "assistant", "reports", "broadcasts",
         ],
     }  # fmt: skip
     kate = await desk.agent("kate", roles=["knowledge_manager"], online=False)
     assert await console(desk, kate.headers) == {
         "profiles": ["knowledge"],
-        "menus": ["dashboard", "knowledge"],
+        "menus": ["dashboard", "tasks", "knowledge", "assistant"],
     }
 
     # 工人：没有仓管角色的员工时，最早创建的工人担任仓管（另外获得确认单据和库存的权限）。
     wang = await desk.agent("wang", roles=["worker"], online=False)
     assert await console(desk, wang.headers) == {
         "profiles": ["keeper", "worker"],
-        "menus": ["production", "warehouse"],
+        "menus": ["production", "warehouse", "tasks", "assistant"],
     }
     laoli = await desk.agent("laoli", roles=["worker"], online=False)
-    assert await console(desk, laoli.headers) == {"profiles": ["worker"], "menus": ["production"]}
+    assert await console(desk, laoli.headers) == {
+        "profiles": ["worker"],
+        "menus": ["production", "tasks", "assistant"],
+    }
 
     # 客服兼仓管：菜单合在一起。
     both = await desk.agent("chen", roles=["agent", "keeper"], online=False)
     assert await console(desk, both.headers) == {
         "profiles": ["agent", "keeper"],
         "menus": [
-            "dashboard", "workbench", "sessions", "todos", "orders", "warehouse", "customers",
-            "knowledge",
+            "dashboard", "workbench", "sessions", "todos", "orders", "warehouse", "tasks",
+            "customers", "knowledge", "assistant",
         ],
     }  # fmt: skip
 
@@ -103,10 +108,14 @@ async def test_keeper_role_confirms_documents_and_replaces_the_worker_fallback(d
         None,
     )
     assert settings["effective_keeper_name"] == "Cang、Cui"
-    assert await console(desk, wang.headers) == {"profiles": ["worker"], "menus": ["production"]}
+    assert await console(desk, wang.headers) == {
+        "profiles": ["worker"],
+        "menus": ["production", "tasks", "assistant"],
+    }
     assert await console(desk, cang.headers) == {
         "profiles": ["keeper"],
-        "menus": ["dashboard", "warehouse"],  # 没有加工和待办的权限，不显示
+        # 没有加工和客户待办的权限，不显示。
+        "menus": ["dashboard", "warehouse", "tasks", "assistant"],
     }
     me = await call(desk, cang.headers, "GET", "/api/v1/me")
     assert {"inventory:manage", "warehouse:confirm"} <= set(me["permissions"])

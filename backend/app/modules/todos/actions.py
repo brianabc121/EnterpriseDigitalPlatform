@@ -23,6 +23,7 @@ from app.modules.customer.service import visible_to as customer_visible_to
 from app.modules.iam.models import Staff, StaffStatus
 from app.modules.iam.principal import Principal
 from app.modules.notifications import service as notifications
+from app.modules.notifications.push import notify_staff
 from app.modules.routing.models import SkillGroup, SkillGroupMember
 from app.modules.todos import assign, events, notify, sla
 from app.modules.todos import fields as todo_fields
@@ -56,7 +57,6 @@ from app.modules.todos.schemas import (
     TodoCreate,
     TodoUpdate,
 )
-from app.modules.wecom.notify import notify_staff
 
 
 def utcnow() -> datetime:

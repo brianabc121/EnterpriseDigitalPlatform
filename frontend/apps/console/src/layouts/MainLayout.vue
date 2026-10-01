@@ -4,10 +4,12 @@ import {
   Avatar,
   Box,
   ChatDotRound,
+  ChatLineRound,
   Clock,
   Connection,
   DataLine,
   Document,
+  Finished,
   Goods,
   HomeFilled,
   MagicStick,
@@ -27,6 +29,7 @@ import PasswordDialog from '../components/account/PasswordDialog.vue'
 import NotificationBell from '../components/layout/NotificationBell.vue'
 import type { MenuIcon } from '../menu'
 import { ORDERS_CHANGED } from '../orders'
+import { TASKS_CHANGED } from '../tasks'
 import { TODOS_CHANGED } from '../todos'
 import { useAuthStore } from '../stores/auth'
 import { useWorkbenchStore } from '../stores/workbench'
@@ -40,6 +43,7 @@ const icons: Record<MenuIcon, Component> = {
   chat: ChatDotRound,
   history: Clock,
   ticket: Tickets,
+  task: Finished,
   order: ShoppingCart,
   goods: Goods,
   production: Box,
@@ -47,6 +51,7 @@ const icons: Record<MenuIcon, Component> = {
   user: User,
   reading: Reading,
   ai: MagicStick,
+  assistant: ChatLineRound,
   avatar: Avatar,
   chart: DataLine,
   integration: Connection,
@@ -79,6 +84,20 @@ async function loadTodoBadge(): Promise<void> {
 
 function onTodosChanged(): void {
   void loadTodoBadge()
+  void loadTaskBadge()
+}
+
+// 个人待办菜单的角标：我已逾期的事项（§27.2），与待办一起刷新；事项有变化时立即刷新。
+const taskBadge = ref(0)
+
+async function loadTaskBadge(): Promise<void> {
+  if (!shown('tasks')) return
+  const { data } = await api.GET('/api/v1/tasks/counts')
+  if (data) taskBadge.value = data.overdue
+}
+
+function onTasksChanged(): void {
+  void loadTaskBadge()
 }
 
 // 订单菜单的角标：待审核的订单（有审核权限时），与待办一起刷新；订单有变化时立即刷新。
@@ -127,12 +146,14 @@ function onNarrow(event: MediaQueryListEvent): void {
 // 收起时菜单名称和角标只在悬停提示里，角标另外显示在图标右上角（工人在手机上也看得到待领取数）。
 const badges = computed<Record<string, number>>(() => ({
   todos: todoBadge.value,
+  tasks: taskBadge.value,
   orders: orderBadge.value,
   production: productionBadge.value,
   warehouse: warehouseBadge.value,
 }))
 const BADGE_TYPE: Record<string, 'danger' | 'warning'> = {
   todos: 'danger',
+  tasks: 'danger',
   orders: 'warning',
   production: 'warning',
   warehouse: 'warning',
@@ -140,23 +161,27 @@ const BADGE_TYPE: Record<string, 'danger' | 'warning'> = {
 
 onMounted(() => {
   void loadTodoBadge()
+  void loadTaskBadge()
   void loadOrderBadge()
   void loadProductionBadge()
   void loadWarehouseBadge()
   todoTimer = setInterval(() => {
     if (document.visibilityState !== 'visible') return
     void loadTodoBadge()
+    void loadTaskBadge()
     void loadOrderBadge()
     void loadProductionBadge()
     void loadWarehouseBadge()
   }, TODO_POLL_MS)
   window.addEventListener(TODOS_CHANGED, onTodosChanged)
+  window.addEventListener(TASKS_CHANGED, onTasksChanged)
   window.addEventListener(ORDERS_CHANGED, onOrdersChanged)
   narrowQuery?.addEventListener('change', onNarrow)
 })
 onBeforeUnmount(() => {
   clearInterval(todoTimer)
   window.removeEventListener(TODOS_CHANGED, onTodosChanged)
+  window.removeEventListener(TASKS_CHANGED, onTasksChanged)
   window.removeEventListener(ORDERS_CHANGED, onOrdersChanged)
   narrowQuery?.removeEventListener('change', onNarrow)
 })
@@ -207,6 +232,13 @@ async function logout(): Promise<void> {
               :max="99"
               class="menu-badge"
               data-testid="todo-badge"
+            />
+            <el-badge
+              v-if="item.name === 'tasks' && taskBadge"
+              :value="taskBadge"
+              :max="99"
+              class="menu-badge"
+              data-testid="task-badge"
             />
             <el-badge
               v-if="item.name === 'orders' && orderBadge"

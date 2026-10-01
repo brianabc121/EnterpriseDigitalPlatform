@@ -25,6 +25,8 @@
 - 读取排队、坐席、发件箱、事件积压等状态类指标（每 15 秒，见 app/observability/state.py）；
 - 建好本月和之后 3 个月的消息分区（每小时，见 app/db/partitions.py）；
 - 收取到期的邮箱的新邮件（每 10 秒检查，每个邮箱按设置的间隔收取，见 app/modules/mail/inbox.py）。
+- 个人待办：到期和逾期提醒（每分钟）、每个工作日上班后的今日汇总（每 5 分钟检查）；
+- AI 助理记录的群聊：提炼知识候选（每小时，见 app/modules/assistant/extraction.py）。
 
 每个任务的执行次数、耗时和最近一次成功的时间计入 Prometheus 指标，每次执行是一个 span。
 
@@ -50,6 +52,7 @@ from app.events.bus import wait_or_stop
 from app.events.lease import Lease
 from app.modules.ai.answer_cache import purge_expired as purge_expired_answers
 from app.modules.ai.summaries import run_pending as run_session_summaries
+from app.modules.assistant.extraction import run_group_extraction
 from app.modules.billing.service import run_invoices, run_lifecycle
 from app.modules.conversation.outbox import dispatch_due
 from app.modules.conversation.reconcile import reconcile_all
@@ -71,6 +74,8 @@ from app.modules.security.retention import run_retention
 from app.modules.security.scanning import run_file_scan
 from app.modules.sessions.engine import republish_orphans, run_session_timers
 from app.modules.sessions.transfer import run_transfer_timers
+from app.modules.tasks.notify import run_digest as run_task_digest
+from app.modules.tasks.notify import run_timers as run_task_timers
 from app.modules.todos.extract import run_pending as run_todo_extraction
 from app.modules.todos.notify import run_digest as run_todo_digest
 from app.modules.todos.notify import run_timers as run_todo_timers
@@ -124,6 +129,9 @@ JOBS = (
     Job("todo-timers", 15, run_todo_timers),
     Job("todo-digest", 300, run_todo_digest),
     Job("todo-extract", 60, run_todo_extraction),
+    Job("task-timers", 60, run_task_timers),
+    Job("task-digest", 300, run_task_digest),
+    Job("assistant-group-extract", 3600, run_group_extraction),
     Job("order-collections", 600, run_order_collections),
     Job("order-draft-followups", 300, run_order_followups),
     Job("product-embed", 60, embed_products),

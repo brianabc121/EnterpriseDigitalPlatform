@@ -28,6 +28,7 @@ from app.integrations.llm import EmbedEndpoint, LLMClient, LLMEndpoint
 from app.integrations.openim import OpenIMClient
 from app.main import create_app
 from app.modules.conversation import hooks
+from tests.fake_bots import FakeBots
 from tests.fake_llm import DIM as FAKE_EMBED_DIM
 from tests.fake_llm import FakeLLM
 from tests.fake_openim import SECRET as FAKE_OPENIM_SECRET
@@ -50,7 +51,8 @@ ALL_TABLES = (
     "routing_policies, agent_states, sessions, session_events, todos, im_ops, quick_replies, "
     "session_transfers, customer_owner_history, usage_daily, ai_settings, kb_items, kb_chunks, "
     "ai_session_states, ai_decisions, llm_calls, ai_eval_runs, llm_providers, platform_settings, "
-    "prompt_templates"
+    "prompt_templates, staff_tasks, assistant_bots, assistant_identities, assistant_groups, "
+    "assistant_group_messages, assistant_messages"
 )
 SEEDED_PLANS = "'trial', 'standard', 'enterprise'"
 BACKEND_DIR = Path(__file__).resolve().parents[1]
@@ -182,12 +184,18 @@ def fake_web() -> FakeWeb:
 
 
 @pytest.fixture
+def fake_bots() -> FakeBots:
+    return FakeBots()
+
+
+@pytest.fixture
 async def app(
     settings: Settings,
     fake_im: FakeOpenIM,
     fake_llm: FakeLLM,
     fake_storage: FakeStorage,
     fake_web: FakeWeb,
+    fake_bots: FakeBots,
 ) -> AsyncIterator[FastAPI]:
     im = OpenIMClient(
         settings.openim_api_url, secret=FAKE_OPENIM_SECRET, transport=fake_im.transport()
@@ -199,6 +207,7 @@ async def app(
         storage_transport=fake_storage.transport(),
         llm_transport=fake_llm.transport(),
         web_transport=fake_web.transport(),
+        imbots_transport=fake_bots.transport(),
     )
     yield application
     await application.state.ctx.web.aclose()
@@ -236,6 +245,7 @@ async def wecom_app(
     fake_llm: FakeLLM,
     fake_wecom: FakeWeCom,
     fake_storage: FakeStorage,
+    fake_bots: FakeBots,
 ) -> AsyncIterator[FastAPI]:
     """配置了企业微信服务商的应用：接到模拟企业微信和内存对象存储。"""
     from tests.wecom_desk import wecom_settings
@@ -250,6 +260,7 @@ async def wecom_app(
         wecom_transport=fake_wecom.transport(),
         storage_transport=fake_storage.transport(),
         llm_transport=fake_llm.transport(),
+        imbots_transport=fake_bots.transport(),
     )
     yield application
     await application.state.ctx.aclose()

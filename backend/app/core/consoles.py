@@ -35,9 +35,12 @@ class ConsoleMenu(StrEnum):
     PRODUCTS = "products"
     PRODUCTION = "production"
     WAREHOUSE = "warehouse"
+    # 个人待办（设计文档 §27.2）：排在"加工"之后，工人登录后仍先打开"加工"。
+    TASKS = "tasks"
     CUSTOMERS = "customers"
     KNOWLEDGE = "knowledge"
     AI = "ai"
+    ASSISTANT = "assistant"  # AI 公司助理（设计文档 §27.3）
     STAFF = "staff"
     REPORTS = "reports"
     BROADCASTS = "broadcasts"
@@ -56,13 +59,22 @@ DEFAULT_MENUS: dict[ConsoleProfile, tuple[ConsoleMenu, ...]] = {
         M.WORKBENCH,
         M.SESSIONS,
         M.TODOS,
+        M.TASKS,
         M.ORDERS,
         M.CUSTOMERS,
         M.KNOWLEDGE,
+        M.ASSISTANT,
     ),
-    ConsoleProfile.KEEPER: (M.DASHBOARD, M.WAREHOUSE, M.PRODUCTION, M.TODOS),
-    ConsoleProfile.WORKER: (M.PRODUCTION,),
-    ConsoleProfile.KNOWLEDGE: (M.DASHBOARD, M.KNOWLEDGE),
+    ConsoleProfile.KEEPER: (
+        M.DASHBOARD,
+        M.WAREHOUSE,
+        M.PRODUCTION,
+        M.TODOS,
+        M.TASKS,
+        M.ASSISTANT,
+    ),
+    ConsoleProfile.WORKER: (M.PRODUCTION, M.TASKS, M.ASSISTANT),
+    ConsoleProfile.KNOWLEDGE: (M.DASHBOARD, M.KNOWLEDGE, M.TASKS, M.ASSISTANT),
 }
 # 管理员固定看全部菜单，其他岗位可以调整。
 CONFIGURABLE: tuple[ConsoleProfile, ...] = tuple(p for p in ConsoleProfile if p != "admin")
@@ -82,6 +94,7 @@ MENU_RULES: dict[ConsoleMenu, tuple[Permission, str | None]] = {
     ConsoleMenu.WORKBENCH: (Permission.WORKBENCH_USE, None),
     ConsoleMenu.SESSIONS: (Permission.WORKBENCH_USE, None),
     ConsoleMenu.TODOS: (Permission.TODO_READ, None),
+    ConsoleMenu.TASKS: (Permission.TASK_USE, None),
     ConsoleMenu.ORDERS: (Permission.ORDER_READ, "orders"),
     ConsoleMenu.PRODUCTS: (Permission.ORDER_READ, "orders"),
     ConsoleMenu.PRODUCTION: (Permission.PRODUCTION_WORK, "orders"),
@@ -89,6 +102,7 @@ MENU_RULES: dict[ConsoleMenu, tuple[Permission, str | None]] = {
     ConsoleMenu.CUSTOMERS: (Permission.CUSTOMER_READ, None),
     ConsoleMenu.KNOWLEDGE: (Permission.KB_READ, None),
     ConsoleMenu.AI: (Permission.SETTINGS_MANAGE, None),
+    ConsoleMenu.ASSISTANT: (Permission.ASSISTANT_USE, "ai"),
     ConsoleMenu.STAFF: (Permission.STAFF_READ, None),
     ConsoleMenu.REPORTS: (Permission.REPORT_VIEW, None),
     ConsoleMenu.BROADCASTS: (Permission.BROADCAST_MANAGE, "broadcast"),

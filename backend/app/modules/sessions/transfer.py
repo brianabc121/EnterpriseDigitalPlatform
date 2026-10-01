@@ -28,6 +28,7 @@ from app.modules.customer.models import Customer, OwnerChangeReason
 from app.modules.customer.ownership import change_owner
 from app.modules.iam.models import Staff, StaffStatus
 from app.modules.iam.principal import Principal
+from app.modules.notifications.push import notify_staff
 from app.modules.routing.assign import LOAD_STATUSES
 from app.modules.routing.models import AgentState, AgentStatus, SkillGroup
 from app.modules.sessions.engine import (
@@ -47,7 +48,6 @@ from app.modules.sessions.schemas import (
     TransferTargets,
 )
 from app.modules.sessions.service import visible_session
-from app.modules.wecom.notify import notify_staff
 
 TRANSFER_TIMEOUT = timedelta(seconds=60)
 TRANSFER_NOT_FOUND = "转接不存在或已处理"

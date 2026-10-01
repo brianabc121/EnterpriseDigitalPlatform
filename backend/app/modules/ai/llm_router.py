@@ -48,6 +48,8 @@ SCENES = {
     "todo_extract": "待办解析",
     "order_extract": "订单解析",
     "evaluate": "AI 评测",
+    "assistant": "AI 公司助理",
+    "group_extract": "群聊知识提炼",
 }
 CACHE_SECONDS = 5.0
 

@@ -30,6 +30,7 @@ from app.modules.conversation.notices import CustomerNotice
 from app.modules.customer.models import Customer
 from app.modules.iam.models import Staff
 from app.modules.notifications import service as notifications
+from app.modules.notifications.push import notify_staff
 from app.modules.routing.hours import day_start, is_business_day
 from app.modules.routing.models import SkillGroupMember
 from app.modules.todos import assign, events, sla
@@ -45,7 +46,6 @@ from app.modules.todos.models import (
     TodoStatus,
     TodoType,
 )
-from app.modules.wecom.notify import notify_staff
 
 logger = logging.getLogger(__name__)
 

@@ -25,6 +25,7 @@ from app.events.bus import Event, EventType
 from app.integrations.storage import ensure_bucket
 from app.main import create_app
 from app.modules.ai.summaries import run_pending as run_session_summaries
+from app.modules.assistant.extraction import GroupReport, run_group_extraction
 from app.modules.billing.service import generate_invoices, run_invoices, run_lifecycle
 from app.modules.conversation.reconcile import ReconcileReport, reconcile_all
 from app.modules.files.service import storage_config
@@ -43,6 +44,8 @@ from app.modules.security.keys import TenantKeyring
 from app.modules.security.retention import run_retention
 from app.modules.security.rotation import rewrap_master
 from app.modules.security.scanning import run_file_scan
+from app.modules.tasks.notify import run_digest as run_task_digest
+from app.modules.tasks.notify import run_timers as run_task_timers
 from app.modules.tenancy import service as tenancy
 from app.modules.tenancy.models import Tenant
 from app.modules.tenancy.schemas import TenantAdminCreate, TenantCreate
@@ -145,6 +148,24 @@ async def todo_jobs(settings: Settings) -> dict[str, Any]:
             "digests": await run_todo_digest(ctx),
             "extracted": await run_todo_extraction(ctx),
         }
+    finally:
+        await ctx.aclose()
+
+
+async def task_jobs(settings: Settings) -> dict[str, Any]:
+    """立即发送个人待办的到期、逾期提醒和今日汇总（平时由调度进程定时执行）。"""
+    ctx = AppContext.create(settings)
+    try:
+        return {"timers": await run_task_timers(ctx), "digests": await run_task_digest(ctx)}
+    finally:
+        await ctx.aclose()
+
+
+async def assistant_extract(settings: Settings, code: str | None) -> GroupReport:
+    """立即从 AI 助理记录的群聊里提炼知识候选（平时由调度进程每小时执行）。"""
+    ctx = AppContext.create(settings)
+    try:
+        return await run_group_extraction(ctx, tenant_code=code)
     finally:
         await ctx.aclose()
 
@@ -387,6 +408,13 @@ def main(argv: list[str] | None = None) -> int:
         help="立即发送待办提醒、到期提醒和逾期升级，并解析最近结束的会话（平时由调度进程定时执行）",
     )
     commands.add_parser(
+        "task-jobs", help="立即发送个人待办的到期、逾期提醒和今日汇总（平时由调度进程定时执行）"
+    )
+    group_extract = commands.add_parser(
+        "assistant-extract", help="立即从 AI 助理记录的群聊里提炼知识候选"
+    )
+    group_extract.add_argument("--tenant", help="租户编码，不填时处理全部租户")
+    commands.add_parser(
         "order-jobs",
         help="立即为到期未收清的暂欠订单生成催收待办，并为新商品生成向量（平时由调度进程定时执行）",
     )
@@ -482,6 +510,11 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps(done, ensure_ascii=False))
     elif args.command == "todo-jobs":
         print(json.dumps(asyncio.run(todo_jobs(get_settings())), ensure_ascii=False))
+    elif args.command == "task-jobs":
+        print(json.dumps(asyncio.run(task_jobs(get_settings())), ensure_ascii=False))
+    elif args.command == "assistant-extract":
+        groups = asyncio.run(assistant_extract(get_settings(), args.tenant))
+        print(json.dumps(dataclasses.asdict(groups), ensure_ascii=False))
     elif args.command == "order-jobs":
         print(json.dumps(asyncio.run(order_jobs(get_settings())), ensure_ascii=False))
     elif args.command == "webhook-jobs":

@@ -4,7 +4,12 @@ import { ElMessage } from 'element-plus'
 import { computed, onMounted, ref, watch } from 'vue'
 
 import { api, formatDateTime } from '../../api'
-import { CANDIDATE_KIND, CANDIDATE_KIND_TAG, CANDIDATE_STATUS } from '../../knowledge'
+import {
+  CANDIDATE_KIND,
+  CANDIDATE_KIND_TAG,
+  CANDIDATE_SOURCE,
+  CANDIDATE_STATUS,
+} from '../../knowledge'
 import CandidateDrawer from './CandidateDrawer.vue'
 
 /** 审核台（设计 §12.5）：从会话提炼的候选按影响排序；缺口单独筛选即为"知识缺口榜"。 */
@@ -96,6 +101,9 @@ defineExpose({ load })
         <template #default="{ row }">
           <el-tag size="small" :type="CANDIDATE_KIND_TAG[row.kind]">
             {{ CANDIDATE_KIND[row.kind] ?? row.kind }}
+          </el-tag>
+          <el-tag v-if="row.source !== 'session'" size="small" effect="plain" class="source">
+            {{ CANDIDATE_SOURCE[row.source] ?? row.source }}
           </el-tag>
         </template>
       </el-table-column>

@@ -167,6 +167,7 @@ class CandidateSource(StrEnum):
     SESSION = "session"  # 已结束的会话（微信客服、网页）
     SIDEBAR = "sidebar"  # 员工在企业微信侧边栏里的一问一答
     ZONE = "zone"  # 数据与智能专区返回的群聊问答候选
+    GROUP = "group"  # AI 公司助理记录的内部群聊（设计文档 §27.4）
 
 
 class KbCandidate(IdMixin, TimestampMixin, TenantMixin, Base):
@@ -191,7 +192,7 @@ class KbCandidate(IdMixin, TimestampMixin, TenantMixin, Base):
     first_seen_at: Mapped[datetime] = mapped_column(server_default=func.now())
     last_seen_at: Mapped[datetime] = mapped_column(server_default=func.now())
     model: Mapped[str | None] = mapped_column(String(128))
-    prompt_version: Mapped[str | None] = mapped_column(String(16))
+    prompt_version: Mapped[str | None] = mapped_column(String(40))
     review_note: Mapped[str | None] = mapped_column(Text)
     reviewed_by: Mapped[uuid.UUID | None]
     reviewed_at: Mapped[datetime | None]

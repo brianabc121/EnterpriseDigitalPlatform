@@ -40,6 +40,10 @@ class TenantSetting(Base):
     console: Mapped[dict[str, Any]] = mapped_column(server_default="{}")
     # 表单知识的设置（formkb/settings.py 的 FormKbSettings，设计文档 §25.18）。
     form_kb: Mapped[dict[str, Any]] = mapped_column(server_default="{}")
+    # 个人待办的设置（tasks/settings.py 的 TaskSettings，设计文档 §27.2）。
+    tasks: Mapped[dict[str, Any]] = mapped_column(server_default="{}")
+    # AI 公司助理的设置（assistant/settings.py 的 AssistantSettings，设计文档 §27.3）。
+    assistant: Mapped[dict[str, Any]] = mapped_column(server_default="{}")
     updated_by: Mapped[uuid.UUID | None]
     updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
 

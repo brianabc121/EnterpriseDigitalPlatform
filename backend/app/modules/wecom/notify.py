@@ -75,11 +75,13 @@ def oauth_url(ctx: AppContext, corp_id: str, agent_id: int | None, path: str) ->
 async def announce_must_read(
     ctx: AppContext, session: AsyncSession, tenant_id: UUID, item: KbItem
 ) -> None:
-    """必读知识发布或更新后提醒需要确认的员工。"""
-    if ctx.wecom is None or not item.must_read or item.status != ItemStatus.PUBLISHED:
+    """必读知识发布或更新后提醒需要确认的员工（企业微信应用消息和 AI 助理）。"""
+    if not item.must_read or item.status != ItemStatus.PUBLISHED:
         return
+    from app.modules.notifications.push import notify_staff as push_staff
+
     staff = await item_audience(session, item)
-    await notify_staff(
+    await push_staff(
         ctx,
         tenant_id,
         [s.id for s in staff],

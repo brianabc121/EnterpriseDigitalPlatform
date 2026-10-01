@@ -13,6 +13,8 @@ from app.core.ratelimit import RateLimiter
 from app.integrations.llm import LLMClient
 from app.integrations.openim import OpenIMClient
 from app.modules.ai.router import router as ai_router
+from app.modules.assistant.hooks import router as assistant_hooks_router
+from app.modules.assistant.router import router as assistant_router
 from app.modules.audit.router import router as audit_router
 from app.modules.billing.router import platform_router as platform_billing_router
 from app.modules.billing.router import router as billing_router
@@ -46,6 +48,7 @@ from app.modules.routing.router import router as routing_router
 from app.modules.security.router import platform_router as platform_security_router
 from app.modules.security.router import router as security_router
 from app.modules.sessions.router import router as sessions_router
+from app.modules.tasks.router import router as tasks_router
 from app.modules.tenancy.router import router as platform_router
 from app.modules.todos.router import router as todos_router
 from app.modules.transport.middleware import TransportMiddleware
@@ -70,6 +73,7 @@ def create_app(
     storage_transport: httpx.AsyncBaseTransport | None = None,
     llm_transport: httpx.AsyncBaseTransport | None = None,
     web_transport: httpx.AsyncBaseTransport | None = None,
+    imbots_transport: httpx.AsyncBaseTransport | None = None,
 ) -> FastAPI:
     """应用工厂。开发环境：uvicorn app.main:create_app --factory --reload。
 
@@ -87,6 +91,7 @@ def create_app(
         storage_transport=storage_transport,
         llm_transport=llm_transport,
         web_transport=web_transport,
+        imbots_transport=imbots_transport,
     )
 
     @asynccontextmanager
@@ -127,6 +132,7 @@ def create_app(
     app.include_router(conversation_router)
     app.include_router(sessions_router)
     app.include_router(todos_router)
+    app.include_router(tasks_router)
     app.include_router(orders_router)
     app.include_router(production_router)
     app.include_router(warehouse_router)
@@ -141,6 +147,8 @@ def create_app(
     app.include_router(form_kb_router)
     app.include_router(notifications_router)
     app.include_router(ai_router)
+    app.include_router(assistant_router)
+    app.include_router(assistant_hooks_router)
     app.include_router(files_router)
     app.include_router(visitor_router)
     app.include_router(openim_hooks_router)

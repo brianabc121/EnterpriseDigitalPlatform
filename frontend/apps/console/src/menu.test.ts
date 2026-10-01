@@ -16,9 +16,18 @@ const AGENT: Permission[] = [
   'order:create',
   'order:review',
   'order:payment',
+  'task:use',
+  'assistant:use',
 ]
-const KNOWLEDGE_MANAGER: Permission[] = ['dashboard:view', 'kb:read', 'kb:manage', 'kb:publish']
-const WORKER: Permission[] = ['production:work']
+const KNOWLEDGE_MANAGER: Permission[] = [
+  'dashboard:view',
+  'kb:read',
+  'kb:manage',
+  'kb:publish',
+  'task:use',
+  'assistant:use',
+]
+const WORKER: Permission[] = ['production:work', 'task:use', 'assistant:use']
 
 const names = (permissions: Permission[]) =>
   visibleMenus(new Set(permissions)).map((item) => item.name)
@@ -37,18 +46,27 @@ describe('visibleMenus', () => {
       'todos',
       'orders',
       'products',
+      'tasks',
       'customers',
       'knowledge',
+      'assistant',
     ])
   })
 
   it('shows knowledge managers only knowledge menus', () => {
-    expect(names(KNOWLEDGE_MANAGER)).toEqual(['dashboard', 'knowledge'])
+    expect(names(KNOWLEDGE_MANAGER)).toEqual(['dashboard', 'tasks', 'knowledge', 'assistant'])
   })
 
-  it('shows workers only the production page and lands them there', () => {
-    expect(names(WORKER)).toEqual(['production'])
+  it('shows workers the production page first and lands them there', () => {
+    expect(names(WORKER)).toEqual(['production', 'tasks', 'assistant'])
     expect(firstAccessiblePath(new Set(WORKER))).toBe('/production')
+  })
+
+  it('hides the assistant when the plan has no AI', () => {
+    expect(visibleMenus(new Set(WORKER), { ai: false }).map((item) => item.name)).toEqual([
+      'production',
+      'tasks',
+    ])
   })
 
   it('hides menus for features the plan does not include', () => {

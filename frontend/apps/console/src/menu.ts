@@ -5,6 +5,7 @@ export type MenuIcon =
   | 'chat'
   | 'history'
   | 'ticket'
+  | 'task'
   | 'order'
   | 'goods'
   | 'production'
@@ -12,6 +13,7 @@ export type MenuIcon =
   | 'user'
   | 'reading'
   | 'ai'
+  | 'assistant'
   | 'avatar'
   | 'chart'
   | 'integration'
@@ -92,6 +94,8 @@ export const MENU: readonly MenuItem[] = [
     permission: 'inventory:manage',
     feature: 'orders',
   },
+  // 个人待办（§27.2）：每个岗位都有，排在"加工"之后，工人登录后仍先打开"加工"。
+  { name: 'tasks', path: '/tasks', title: '个人待办', icon: 'task', permission: 'task:use' },
   {
     name: 'customers',
     path: '/customers',
@@ -107,6 +111,15 @@ export const MENU: readonly MenuItem[] = [
     permission: 'kb:read',
   },
   { name: 'ai', path: '/ai', title: 'AI 接待', icon: 'ai', permission: 'settings:manage' },
+  // AI 公司助理（§27.3）：每个岗位都能对话和绑定；设置页签只给有设置权限的人。
+  {
+    name: 'assistant',
+    path: '/assistant',
+    title: 'AI 助理',
+    icon: 'assistant',
+    permission: 'assistant:use',
+    feature: 'ai',
+  },
   { name: 'staff', path: '/staff', title: '员工', icon: 'avatar', permission: 'staff:read' },
   { name: 'reports', path: '/reports', title: '报表', icon: 'chart', permission: 'report:view' },
   {

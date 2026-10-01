@@ -19,7 +19,7 @@ from app.modules.kb.distribution import audience
 from app.modules.kb.models import ItemStatus, KbItem
 from app.modules.kb.service import EXPIRING_WITHIN
 from app.modules.notifications import service as notifications
-from app.modules.wecom.notify import notify_staff
+from app.modules.notifications.push import notify_staff
 
 REMIND_BEFORE = EXPIRING_WITHIN
 BATCH = 200
