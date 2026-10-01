@@ -4,7 +4,14 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { computed, nextTick, ref, watch } from 'vue'
 
 import { api } from '../../api'
-import { focusField, mergeInto, quantityTotal, today, type PickedItem } from '../../documents'
+import {
+  focusField,
+  mergeInto,
+  quantityTotal,
+  today,
+  type EntryTrace,
+  type PickedItem,
+} from '../../documents'
 import { useAuthStore } from '../../stores/auth'
 import {
   draftItemBasis,
@@ -63,6 +70,8 @@ interface Row {
   sources: DraftSource[]
   taken: number
   estimated: boolean
+  /** 这一行是怎么录入的（表单知识的证据，§25.18）。 */
+  entry?: EntryTrace
 }
 
 type Focusable = { focus: () => void }
@@ -259,6 +268,7 @@ function addItems(items: PickedItem[]): void {
     sources: [],
     taken: 0,
     estimated: false,
+    ...(i.entry ? { entry: i.entry } : {}),
   }))
   if (index >= 0) void nextTick(() => focusField(qtyInputs.value[index]))
 }
@@ -272,7 +282,12 @@ function body(): Schemas['DocumentLineIn'][] {
   return rows.value
     .map((r) => ({ ...r, quantity: Math.round((r.quantity ?? 0) * 1000) / 1000 }))
     .filter((r) => r.quantity > 0)
-    .map((r) => ({ product_id: r.product_id, quantity: r.quantity, planned: r.planned }))
+    .map((r) => ({
+      product_id: r.product_id,
+      quantity: r.quantity,
+      planned: r.planned,
+      ...(r.entry ? { entry: r.entry } : {}),
+    }))
 }
 
 async function save(): Promise<void> {
@@ -478,6 +493,22 @@ function savedMessage(data: WarehouseDocument | Schemas['ProductionOrder']): str
                   >估算</el-tag
                 >
                 <el-tag
+                  v-else-if="row.sources.some((x) => x.basis === 'learned')"
+                  size="small"
+                  type="success"
+                  effect="plain"
+                  data-testid="document-line-learned"
+                  >学到的</el-tag
+                >
+                <el-tag
+                  v-else-if="row.sources.some((x) => x.basis === 'manual')"
+                  size="small"
+                  type="success"
+                  effect="plain"
+                  data-testid="document-line-knowledge"
+                  >知识库</el-tag
+                >
+                <el-tag
                   v-else-if="forOrder && row.planned === null"
                   size="small"
                   type="info"
@@ -547,6 +578,7 @@ function savedMessage(data: WarehouseDocument | Schemas['ProductionOrder']): str
                 :kind="itemKind"
                 testid="document-add"
                 :placeholder="`添加${noun}：输入名称、代码、规格或拼音首字母，也可以扫码`"
+                :present="rows.map((r) => r.product_id)"
                 @add="addItems"
               />
             </td>

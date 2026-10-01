@@ -5,6 +5,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
+from app.modules.formkb.schemas import EntryTrace
 from app.modules.products.schemas import Qty
 from app.modules.warehouse.schemas import DocumentBrief, DocumentLineIn
 
@@ -52,6 +53,11 @@ class LineIn(BaseModel):
     )
     raw_text: str | None = Field(default=None, max_length=200, description="客户的原话")
     name: str | None = Field(default=None, max_length=128, description="没有匹配商品库时的名称")
+    entry: EntryTrace | None = Field(
+        default=None,
+        description="这一行是怎么录入的：录入行的输入、对应到商品库时客户的说法（表单知识的证据，"
+        "§25.18；不保存在订单上）",
+    )
 
 
 class OrderCreate(BaseModel):

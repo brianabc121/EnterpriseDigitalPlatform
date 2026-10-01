@@ -2,10 +2,12 @@ import { describe, expect, it } from 'vitest'
 
 import {
   enterPick,
+  entryTrace,
   exactCode,
   highlight,
   matchLabel,
   mergeInto,
+  missedQuery,
   quantityTotal,
   roundQuantity,
   stockText,
@@ -78,6 +80,7 @@ describe('开单：联想（§25.16）', () => {
     item: item(id),
     field,
     match,
+    note: null,
   })
 
   it('标出按什么找到的：名称和最近用过的不标', () => {
@@ -125,6 +128,42 @@ describe('开单：联想（§25.16）', () => {
     expect(highlight('铝合金窗', 'lhjc')).toEqual([{ text: '铝合金窗', hit: false }])
     expect(highlight('LAMP-01', 'l')).toEqual([{ text: 'LAMP-01', hit: false }])
     expect(highlight('', '铝')).toEqual([])
+  })
+
+  it('表单知识（§25.18）：学到的叫法、常一起开的', () => {
+    expect(matchLabel({ field: 'learned', match: 'exact' })).toBe('学到的')
+    expect(matchLabel({ field: null, match: 'companion' })).toBe('常一起开')
+    expect(suggestionTitle([s('screen', 'companion', null), s('a', 'recent', null)], true)).toBe(
+      '常一起开的 · 最近用过的',
+    )
+    // 输入学到的叫法后直接回车：加入学到的商品。
+    expect(enterPick([s('win-02', 'exact', 'learned'), s('win-01', 'similar')], '大窗')?.id).toBe('win-02')
+  })
+
+  it('记下怎么录入的：这次的输入、之前没找到的输入、第几个候选', () => {
+    expect(missedQuery([], '大窗')).toBe(true)
+    expect(missedQuery([s('a', 'similar')], '大窗')).toBe(true)
+    expect(missedQuery([s('a', 'prefix')], '铝合金')).toBe(false)
+    expect(missedQuery([], '  ')).toBe(false)
+    expect(entryTrace('铝合金窗', '大窗', { field: 'name', match: 'prefix' }, 1)).toEqual({
+      via: 'suggest',
+      query: '铝合金窗',
+      missed: '大窗',
+      match: 'prefix',
+      rank: 1,
+    })
+    // 学到的叫法推荐的；之前没找到的和这次一样时不记。
+    expect(entryTrace('大窗', '大窗', { field: 'learned', match: 'exact' }, 0)).toEqual({
+      via: 'suggest',
+      query: '大窗',
+      match: 'learned',
+      rank: 0,
+    })
+    expect(entryTrace('', null, { field: null, match: 'companion' }, 0)).toEqual({
+      via: 'suggest',
+      match: 'companion',
+      rank: 0,
+    })
   })
 
   it('候选的库存：开单时现有和可用，下单时可用，不管理库存的只有单位', () => {

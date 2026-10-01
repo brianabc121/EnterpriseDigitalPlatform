@@ -6,10 +6,12 @@ import { computed, ref } from 'vue'
 import { api } from '../../api'
 import {
   enterPick,
+  entryTrace,
   fromProductSuggestion,
   fromStockSuggestion,
   highlight,
   matchLabel,
+  missedQuery,
   stockText,
   suggestionTitle,
   type PickedItem,
@@ -25,6 +27,10 @@ import ItemPicker from './ItemPicker.vue'
  * 用过的。还没出候选就回车（例如扫码枪扫出代码后回车）时先检索，代码完全一致的直接加入。旁边的
  * "批量选择"一次勾选多个。
  *
+ * 表单知识（§25.18）：学到的叫法排在前面（标"学到的"）；单上已经有商品（present）时，空着的录入行
+ * 先列出常一起开的。选中时记下怎么录入的（这次的输入、之前没找到的输入、第几个候选），提交后
+ * 用来学习。
+ *
  * source：sales 是可以销售的成品（下单，带建议零售价）；warehouse 是仓库里的材料或成品（开单）。
  */
 const props = withDefaults(
@@ -33,11 +39,14 @@ const props = withDefaults(
     kind?: 'goods' | 'material'
     placeholder?: string
     testid?: string
+    /** 单上已经有的商品（列出常一起开的）。 */
+    present?: string[]
   }>(),
   {
     kind: 'goods',
     placeholder: '输入名称、代码、规格或拼音首字母，回车加入',
     testid: 'item-entry',
+    present: () => [],
   },
 )
 const emit = defineEmits<{ add: [items: PickedItem[]] }>()
@@ -54,18 +63,22 @@ const picking = ref(false)
 const input = ref<InstanceType<typeof ElInput> | null>(null)
 let seq = 0
 let timer: ReturnType<typeof setTimeout> | undefined
+// 这次录入里之前没找到要的输入（没有候选或只有相近的），换了说法才找到时记下来。
+let missed: string | null = null
 
 const title = computed(() => suggestionTitle(options.value, recent.value))
 
 async function fetchSuggestions(q: string): Promise<{ list: Suggestion[]; recent: boolean }> {
+  // 没有输入时带上单上已有的商品：先列出常和它们一起开的。
+  const present = !q && props.present.length ? props.present : undefined
   if (props.source === 'sales') {
     const { data } = await api.GET('/api/v1/products/suggest', {
-      params: { query: { q, limit: 8 } },
+      params: { query: { q, limit: 8, with: present } },
     })
     return { list: (data?.items ?? []).map(fromProductSuggestion), recent: data?.recent ?? false }
   }
   const { data } = await api.GET('/api/v1/warehouse/suggest', {
-    params: { query: { kind: props.kind, q, limit: 8 } },
+    params: { query: { kind: props.kind, q, limit: 8, with: present } },
   })
   return { list: (data?.items ?? []).map(fromStockSuggestion), recent: data?.recent ?? false }
 }
@@ -88,6 +101,7 @@ async function search(showRecent = false): Promise<Suggestion[]> {
   recent.value = found.recent
   query.value = q
   active.value = 0
+  if (missedQuery(found.list, q)) missed = q
   // 没有最近用过的商品时不弹出空的下拉。
   if (!q && !found.list.length) open.value = false
   return found.list
@@ -107,10 +121,14 @@ function onClick(): void {
   if (!open.value) void search(!text.value.trim())
 }
 
-function choose(item: PickedItem): void {
+/** 加入选中的商品，带上怎么录入的（list 是选中时的候选列表）。 */
+function choose(item: PickedItem, list: readonly Suggestion[] = options.value): void {
   clearTimeout(timer)
   seq++
-  emit('add', [{ ...item, quantity: 1 }])
+  const rank = list.findIndex((o) => o.item.id === item.id)
+  const entry = entryTrace(text.value, missed, rank >= 0 ? list[rank]! : null, rank >= 0 ? rank : null)
+  emit('add', [{ ...item, quantity: 1, entry }])
+  missed = null
   text.value = ''
   options.value = []
   open.value = false
@@ -127,7 +145,7 @@ async function onEnter(): Promise<void> {
   if (!q) return
   const found = await search()
   const picked = enterPick(found, q)
-  if (picked) choose(picked)
+  if (picked) choose(picked, found)
 }
 
 function move(step: number): void {
@@ -152,7 +170,10 @@ function onEsc(event: KeyboardEvent): void {
 }
 
 function picked(items: PickedItem[]): void {
-  emit('add', items)
+  emit(
+    'add',
+    items.map((i) => ({ ...i, entry: { via: 'batch' as const } })),
+  )
 }
 
 function focus(): void {
@@ -226,7 +247,7 @@ defineExpose({ focus })
               <span
                 v-if="matchLabel(o)"
                 class="tag"
-                :class="{ similar: o.match === 'similar' }"
+                :class="{ similar: o.match === 'similar', learned: o.field === 'learned' || o.match === 'companion' }"
                 :data-testid="`${testid}-tag`"
                 >{{ matchLabel(o) }}</span
               >
@@ -235,7 +256,8 @@ defineExpose({ focus })
               </span>
             </div>
             <div class="line sub">
-              <span>
+              <span v-if="o.note" class="note" :data-testid="`${testid}-note`">{{ o.note }}</span>
+              <span v-else>
                 <template v-for="(part, k) in highlight(sub(o.item), query)" :key="k">
                   <mark v-if="part.hit">{{ part.text }}</mark>
                   <template v-else>{{ part.text }}</template>
@@ -342,6 +364,16 @@ mark {
 .tag.similar {
   border-color: var(--el-color-warning-light-5);
   color: var(--el-color-warning-dark-2);
+}
+
+/* 学到的叫法、常一起开的（表单知识）。 */
+.tag.learned {
+  border-color: var(--el-color-success-light-5);
+  color: var(--el-color-success-dark-2);
+}
+
+.note {
+  color: var(--el-color-success-dark-2);
 }
 
 .sub {

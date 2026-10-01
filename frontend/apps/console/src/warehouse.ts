@@ -97,7 +97,11 @@ export function sourceText(source: DraftSource, materialUnit: string): string {
   const per = source.unit || '件'
   const usage = `${qtyUnit(source.per_unit, materialUnit)}/${per}`
   const text = `${source.item} ${usage} × ${source.quantity} ${per}`
-  return source.basis === 'history' ? `${text}（按以往 ${source.orders ?? 0} 个订单估算）` : text
+  if (source.basis === 'history') return `${text}（按以往 ${source.orders ?? 0} 个订单估算）`
+  // 表单知识（§25.18）：常领的材料是学到的；知识库里填写的用量。
+  if (source.basis === 'learned') return `${text}（学到的：以往 ${source.orders ?? 0} 个订单常领）`
+  if (source.basis === 'manual') return `${text}（知识库）`
+  return text
 }
 
 /** 这次加工的商品："铝合金窗 1.2m×1.5m × 2 樘"。 */
@@ -110,6 +114,7 @@ export function draftItemText(item: DraftItem): string {
 export function draftItemBasis(item: DraftItem): string {
   if (item.basis === 'recipe') return '按配方'
   if (item.basis === 'history') return `按以往 ${item.orders ?? 0} 个订单估算`
+  if (item.basis === 'manual') return '按知识库里的用量'
   if (item.basis === 'none') return '没有配方，也没有以往的领料'
   return '没有对应到商品库'
 }

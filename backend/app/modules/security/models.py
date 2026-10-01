@@ -38,6 +38,8 @@ class TenantSetting(Base):
     warehouse: Mapped[dict[str, Any]] = mapped_column(server_default="{}")
     # 除管理员以外每个岗位显示的菜单（设计文档 §25.15）。
     console: Mapped[dict[str, Any]] = mapped_column(server_default="{}")
+    # 表单知识的设置（formkb/settings.py 的 FormKbSettings，设计文档 §25.18）。
+    form_kb: Mapped[dict[str, Any]] = mapped_column(server_default="{}")
     updated_by: Mapped[uuid.UUID | None]
     updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
 

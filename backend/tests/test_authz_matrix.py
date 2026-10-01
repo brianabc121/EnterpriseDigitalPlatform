@@ -165,6 +165,15 @@ MATRIX: list[tuple[str, str, dict[str, Any] | None]] = [
     ("GET", "/api/v1/products/{product_id}/materials", None),
     ("GET", "/api/v1/products/{product_id}/materials/history", None),
     ("PUT", "/api/v1/products/{product_id}/materials", {"items": []}),
+    ("GET", "/api/v1/form-kb/entries/{entry_id}", None),
+    ("PUT", "/api/v1/form-kb/entries/{entry_id}", {"text": "越权改的叫法"}),
+    ("DELETE", "/api/v1/form-kb/entries/{entry_id}", None),
+    ("POST", "/api/v1/form-kb/entries/{entry_id}/enable", None),
+    ("POST", "/api/v1/form-kb/entries/{entry_id}/disable", None),
+    ("POST", "/api/v1/form-kb/entries/{entry_id}/lock", None),
+    ("POST", "/api/v1/form-kb/entries/{entry_id}/unlock", None),
+    ("POST", "/api/v1/form-kb/entries/{entry_id}/confirm", {"decision": "keep"}),
+    ("POST", "/api/v1/form-kb/entries/{entry_id}/apply-recipe", None),
     ("GET", "/api/v1/warehouse/documents/{document_id}", None),
     (
         "PUT",
@@ -446,7 +455,15 @@ async def orders(desk: Desk, chat: Any) -> dict[str, str]:
         document_id,
         uuid.UUID(material.json()["id"]),
     )
+    # 表单知识：一条手工添加的叫法（§25.18）。
+    entry = await client.post(
+        "/api/v1/form-kb/entries",
+        headers=desk.admin,
+        json={"kind": "alias", "text": "大窗", "product_id": product.json()["id"]},
+    )
+    assert entry.status_code == 201, entry.text
     return {
+        "entry_id": entry.json()["id"],
         "key_id": key.json()["id"],
         "endpoint_id": endpoint.json()["id"],
         "delivery_id": str(delivery["id"]),
@@ -597,6 +614,7 @@ async def snapshot(desk: Desk) -> list[Any]:
         "stock_documents": "id, status, note",
         "stock_document_lines": "id, quantity",
         "record_versions": "id, seq, action",
+        "form_kb_entries": "id, status, text, value, locked",
     }
     rows = []
     for table, columns in tables.items():
@@ -829,6 +847,27 @@ async def test_other_tenants_ids_in_bodies_and_queries_are_rejected(
             f"/api/v1/orders/{own['order_id']}/assign",
             {"skill_group_id": other["group_id"]},
         ),
+        # 表单知识（§25.18）：对方租户的商品、材料。
+        (
+            "POST",
+            "/api/v1/form-kb/entries",
+            {"kind": "alias", "text": "越权叫法", "product_id": other["product_id"]},
+        ),
+        (
+            "POST",
+            "/api/v1/form-kb/entries",
+            {
+                "kind": "usage",
+                "product_id": own["product_id"],
+                "related_id": other["material_id"],
+                "value": 1,
+            },
+        ),
+        (
+            "PUT",
+            f"/api/v1/form-kb/entries/{own['entry_id']}",
+            {"product_id": other["product_id"]},
+        ),
     ]
     before = await snapshot(globex.desk)
 
@@ -926,6 +965,7 @@ async def test_agents_only_reach_their_own_sessions_and_customers(
         "delivery_id": acme.ids["delivery_id"],
         "material_id": acme.ids["material_id"],
         "document_id": acme.ids["document_id"],
+        "entry_id": acme.ids["entry_id"],
         "record_type": "order",
         "record_id": dave_order_id,
     }
@@ -942,6 +982,7 @@ async def test_agents_only_reach_their_own_sessions_and_customers(
             ("GET", "/api/v1/products/{product_id}/stock-movements"),
             ("GET", "/api/v1/products/{product_id}/materials"),
             ("GET", "/api/v1/products/{product_id}/materials/history"),
+            ("GET", "/api/v1/form-kb/entries/{entry_id}"),
         ):
             continue
         path = fill(template, dave_ids, acme.ids)

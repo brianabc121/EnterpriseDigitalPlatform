@@ -21,6 +21,7 @@ from app.modules.conversation.hooks import router as openim_hooks_router
 from app.modules.conversation.router import router as conversation_router
 from app.modules.customer.router import router as customer_router
 from app.modules.files.router import router as files_router
+from app.modules.formkb.router import router as form_kb_router
 from app.modules.health.router import router as health_router
 from app.modules.history.router import router as history_router
 from app.modules.iam.router import auth_router
@@ -136,6 +137,7 @@ def create_app(
     app.include_router(routing_router)
     app.include_router(quick_reply_router)
     app.include_router(kb_router)
+    app.include_router(form_kb_router)
     app.include_router(notifications_router)
     app.include_router(ai_router)
     app.include_router(files_router)

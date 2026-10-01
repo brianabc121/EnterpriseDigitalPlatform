@@ -26,6 +26,7 @@ class Permission(StrEnum):
     KB_READ = "kb:read"
     KB_MANAGE = "kb:manage"
     KB_PUBLISH = "kb:publish"
+    FORM_KB_MANAGE = "form_kb:manage"  # 表单知识：新增、修改、确认、停用，设置（§25.18）
     REPORT_VIEW = "report:view"
     SETTINGS_MANAGE = "settings:manage"
     BROADCAST_MANAGE = "broadcast:manage"  # 企业微信群发任务（发给可见范围内的客户或客户群）
@@ -95,6 +96,7 @@ PERMISSION_INFO: dict[Permission, tuple[str, str]] = {
     Permission.KB_READ: ("查看知识库", "知识库"),
     Permission.KB_MANAGE: ("编辑知识和审核候选", "知识库"),
     Permission.KB_PUBLISH: ("发布知识", "知识库"),
+    Permission.FORM_KB_MANAGE: ("维护表单知识（开单学到的叫法、用量、搭配）", "知识库"),
     Permission.REPORT_VIEW: ("查看报表", "管理"),
     Permission.ROUTING_MANAGE: ("技能组、路由策略和坐席并发", "管理"),
     Permission.STAFF_READ: ("查看员工和角色", "管理"),
@@ -167,6 +169,7 @@ DEFAULT_ROLES: tuple[RoleSpec, ...] = (
                 Permission.ORDER_EXPORT,
                 Permission.PRODUCTION_ASSIGN,
                 Permission.INVENTORY_MANAGE,
+                Permission.FORM_KB_MANAGE,
             }
         ),
     ),
@@ -179,6 +182,7 @@ DEFAULT_ROLES: tuple[RoleSpec, ...] = (
                 Permission.KB_READ,
                 Permission.KB_MANAGE,
                 Permission.KB_PUBLISH,
+                Permission.FORM_KB_MANAGE,
             }
         ),
     ),

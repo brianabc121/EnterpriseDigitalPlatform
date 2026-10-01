@@ -24,7 +24,12 @@ export interface PickedItem {
   price: string | null
   /** 数量（批量选择时填的，录入行默认 1）。 */
   quantity: number
+  /** 这一行是怎么录入的（表单知识的证据，设计文档 §25.18）。 */
+  entry?: EntryTrace
 }
+
+/** 录入的方式：选中时的输入、之前没找到的输入、选中的是第几个候选、怎么找到的。 */
+export type EntryTrace = Schemas['EntryTrace']
 
 export function fromProduct(p: Schemas['ProductOut'], quantity = 1): PickedItem {
   return {
@@ -115,14 +120,16 @@ export interface Suggestion {
   item: PickedItem
   field: SuggestField
   match: SuggestMatch
+  /** 说明，例如常一起开的："和 铝合金窗 一起开过 9/12 次"。 */
+  note: string | null
 }
 
 export function fromProductSuggestion(s: Schemas['ProductSuggestion']): Suggestion {
-  return { item: fromProduct(s.product), field: s.field, match: s.match }
+  return { item: fromProduct(s.product), field: s.field, match: s.match, note: s.note }
 }
 
 export function fromStockSuggestion(s: Schemas['StockSuggestion']): Suggestion {
-  return { item: fromStockItem(s.item), field: s.field, match: s.match }
+  return { item: fromStockItem(s.item), field: s.field, match: s.match, note: s.note }
 }
 
 const FIELD_LABELS: Record<NonNullable<SuggestField>, string | null> = {
@@ -133,21 +140,50 @@ const FIELD_LABELS: Record<NonNullable<SuggestField>, string | null> = {
   spec: '规格',
   category: '分类',
   pinyin: '拼音',
+  learned: '学到的',
 }
 
 /** 候选旁边的小标签：按什么找到的（按名称找到的、最近用过的不标）。 */
 export function matchLabel(s: Pick<Suggestion, 'field' | 'match'>): string | null {
   if (s.match === 'recent') return null
+  if (s.match === 'companion') return '常一起开'
   if (s.match === 'similar') return '相近'
   return s.field ? FIELD_LABELS[s.field] : null
 }
 
-/** 下拉的标题：没有输入时是最近用过的；只有相近的结果时说明没有完全匹配。 */
+/** 下拉的标题：没有输入时是常一起开的和最近用过的；只有相近的结果时说明没有完全匹配。 */
 export function suggestionTitle(list: readonly Suggestion[], recent: boolean): string | null {
   if (!list.length) return null
-  if (recent) return '最近用过的'
+  if (recent) {
+    return list.some((s) => s.match === 'companion') ? '常一起开的 · 最近用过的' : '最近用过的'
+  }
   if (list.every((s) => s.match === 'similar')) return '没有完全匹配，相近的商品'
   return null
+}
+
+/** 这次输入"没找到要的"：没有候选，或者只有相近的（换个说法才找到时，记为没找到的说法）。 */
+export function missedQuery(list: readonly Suggestion[], query: string): boolean {
+  return query.trim().length > 0 && list.every((s) => s.match === 'similar')
+}
+
+/**
+ * 选中候选时记下怎么录入的（设计文档 §25.18）：这次的输入、之前没找到的输入（和这次不同时）、
+ * 选中的是第几个、按什么找到的（学到的叫法、常一起开、最近用过的……）。
+ */
+export function entryTrace(
+  query: string,
+  missed: string | null,
+  picked: Pick<Suggestion, 'field' | 'match'> | null,
+  rank: number | null,
+): EntryTrace {
+  const q = query.trim().slice(0, 64)
+  const before = missed?.trim().slice(0, 64) ?? ''
+  const trace: EntryTrace = { via: 'suggest' }
+  if (q) trace.query = q
+  if (before && before !== q) trace.missed = before
+  if (picked) trace.match = picked.field === 'learned' ? 'learned' : picked.match
+  if (rank !== null) trace.rank = rank
+  return trace
 }
 
 /**
@@ -159,7 +195,9 @@ export function enterPick(list: readonly Suggestion[], text: string): PickedItem
   if (byCode) return byCode
   const [top] = list
   if (!top) return null
-  if (top.match === 'exact' && (top.field === 'code' || top.field === 'model')) return top.item
+  if (top.match === 'exact' && (top.field === 'code' || top.field === 'model' || top.field === 'learned')) {
+    return top.item
+  }
   return list.length === 1 && top.match !== 'similar' && top.match !== 'recent' ? top.item : null
 }
 

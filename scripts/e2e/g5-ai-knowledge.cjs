@@ -17,10 +17,11 @@
 // 前置：同 P3（后端、实时消费进程、调度进程接到模拟大模型；控制台、运营后台、Widget、OpenIM）。
 // 运行：NODE_PATH=$(npm root -g) PLATFORM_PASSWORD=<平台账号密码> node scripts/e2e/g5-ai-knowledge.cjs
 const { chromium } = require('playwright')
-const { execFileSync, spawn } = require('child_process')
+const { execFile, spawn } = require('child_process')
 const fs = require('fs')
 const os = require('os')
 const path = require('path')
+const { promisify } = require('util')
 
 const env = (name, fallback) => process.env[name] || fallback
 const API = env('API_URL', 'http://localhost:8000')
@@ -86,13 +87,16 @@ async function login(username) {
 }
 
 /** 在后端目录执行命令行工具（知识导入、到期提醒、提炼等平时由调度进程执行的任务）。 */
-function cli(...args) {
-  const output = execFileSync('uv', ['run', 'python', '-m', 'app.cli', ...args], {
+// 执行后端命令行。异步执行：命令行要跑好几秒（超过服务端空闲连接的 5 秒超时），同步等待时事件循环
+// 处理不了服务端关闭空闲连接，下一个请求会复用已经关闭的连接（other side closed）。
+async function cli(...args) {
+  const { stdout } = await promisify(execFile)('uv', ['run', 'python', '-m', 'app.cli', ...args], {
     cwd: BACKEND_DIR,
     env: process.env,
     encoding: 'utf-8',
+    maxBuffer: 16 * 1024 * 1024,
   })
-  const lines = output.trim().split('\n')
+  const lines = stdout.trim().split('\n')
   return JSON.parse(lines[lines.length - 1])
 }
 
@@ -487,7 +491,7 @@ async function importSection(page, ctx, help) {
   await page.click('[data-testid="kb-import-start"]')
   await dialog.locator('[data-testid="kb-import-jobs"] .el-table__row', { hasText: help.url }).waitFor()
   // 调度进程每 10 秒领取一次导入任务；这里也可以立即执行一轮。
-  cli('kb-jobs')
+  await cli('kb-jobs')
   const finished = await waitFor(async () => {
     const jobs = await json(`${API}/api/v1/kb/imports`, { token: ctx.admin })
     return jobs.items.length === 2 && jobs.items.every((j) => j.status === 'done') ? jobs : null
@@ -724,7 +728,7 @@ async function pushSection(ctx, pages) {
   )
 
   // 到期提醒平时每小时执行一次；导入那一步执行 kb-jobs 时已经发出，这里再执行一轮也不会重复提醒。
-  const again = cli('kb-jobs')
+  const again = await cli('kb-jobs')
   const inbox = await json(`${API}/api/v1/notifications`, { token: bobToken })
   const reminders = inbox.items.filter(
     (n) => n.kind === 'kb_expiring' && n.title.includes('国庆活动规则'),
@@ -739,7 +743,7 @@ async function pushSection(ctx, pages) {
 // ---- 9. 优秀话术、知识数据与用量 ----
 
 async function phraseSection(ctx, pages, ops) {
-  const report = cli('kb-extract', '--tenant', TENANT)
+  const report = await cli('kb-extract', '--tenant', TENANT)
   const admin = pages.admin
   await menu(admin, '知识库')
   await admin.locator('[data-testid="kb-tabs"] .el-tabs__item', { hasText: '审核台' }).click()

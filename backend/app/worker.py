@@ -1,4 +1,5 @@
-"""实时消费进程：消费事件流（消息归入会话、路由分配等），并处理 AI 接待的待回复会话。
+"""实时消费进程：消费事件流（消息归入会话、路由分配等），处理 AI 接待的待回复会话，以及判断
+每次提交的表单要不要更新表单知识（设计文档 §25.18）。
 
 用法：uv run python -m app.worker。可以运行多个实例：每个事件分区同一时刻只由一个实例消费；
 AI 待回复会话按行领取（SKIP LOCKED），多个实例不会重复回复。
@@ -14,12 +15,14 @@ from app.context import AppContext
 from app.core.config import get_settings
 from app.events.bus import EventProcessor, wait_or_stop
 from app.modules.ai.responder import run_due
+from app.modules.formkb import learn as form_learning
 from app.modules.sessions.handlers import event_handlers
 from app.observability import logs, metrics, tracing
 
 logger = logging.getLogger("app.worker")
 
 AI_POLL_SECONDS = 0.5
+FORM_KB_POLL_SECONDS = 1.0
 
 
 async def ai_loop(ctx: AppContext, stop: asyncio.Event) -> None:
@@ -35,6 +38,18 @@ async def ai_loop(ctx: AppContext, stop: asyncio.Event) -> None:
             await wait_or_stop(stop, AI_POLL_SECONDS)
 
 
+async def form_kb_loop(ctx: AppContext, stop: asyncio.Event) -> None:
+    """表单知识：每秒领取待判断的学习记录（每次提交的表单），判断要不要更新知识库。"""
+    while not stop.is_set():
+        handled = 0
+        try:
+            handled = await form_learning.run_due(ctx)
+        except Exception:
+            logger.exception("form knowledge learning failed")
+        if not handled:
+            await wait_or_stop(stop, FORM_KB_POLL_SECONDS)
+
+
 async def run(ctx: AppContext, stop: asyncio.Event) -> None:
     await ctx.bus.ensure_groups()
     consumer = f"{socket.gethostname()}-{os.getpid()}"
@@ -43,6 +58,7 @@ async def run(ctx: AppContext, stop: asyncio.Event) -> None:
     await asyncio.gather(
         *(processor.run_partition(p, stop) for p in range(ctx.bus.partitions)),
         ai_loop(ctx, stop),
+        form_kb_loop(ctx, stop),
     )
 
 

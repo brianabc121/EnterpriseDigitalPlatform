@@ -79,7 +79,9 @@ class ProductSearchResult(BaseModel):
     items: list[ProductCandidate]
 
 
-SuggestMatchValue = Literal["exact", "prefix", "contains", "pinyin", "similar", "recent"]
+SuggestMatchValue = Literal[
+    "exact", "prefix", "contains", "pinyin", "similar", "recent", "companion"
+]
 
 
 class ProductSuggestion(BaseModel):
@@ -89,17 +91,21 @@ class ProductSuggestion(BaseModel):
     score: float = Field(description="匹配程度（约 0 到 1），最近用过的为 0")
     field: SuggestField | None = Field(
         description="按哪个字段找到的：code 代码、model 型号、name 名称、alias 俗称、spec 规格、"
-        "category 分类、pinyin 拼音（最近用过的为空）"
+        "category 分类、pinyin 拼音、learned 学到的叫法（表单知识，§25.18；最近用过的、常一起开的"
+        "为空）"
     )
     match: SuggestMatchValue = Field(
         description="exact 完全一致、prefix 开头一致、contains 包含、pinyin 拼音、similar 相近、"
-        "recent 最近用过"
+        "recent 最近用过、companion 常和单上的商品一起开"
     )
+    note: str | None = Field(description="说明，例如常一起开的：“和 铝合金窗 一起开过 9/12 次”")
 
 
 class ProductSuggestions(BaseModel):
     items: list[ProductSuggestion]
-    recent: bool = Field(description="没有输入关键词：自己最近开单用过的商品")
+    recent: bool = Field(
+        description="没有输入关键词时的列表：常和单上的商品一起开的、自己最近开单用过的商品"
+    )
 
 
 class ProductWrite(BaseModel):

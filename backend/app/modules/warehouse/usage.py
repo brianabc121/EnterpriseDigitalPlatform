@@ -45,10 +45,21 @@ def rounded(value: Decimal) -> Decimal:
     return value.quantize(THOUSANDTH, rounding=ROUND_HALF_UP)
 
 
-async def history(
+@dataclass(frozen=True)
+class Sample:
+    """一张只加工这个成品的订单：数量、确认的领料单里每种材料一共领了多少（停用的材料不算）。"""
+
+    order_id: uuid.UUID
+    order_no: str
+    quantity: int
+    taken: dict[uuid.UUID, Decimal]
+    documents: tuple[str, ...]
+
+
+async def samples(
     session: AsyncSession, product_ids: set[uuid.UUID], *, exclude: uuid.UUID | None = None
-) -> dict[uuid.UUID, Usage]:
-    """这些成品按以往领料估算的每件用量（算不出来的不在结果里）。"""
+) -> dict[uuid.UUID, list[Sample]]:
+    """每个成品最近几张只加工它、领料已确认的订单（新的在前；没有的不在结果里）。"""
     if not product_ids:
         return {}
     confirmed = exists().where(
@@ -127,20 +138,66 @@ async def history(
     for document_order, material_id, total in rows:
         if document_order is not None and total:
             taken[document_order][material_id] = Decimal(total)
+    documents: dict[uuid.UUID, list[str]] = defaultdict(list)
+    for document_order, no in await session.execute(
+        select(StockDocument.order_id, StockDocument.no)
+        .where(
+            StockDocument.order_id.in_(picked),
+            StockDocument.kind == DocumentKind.REQUISITION,
+            StockDocument.status == DocumentStatus.CONFIRMED,
+        )
+        .order_by(StockDocument.no)
+    ):
+        if document_order is not None:
+            documents[document_order].append(no)
+    numbers = dict(
+        (await session.execute(select(Order.id, Order.no).where(Order.id.in_(picked)))).all()
+    )
+    return {
+        product_id: [
+            Sample(
+                order_id,
+                numbers.get(order_id, ""),
+                quantity,
+                taken.get(order_id, {}),
+                tuple(documents.get(order_id, [])),
+            )
+            for order_id, quantity in orders
+        ]
+        for product_id, orders in chosen.items()
+    }
 
+
+def per_unit(rows: list[Sample]) -> dict[uuid.UUID, list[Decimal]]:
+    """每种材料在各个订单里的每件用量（只有领过的订单）。"""
+    found: dict[uuid.UUID, list[Decimal]] = defaultdict(list)
+    for row in rows:
+        for material_id, total in row.taken.items():
+            if total > 0:
+                found[material_id].append(total / row.quantity)
+    return found
+
+
+def frequent(values: list[Decimal], orders: int) -> bool:
+    """至少一半的订单都领过的材料（偶尔补领的不算）。"""
+    return len(values) * 2 >= orders
+
+
+def median(values: list[Decimal]) -> Decimal:
+    return Decimal(statistics.median(values))
+
+
+async def history(
+    session: AsyncSession, product_ids: set[uuid.UUID], *, exclude: uuid.UUID | None = None
+) -> dict[uuid.UUID, Usage]:
+    """这些成品按以往领料估算的每件用量（算不出来的不在结果里）。"""
     result: dict[uuid.UUID, Usage] = {}
-    for product_id, orders in chosen.items():
-        per_order: dict[uuid.UUID, list[Decimal]] = defaultdict(list)
-        for order_id, quantity in orders:
-            for material_id, total in taken.get(order_id, {}).items():
-                if total > 0:
-                    per_order[material_id].append(total / quantity)
-        # 至少一半的订单都领过的材料。
-        per_unit = {
-            material_id: Decimal(statistics.median(values))
-            for material_id, values in per_order.items()
-            if len(values) * 2 >= len(orders)
+    for product_id, rows in (await samples(session, product_ids, exclude=exclude)).items():
+        found = {
+            material_id: median(values)
+            for material_id, values in per_unit(rows).items()
+            if frequent(values, len(rows))
         }
-        if per_unit:
-            result[product_id] = Usage(per_unit, len(orders))
+        if found:
+            result[product_id] = Usage(found, len(rows))
     return result

@@ -4,7 +4,14 @@ import { ElMessage } from 'element-plus'
 import { computed, nextTick, reactive, ref, watch } from 'vue'
 
 import { api } from '../../api'
-import { focusField, mergeInto, quantityTotal, today, type PickedItem } from '../../documents'
+import {
+  focusField,
+  mergeInto,
+  quantityTotal,
+  today,
+  type EntryTrace,
+  type PickedItem,
+} from '../../documents'
 import {
   CHANGE_REASONS,
   discountRate,
@@ -48,11 +55,12 @@ const props = defineProps<{
 }>()
 const emit = defineEmits<{ saved: [order: OrderDetail] }>()
 
-/** 明细的一行：表单里的商品行，加上显示用的代码、单位和可用库存。 */
+/** 明细的一行：表单里的商品行，加上显示用的代码、单位和可用库存，以及怎么录入的（表单知识）。 */
 interface Line extends FormLine {
   code: string | null
   unit: string
   available: number | null
+  entry?: EntryTrace
 }
 
 const FLOW = ['draft', 'pending_review', 'confirmed', 'fulfilling', 'shipped', 'completed']
@@ -65,6 +73,8 @@ const saving = ref(false)
 const customers = ref<{ id: string; name: string }[]>([])
 const searching = ref(false)
 const lines = ref<Line[]>([])
+// 单上已经有的商品（录入行列出常一起开的，§25.18）。
+const present = computed(() => lines.value.flatMap((l) => (l.product_id ? [l.product_id] : [])))
 const original = ref<Line[]>([])
 type Focusable = { focus: () => void }
 const qtyInputs = ref<(Focusable | null)[]>([])
@@ -226,6 +236,7 @@ function addItems(items: PickedItem[]): void {
     code: i.code,
     unit: i.unit,
     available: i.available,
+    ...(i.entry ? { entry: i.entry } : {}),
   }))
   if (index >= 0) focusQty(index)
 }
@@ -251,11 +262,13 @@ function addText(): void {
   })
 }
 
-/** 把没有匹配商品库的行对应到商品。 */
+/** 把没有匹配商品库的行对应到商品（客户的说法记为叫法的证据，§25.18）。 */
 function mapLine(index: number, product: Product): void {
   const line = lines.value[index]
   if (!line) return
+  const said = (line.raw_text ?? line.name).trim().slice(0, 64)
   Object.assign(line, {
+    entry: said ? { via: 'map', missed: said } : { via: 'map' },
     product_id: product.id,
     name: product.name,
     spec: product.spec,
@@ -274,7 +287,7 @@ function lineAmount(line: FormLine): string {
 }
 
 /** 单价只在改过价时提交：新商品按建议零售价，原有商品保持原来的单价。 */
-function lineBody(line: FormLine, index: number): Schemas['LineIn'] {
+function lineBody(line: Line, index: number): Schemas['LineIn'] {
   const before = editing.value ? original.value[index] : undefined
   const baseline =
     before && before.product_id === line.product_id && before.raw_text === line.raw_text
@@ -288,6 +301,7 @@ function lineBody(line: FormLine, index: number): Schemas['LineIn'] {
     unit_price: canPrice.value && price !== null && price !== baseline ? price : null,
     raw_text: line.product_id ? null : text,
     name: line.product_id ? null : text.slice(0, 128),
+    ...(line.product_id && line.entry ? { entry: line.entry } : {}),
   }
 }
 
@@ -561,7 +575,13 @@ async function update(): Promise<OrderDetail | null> {
           <tr class="entry">
             <td class="seq">+</td>
             <td colspan="8">
-              <ItemEntry ref="entry" source="sales" testid="order-add-product" @add="addItems" />
+              <ItemEntry
+                ref="entry"
+                source="sales"
+                testid="order-add-product"
+                :present="present"
+                @add="addItems"
+              />
             </td>
           </tr>
         </tbody>

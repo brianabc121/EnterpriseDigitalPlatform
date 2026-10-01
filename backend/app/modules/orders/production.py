@@ -19,7 +19,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.context import AppContext
 from app.core.errors import Conflict, NotFound, Unprocessable
 from app.core.permissions import Permission
+from app.db.session import current_tenant
 from app.modules.customer.models import Customer
+from app.modules.formkb import knowledge as formkb_knowledge
+from app.modules.formkb import record as formkb_record
+from app.modules.formkb import settings as formkb_settings
+from app.modules.formkb.models import Status as FormKbStatus
 from app.modules.iam.models import Staff
 from app.modules.iam.principal import Principal
 from app.modules.notifications import service as notifications
@@ -401,14 +406,36 @@ async def _estimable(
     ready: set[uuid.UUID],
     recipes: dict[uuid.UUID, list[ProductMaterial]],
 ) -> set[uuid.UUID]:
-    """没有配方、但能按以往领料估算用量的商品（§25.17）。"""
+    """没有配方、但能预填用量的商品：按以往领料估算（§25.17），或者知识库里固定的用量（§25.18）。
+    规则与领料单的预填相同：停用的材料不算，"先确认再生效"时还没确认的估算不算。"""
     without = {
         i.product_id
         for rows in items.values()
         for i in documents.made_items(rows, ready)
         if i.product_id and not recipes.get(i.product_id)
     }
-    return set(await usage.history(session, without))
+    if not without:
+        return set()
+    learned = await usage.history(session, without)
+    known = await formkb_knowledge.usage_entries(session, without)
+    auto = (await formkb_settings.load(session, current_tenant(session))).auto_activate
+    found: set[uuid.UUID] = set()
+    for product_id in without:
+        entries = known.get(product_id, {})
+        if any(e.status == FormKbStatus.ACTIVE and e.locked and e.value for e in entries.values()):
+            found.add(product_id)
+            continue
+        guess = learned.get(product_id)
+        if guess is None:
+            continue
+        for material_id in guess.per_unit:
+            entry = entries.get(material_id)
+            if (entry is None and auto) or (
+                entry is not None and entry.status == FormKbStatus.ACTIVE
+            ):
+                found.add(product_id)
+                break
+    return found
 
 
 def _out(
@@ -823,7 +850,14 @@ async def complete(
     if checked:
         # 入库单：仓管确认后订单才加工完成（仓管自己开的、或者不需要确认的，开单即确认）。
         _, todo = await documents.open_document(
-            ctx, session, principal, DocumentKind.RECEIPT, order, checked, note
+            ctx,
+            session,
+            principal,
+            DocumentKind.RECEIPT,
+            order,
+            checked,
+            note,
+            traced=formkb_record.traces(lines),
         )
     else:
         todo = await service.finish_production(

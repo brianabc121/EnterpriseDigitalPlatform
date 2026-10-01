@@ -23,6 +23,7 @@ from app.core.ids import new_id
 from app.db.types import vector_literal
 from app.integrations.llm import LLMUnavailable
 from app.modules.ai import gateway
+from app.modules.formkb import knowledge
 from app.modules.kb.text import normalize, terms
 from app.modules.products import suggest
 from app.modules.products.models import Product, ProductGap, ProductKind, ProductStatus
@@ -172,6 +173,18 @@ async def search(
     ):
         products[row.id], scores[row.id] = row, 1.0
         exact_ids.add(row.id)
+
+    # 表单知识（§25.18）：说法和学到的叫法一致的直接对应，包含叫法的作为候选。
+    learned = await knowledge.aliases(session, query, contains=True)
+    if learned:
+        for row in await session.scalars(
+            select(Product).options(*options).where(*base, Product.id.in_(learned))
+        ):
+            hit = learned[row.id]
+            products[row.id] = row
+            scores[row.id] = max(scores.get(row.id, 0.0), hit.score)
+            if hit.exact:
+                exact_ids.add(row.id)
 
     query_terms = terms(query)
     if query_terms:

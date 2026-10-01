@@ -363,15 +363,30 @@ async def suggest_products(
         ),
     ] = "",
     limit: Annotated[int, Query(ge=1, le=20)] = 8,
+    with_: Annotated[
+        list[UUID],
+        Query(
+            alias="with",
+            max_length=50,
+            description="单上已经有的商品：没有输入时先列出常和它们一起开的（表单知识，§25.18）",
+        ),
+    ] = [],  # noqa: B006  FastAPI 的查询参数默认值
 ) -> ProductSuggestions:
-    """下单时的商品联想（§25.16）：上架的成品，按匹配程度、常用程度和库存排序。"""
+    """下单时的商品联想（§25.16）：上架的成品，按匹配程度、常用程度和库存排序；学到的叫法排在前面，
+    没有输入时先列出常一起开的（§25.18）。"""
     found, recent = await lookup.suggestions(
-        session, principal, q, kind=ProductKind.GOODS, source="orders", limit=limit
+        session,
+        principal,
+        q,
+        kind=ProductKind.GOODS,
+        source="orders",
+        limit=limit,
+        with_ids=with_,
     )
     outs = await product_outs(session, [s.product for s in found], principal)
     return ProductSuggestions(
         items=[
-            ProductSuggestion(product=out, score=s.score, field=s.field, match=s.match)
+            ProductSuggestion(product=out, score=s.score, field=s.field, match=s.match, note=s.note)
             for out, s in zip(outs, found, strict=True)
         ],
         recent=recent,
