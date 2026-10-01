@@ -1993,8 +1993,8 @@ WhatsApp、Telegram、钉钉、飞书作为助理和员工沟通的 IM，需要�
   没有 `assistant:use` 的角色、关闭助理）；模型不支持工具时只查知识库；飞书群记录（地址验证、只记录不说话、去重、调度提炼、
   来源"群聊"与匿名证据、沉淀时间、立即提炼与缺口、暂停、被 @ 时回答、清空）；钉钉、WhatsApp、企业微信的验签与回复；
   机器人管理与手工绑定、审计、删除级联）；`test_console`、`test_authz_matrix`（新接口与表）、`conftest` 更新。
-  迁移 `0029` 可以降级再升级。ruff、mypy 通过，OpenAPI 与生成的类型一致。新增和改动涉及的测试文件（`test_tasks`、`test_assistant`、`test_console`、`test_authz_matrix`、`test_todos`、
-  `test_kb_extraction`）全部通过；完整套件的结果见本节末尾。
+  迁移 `0029` 可以降级再升级。ruff、mypy 通过，OpenAPI 与生成的类型一致。完整套件 560 个测试通过、10 个跳过（对象存储和 OpenIM 的契约测试需要本地服务）；
+  `test_production`、`test_warehouse` 里工人的权限集合预期加上了 `task:use`、`assistant:use`。
 - 前端：控制台单元测试 22 个文件 150 个通过（新增 `tasks.test.ts`、`assistant.test.ts`，`menu.test.ts` 更新），ESLint、
   类型检查和构建通过。
 - 本次没有写新的浏览器验收脚本（`scripts/e2e`），也没有在真实的 IM 平台上联调：各平台的回调格式按官方文档实现并用模拟服务

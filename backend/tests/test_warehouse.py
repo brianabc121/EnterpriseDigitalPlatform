@@ -175,12 +175,10 @@ async def test_materials_recipes_and_warehouse_keeper(desk: Desk) -> None:
     assert (setting["confirm_required"], setting["effective_keeper_id"]) == (True, None)
     wang = await worker(desk, "wang")
     li = await worker(desk, "lisi")
-    assert await permissions(desk, wang) == {
-        "production:work",
-        "inventory:manage",
-        "warehouse:confirm",
-    }
-    assert await permissions(desk, li) == {"production:work"}
+    # 工人另有个人待办和 AI 助理（§27）。
+    worker_only = {"production:work", "task:use", "assistant:use"}
+    assert await permissions(desk, wang) == worker_only | {"inventory:manage", "warehouse:confirm"}
+    assert await permissions(desk, li) == worker_only
     setting = await call(desk, li.headers, "GET", f"{BASE}/settings")
     assert (setting["effective_keeper_name"], setting["fallback"], setting["can_edit"]) == (
         "Wang",
@@ -200,7 +198,7 @@ async def test_materials_recipes_and_warehouse_keeper(desk: Desk) -> None:
         False,
     )
     assert "warehouse:confirm" in await permissions(desk, boss)
-    assert await permissions(desk, wang) == {"production:work"}
+    assert await permissions(desk, wang) == worker_only
     disabled = await desk.client.patch(
         f"/api/v1/staff/{boss.staff_id}", headers=desk.admin, json={"status": "disabled"}
     )
