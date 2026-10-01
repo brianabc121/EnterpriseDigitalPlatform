@@ -36,6 +36,14 @@ class Suggestion:
     note: str | None = None
 
 
+# 分数相同时的先后：名称、规格、代码（同名不同规格的商品每次都按同样的顺序列出）。
+_TIE = (Product.name, Product.spec, Product.code, Product.id)
+
+
+def _tie(product: Product) -> tuple[str, str, str, str]:
+    return (product.name, product.spec, product.code or "\uffff", str(product.id))
+
+
 def _since() -> datetime:
     return datetime.now(UTC) - timedelta(days=USAGE_DAYS)
 
@@ -151,7 +159,7 @@ async def suggestions(
                 await session.scalars(
                     select(Product)
                     .where(Product.kind == kind, Product.status == ProductStatus.ON, condition)
-                    .order_by(rank.desc(), Product.name)
+                    .order_by(rank.desc(), *_TIE)
                     .limit(suggest.CANDIDATES)
                 )
             ).all()
@@ -175,5 +183,5 @@ async def suggestions(
     floor = suggest.keep([s.score for s in scores])
     scored = [(p, s) for p, s in zip(candidates, scores, strict=True) if s.score >= floor]
     uses = await usage_counts(session, [p.id for p, _ in scored], source)
-    scored.sort(key=lambda ps: (-(ps[1].score + _boost(ps[0], uses.get(ps[0].id, 0))), ps[0].name))
+    scored.sort(key=lambda ps: (-(ps[1].score + _boost(ps[0], uses.get(ps[0].id, 0))), _tie(ps[0])))
     return [Suggestion(p, s.score, s.field, s.match) for p, s in scored[:limit]], False
