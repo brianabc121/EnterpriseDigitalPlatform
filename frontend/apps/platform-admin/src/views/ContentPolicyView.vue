@@ -8,9 +8,13 @@ import { api } from '../api'
 const form = reactive({ words: '', applyToAi: true, blockAgentMessages: true })
 const saving = ref(false)
 const count = ref(0)
+// 加载完成前不能编辑：否则先输入的内容会被加载回来的敏感词覆盖。
+const loading = ref(true)
 
 async function load(): Promise<void> {
+  loading.value = true
   const { data, error } = await api.GET('/platform/v1/settings/content-policy')
+  loading.value = false
   if (!data) {
     ElMessage.error(errorMessage(error))
     return
@@ -54,7 +58,7 @@ onMounted(load)
     <p class="sub">
       平台敏感词在各租户自己的敏感词之外生效。每行一个词（也可以用逗号分隔），当前 {{ count }} 个。
     </p>
-    <el-form label-width="140px">
+    <el-form v-loading="loading" :disabled="loading" label-width="140px">
       <el-form-item label="平台敏感词">
         <el-input
           v-model="form.words"

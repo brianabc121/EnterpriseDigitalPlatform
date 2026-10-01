@@ -325,6 +325,13 @@ async function run(browser) {
     },
   )
 
+  // 恢复后列表重新加载并按修改时间重排：等恢复的问答排到第一行再点（否则可能点到移过来的另一行）。
+  await page
+    .locator('[data-testid="kb-table"] .el-table__row')
+    .first()
+    .filter({ hasText: '订单发货后多久能到' })
+    .waitFor()
+  await settle(page)
   await page
     .locator('[data-testid="kb-table"] .el-table__row', { hasText: '订单发货后多久能到' })
     .click()

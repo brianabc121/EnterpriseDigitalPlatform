@@ -257,7 +257,8 @@ async function run(browser) {
   await shot(page, '6-seat-limit')
 
   // ---- 4. 账单 ----
-  const month = new Date().toISOString().slice(0, 7)
+  // 账单按平台的统计时区（默认上海，UTC+8）划分月份。
+  const month = new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 7)
   await platformMenu(ops, 'invoices')
   await ops.locator('[data-testid="invoice-generate"]').click()
   await messageBoxInput(ops, month)
@@ -331,7 +332,9 @@ async function run(browser) {
   await ops.locator('[data-testid="support-sessions"]').waitFor()
   await shot(ops, '10-support')
   await settingsTab(page, '平台访问授权')
-  const accessText = await page.locator('[data-testid="access-table"]').innerText()
+  const access = page.locator('[data-testid="access-table"]')
+  await access.locator('.el-table__row', { hasText: '查看会话列表' }).first().waitFor().catch(() => null)
+  const accessText = await access.innerText()
   check('租户授权后运营可以查看会话，租户看到访问记录', accessText.includes('查看会话列表'), { accessText })
 
   // ---- 8. 导出、注销与删除 ----
