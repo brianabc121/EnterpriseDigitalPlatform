@@ -1,4 +1,5 @@
 from datetime import datetime
+from decimal import Decimal
 from typing import Literal
 from uuid import UUID
 
@@ -108,6 +109,22 @@ class DocumentBrief(BaseModel):
     reject_reason: str | None
 
 
+DraftBasisValue = Literal["recipe", "history"]
+DraftItemBasisValue = Literal["recipe", "history", "none", "unmatched"]
+
+
+class DraftSource(BaseModel):
+    """领料单的建议数量是怎么算的：一个商品的用量（§25.17）。"""
+
+    item: str = Field(description="商品（名称和规格）")
+    quantity: int = Field(description="要加工的数量")
+    unit: str = Field(description="商品的单位")
+    per_unit: Qty = Field(description="每件用量（按以往领料估算的四舍五入到三位小数）")
+    amount: Qty = Field(description="这个商品要用的数量")
+    basis: DraftBasisValue = Field(description="recipe 配方；history 按以往领料估算")
+    orders: int | None = Field(description="按以往领料估算时依据的订单数")
+
+
 class DraftLine(BaseModel):
     product_id: UUID
     code: str | None
@@ -119,6 +136,28 @@ class DraftLine(BaseModel):
     quantity: Qty
     stock: Qty | None = Field(description="现有库存")
     available: Qty | None = Field(description="可用库存（材料：现有减去待确认的领料单）")
+    sources: list[DraftSource] = Field(
+        default_factory=list,
+        description="领料单：建议数量是怎么算的（各商品的用量合计，减去已领的就是建议数量）",
+    )
+    taken: Qty = Field(
+        default=Decimal(0), description="领料单：这个订单已经领过的（待确认和已确认的领料单）"
+    )
+    estimated: bool = Field(default=False, description="领料单：有按以往领料估算的部分")
+
+
+class DraftItem(BaseModel):
+    """领料单：这次加工的商品，以及用量从哪里来（§25.17）。"""
+
+    name: str
+    spec: str
+    quantity: int
+    unit: str
+    basis: DraftItemBasisValue = Field(
+        description="recipe 按配方；history 按以往领料估算；none 没有配方也没有以往的领料；"
+        "unmatched 没有对应到商品库"
+    )
+    orders: int | None = Field(description="按以往领料估算时依据的订单数")
 
 
 class DocumentDraft(BaseModel):
@@ -126,7 +165,15 @@ class DocumentDraft(BaseModel):
     order_id: UUID | None
     lines: list[DraftLine]
     missing: list[str] = Field(
-        description="没有配方的商品（领料单）或没有对应到成品的订单行（入库单），需要手动添加"
+        description="领料单：既没有配方、也没有以往领料的商品（或没有对应到商品库的订单行），要手动"
+        "添加；入库单：没有对应到成品的订单行"
+    )
+    items: list[DraftItem] = Field(default_factory=list, description="领料单：这次加工的商品")
+    estimated: list[str] = Field(
+        default_factory=list, description="领料单：没有配方、按以往领料估算的商品"
+    )
+    covered: bool = Field(
+        default=False, description="领料单：按配方和估算要领的材料这个订单都已经领了"
     )
 
 

@@ -3048,6 +3048,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/products/{product_id}/materials/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Bom History
+         * @description 按以往领料估算的每件用量（§25.17）：没有配方时，维护商品库的员工可以照着生成配方。
+         */
+        get: operations["get_bom_history_api_v1_products__product_id__materials_history_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/products/{product_id}/stock": {
         parameters: {
             query?: never;
@@ -5101,8 +5121,8 @@ export interface paths {
         };
         /**
          * Draft
-         * @description 给订单开单的预填：领料单按配方（订单里需要加工的商品数量 × 配方用量，减去已经领过的），
-         *     入库单按订单里需要加工的成品。
+         * @description 给订单开单的预填：领料单按配方（订单里需要加工的商品数量 × 配方用量；没有配方时按以往领料
+         *     估算，§25.17），减去已经领过的，每行带上怎么算的；入库单按订单里需要加工的成品。
          */
         get: operations["draft_api_v1_warehouse_drafts_get"];
         put?: never;
@@ -7194,6 +7214,22 @@ export interface components {
             plan: components["schemas"]["PlanOut"] | null;
             subscription: components["schemas"]["SubscriptionOut"] | null;
         };
+        /**
+         * BomHistory
+         * @description 按以往领料估算的每件用量（§25.17）：最近几张只加工这个成品、领料单已确认的订单。
+         */
+        BomHistory: {
+            /**
+             * Items
+             * @description 估算的每件用量（四舍五入到三位小数）
+             */
+            items: components["schemas"]["BomLineOut"][];
+            /**
+             * Orders
+             * @description 依据的订单数，0 表示没有以往的领料
+             */
+            orders: number;
+        };
         /** BomIn */
         BomIn: {
             /**
@@ -8257,6 +8293,22 @@ export interface components {
         /** DocumentDraft */
         DocumentDraft: {
             /**
+             * Covered
+             * @description 领料单：按配方和估算要领的材料这个订单都已经领了
+             * @default false
+             */
+            covered: boolean;
+            /**
+             * Estimated
+             * @description 领料单：没有配方、按以往领料估算的商品
+             */
+            estimated?: string[];
+            /**
+             * Items
+             * @description 领料单：这次加工的商品
+             */
+            items?: components["schemas"]["DraftItem"][];
+            /**
              * Kind
              * @enum {string}
              */
@@ -8265,7 +8317,7 @@ export interface components {
             lines: components["schemas"]["DraftLine"][];
             /**
              * Missing
-             * @description 没有配方的商品（领料单）或没有对应到成品的订单行（入库单），需要手动添加
+             * @description 领料单：既没有配方、也没有以往领料的商品（或没有对应到商品库的订单行），要手动添加；入库单：没有对应到成品的订单行
              */
             missing: string[];
             /** Order Id */
@@ -8468,6 +8520,31 @@ export interface components {
             /** Result */
             result: string;
         };
+        /**
+         * DraftItem
+         * @description 领料单：这次加工的商品，以及用量从哪里来（§25.17）。
+         */
+        DraftItem: {
+            /**
+             * Basis
+             * @description recipe 按配方；history 按以往领料估算；none 没有配方也没有以往的领料；unmatched 没有对应到商品库
+             * @enum {string}
+             */
+            basis: "recipe" | "history" | "none" | "unmatched";
+            /** Name */
+            name: string;
+            /**
+             * Orders
+             * @description 按以往领料估算时依据的订单数
+             */
+            orders: number | null;
+            /** Quantity */
+            quantity: number;
+            /** Spec */
+            spec: string;
+            /** Unit */
+            unit: string;
+        };
         /** DraftLine */
         DraftLine: {
             /**
@@ -8477,6 +8554,12 @@ export interface components {
             available: number | null;
             /** Code */
             code: string | null;
+            /**
+             * Estimated
+             * @description 领料单：有按以往领料估算的部分
+             * @default false
+             */
+            estimated: boolean;
             /**
              * Kind
              * @enum {string}
@@ -8496,6 +8579,11 @@ export interface components {
             product_id: string;
             /** Quantity */
             quantity: number;
+            /**
+             * Sources
+             * @description 领料单：建议数量是怎么算的（各商品的用量合计，减去已领的就是建议数量）
+             */
+            sources?: components["schemas"]["DraftSource"][];
             /** Spec */
             spec: string;
             /**
@@ -8503,7 +8591,55 @@ export interface components {
              * @description 现有库存
              */
             stock: number | null;
+            /**
+             * Taken
+             * @description 领料单：这个订单已经领过的（待确认和已确认的领料单）
+             * @default 0
+             */
+            taken: number;
             /** Unit */
+            unit: string;
+        };
+        /**
+         * DraftSource
+         * @description 领料单的建议数量是怎么算的：一个商品的用量（§25.17）。
+         */
+        DraftSource: {
+            /**
+             * Amount
+             * @description 这个商品要用的数量
+             */
+            amount: number;
+            /**
+             * Basis
+             * @description recipe 配方；history 按以往领料估算
+             * @enum {string}
+             */
+            basis: "recipe" | "history";
+            /**
+             * Item
+             * @description 商品（名称和规格）
+             */
+            item: string;
+            /**
+             * Orders
+             * @description 按以往领料估算时依据的订单数
+             */
+            orders: number | null;
+            /**
+             * Per Unit
+             * @description 每件用量（按以往领料估算的四舍五入到三位小数）
+             */
+            per_unit: number;
+            /**
+             * Quantity
+             * @description 要加工的数量
+             */
+            quantity: number;
+            /**
+             * Unit
+             * @description 商品的单位
+             */
             unit: string;
         };
         /** ErasureRequest */
@@ -14201,15 +14337,28 @@ export interface components {
             /** @description 还没生效的入库单（待仓管确认或被退回）；有时订单等仓管确认后才加工完成 */
             receipt: components["schemas"]["DocumentBrief"] | null;
             /**
+             * Requisition Estimated
+             * @description 有没有配方、但能按以往领料估算用量的商品（领料单可以自动填，§25.17）
+             * @default false
+             */
+            requisition_estimated: boolean;
+            /**
              * Requisition Ready
              * @description 已经开了领料单（待确认或已确认），或者不需要领料
              */
             requisition_ready: boolean;
+            /** @description 被仓管退回、还没修改的领料单（带退回原因） */
+            requisition_rejected?: components["schemas"]["DocumentBrief"] | null;
             /**
              * Requisition Required
              * @description 要先开领料单：需要加工的商品有配方（§25.13）
              */
             requisition_required: boolean;
+            /**
+             * Requisition Todo
+             * @description 已经开过领料单，按配方还没领的材料，例如“铝合金型材 6.5 米”（订单改了数量时补领）
+             */
+            requisition_todo?: string[];
             /**
              * Shortage
              * @description 有缺货的商品
@@ -32503,6 +32652,82 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BomOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_bom_history_api_v1_products__product_id__materials_history_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                product_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BomHistory"];
                 };
             };
             /** @description Bad Request */

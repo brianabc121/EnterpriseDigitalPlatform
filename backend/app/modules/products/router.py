@@ -36,6 +36,7 @@ from app.modules.products.models import (
     ProductMaterial,
 )
 from app.modules.products.schemas import (
+    BomHistory,
     BomIn,
     BomLineOut,
     BomOut,
@@ -57,7 +58,7 @@ from app.modules.products.schemas import (
     StockAdjustIn,
     StockMovementPage,
 )
-from app.modules.warehouse import movements
+from app.modules.warehouse import movements, usage
 from app.modules.warehouse.models import StockDocumentLine
 
 router = APIRouter(prefix="/api/v1/products", tags=["products"], responses=ERROR_RESPONSES)
@@ -786,6 +787,33 @@ async def get_bom(product_id: UUID, session: TenantDb, _: CanRead) -> BomOut:
     """成品的配方：每一件用多少材料。"""
     product = await _get(session, product_id)
     return await _bom_out(session, product)
+
+
+@router.get("/{product_id}/materials/history", response_model=BomHistory)
+async def get_bom_history(product_id: UUID, session: TenantDb, _: CanRead) -> BomHistory:
+    """按以往领料估算的每件用量（§25.17）：没有配方时，维护商品库的员工可以照着生成配方。"""
+    product = await _get(session, product_id)
+    found = (await usage.history(session, {product.id})).get(product.id)
+    if found is None:
+        return BomHistory(orders=0, items=[])
+    materials = {
+        m.id: m
+        for m in await session.scalars(select(Product).where(Product.id.in_(found.per_unit)))
+    }
+    lines = [
+        BomLineOut(
+            material_id=material.id,
+            code=material.code,
+            name=material.name,
+            spec=material.spec,
+            unit=material.unit,
+            quantity=usage.rounded(found.per_unit[material.id]),
+            stock=material.stock,
+        )
+        for material in sorted(materials.values(), key=lambda m: (m.name, m.spec))
+        if usage.rounded(found.per_unit[material.id]) > 0
+    ]
+    return BomHistory(orders=found.orders, items=lines)
 
 
 async def _bom_out(session: TenantDb, product: Product) -> BomOut:

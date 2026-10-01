@@ -386,8 +386,8 @@ async def draft(
     kind: DocumentKindValue,
     order_id: UUID,
 ) -> DocumentDraft:
-    """给订单开单的预填：领料单按配方（订单里需要加工的商品数量 × 配方用量，减去已经领过的），
-    入库单按订单里需要加工的成品。"""
+    """给订单开单的预填：领料单按配方（订单里需要加工的商品数量 × 配方用量；没有配方时按以往领料
+    估算，§25.17），减去已经领过的，每行带上怎么算的；入库单按订单里需要加工的成品。"""
     order = await session.get(Order, order_id)
     mine = order is not None and order.worker_id == principal.staff_id
     if order is None or not (
@@ -395,9 +395,17 @@ async def draft(
     ):
         raise NotFound(documents.ORDER_NOT_FOUND)
     if DocumentKind(kind) == DocumentKind.REQUISITION:
-        lines, missing = await documents.requisition_draft(session, order)
-    else:
-        lines, missing = await documents.receipt_draft(session, order)
+        plan = await documents.requisition_draft(session, order)
+        return DocumentDraft(
+            kind=kind,
+            order_id=order.id,
+            lines=plan.lines,
+            missing=plan.missing,
+            items=plan.items,
+            estimated=plan.estimated,
+            covered=plan.covered,
+        )
+    lines, missing = await documents.receipt_draft(session, order)
     return DocumentDraft(kind=kind, order_id=order.id, lines=lines, missing=missing)
 
 
