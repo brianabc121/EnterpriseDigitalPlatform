@@ -249,6 +249,8 @@ async function send(): Promise<void> {
   const text = draft.value.trim()
   if (!text || sending.value) return
   sending.value = true
+  // 发出后再输入时马上提示访客（不等上一次"正在输入"的间隔）。
+  typingSentAt = 0
   const origin = draftOrigin.value
   const email = isEmail.value
     ? { subject: emailSubject.value.trim() || null, replyTo: emailReplyTo.value }
