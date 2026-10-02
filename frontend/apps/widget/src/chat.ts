@@ -90,6 +90,26 @@ export function fromApi(m: Schemas['VisitorMessageOut']): WidgetMessage {
   }
 }
 
+/**
+ * 新到的消息：还没有的（按 IM 消息 ID，或者同一个 clientMsgID）、不是自己发的。嵌入网页时，
+ * 窗口收起期间新到的消息记为未读（按钮上的角标）。
+ */
+export function freshMessages(
+  current: WidgetMessage[],
+  incoming: WidgetMessage[],
+): WidgetMessage[] {
+  const keys = new Set(current.map((m) => m.key))
+  const clientIds = new Set(current.map((m) => m.clientMsgID).filter(Boolean))
+  const fresh: WidgetMessage[] = []
+  for (const m of incoming) {
+    if (keys.has(m.key) || (m.clientMsgID && clientIds.has(m.clientMsgID))) continue
+    keys.add(m.key)
+    if (m.clientMsgID) clientIds.add(m.clientMsgID)
+    if (m.role !== 'me') fresh.push(m)
+  }
+  return fresh
+}
+
 /** 合并消息：同一条消息可能同时来自历史接口、IM 推送和自己发送的返回值，按 IM 消息 ID 去重。 */
 export function mergeMessages(
   current: WidgetMessage[],

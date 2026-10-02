@@ -3,7 +3,14 @@ import { createImClient, type ConnectionState } from '@edp/im-client'
 import { MessageBody, type MessageView } from '@edp/ui'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 
-import { fromApi, fromIm, mergeMessages, senderLabel, type WidgetMessage } from './chat'
+import {
+  freshMessages,
+  fromApi,
+  fromIm,
+  mergeMessages,
+  senderLabel,
+  type WidgetMessage,
+} from './chat'
 import { money, shortTime } from './orders'
 import {
   cancelQueue,
@@ -68,8 +75,7 @@ const progress = ref<ProgressList | null>(null)
 const myOrders = ref<MyOrders | null>(null)
 const leaveForm = ref({ content: '', contact: '', sent: false })
 const csat = ref({ score: 0, comment: '', done: false })
-const visible = ref(!embedded)
-const unread = ref(0)
+let historyLoaded = false
 const typing = ref(false)
 /** 谁在输入：智能客服或接待坐席（坐席带显示名）。 */
 const typingFrom = ref<'bot' | 'staff'>('bot')
@@ -125,20 +131,21 @@ function view(m: WidgetMessage): MessageView {
   return { contentType: bubbleKind(m), text: m.text, attachment: { url, name, size } }
 }
 
-function notifyParent(): void {
+/**
+ * 告诉嵌入脚本新到了几条消息。未读数由嵌入脚本统计：只有它确切知道窗口是不是收起的（这里的显示状态
+ * 靠消息同步，可能和页面上的不一致）。
+ */
+function notifyParent(count: number): void {
   if (embedded && parentOrigin) {
-    window.parent.postMessage({ type: 'edp:unread', count: unread.value }, parentOrigin)
+    window.parent.postMessage({ type: 'edp:incoming', count }, parentOrigin)
   }
 }
 
 function receive(incoming: WidgetMessage[]): void {
-  const known = new Set(messages.value.map((m) => m.key))
-  const fresh = incoming.filter((m) => !known.has(m.key) && m.role !== 'me')
+  const fresh = freshMessages(messages.value, incoming)
   messages.value = mergeMessages(messages.value, incoming)
-  if (fresh.length && !visible.value) {
-    unread.value += fresh.length
-    notifyParent()
-  }
+  // 第一次补齐的是历史消息，不算新到的（老访客打开网页时角标不显示以前的消息数）。
+  if (fresh.length && historyLoaded) notifyParent(fresh.length)
   if (fresh.length || incoming.some((m) => m.role === 'me')) {
     void nextTick(() => list.value?.scrollTo({ top: list.value.scrollHeight }))
   }
@@ -196,11 +203,7 @@ window.addEventListener('message', (event) => {
   if (!embedded || event.origin !== parentOrigin) return
   const type = (event.data as { type?: string } | null)?.type
   if (type === 'edp:open') {
-    visible.value = true
-    unread.value = 0
     void nextTick(() => list.value?.scrollTo({ top: list.value.scrollHeight }))
-  } else if (type === 'edp:hidden') {
-    visible.value = false
   }
 })
 
@@ -216,6 +219,7 @@ async function start(key: string): Promise<void> {
       platformID: login.platform_id,
     })
     await Promise.all([syncFromApi(), refreshState(), loadProgress(), loadOrders()])
+    historyLoaded = true
     timers.push(setTimeout(() => void syncFromApi(), SYNC_AFTER_CONNECT_MS))
     timers.push(
       setInterval(() => {

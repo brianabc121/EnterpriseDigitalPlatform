@@ -2,7 +2,7 @@ import type { Schemas } from '@edp/api-client'
 import type { ChatMessage } from '@edp/im-client'
 import { describe, expect, it } from 'vitest'
 
-import { fromApi, fromIm, mergeMessages, senderLabel, senderRole } from './chat'
+import { freshMessages, fromApi, fromIm, mergeMessages, senderLabel, senderRole } from './chat'
 
 const ME = 'acme_c_0123456789abcdef0123456789abcdef'
 const AGENT = 'acme_s_' + 'a'.repeat(32)
@@ -101,5 +101,25 @@ describe('senderLabel', () => {
     expect(senderLabel({ role: 'bot', senderName: null })).toBe('智能客服')
     expect(senderLabel({ role: 'agent', senderName: 'Alice' })).toBe('Alice')
     expect(senderLabel({ role: 'system', senderName: 'x' })).toBe('系统消息')
+  })
+})
+
+describe('freshMessages', () => {
+  it('counts only messages not seen before and not sent by the visitor', () => {
+    const seen = [fromIm(im('hi', 1000), ME), fromIm(im('reply', 2000, { sendID: AGENT }), ME)]
+    const incoming = [
+      // 同一条消息从历史接口又来一次（按 IM 消息 ID 对上）
+      fromApi(api('s-reply', '2026-10-02T08:00:02Z', { sender_type: 'agent' })),
+      fromIm(im('mine', 3000), ME),
+      fromIm(im('new', 4000, { sendID: AGENT }), ME),
+    ]
+    expect(freshMessages(seen, incoming).map((m) => m.text)).toEqual(['new'])
+  })
+
+  it('counts a message once when it arrives twice in one batch or without a server id', () => {
+    const pushed = fromIm(im('x', 1000, { sendID: AGENT, serverMsgID: '' }), ME)
+    const confirmed = fromIm(im('x', 1000, { sendID: AGENT }), ME)
+    expect(freshMessages([], [pushed, confirmed])).toHaveLength(1)
+    expect(freshMessages([pushed], [confirmed])).toHaveLength(0)
   })
 })

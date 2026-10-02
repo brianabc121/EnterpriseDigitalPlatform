@@ -65,6 +65,12 @@
     'border:0;border-radius:0;margin:0;background:#fff;z-index:2147483001'
 
   var open = false
+  // 收起期间新到的消息数（按钮上的角标）。在这里统计：只有这里确切知道窗口是不是收起的。
+  var unread = 0
+  function showUnread() {
+    badge.textContent = unread > 99 ? '99+' : String(unread)
+    badge.style.display = unread > 0 ? 'block' : 'none'
+  }
   function post(type) {
     if (frame.contentWindow) frame.contentWindow.postMessage({ type: type }, base)
   }
@@ -78,7 +84,10 @@
     open = value
     layout()
     button.firstChild.nodeValue = open ? '收起' : '在线客服'
-    if (open) badge.style.display = 'none'
+    if (open) {
+      unread = 0
+      showUnread()
+    }
     post(open ? 'edp:open' : 'edp:hidden')
   }
   if (mobile.addEventListener) mobile.addEventListener('change', layout)
@@ -88,10 +97,9 @@
   })
   window.addEventListener('message', function (event) {
     if (event.origin !== base || !event.data) return
-    if (event.data.type === 'edp:unread' && !open) {
-      var count = Number(event.data.count) || 0
-      badge.textContent = count > 99 ? '99+' : String(count)
-      badge.style.display = count > 0 ? 'block' : 'none'
+    if (event.data.type === 'edp:incoming' && !open) {
+      unread += Math.max(0, Number(event.data.count) || 0)
+      showUnread()
     }
     if (event.data.type === 'edp:close') setOpen(false)
   })

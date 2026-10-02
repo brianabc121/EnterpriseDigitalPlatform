@@ -368,7 +368,7 @@ M1-1 至 M1-8 全部完成，验收标准已满足：
 
 - **嵌入**：`embed.js`（Widget 的 `public/` 下）在页面右下角放一个"在线客服"按钮，点开时显示 iframe 里的 Widget。
   父页面与 iframe 之间用 postMessage 通信，双方都校验来源：`edp:open` / `edp:hidden`（显示状态）、
-  `edp:unread`（收起时收到的新消息数，显示为按钮角标）、`edp:close`（Widget 里的收起按钮）。
+  `edp:incoming`（新到的消息数；嵌入脚本在窗口收起时累计为按钮角标、打开时清零，第一次加载的历史消息不算）、`edp:close`（Widget 里的收起按钮）。
   iframe 默认隐藏但照常连接 IM，所以收起时也能收到消息和提醒。
 - **允许嵌入的网站**（渠道设置 `allowed_origins`）：Widget 取父页面来源（`location.ancestorOrigins`，
   不支持时用 referrer）随初始化请求上报，不在列表中的返回 403"当前网站未被授权接入在线客服"；
