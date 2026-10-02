@@ -10,7 +10,7 @@ type Protocol = Provider['protocol']
 
 /** 判断模型（TypeSafe Jev，设计文档 §32）只能用于"意图判断"场景。 */
 const JUDGE_SCENES = ['intent']
-const JUDGE_DEFAULTS = { baseUrl: 'https://api.typesafe.ai/v1', chatModel: 'jev-latest' }
+const JUDGE_DEFAULTS = { baseUrl: 'https://api.typesafe.ai/v1', chatModel: 'jev-latest', priceInput: 0.03 }
 
 const providers = ref<Provider[]>([])
 const routes = ref<Schemas['LlmRoutesOut'] | null>(null)
@@ -46,15 +46,26 @@ function emptyForm() {
 const form = reactive(emptyForm())
 const isJudge = computed(() => form.protocol === 'typesafe')
 
-/** 新建时选判断模型：填上官方接口地址、模型名和价格（输入每千 tokens 约 0.03 分，输出不计费）。 */
+/**
+ * 新建时选判断模型：填上官方接口地址、模型名和价格（输入每千 tokens 约 0.03 分，输出不计费），清掉它没有的
+ * 轻量、向量、重排序模型；切回 OpenAI 兼容时去掉没改过的这些默认值。
+ */
 function changeProtocol(value: string | number | boolean | undefined): void {
   if (value !== 'openai' && value !== 'typesafe') return
   form.protocol = value
-  if (value !== 'typesafe') return
+  if (value === 'openai') {
+    if (form.baseUrl === JUDGE_DEFAULTS.baseUrl) form.baseUrl = ''
+    if (form.chatModel === JUDGE_DEFAULTS.chatModel) form.chatModel = ''
+    if (form.priceInput === JUDGE_DEFAULTS.priceInput) form.priceInput = 0
+    return
+  }
   if (!form.baseUrl) form.baseUrl = JUDGE_DEFAULTS.baseUrl
   if (!form.chatModel) form.chatModel = JUDGE_DEFAULTS.chatModel
-  if (!form.priceInput) form.priceInput = 0.03
+  if (!form.priceInput) form.priceInput = JUDGE_DEFAULTS.priceInput
   form.priceOutput = 0
+  form.fastModel = ''
+  form.embedModel = ''
+  form.rerankModel = ''
   form.isDefault = false
 }
 
@@ -302,7 +313,7 @@ onMounted(load)
             data-testid="provider-protocol"
             @update:model-value="changeProtocol"
           >
-            <el-radio-button value="openai">OpenAI 兼容</el-radio-button>
+            <el-radio-button value="openai" data-testid="provider-protocol-openai">OpenAI 兼容</el-radio-button>
             <el-radio-button value="typesafe" data-testid="provider-protocol-typesafe">判断模型（Jev）</el-radio-button>
           </el-radio-group>
           <div class="sub hint">

@@ -176,10 +176,15 @@ async function run(browser) {
   await ops.page.locator('[data-testid="menu-providers"]').click()
   await ops.page.locator('[data-testid="provider-create"]').click()
   await ops.page.locator('[data-testid="provider-protocol-typesafe"]').click()
-  const prefilled = {
+  const formValues = async () => ({
     url: await ops.page.locator('input[data-testid="provider-url"]').inputValue(),
     model: await ops.page.locator('input[data-testid="provider-chat-model"]').inputValue(),
-  }
+  })
+  const prefilled = await formValues()
+  // 切回 OpenAI 兼容时去掉没改过的默认值，再切回来又填上。
+  await ops.page.locator('[data-testid="provider-protocol-openai"]').click()
+  const switchedBack = await formValues()
+  await ops.page.locator('[data-testid="provider-protocol-typesafe"]').click()
   await ops.page.locator('input[data-testid="provider-name"]').fill(PROVIDER)
   await ops.page.locator('input[data-testid="provider-url"]').fill(FAKE_LLM)
   await ops.page.locator('input[data-testid="provider-key"]').fill('sk-jev-e2e')
@@ -196,13 +201,15 @@ async function run(browser) {
     (p) => p.name === PROVIDER,
   )?.id
   check(
-    '添加判断模型（Jev）：自动填上官方地址和模型名，列表标出"判断模型"',
+    '添加判断模型（Jev）：自动填上官方地址和模型名（切回 OpenAI 兼容时去掉），列表标出"判断模型"',
     prefilled.url === 'https://api.typesafe.ai/v1' &&
       prefilled.model === 'jev-latest' &&
+      switchedBack.url === '' &&
+      switchedBack.model === '' &&
       rowText.includes('判断模型') &&
       rowText.includes('判断：jev-1.13.0') &&
       !!state.providerId,
-    { prefilled, rowText },
+    { prefilled, switchedBack, rowText },
   )
   await providerRow.locator('[data-testid="provider-test"]').click()
   const testResult = providerRow.locator('[data-testid="provider-test-result"]')
