@@ -144,7 +144,7 @@ async function prepareTenant() {
 
 async function staffSection(page) {
   await menu(page, '员工')
-  const row = page.locator('[data-testid="staff-table"] .el-table__row', { hasText: 'xiaowang' })
+  const row = page.getByTestId('staff-node-xiaowang')
   await row.waitFor()
   await row.locator('button', { hasText: '编辑' }).click()
   const dialog = page.locator('.el-dialog:visible')

@@ -2,7 +2,15 @@ import uuid
 from datetime import datetime
 from enum import StrEnum
 
-from sqlalchemy import ForeignKeyConstraint, String, Text, UniqueConstraint, func, text
+from sqlalchemy import (
+    CheckConstraint,
+    ForeignKeyConstraint,
+    String,
+    Text,
+    UniqueConstraint,
+    func,
+    text,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base, IdMixin, TenantMixin, TimestampMixin
@@ -20,8 +28,24 @@ class Staff(IdMixin, TimestampMixin, TenantMixin, Base):
     __table_args__ = (
         UniqueConstraint("tenant_id", "id"),
         UniqueConstraint("tenant_id", "username"),
+        CheckConstraint(
+            "diagram_direction IS NULL OR diagram_direction IN ('left', 'right', 'down')",
+            name="diagram_direction",
+        ),
+        CheckConstraint(
+            "diagram_parent_id IS NULL OR diagram_direction IS NOT NULL",
+            name="diagram_branch",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "diagram_parent_id"],
+            ["staff.tenant_id", "staff.id"],
+            name="fk_staff_diagram_parent",
+        ),
     )
 
+    # 图形来源不表示管理归属，也不参与权限计算。
+    diagram_parent_id: Mapped[uuid.UUID | None]
+    diagram_direction: Mapped[str | None] = mapped_column(String(8))
     username: Mapped[str] = mapped_column(String(64))
     display_name: Mapped[str] = mapped_column(String(64))
     password_hash: Mapped[str] = mapped_column(Text)
@@ -34,6 +58,25 @@ class Staff(IdMixin, TimestampMixin, TenantMixin, Base):
     revoked_permissions: Mapped[list[str]] = mapped_column(server_default=text("'{}'"))
     menus: Mapped[list[str] | None]
     home_menu: Mapped[str | None] = mapped_column(String(16))
+
+
+class StaffDiagramNode(IdMixin, TimestampMixin, TenantMixin, Base):
+    """独立图形卡片；staff_id 为空时为不占席位、不可登录的待完善卡片。"""
+
+    __tablename__ = "staff_diagram_nodes"
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "staff_id"),
+        CheckConstraint("direction IN ('left', 'right', 'down')", name="direction"),
+        ForeignKeyConstraint(
+            ["tenant_id", "staff_id"],
+            ["staff.tenant_id", "staff.id"],
+            ondelete="CASCADE",
+        ),
+    )
+
+    parent_id: Mapped[uuid.UUID | None]
+    direction: Mapped[str] = mapped_column(String(8))
+    staff_id: Mapped[uuid.UUID | None]
 
 
 class Role(IdMixin, TimestampMixin, TenantMixin, Base):

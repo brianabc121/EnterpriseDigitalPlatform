@@ -136,10 +136,10 @@ class RoleSpec:
 # 开通租户时创建的系统角色。系统角色的权限以这里为准（见 iam.service.role_permissions），
 # 新增权限点后现有租户自动生效，不需要数据迁移。
 DEFAULT_ROLES: tuple[RoleSpec, ...] = (
-    RoleSpec("tenant_admin", "租户管理员", ALL_PERMISSIONS),
+    RoleSpec("tenant_admin", "企业所有者", ALL_PERMISSIONS),
     RoleSpec(
         "agent",
-        "坐席",
+        "客服",
         frozenset(
             {
                 Permission.DASHBOARD_VIEW,
@@ -197,24 +197,26 @@ DEFAULT_ROLES: tuple[RoleSpec, ...] = (
         ),
     ),
     RoleSpec(
-        "knowledge_manager",
-        "知识管理员",
-        frozenset(
-            {
-                Permission.DASHBOARD_VIEW,
-                Permission.KB_READ,
-                Permission.KB_MANAGE,
-                Permission.KB_PUBLISH,
-                Permission.FORM_KB_MANAGE,
-                Permission.TASK_USE,
-                Permission.ASSISTANT_USE,
-            }
-        ),
+        "finance", "财务",
+        frozenset({
+            Permission.DASHBOARD_VIEW, Permission.FINANCE_VIEW, Permission.FINANCE_MANAGE,
+            Permission.ORDER_READ, Permission.ORDER_PAYMENT, Permission.CUSTOMER_READ,
+            Permission.PROFIT_VIEW, Permission.PROFIT_MANAGE,
+            Permission.TASK_USE, Permission.ASSISTANT_USE,
+        }),
+    ),
+    RoleSpec(
+        "cashier", "出纳",
+        frozenset({
+            Permission.DASHBOARD_VIEW, Permission.FINANCE_VIEW,
+            Permission.ORDER_READ, Permission.ORDER_PAYMENT, Permission.CUSTOMER_READ,
+            Permission.TASK_USE, Permission.ASSISTANT_USE,
+        }),
     ),
     # 工人只做加工（设计文档 §25.11）：看不到金额、客户电话和地址，也进不了订单中心。
     RoleSpec(
         "worker",
-        "工人",
+        "工厂工人",
         frozenset({Permission.PRODUCTION_WORK, Permission.TASK_USE, Permission.ASSISTANT_USE}),
     ),
     # 仓管（设计文档 §25.15）：确认领料单和入库单，管理材料和成品的库存。

@@ -43,7 +43,7 @@ export const CONSOLE_PROFILES: [ConsoleProfile, string][] = [
   ['agent', '客服'],
   ['finance', '财务'],
   ['keeper', '仓管'],
-  ['worker', '工人'],
+  ['worker', '工厂工人'],
   ['knowledge', '知识管理员'],
 ]
 export const PROFILE_LABEL = Object.fromEntries(CONSOLE_PROFILES) as Record<ConsoleProfile, string>

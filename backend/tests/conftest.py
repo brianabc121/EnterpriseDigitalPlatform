@@ -47,7 +47,8 @@ from tests.support import (
 )
 
 ALL_TABLES = (
-    "tenants, platform_users, staff, roles, staff_roles, customers, refresh_tokens, audit_logs, "
+    "tenants, platform_users, staff, staff_diagram_nodes, roles, staff_roles, customers, "
+    "refresh_tokens, audit_logs, "
     "channel_accounts, customer_identities, rooms, messages, skill_groups, skill_group_members, "
     "routing_policies, agent_states, sessions, session_events, todos, im_ops, quick_replies, "
     "session_transfers, customer_owner_history, usage_daily, ai_settings, kb_items, kb_chunks, "

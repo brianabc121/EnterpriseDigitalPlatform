@@ -25,7 +25,7 @@ from app.db.session import Database
 from app.modules.audit.service import record_audit
 from app.modules.billing.entitlements import entitlements
 from app.modules.billing.service import billing_notice
-from app.modules.iam import access, manage, service
+from app.modules.iam import access, diagram, manage, service
 from app.modules.iam import console as consoles
 from app.modules.iam.deps import CurrentPrincipal, TenantDb, require_permission
 from app.modules.iam.models import Role, Staff
@@ -49,6 +49,9 @@ from app.modules.iam.schemas import (
     RoleUpdate,
     StaffAccessDefaults,
     StaffCreate,
+    StaffDiagramNodeCreate,
+    StaffDiagramNodeOut,
+    StaffDiagramNodes,
     StaffList,
     StaffOut,
     StaffUpdate,
@@ -372,6 +375,29 @@ async def staff_access_defaults(
         permissions=access.known(granted),
         adjustable=access.adjustable(roles),
     )
+
+
+@router.get("/staff/diagram/nodes", response_model=StaffDiagramNodes)
+async def staff_diagram_nodes(session: TenantDb, principal: CanReadStaff) -> StaffDiagramNodes:
+    return StaffDiagramNodes(items=await diagram.list_nodes(session, principal.tenant_id))
+
+
+@router.post("/staff/diagram/nodes", response_model=StaffDiagramNodeOut, status_code=201)
+async def create_staff_diagram_node(
+    payload: StaffDiagramNodeCreate,
+    request: Request,
+    session: TenantDb,
+    principal: CanManageStaff,
+) -> StaffDiagramNodeOut:
+    return await diagram.create_node(session, principal, payload, ip=client_ip(request))
+
+
+@router.delete("/staff/diagram/nodes/{card_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_staff_diagram_card(
+    card_id: UUID, request: Request, session: TenantDb, principal: CanManageStaff
+) -> Response:
+    await diagram.delete_card(session, principal, card_id, ip=client_ip(request))
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.post("/staff", response_model=StaffOut, status_code=status.HTTP_201_CREATED)

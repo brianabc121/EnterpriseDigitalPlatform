@@ -5,6 +5,7 @@ import { computed, onMounted, reactive, ref } from 'vue'
 
 import { api } from '../../api'
 import { CONSOLE_PROFILES, PROFILE_LABEL } from '../../menu'
+import { normalizeRoleName } from '../../roleNames'
 import { useAuthStore } from '../../stores/auth'
 import PermissionPicker from './PermissionPicker.vue'
 
@@ -52,7 +53,7 @@ async function load(): Promise<void> {
     ElMessage.error(errorMessage(rolesResult.error ?? catalogResult.error))
     return
   }
-  roles.value = rolesResult.data.items
+  roles.value = rolesResult.data.items.map(normalizeRoleName)
   catalog.value = catalogResult.data.items
   if (defaultsResult.data) {
     defaults.value = Object.fromEntries(

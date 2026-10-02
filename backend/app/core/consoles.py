@@ -21,7 +21,7 @@ PROFILE_LABELS: dict[ConsoleProfile, str] = {
     ConsoleProfile.AGENT: "客服",
     ConsoleProfile.FINANCE: "财务",
     ConsoleProfile.KEEPER: "仓管",
-    ConsoleProfile.WORKER: "工人",
+    ConsoleProfile.WORKER: "工厂工人",
     ConsoleProfile.KNOWLEDGE: "知识管理员",
 }
 
@@ -99,7 +99,8 @@ SYSTEM_ROLE_PROFILES: dict[str, ConsoleProfile] = {
     "agent": ConsoleProfile.AGENT,
     "keeper": ConsoleProfile.KEEPER,
     "worker": ConsoleProfile.WORKER,
-    "knowledge_manager": ConsoleProfile.KNOWLEDGE,
+    "finance": ConsoleProfile.FINANCE,
+    "cashier": ConsoleProfile.FINANCE,
 }
 
 
@@ -131,18 +132,25 @@ MENU_RULES: dict[ConsoleMenu, tuple[Permission, str | None]] = {
 
 
 # 每个岗位的默认权限（"员工 → 角色"里选了岗位后一键填入，设计文档 §28.5）：有同名系统角色的岗位就是
-# 该角色的权限；财务没有系统角色，单独列出。
+# 该角色的权限；保留知识岗位模板供历史自定义岗位使用。
 PROFILE_PERMISSIONS: dict[ConsoleProfile, frozenset[Permission]] = {
     **{
         SYSTEM_ROLE_PROFILES[spec.code]: spec.permissions
         for spec in DEFAULT_ROLES
         if spec.code in SYSTEM_ROLE_PROFILES
     },
+    ConsoleProfile.KNOWLEDGE: frozenset({
+        Permission.DASHBOARD_VIEW, Permission.KB_READ, Permission.KB_MANAGE,
+        Permission.KB_PUBLISH, Permission.FORM_KB_MANAGE,
+        Permission.TASK_USE, Permission.ASSISTANT_USE,
+    }),
     ConsoleProfile.FINANCE: frozenset(
         {
             Permission.DASHBOARD_VIEW,
             Permission.FINANCE_VIEW,
             Permission.FINANCE_MANAGE,
+            Permission.PROFIT_VIEW,
+            Permission.PROFIT_MANAGE,
             Permission.ORDER_READ,
             Permission.ORDER_PAYMENT,
             Permission.CUSTOMER_READ,

@@ -303,7 +303,7 @@ async function staffSection(browser) {
 
 // 5–6. 编辑：保留自定义，改回按角色；租户管理员不能自定义。
 async function editSection(browser, admin) {
-  const row = admin.locator('[data-testid="staff-table"] .el-table__row', { hasText: 'xiao' })
+  const row = admin.getByTestId('staff-node-xiao')
   await row.locator('button', { hasText: '编辑' }).click()
   const dialog = admin.locator('[data-testid="staff-edit"]')
   await dialog.locator('[data-testid="permission-picker"]').waitFor()

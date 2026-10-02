@@ -134,14 +134,14 @@ async function run(browser) {
     await shot(page, '2-admin-dashboard')
 
     await page.locator('[data-testid="main-menu"] .el-menu-item', { hasText: '员工' }).click()
-    await page.waitForSelector('[data-testid="staff-table"] >> text=admin')
+    await page.waitForSelector('[data-testid="staff-node-admin"]')
     await page.click('button:has-text("新建员工")')
     const dialog = page.locator('.el-dialog:visible')
     await dialog.locator('.el-form-item', { hasText: '用户名' }).locator('input').fill('alice')
     await dialog.locator('.el-form-item', { hasText: '姓名' }).locator('input').fill('Alice')
     await dialog.locator('.el-form-item', { hasText: '初始密码' }).locator('input').fill(AGENT_PASSWORD)
     await dialog.locator('button:has-text("保存")').click()
-    await page.waitForSelector('[data-testid="staff-table"] >> text=alice')
+    await page.waitForSelector('[data-testid="staff-node-alice"]')
     await shot(page, '3-admin-staff')
 
     await openCustomers(page)
