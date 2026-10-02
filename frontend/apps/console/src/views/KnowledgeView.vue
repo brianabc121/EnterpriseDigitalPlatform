@@ -7,6 +7,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { KB_KIND, KB_STATUS, KB_STATUS_TAG, KB_VISIBILITY } from '../ai'
 import { api, formatDateTime } from '../api'
 import FormKbPanel from '../components/knowledge/FormKbPanel.vue'
+import KbAlignmentPanel from '../components/knowledge/KbAlignmentPanel.vue'
 import KbDigestPanel from '../components/knowledge/KbDigestPanel.vue'
 import KbImportDialog from '../components/knowledge/KbImportDialog.vue'
 import KbItemEditor from '../components/knowledge/KbItemEditor.vue'
@@ -45,6 +46,13 @@ const tab = ref('items')
 const pendingCandidates = ref(0)
 const stale = ref(false)
 const mine = ref(false)
+// 规章制度（§33.7.1）和知识库整理的整理清单（§33.7.2）的筛选。
+const policyOnly = ref(false)
+const expiring = ref(false)
+const noOwner = ref(false)
+const disliked = ref(false)
+type Housekeeping = 'stale' | 'expiring' | 'no_owner' | 'disliked' | 'policy'
+const reviewSource = ref<'' | 'policy'>('')
 const node = ref('all')
 const selection = ref<Selection>({})
 /** 新建知识时默认放到左侧选中的空间或分类。 */
@@ -76,6 +84,10 @@ async function load(): Promise<void> {
         q: keyword.value.trim() || undefined,
         stale: stale.value || undefined,
         mine: mine.value || undefined,
+        policy: policyOnly.value || undefined,
+        expiring: expiring.value || undefined,
+        no_owner: noOwner.value || undefined,
+        disliked: disliked.value || undefined,
         ...selection.value,
         limit: PAGE_SIZE,
         offset: (page.value - 1) * PAGE_SIZE,
@@ -153,12 +165,30 @@ async function remove(item: Item): Promise<void> {
   await load()
 }
 
-watch([status, kind, stale, mine], reload)
+/** 制度对齐页签里点了整理清单的数字：回到知识条目，只看这一类。 */
+function showOnly(name: Housekeeping): void {
+  stale.value = name === 'stale'
+  expiring.value = name === 'expiring'
+  noOwner.value = name === 'no_owner'
+  disliked.value = name === 'disliked'
+  policyOnly.value = name === 'policy'
+  status.value = ''
+  tab.value = 'items'
+}
+
+function reviewPolicy(): void {
+  reviewSource.value = 'policy'
+  tab.value = 'review'
+}
+
+watch([status, kind, stale, mine, policyOnly, expiring, noOwner, disliked], reload)
 watch(() => route.query.item, openFromQuery)
 onMounted(async () => {
   // 首页的"去审核台"（/knowledge?tab=review）；表单知识（/knowledge?tab=form）。
   if (route.query.tab === 'review' && canManage.value) tab.value = 'review'
   if (route.query.tab === 'form') tab.value = 'form'
+  // 知识库整理的通知（/knowledge?tab=review）和"制度对齐"（/knowledge?tab=alignment）。
+  if (route.query.tab === 'alignment' && canManage.value) tab.value = 'alignment'
   await Promise.all([load(), spaces.load(), openFromQuery()])
   // 待审核候选数显示在"审核台"页签上。
   if (canManage.value) {
@@ -237,6 +267,16 @@ onMounted(async () => {
           <el-checkbox v-if="canManage" v-model="mine" data-testid="kb-mine-filter">
             我负责的
           </el-checkbox>
+          <el-checkbox v-model="policyOnly" data-testid="kb-policy-filter">规章制度</el-checkbox>
+          <el-checkbox v-if="canManage && expiring" v-model="expiring" data-testid="kb-expiring-filter">
+            快到期
+          </el-checkbox>
+          <el-checkbox v-if="canManage && noOwner" v-model="noOwner" data-testid="kb-no-owner-filter">
+            没有负责人
+          </el-checkbox>
+          <el-checkbox v-if="canManage && disliked" v-model="disliked" data-testid="kb-disliked-filter">
+            评价差
+          </el-checkbox>
         </div>
 
         <el-table
@@ -252,6 +292,9 @@ onMounted(async () => {
               <el-tag size="small" type="info" class="kind-tag">{{
                 KB_KIND[row.kind] ?? row.kind
               }}</el-tag>
+              <el-tag v-if="row.policy" size="small" type="warning" class="kind-tag" data-testid="kb-policy-tag"
+                >制度</el-tag
+              >
               <span>{{ row.title }}</span>
               <span v-if="row.questions.length" class="muted"
                 >+{{ row.questions.length }} 个问法</span
@@ -336,7 +379,14 @@ onMounted(async () => {
           审核台
           <el-badge v-if="pendingCandidates" :value="pendingCandidates" class="badge" />
         </template>
-        <ReviewDesk @reviewed="load" @pending="(n: number) => (pendingCandidates = n)" />
+        <ReviewDesk
+          :source="reviewSource"
+          @reviewed="load"
+          @pending="(n: number) => (pendingCandidates = n)"
+        />
+      </el-tab-pane>
+      <el-tab-pane v-if="canManage" label="制度对齐" name="alignment" lazy>
+        <KbAlignmentPanel @review="reviewPolicy" @filter="showOnly" />
       </el-tab-pane>
       <el-tab-pane label="表单知识" name="form" lazy>
         <FormKbPanel />

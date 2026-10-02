@@ -46,6 +46,7 @@ const form = reactive({
   placement: [] as string[],
   ownerId: '' as string,
   groups: [] as string[],
+  policy: false,
 })
 
 const open = computed({
@@ -77,6 +78,7 @@ watch(
       : [...(props.placement ?? [])]
     form.ownerId = item?.owner_id ?? ''
     form.groups = [...(item?.audience_group_ids ?? [])]
+    form.policy = item?.policy ?? false
     if (canManage.value) void loadOptions()
   },
   { immediate: true },
@@ -105,6 +107,7 @@ function body(): Schemas['KbItemUpdate'] {
     ...placementOf(form.placement),
     owner_id: form.ownerId || null,
     audience_group_ids: form.groups,
+    policy: form.policy,
   }
 }
 
@@ -245,6 +248,11 @@ async function save(publish: boolean): Promise<void> {
       <el-form-item>
         <el-checkbox v-model="form.mustRead" data-testid="kb-must-read">
           必读：发布或更新后，坐席需要在工作台确认已读
+        </el-checkbox>
+      </el-form-item>
+      <el-form-item>
+        <el-checkbox v-model="form.policy" data-testid="kb-policy">
+          规章制度：AI 唤醒整理知识库时以它为准（冲突、缺失的知识进审核台）
         </el-checkbox>
       </el-form-item>
     </el-form>

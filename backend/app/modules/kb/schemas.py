@@ -218,6 +218,7 @@ class KbEvidence(BaseModel):
     item_id: UUID | None = Field(default=None, description="重复的另一条知识")
     title: str | None = None
     answer: str | None = Field(default=None, description="重复的另一条知识的答案")
+    hits: int | None = Field(default=None, description="重复的另一条知识被引用的次数")
     same_answer: bool | None = Field(default=None, description="两条重复知识的答案是否相同")
 
 

@@ -14,6 +14,7 @@ export type MenuIcon =
   | 'user'
   | 'reading'
   | 'ai'
+  | 'wake'
   | 'assistant'
   | 'avatar'
   | 'chart'
@@ -123,6 +124,15 @@ export const MENU: readonly MenuItem[] = [
     permission: 'kb:read',
   },
   { name: 'ai', path: '/ai', title: 'AI 接待', icon: 'ai', permission: 'settings:manage' },
+  // AI 唤醒（§33）：定期巡检企业数据、对照规章制度整理知识库。
+  {
+    name: 'wake',
+    path: '/wake',
+    title: 'AI 唤醒',
+    icon: 'wake',
+    permission: 'settings:manage',
+    feature: 'ai',
+  },
   // AI 公司助理（§27.3）：每个岗位都能对话和绑定；设置页签只给有设置权限的人。
   {
     name: 'assistant',
