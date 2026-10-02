@@ -22,11 +22,11 @@ from tests.test_orders import call
 AGENT = {
     "dashboard:view", "workbench:use", "customer:read", "customer:create", "kb:read",
     "session:transfer", "todo:read", "todo:handle", "order:read", "order:create",
-    "order:review", "order:payment", "task:use", "assistant:use",
+    "order:review", "order:payment", "contract:use", "task:use", "assistant:use",
 }  # fmt: skip
 AGENT_MENUS = [
-    "dashboard", "workbench", "sessions", "todos", "orders", "tasks", "customers", "knowledge",
-    "assistant",
+    "dashboard", "workbench", "sessions", "todos", "orders", "contracts", "tasks", "customers",
+    "knowledge", "assistant",
 ]  # fmt: skip
 
 

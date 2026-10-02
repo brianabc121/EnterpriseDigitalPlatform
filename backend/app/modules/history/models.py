@@ -1,5 +1,6 @@
-"""修改历史（设计文档 §25.14）：订单、领料单、入库单、待办、成品和材料的每一次新建、修改、删除都
-记一个版本（只追加），保存操作之后的完整内容（删除时是删除前的内容）。两个版本的差异在查看时计算。
+"""修改历史（设计文档 §25.14）：订单、领料单、入库单、待办、成品、材料、合同和合同模板的每一次
+新建、修改、删除都记一个版本（只追加），保存操作之后的完整内容（删除时是删除前的内容）。两个版本的
+差异在查看时计算。
 """
 
 import uuid
@@ -20,6 +21,8 @@ class RecordType(StrEnum):
     TODO = "todo"
     GOODS = "goods"  # 成品
     MATERIAL = "material"  # 材料
+    CONTRACT = "contract"  # 合同（设计文档 §34）
+    CONTRACT_TPL = "contract_tpl"  # 合同模板
 
 
 TYPE_LABELS: dict[str, str] = {
@@ -29,6 +32,8 @@ TYPE_LABELS: dict[str, str] = {
     RecordType.TODO: "待办",
     RecordType.GOODS: "成品",
     RecordType.MATERIAL: "材料",
+    RecordType.CONTRACT: "合同",
+    RecordType.CONTRACT_TPL: "合同模板",
 }
 
 

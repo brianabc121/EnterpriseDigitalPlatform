@@ -35,6 +35,7 @@ class ConsoleMenu(StrEnum):
     TODOS = "todos"
     ORDERS = "orders"
     RECEIVABLES = "receivables"  # 应收账款（设计文档 §28）
+    CONTRACTS = "contracts"  # 合同（设计文档 §34）
     PRODUCTS = "products"
     PRODUCTION = "production"
     WAREHOUSE = "warehouse"
@@ -66,6 +67,7 @@ DEFAULT_MENUS: dict[ConsoleProfile, tuple[ConsoleMenu, ...]] = {
         M.TODOS,
         M.TASKS,
         M.ORDERS,
+        M.CONTRACTS,
         M.CUSTOMERS,
         M.KNOWLEDGE,
         M.ASSISTANT,
@@ -112,6 +114,7 @@ MENU_RULES: dict[ConsoleMenu, tuple[Permission, str | None]] = {
     ConsoleMenu.TASKS: (Permission.TASK_USE, None),
     ConsoleMenu.ORDERS: (Permission.ORDER_READ, "orders"),
     ConsoleMenu.RECEIVABLES: (Permission.FINANCE_VIEW, "orders"),
+    ConsoleMenu.CONTRACTS: (Permission.CONTRACT_USE, None),
     ConsoleMenu.PRODUCTS: (Permission.ORDER_READ, "orders"),
     ConsoleMenu.PRODUCTION: (Permission.PRODUCTION_WORK, "orders"),
     ConsoleMenu.WAREHOUSE: (Permission.INVENTORY_MANAGE, "orders"),

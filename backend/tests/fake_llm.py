@@ -58,6 +58,7 @@ from app.modules.ai.decision import NEGATIVE
 from app.modules.ai.prompts import (
     NO_REFERENCE,
     TASK_ASSISTANT,
+    TASK_CONTRACT,
     TASK_EXTRACT,
     TASK_GROUP_EXTRACT,
     TASK_INTENT,
@@ -687,6 +688,72 @@ def _kb_gap(section: str) -> str:
     return json.dumps({"qa_pairs": pairs}, ensure_ascii=False)
 
 
+def _section(user: str, name: str) -> str:
+    """提示词里【name】这一段的内容。"""
+    match = re.search(rf"【{name}】\n?(.*?)(?=\n\n【|\Z)", user, re.S)
+    return match.group(1).strip() if match else ""
+
+
+def _contract(user: str) -> str:
+    """起草合同：有模板时照抄模板、填上需求里的交货天数；没有模板时按固定的条款起草，
+    售后条款引用第一条规章制度。"""
+    requirement = _section(user, "需求")
+    template = _section(user, "模板")
+    references = _section(user, "参考资料")
+    days = re.search(r"(\d+)\s*天(?:内)?交货", requirement)
+    values = {"交货期限": f"合同签订后 {days.group(1)} 天内"} if days else {}
+    # 规章制度里讲质保的一句（找不到时用默认的条款）。
+    warranty_rule = ""
+    used: list[int] = []
+    for block in references.split("\n\n"):
+        head, _, content = block.partition("\n")
+        number = re.match(r"\[(\d+)\] 【规章制度】", head)
+        if not number:
+            continue
+        for line in content.split("\n"):
+            if "质保" in line and "。" in line:
+                warranty_rule = line.strip()
+                used = [int(number.group(1))]
+                break
+        if used:
+            break
+    title = "定制加工合同" if "定制" in requirement else "购销合同"
+    if template:
+        body = template
+        notes = ["已按模板起草，请核对模板里没填的内容"]
+    else:
+        warranty = warranty_rule or "质保期内非人为损坏免费维修。"
+        payment = "预付 30% 定金，验收合格后付清余款。" if "30%" in requirement else "{{付款约定}}"
+        body = "\n".join(
+            [
+                f"# {title}",
+                "合同编号：{{合同编号}}    签订日期：{{签订日期}}",
+                "甲方（需方）：{{客户名称}}    联系电话：{{客户电话}}",
+                "乙方（供方）：{{我方名称}}",
+                "## 一、标的",
+                "{{标的清单}}",
+                "## 二、价款与支付",
+                "合同金额：人民币 {{合同金额}} 元（{{合同金额大写}}）。",
+                f"付款方式：{payment}",
+                "## 三、交付与验收",
+                "交货期限：{{交货期限}}。",
+                "## 四、售后与质保",
+                warranty,
+                "## 五、违约责任",
+                "任何一方违约，应承担由此给对方造成的损失。",
+                "## 六、争议解决",
+                "协商不成的，提交乙方所在地人民法院诉讼解决。",
+                "## 七、签署",
+                "甲方（盖章）：{{客户名称}}    乙方（盖章）：{{我方名称}}",
+            ]
+        )
+        notes = ["请核对交货期限和付款方式"]
+    return json.dumps(
+        {"title": title, "body": body, "values": values, "notes": notes, "used": used},
+        ensure_ascii=False,
+    )
+
+
 def rerank_score(query: str, document: str) -> float:
     wanted = set(terms(query))
     if not wanted:
@@ -771,6 +838,8 @@ class FakeLLM:
             content = "这不是 JSON" if self.mode == "bad_json" else _kb_align(last_user)
         elif task == TASK_KB_GAP:
             content = "这不是 JSON" if self.mode == "bad_json" else _kb_gap(last_user)
+        elif task == TASK_CONTRACT:
+            content = "这不是 JSON" if self.mode == "bad_json" else _contract(last_user)
         elif task == TASK_SUGGEST:
             answers = [*_products(system), *_answers(system)] or ["您好，我帮您确认一下，请稍等。"]
             content = json.dumps({"suggestions": answers[:3]}, ensure_ascii=False)

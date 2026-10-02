@@ -176,6 +176,23 @@ MATRIX: list[tuple[str, str, dict[str, Any] | None]] = [
     # AI 唤醒发现的问题（§33.4）：负责人或管理员才能忽略、标记已处理。
     ("POST", "/api/v1/wake/findings/{finding_id}/ignore", {"days": 7}),
     ("POST", "/api/v1/wake/findings/{finding_id}/resolve", {}),
+    # 合同（§34.6）：分类由有管理权限的员工维护；合同只有负责人、创建人和管理员能看到。
+    ("PATCH", "/api/v1/contracts/categories/{contract_category_id}", {"name": "越权修改"}),
+    ("DELETE", "/api/v1/contracts/categories/{contract_category_id}", None),
+    ("GET", "/api/v1/contracts/templates/{contract_template_id}", None),
+    ("PATCH", "/api/v1/contracts/templates/{contract_template_id}", {"name": "越权修改"}),
+    ("DELETE", "/api/v1/contracts/templates/{contract_template_id}", None),
+    ("GET", "/api/v1/contracts/templates/{contract_template_id}/file", None),
+    ("GET", "/api/v1/contracts/{contract_id}", None),
+    ("PATCH", "/api/v1/contracts/{contract_id}", {"title": "越权修改"}),
+    ("DELETE", "/api/v1/contracts/{contract_id}", None),
+    ("POST", "/api/v1/contracts/{contract_id}/finalize", None),
+    ("POST", "/api/v1/contracts/{contract_id}/reopen", None),
+    ("POST", "/api/v1/contracts/{contract_id}/sign", {"sign_date": "2026-10-01"}),
+    ("POST", "/api/v1/contracts/{contract_id}/void", {"reason": "越权作废"}),
+    ("POST", "/api/v1/contracts/{contract_id}/save-as-template", {"name": "越权另存"}),
+    ("GET", "/api/v1/contracts/{contract_id}/docx", None),
+    ("GET", "/api/v1/contracts/{contract_id}/scan", None),
     ("POST", "/api/v1/production/orders/{order_id}/claim", None),
     ("POST", "/api/v1/production/orders/{order_id}/release", None),
     ("POST", "/api/v1/production/orders/{order_id}/items/{order_item_id}/done", None),
@@ -425,8 +442,34 @@ async def build(desk: Desk) -> Tenant:
         desk.tenant_id,
         f"stock_low:product:{uuid.uuid4()}",
     )
+    # 合同的分类、模板和一份管理员负责的合同草稿，带扫描件（直接写库，流程见 test_contracts.py）。
+    [contract_category] = await desk.sql(
+        "INSERT INTO contract_categories (id, tenant_id, name) VALUES ($1, $2, '销售合同')"
+        " RETURNING id",
+        uuid.uuid4(),
+        desk.tenant_id,
+    )
+    [contract_template] = await desk.sql(
+        "INSERT INTO contract_templates (id, tenant_id, name, body, file_key, file_name)"
+        " VALUES ($1, $2, '销售模板', '# 销售合同', $3, '销售模板.docx') RETURNING id",
+        uuid.uuid4(),
+        desk.tenant_id,
+        f"{desk.code}/_contract_templates/x/销售模板.docx",
+    )
+    [contract] = await desk.sql(
+        "INSERT INTO contracts (id, tenant_id, no, title, body, owner_id, created_by,"
+        " scan_key, scan_name) SELECT $1, $2, 'HT20261001-0001', '销售合同', '# 销售合同',"
+        " id, id, $3, '签字版.pdf' FROM staff WHERE tenant_id = $2 AND username = 'admin'"
+        " RETURNING id",
+        uuid.uuid4(),
+        desk.tenant_id,
+        f"{desk.code}/_contracts/x/签字版.pdf",
+    )
     await desk.flush()
     ids = {
+        "contract_category_id": str(contract_category["id"]),
+        "contract_template_id": str(contract_template["id"]),
+        "contract_id": str(contract["id"]),
         "finding_id": str(finding["id"]),
         "printer_id": str(printer["id"]),
         "print_job_id": str(print_job["id"]),
@@ -819,6 +862,9 @@ async def snapshot(desk: Desk) -> list[Any]:
         "assistant_group_messages": "id, extracted_at",
         "profit_entries": "id, kind, category, amount, occurred_on, note, recurring",
         "wake_findings": "id, status, ignored_until, resolved_at, resolve_note",
+        "contract_categories": "id, name, parent_id, sort",
+        "contract_templates": "id, name, status, body, used_count",
+        "contracts": "id, status, title, owner_id, body, void_reason",
     }
     rows = []
     for table, columns in tables.items():
@@ -1177,6 +1223,9 @@ async def test_agents_only_reach_their_own_sessions_and_customers(
         "print_job_id": acme.ids["print_job_id"],
         "profit_entry_id": acme.ids["profit_entry_id"],
         "finding_id": acme.ids["finding_id"],
+        "contract_category_id": acme.ids["contract_category_id"],
+        "contract_template_id": acme.ids["contract_template_id"],
+        "contract_id": acme.ids["contract_id"],
         "message_id": await email(desk, chat),
         # Dave 自己的个人待办和 IM 绑定；机器人和群只有管理员能管理。
         **await dave_assistant(desk, acme.other_agent.staff_id, acme.ids["bot_id"]),
@@ -1197,6 +1246,9 @@ async def test_agents_only_reach_their_own_sessions_and_customers(
             ("GET", "/api/v1/products/{product_id}/materials"),
             ("GET", "/api/v1/products/{product_id}/materials/history"),
             ("GET", "/api/v1/form-kb/entries/{entry_id}"),
+            # 合同模板全员共享：能用合同的坐席都能查看模板、下载原件（修改只有创建人和管理员）。
+            ("GET", "/api/v1/contracts/templates/{contract_template_id}"),
+            ("GET", "/api/v1/contracts/templates/{contract_template_id}/file"),
         ):
             continue
         path = fill(template, dave_ids, acme.ids)
