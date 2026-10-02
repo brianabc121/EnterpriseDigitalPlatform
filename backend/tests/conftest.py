@@ -33,6 +33,7 @@ from tests.fake_llm import DIM as FAKE_EMBED_DIM
 from tests.fake_llm import FakeLLM
 from tests.fake_openim import SECRET as FAKE_OPENIM_SECRET
 from tests.fake_openim import FakeOpenIM
+from tests.fake_printer import FakePrinterCloud
 from tests.fake_storage import FakeStorage
 from tests.fake_web import FakeWeb
 from tests.fake_wecom import FakeWeCom
@@ -151,6 +152,8 @@ def settings(database_urls: DatabaseUrls) -> Settings:
         openim_api_url="http://openim",
         openim_secret=FAKE_OPENIM_SECRET,
         ai_debounce_seconds=0,
+        # 打印任务只由测试里显式调用 delivery.deliver_due 发送，结果可以确定。
+        print_immediate=False,
     )
 
 
@@ -189,6 +192,11 @@ def fake_bots() -> FakeBots:
 
 
 @pytest.fixture
+def fake_printer() -> FakePrinterCloud:
+    return FakePrinterCloud()
+
+
+@pytest.fixture
 async def app(
     settings: Settings,
     fake_im: FakeOpenIM,
@@ -196,6 +204,7 @@ async def app(
     fake_storage: FakeStorage,
     fake_web: FakeWeb,
     fake_bots: FakeBots,
+    fake_printer: FakePrinterCloud,
 ) -> AsyncIterator[FastAPI]:
     im = OpenIMClient(
         settings.openim_api_url, secret=FAKE_OPENIM_SECRET, transport=fake_im.transport()
@@ -208,9 +217,11 @@ async def app(
         llm_transport=fake_llm.transport(),
         web_transport=fake_web.transport(),
         imbots_transport=fake_bots.transport(),
+        print_transport=fake_printer.transport(),
     )
     yield application
     await application.state.ctx.web.aclose()
+    await application.state.ctx.printing.aclose()
     await application.state.ctx.llm.aclose()
     await application.state.ctx.storage.aclose()
     await im.aclose()

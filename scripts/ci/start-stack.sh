@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # 启动浏览器验收需要的平台进程（CI 与本地共用），就绪后返回：
 #   模拟大模型 :8900、模拟企业微信 :8901、模拟 clamd :3310、
-#   模拟邮箱 IMAP :1143、SMTP :1025（控制接口 :8903），
+#   模拟邮箱 IMAP :1143、SMTP :1025（控制接口 :8903），模拟云打印机厂商 :8904，
 #   API :8000、实时消费进程、调度进程（Prometheus 指标分别在 :9464、:9465、:9466），
 #   控制台 :5173、运营后台 :5174、访客 Widget :5175。
 # 前置：deploy/compose 的开发环境已启动并完成迁移（make dev-up、make migrate）；需要 OpenIM 的
@@ -54,6 +54,7 @@ start fake-llm "$ROOT/backend" "$PY" -m tests.fake_llm --port 8900
 start fake-clamd "$ROOT/backend" "$PY" -m tests.fake_clamd --port 3310
 start fake-wecom "$ROOT/backend" "$PY" -m tests.fake_wecom --port 8901 --platform http://127.0.0.1:8000
 start fake-mail "$ROOT/backend" "$PY" -m tests.fake_mail --imap-port 1143 --smtp-port 1025 --http-port 8903
+start fake-printer "$ROOT/backend" "$PY" -m tests.fake_printer --port 8904
 start api "$ROOT/backend" env EDP_METRICS_PORT=9464 \
   "$PY" -m uvicorn app.main:create_app --factory --host 0.0.0.0 --port 8000
 start worker "$ROOT/backend" env EDP_METRICS_PORT=9465 "$PY" -m app.worker
@@ -74,6 +75,7 @@ wait_port 3310
 wait_port 1143
 wait_port 1025
 wait_port 8903
+wait_port 8904
 wait_for http://127.0.0.1:5173/
 wait_for http://127.0.0.1:5174/
 wait_for http://127.0.0.1:5175/

@@ -70,6 +70,7 @@ from app.modules.lifecycle.export import run_exports
 from app.modules.mail.inbox import poll_due as poll_mailboxes
 from app.modules.orders.jobs import run_collections as run_order_collections
 from app.modules.orders.jobs import run_draft_followups as run_order_followups
+from app.modules.print import delivery as print_delivery
 from app.modules.products.service import embed_pending as embed_products
 from app.modules.security.retention import run_retention
 from app.modules.security.scanning import run_file_scan
@@ -138,6 +139,10 @@ JOBS = (
     Job("order-draft-followups", 300, run_order_followups),
     Job("product-embed", 60, embed_products),
     Job("webhooks", 10, run_webhooks),
+    Job("print-jobs", 5, print_delivery.run),
+    Job("print-confirm", 30, print_delivery.run_confirm),
+    Job("printer-status", 600, print_delivery.run_status),
+    Job("print-jobs-purge", 3600, print_delivery.run_purge),
     Job("webhook-events-purge", 3600, purge_webhook_events),
     Job("metrics-state", state.INTERVAL_SECONDS, state.refresh),
     Job("partitions", 3600, ensure_partitions),

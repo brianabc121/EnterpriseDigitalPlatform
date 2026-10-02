@@ -97,6 +97,9 @@ class DocumentOut(BaseModel):
     can_edit: bool = Field(description="可以修改后重新提交（开单人，待确认或已退回）")
     can_confirm: bool = Field(description="可以确认或退回（仓管，待确认）")
     can_void: bool = Field(description="可以作废（开单人或仓管，待确认或已退回）")
+    print_count: int = Field(
+        default=0, description="领料单已经云打印（排队或打印成功）的次数（§29）"
+    )
 
 
 class DocumentPage(BaseModel):

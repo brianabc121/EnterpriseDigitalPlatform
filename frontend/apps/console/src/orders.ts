@@ -321,6 +321,7 @@ const EVENT: Record<string, string> = {
   processed: '完成加工',
   reprocess: '订单修改后需要重新加工',
   requisition: '开领料单',
+  printed: '打印加工单',
   receipt: '开入库单',
   document_confirmed: '仓管确认',
   document_rejected: '仓管退回',
@@ -395,6 +396,11 @@ export function describeOrderEvent(event: OrderEvent, names: Map<string, string>
     case 'worker_assigned':
       extra = text(payload.worker)
       break
+    case 'printed': {
+      const printers = Array.isArray(payload.printers) ? payload.printers.map(String).join('、') : ''
+      extra = [`第 ${String(payload.seq ?? 1)} 次`, printers].filter(Boolean).join('，')
+      break
+    }
     case 'item_done':
     case 'item_reopened':
     case 'restocked':

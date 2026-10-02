@@ -58,6 +58,7 @@ class Permission(StrEnum):
     ASSISTANT_USE = "assistant:use"  # 与 AI 公司助理对话、绑定 IM 账号（设计文档 §27.3）
     FINANCE_VIEW = "finance:view"  # 应收账款：查看全公司的应收、账龄和对账单（设计文档 §28.5）
     FINANCE_MANAGE = "finance:manage"  # 应收账款：跟进、催收、导出
+    PRINT_MANAGE = "print:manage"  # 云打印机：打印机设置、全部打印记录、重新发送（设计文档 §29.4）
 
 
 ALL_PERMISSIONS = frozenset(Permission)
@@ -101,6 +102,7 @@ PERMISSION_INFO: dict[Permission, tuple[str, str]] = {
     Permission.PRODUCT_VIEW_COST: ("查看和导出成本价", "订单"),
     Permission.FINANCE_VIEW: ("查看应收账款、账龄和对账单（能看到全部订单）", "财务"),
     Permission.FINANCE_MANAGE: ("应收的跟进、催收和导出", "财务"),
+    Permission.PRINT_MANAGE: ("设置云打印机、查看全部打印记录、重新发送", "管理"),
     Permission.PRODUCTION_WORK: ("领取订单加工，标记商品完成或缺货", "加工"),
     Permission.PRODUCTION_ASSIGN: ("指派加工人，查看全部加工进度", "加工"),
     Permission.INVENTORY_MANAGE: ("查看和调整库存（盘点、入库、出库、导入），维护材料", "仓库"),

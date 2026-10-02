@@ -64,6 +64,7 @@ const order = (items: ProductionItem[], extra: Partial<ProductionOrder> = {}): P
   requisition_estimated: false,
   requisition_todo: [],
   requisition_rejected: null,
+  print_count: 0,
   ...extra,
 })
 

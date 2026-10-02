@@ -5,9 +5,11 @@ import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import { api, formatDateTime } from '../api'
+import PrintButton from '../components/printing/PrintButton.vue'
 import DocumentDrawer from '../components/warehouse/DocumentDrawer.vue'
 import DocumentEditor from '../components/warehouse/DocumentEditor.vue'
 import { ordersChanged, shortageText, WORK_STATUS, WORK_STATUS_TAG } from '../orders'
+import { printerOptions } from '../printer-options'
 import {
   completePlan,
   EMPTY_TEXT,
@@ -72,6 +74,8 @@ const docDrawer = reactive({ open: false, id: null as string | null })
 let timer: ReturnType<typeof setInterval> | undefined
 
 const manage = computed(() => auth.can('production:assign'))
+// 配置了自动打印加工单的打印机：领取后提示一句。
+const autoPrint = ref(false)
 const views = computed(() => PRODUCTION_VIEWS.filter(([name]) => name !== 'all' || manage.value))
 
 function badge(name: ProductionView): number {
@@ -162,9 +166,10 @@ async function claim(order: ProductionOrder): Promise<void> {
   const ok = await act(
     order,
     () => api.POST('/api/v1/production/orders/{order_id}/claim', orderPath(order)),
-    opensRequisition(order)
+    (opensRequisition(order)
       ? `已领取 ${order.no}，领料单已经填好，核对后提交`
-      : `已领取 ${order.no}，在"我的加工"里标记进度`,
+      : `已领取 ${order.no}，在"我的加工"里标记进度`) +
+      (autoPrint.value ? '；加工单已发往打印机' : ''),
     true,
   )
   // 有配方、或者能按以往领料估算：领取后接着打开填好的领料单（§25.17）。
@@ -363,6 +368,7 @@ watch(
 )
 
 onMounted(async () => {
+  void printerOptions('order').then((options) => (autoPrint.value = !!options?.auto))
   if (route.query.order) {
     await openLinked()
   } else {
@@ -443,6 +449,9 @@ onBeforeUnmount(() => clearInterval(timer))
           >
           <el-tag v-if="order.processed_at" type="success" size="small" data-testid="production-order-processed"
             >加工完成</el-tag
+          >
+          <el-tag v-if="order.print_count" size="small" type="info" data-testid="production-print-count"
+            >已打印 {{ order.print_count }} 次</el-tag
           >
           <span class="progress" data-testid="production-progress">{{ progressText(order) }}</span>
         </div>
@@ -612,7 +621,16 @@ onBeforeUnmount(() => clearInterval(timer))
           </li>
         </ul>
 
-        <div v-if="order.can_claim || order.can_work" class="card-actions">
+        <div v-if="order.can_claim || order.can_work || manage" class="card-actions">
+          <PrintButton
+            v-if="order.can_work || manage"
+            kind="order"
+            :ref-id="order.id"
+            :count="order.print_count"
+            label="打印加工单"
+            :disabled="acting === order.id"
+            @printed="(seq) => (order.print_count = seq)"
+          />
           <el-button
             v-if="order.can_claim"
             type="primary"

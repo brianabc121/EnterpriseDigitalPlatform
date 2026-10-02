@@ -42,6 +42,7 @@ from app.modules.orders.production_router import router as production_router
 from app.modules.orders.public import router as order_public_router
 from app.modules.orders.router import router as orders_router
 from app.modules.platform.router import router as platform_ops_router
+from app.modules.print.router import router as print_router
 from app.modules.products.router import router as products_router
 from app.modules.quickreply.router import router as quick_reply_router
 from app.modules.reports.router import router as reports_router
@@ -75,6 +76,7 @@ def create_app(
     llm_transport: httpx.AsyncBaseTransport | None = None,
     web_transport: httpx.AsyncBaseTransport | None = None,
     imbots_transport: httpx.AsyncBaseTransport | None = None,
+    print_transport: httpx.AsyncBaseTransport | None = None,
 ) -> FastAPI:
     """应用工厂。开发环境：uvicorn app.main:create_app --factory --reload。
 
@@ -93,6 +95,7 @@ def create_app(
         llm_transport=llm_transport,
         web_transport=web_transport,
         imbots_transport=imbots_transport,
+        print_transport=print_transport,
     )
 
     @asynccontextmanager
@@ -138,6 +141,7 @@ def create_app(
     app.include_router(production_router)
     app.include_router(warehouse_router)
     app.include_router(finance_router)
+    app.include_router(print_router)
     app.include_router(history_router)
     app.include_router(order_public_router)
     app.include_router(products_router)

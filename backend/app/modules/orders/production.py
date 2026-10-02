@@ -44,6 +44,9 @@ from app.modules.orders.schemas import (
     ProductionView,
     ShortageIn,
 )
+from app.modules.print import delivery as print_delivery
+from app.modules.print import service as print_service
+from app.modules.print.models import JobSource, TicketKind
 from app.modules.products import stock
 from app.modules.products.models import Product, ProductMaterial
 from app.modules.todos import assign as todo_assign
@@ -230,6 +233,7 @@ async def outs(
         )
     }
     short = {item_id for item_id, line in lines.items() if line.short}
+    printed = await print_service.print_counts(session, TicketKind.ORDER, list(items))
     return [
         _out(
             principal,
@@ -247,6 +251,7 @@ async def outs(
                 for i in documents.made_items(items[o.id], ready)
                 if i.product_id and not recipes.get(i.product_id)
             ),
+            printed.get(o.id, 0),
         )
         for o in orders
     ]
@@ -450,6 +455,7 @@ def _out(
     material_short: list[str],
     requisition_todo: list[str],
     requisition_estimated: bool,
+    print_count: int = 0,
 ) -> ProductionOrder:
     mine = order.worker_id == principal.staff_id
     manage = principal.has(Permission.PRODUCTION_ASSIGN)
@@ -513,6 +519,7 @@ def _out(
             ),
             None,
         ),
+        print_count=print_count,
     )
 
 
@@ -613,7 +620,10 @@ async def claim(
     now = service.utcnow()
     await _take(session, principal, order, me, now)
     service.event(session, order, "claimed", actor_type=STAFF, actor_id=me, payload={})
+    # 配置了打印机时打一张加工单（§29.5）：和领取一起提交，提交后马上发送。
+    jobs = await print_service.enqueue_order(session, principal, order, source=JobSource.CLAIM)
     await session.commit()
+    print_delivery.kick(ctx, [job.id for job in jobs])
     return order
 
 
@@ -671,7 +681,9 @@ async def assign(
         title=f"订单 {order.no} 交给你加工",
         link=f"/production?order={order.id}",
     )
+    jobs = await print_service.enqueue_order(session, principal, order, source=JobSource.ASSIGN)
     await session.commit()
+    print_delivery.kick(ctx, [job.id for job in jobs])
     return order
 
 
