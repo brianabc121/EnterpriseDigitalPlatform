@@ -64,7 +64,20 @@ python -m uv sync --locked --inexact --python "C:\brian WorkFile\EnterpriseDigit
 
 **2. 启动 Docker 服务**
 
-打开 Docker Desktop，等待 Linux 引擎运行后，在项目根目录执行：
+**请先手动打开 Docker Desktop，并等待 Linux 引擎启动完成，再执行下面的 Compose 命令。**
+仅安装 Docker 或能执行 `docker` 命令，并不代表 Docker 引擎已经运行。
+
+先在 PowerShell 中检查引擎是否就绪：
+
+```powershell
+docker version
+```
+
+输出应同时包含 `Client` 和 `Server`，且没有连接错误。若出现
+`dockerDesktopLinuxEngine`、`The system cannot find the file specified` 等连接错误，
+请先确认 Docker Desktop 已打开、使用 Linux containers 模式，并等待引擎启动后重新检查。
+
+确认就绪后，在项目根目录执行：
 
 ```powershell
 cd "C:\brian WorkFile\EnterpriseDigitalPlafform\EnterpriseDigitalPlatform"
