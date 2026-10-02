@@ -530,7 +530,8 @@ async function customRoleSection(admin, browser, ctx) {
   const zhou = await consoleLogin(browser, 'zhou')
   await zhou.waitForURL(/\/production/)
   const menu = await menus(zhou)
-  check('把"拣货员"的岗位选成工人后，有这个角色的员工只看到"加工"（和每个岗位都有的个人待办、AI 助理）', same(menu, ['加工', '个人待办', 'AI 助理']), menu)
+  // 自定义角色只勾了库存和加工的权限，没有个人待办、AI 助理的权限，所以这两个菜单也不显示。
+  check('把"拣货员"的岗位选成工人后，有这个角色的员工只看到"加工"', same(menu, ['加工']), menu)
 }
 
 async function run(browser) {
