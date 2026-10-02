@@ -2167,7 +2167,7 @@ WhatsApp、Telegram、钉钉、飞书作为助理和员工沟通的 IM，需要�
 - 后端：新增 `tests/test_profit.py`（5 个：期间与比较期；利润表的口径——草稿和取消的订单不算、优惠分摊、缺成本价、补成本价
   后重算、成本价快照不随商品库变、北京时间的月初和月底、回款和未收、趋势；毛利分析的六个维度、排序和分页；收支登记的校验、
   每月固定的一键登记和去重、修改删除和审计、类别；导出、菜单和权限），`test_authz_matrix` 加入 2 个新接口和 `profit_entries`
-  快照，`test_console` 的管理员菜单加上 `profit`。完整套件 FULL_PASSED 个测试通过、FULL_SKIPPED 个跳过；ruff、mypy 通过，
+  快照，`test_console` 的管理员菜单加上 `profit`。完整套件 571 个测试通过、10 个跳过；ruff、mypy 通过，
   OpenAPI 与生成的类型一致。迁移 `0032` 可以降级再升级。
 - 前端：控制台单元测试 25 个文件 179 个通过（新增 `profit.test.ts`，`scale.test.ts` 增加带负数的刻度和柱子），ESLint、
   类型检查和构建通过。
