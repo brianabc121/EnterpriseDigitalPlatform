@@ -134,7 +134,12 @@ class ProviderConfig:
     def reranking(self) -> RerankEndpoint | None:
         if not self.rerank_model:
             return None
-        return RerankEndpoint(base_url=self.base_url, api_key=self.api_key, model=self.rerank_model)
+        return RerankEndpoint(
+            base_url=self.base_url,
+            api_key=self.api_key,
+            model=self.rerank_model,
+            price=self.price_input,
+        )
 
 
 @dataclass(frozen=True)

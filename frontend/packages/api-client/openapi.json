@@ -4208,6 +4208,7 @@
           "staff",
           "reports",
           "profit",
+          "tokens",
           "broadcasts",
           "wecom",
           "audit",
@@ -25717,7 +25718,8 @@
           "contract:use",
           "contract:manage",
           "material:use",
-          "material:manage"
+          "material:manage",
+          "token:view"
         ],
         "title": "Permission",
         "type": "string"
@@ -39964,6 +39966,362 @@
         "title": "TodoUpdate",
         "type": "object"
       },
+      "TokenAmounts": {
+        "properties": {
+          "calls": {
+            "description": "调用次数",
+            "title": "Calls",
+            "type": "integer"
+          },
+          "completion_tokens": {
+            "description": "输出 tokens",
+            "title": "Completion Tokens",
+            "type": "integer"
+          },
+          "cost": {
+            "description": "费用（分）：按平台给模型设置的价格在调用时算好",
+            "title": "Cost",
+            "type": "number"
+          },
+          "failed": {
+            "description": "失败的调用（不收费）",
+            "title": "Failed",
+            "type": "integer"
+          },
+          "prompt_tokens": {
+            "description": "输入 tokens",
+            "title": "Prompt Tokens",
+            "type": "integer"
+          },
+          "tokens": {
+            "description": "输入加输出",
+            "title": "Tokens",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "calls",
+          "failed",
+          "prompt_tokens",
+          "completion_tokens",
+          "tokens",
+          "cost"
+        ],
+        "title": "TokenAmounts",
+        "type": "object"
+      },
+      "TokenCall": {
+        "properties": {
+          "completion_tokens": {
+            "title": "Completion Tokens",
+            "type": "integer"
+          },
+          "cost": {
+            "description": "费用（分）",
+            "title": "Cost",
+            "type": "number"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "latency_ms": {
+            "title": "Latency Ms",
+            "type": "integer"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "own_key": {
+            "description": "用的是企业自己的接口密钥",
+            "title": "Own Key",
+            "type": "boolean"
+          },
+          "prompt_tokens": {
+            "title": "Prompt Tokens",
+            "type": "integer"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "scene": {
+            "title": "Scene",
+            "type": "string"
+          },
+          "scene_label": {
+            "title": "Scene Label",
+            "type": "string"
+          },
+          "session_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Session Id"
+          },
+          "staff_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "触发的员工；系统（AI 接待、定时任务）为空",
+            "title": "Staff Id"
+          },
+          "staff_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Staff Name"
+          },
+          "status": {
+            "description": "ok 成功、error 失败、busy 并发已满",
+            "title": "Status",
+            "type": "string"
+          },
+          "tokens": {
+            "title": "Tokens",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "created_at",
+          "scene",
+          "scene_label",
+          "provider",
+          "model",
+          "prompt_tokens",
+          "completion_tokens",
+          "tokens",
+          "cost",
+          "latency_ms",
+          "status",
+          "error",
+          "staff_id",
+          "staff_name",
+          "session_id",
+          "own_key"
+        ],
+        "title": "TokenCall",
+        "type": "object"
+      },
+      "TokenCallPage": {
+        "description": "近 7 天的调用明细（新的在前）。",
+        "properties": {
+          "cost": {
+            "description": "符合筛选条件的费用合计（分）",
+            "title": "Cost",
+            "type": "number"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/TokenCall"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "scenes": {
+            "description": "近 7 天出现过的场景（筛选用）",
+            "items": {
+              "$ref": "#/components/schemas/TokenOption"
+            },
+            "title": "Scenes",
+            "type": "array"
+          },
+          "since": {
+            "description": "明细从这个时间开始（7 天前）",
+            "format": "date-time",
+            "title": "Since",
+            "type": "string"
+          },
+          "staff": {
+            "description": "近 7 天触发过调用的员工（筛选用）",
+            "items": {
+              "$ref": "#/components/schemas/TokenStaff"
+            },
+            "title": "Staff",
+            "type": "array"
+          },
+          "tokens": {
+            "description": "符合筛选条件的 tokens 合计",
+            "title": "Tokens",
+            "type": "integer"
+          },
+          "total": {
+            "description": "符合筛选条件的调用次数",
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "tokens",
+          "cost",
+          "since",
+          "scenes",
+          "staff"
+        ],
+        "title": "TokenCallPage",
+        "type": "object"
+      },
+      "TokenDay": {
+        "properties": {
+          "calls": {
+            "description": "调用次数",
+            "title": "Calls",
+            "type": "integer"
+          },
+          "completion_tokens": {
+            "description": "输出 tokens",
+            "title": "Completion Tokens",
+            "type": "integer"
+          },
+          "cost": {
+            "description": "费用（分）：按平台给模型设置的价格在调用时算好",
+            "title": "Cost",
+            "type": "number"
+          },
+          "day": {
+            "format": "date",
+            "title": "Day",
+            "type": "string"
+          },
+          "failed": {
+            "description": "失败的调用（不收费）",
+            "title": "Failed",
+            "type": "integer"
+          },
+          "prompt_tokens": {
+            "description": "输入 tokens",
+            "title": "Prompt Tokens",
+            "type": "integer"
+          },
+          "tokens": {
+            "description": "输入加输出",
+            "title": "Tokens",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "calls",
+          "failed",
+          "prompt_tokens",
+          "completion_tokens",
+          "tokens",
+          "cost",
+          "day"
+        ],
+        "title": "TokenDay",
+        "type": "object"
+      },
+      "TokenGroup": {
+        "properties": {
+          "calls": {
+            "description": "调用次数",
+            "title": "Calls",
+            "type": "integer"
+          },
+          "completion_tokens": {
+            "description": "输出 tokens",
+            "title": "Completion Tokens",
+            "type": "integer"
+          },
+          "cost": {
+            "description": "费用（分）：按平台给模型设置的价格在调用时算好",
+            "title": "Cost",
+            "type": "number"
+          },
+          "failed": {
+            "description": "失败的调用（不收费）",
+            "title": "Failed",
+            "type": "integer"
+          },
+          "key": {
+            "description": "场景、供应商/模型或员工 ID（system 为系统）",
+            "title": "Key",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "prompt_tokens": {
+            "description": "输入 tokens",
+            "title": "Prompt Tokens",
+            "type": "integer"
+          },
+          "tokens": {
+            "description": "输入加输出",
+            "title": "Tokens",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "calls",
+          "failed",
+          "prompt_tokens",
+          "completion_tokens",
+          "tokens",
+          "cost",
+          "key",
+          "label"
+        ],
+        "title": "TokenGroup",
+        "type": "object"
+      },
+      "TokenOption": {
+        "properties": {
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "label"
+        ],
+        "title": "TokenOption",
+        "type": "object"
+      },
       "TokenResponse": {
         "properties": {
           "access_token": {
@@ -39987,6 +40345,100 @@
           "expires_in"
         ],
         "title": "TokenResponse",
+        "type": "object"
+      },
+      "TokenStaff": {
+        "properties": {
+          "id": {
+            "description": "员工 ID；system 为系统",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "TokenStaff",
+        "type": "object"
+      },
+      "TokenSummary": {
+        "description": "一个月的 token 用量和费用（设计文档 §37.4）。",
+        "properties": {
+          "by_model": {
+            "items": {
+              "$ref": "#/components/schemas/TokenGroup"
+            },
+            "title": "By Model",
+            "type": "array"
+          },
+          "by_scene": {
+            "items": {
+              "$ref": "#/components/schemas/TokenGroup"
+            },
+            "title": "By Scene",
+            "type": "array"
+          },
+          "by_staff": {
+            "items": {
+              "$ref": "#/components/schemas/TokenGroup"
+            },
+            "title": "By Staff",
+            "type": "array"
+          },
+          "days": {
+            "description": "每天的用量（本月到今天为止）",
+            "items": {
+              "$ref": "#/components/schemas/TokenDay"
+            },
+            "title": "Days",
+            "type": "array"
+          },
+          "month": {
+            "description": "YYYY-MM",
+            "title": "Month",
+            "type": "string"
+          },
+          "own_key": {
+            "description": "现在用的是企业自己的大模型接口密钥（费用记 0）",
+            "title": "Own Key",
+            "type": "boolean"
+          },
+          "previous": {
+            "$ref": "#/components/schemas/TokenAmounts",
+            "description": "上个月的同一时段：本月看到今天为止，以前的月份是整个上月"
+          },
+          "timezone": {
+            "title": "Timezone",
+            "type": "string"
+          },
+          "today": {
+            "description": "企业时区的今天",
+            "format": "date",
+            "title": "Today",
+            "type": "string"
+          },
+          "totals": {
+            "$ref": "#/components/schemas/TokenAmounts"
+          }
+        },
+        "required": [
+          "month",
+          "today",
+          "timezone",
+          "own_key",
+          "totals",
+          "previous",
+          "days",
+          "by_scene",
+          "by_model",
+          "by_staff"
+        ],
+        "title": "TokenSummary",
         "type": "object"
       },
       "TrackingEvent": {
@@ -89508,6 +89960,428 @@
         "summary": "Wait",
         "tags": [
           "todos"
+        ]
+      }
+    },
+    "/api/v1/tokens/calls": {
+      "get": {
+        "description": "近 7 天每一次大模型调用（新的在前）。",
+        "operationId": "list_calls_api_v1_tokens_calls_get",
+        "parameters": [
+          {
+            "description": "场景",
+            "in": "query",
+            "name": "scene",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 32,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "场景",
+              "title": "Scene"
+            }
+          },
+          {
+            "description": "ok 成功、failed 失败",
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "ok",
+                    "failed"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "ok 成功、failed 失败",
+              "title": "Status"
+            }
+          },
+          {
+            "description": "员工 ID；system 为系统（AI 接待、定时任务）",
+            "in": "query",
+            "name": "staff_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 36,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "员工 ID；system 为系统（AI 接待、定时任务）",
+              "title": "Staff Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenCallPage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Calls",
+        "tags": [
+          "tokens"
+        ]
+      }
+    },
+    "/api/v1/tokens/calls/export": {
+      "get": {
+        "description": "导出近 7 天的明细（CSV，Excel 直接打开）。每次导出记操作日志。",
+        "operationId": "export_calls_api_v1_tokens_calls_export_get",
+        "parameters": [
+          {
+            "description": "场景",
+            "in": "query",
+            "name": "scene",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 32,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "场景",
+              "title": "Scene"
+            }
+          },
+          {
+            "description": "ok 成功、failed 失败",
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "ok",
+                    "failed"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "ok 成功、failed 失败",
+              "title": "Status"
+            }
+          },
+          {
+            "description": "员工 ID；system 为系统（AI 接待、定时任务）",
+            "in": "query",
+            "name": "staff_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 36,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "员工 ID；system 为系统（AI 接待、定时任务）",
+              "title": "Staff Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Export Calls",
+        "tags": [
+          "tokens"
+        ]
+      }
+    },
+    "/api/v1/tokens/summary": {
+      "get": {
+        "description": "一个月的 tokens 和费用：合计、上月同期、每天、按场景、按模型、按员工。",
+        "operationId": "get_summary_api_v1_tokens_summary_get",
+        "parameters": [
+          {
+            "description": "YYYY-MM，默认本月",
+            "in": "query",
+            "name": "month",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "pattern": "^\\d{4}-\\d{2}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "YYYY-MM，默认本月",
+              "title": "Month"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenSummary"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Summary",
+        "tags": [
+          "tokens"
         ]
       }
     },

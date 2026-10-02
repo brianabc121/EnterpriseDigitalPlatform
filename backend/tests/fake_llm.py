@@ -1041,7 +1041,12 @@ class FakeLLM:
             for i, doc in enumerate(documents)
         ]
         results.sort(key=lambda r: r["relevance_score"], reverse=True)
-        return 200, {"model": body.get("model") or "fake-rerank", "results": results}
+        tokens = (len(query) + sum(len(d) for d in documents)) // 2
+        return 200, {
+            "model": body.get("model") or "fake-rerank",
+            "results": results,
+            "usage": {"total_tokens": tokens},
+        }
 
     def decide(self, body: dict[str, Any]) -> tuple[int, dict[str, Any]]:
         self.requests.append(body)

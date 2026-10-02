@@ -1,7 +1,8 @@
 """大模型调用的统一入口：并发限制、调用客户端并记账（llm_calls，设计文档 §11.5）。
 
 记账使用独立的短事务：调用失败、业务事务回滚时也留有记录。费用按供应商登记的价格估算（分），
-同时记下使用的提示词版本。每次调用同时计入 Prometheus 指标，并在链路追踪里是一个 span。
+同时记下使用的提示词版本和触发调用的员工（企业 token 计费，设计文档 §37）。每次调用同时计入
+Prometheus 指标，并在链路追踪里是一个 span。
 """
 
 import logging
@@ -18,6 +19,7 @@ from app.integrations.typesafe import DecideResult, JudgeClient, Question
 from app.modules.ai import limiter
 from app.modules.ai.models import LlmCall
 from app.observability import metrics, tracing
+from app.observability.context import current_staff
 
 logger = logging.getLogger(__name__)
 
@@ -61,7 +63,7 @@ async def _record(ctx: AppContext, tenant_id: uuid.UUID, span: Span, **values: A
     _annotate(span, values)
     try:
         async with ctx.db.tenant_session(tenant_id) as session:
-            session.add(LlmCall(tenant_id=tenant_id, **values))
+            session.add(LlmCall(tenant_id=tenant_id, staff_id=current_staff(tenant_id), **values))
             await session.commit()
     except Exception:  # 记账失败不影响业务
         logger.exception("failed to record llm call")
@@ -235,7 +237,9 @@ async def rerank(
             scene="rerank",
             provider=result.provider,
             model=result.model,
+            prompt_tokens=result.prompt_tokens,
             latency_ms=result.latency_ms,
             status="ok",
+            cost=round(result.cost, 4),
         )
     return result.scores

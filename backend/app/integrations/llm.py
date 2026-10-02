@@ -79,6 +79,7 @@ class RerankEndpoint:
     base_url: str
     api_key: str
     model: str
+    price: float = 0.0  # 每千 tokens（分），按输入计价
 
 
 @dataclass(frozen=True)
@@ -118,6 +119,8 @@ class RerankResult:
     provider: str
     model: str
     latency_ms: int
+    prompt_tokens: int = 0  # 供应商返回用量时才有
+    cost: float = 0.0
 
 
 class LLMClient:
@@ -224,11 +227,14 @@ class LLMClient:
             if isinstance(index, int) and 0 <= index < len(documents):
                 raw = item.get("relevance_score", item.get("score", 0.0))
                 scores[index] = max(0.0, min(1.0, float(raw or 0.0)))
+        tokens = _rerank_tokens(data)
         return RerankResult(
             scores=scores,
             provider=urlsplit(endpoint.base_url).netloc or "llm",
             model=endpoint.model,
             latency_ms=latency,
+            prompt_tokens=tokens,
+            cost=tokens * endpoint.price / 1000,
         )
 
     async def embed(self, texts: list[str]) -> EmbedResult:
@@ -311,6 +317,22 @@ class LLMClient:
 
     async def aclose(self) -> None:
         await self._http.aclose()
+
+
+def _rerank_tokens(data: dict[str, Any]) -> int:
+    """重排序用掉的 tokens：Jina、Voyage 等返回 usage.total_tokens，Cohere 风格的返回
+    meta.tokens.input_tokens（或顶层 tokens）；没有返回用量时为 0。"""
+    usage = data.get("usage") or {}
+    meta = data.get("meta") or {}
+    counted = meta.get("tokens") or data.get("tokens") or {}
+    for value in (
+        usage.get("total_tokens"),
+        usage.get("prompt_tokens"),
+        counted.get("input_tokens") if isinstance(counted, dict) else None,
+    ):
+        if isinstance(value, int | float) and value > 0:
+            return int(value)
+    return 0
 
 
 def _tool_calls(message: dict[str, Any]) -> tuple[ToolCall, ...]:

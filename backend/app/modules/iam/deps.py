@@ -13,7 +13,7 @@ from app.db.session import Database
 from app.modules.iam.principal import Principal
 from app.modules.iam.service import load_principal
 from app.modules.tenancy import ratelimits
-from app.observability.context import note_tenant
+from app.observability.context import note_staff, note_tenant
 
 bearer_scheme = HTTPBearer(auto_error=False, description="员工 Access Token")
 
@@ -32,6 +32,7 @@ async def get_access_claims(
     except TokenError as exc:
         raise Unauthorized("登录已失效，请重新登录") from exc
     note_tenant(claims.tenant_id)
+    note_staff(claims.tenant_id, claims.staff_id)
     # 按租户限流：单个租户的突发请求不影响其他租户。
     await ratelimits.check(get_context(request), claims.tenant_id, ratelimits.Kind.API)
     return claims

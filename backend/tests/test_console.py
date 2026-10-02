@@ -17,7 +17,8 @@ from tests.test_warehouse import material
 ALL = [
     "dashboard", "workbench", "sessions", "todos", "orders", "receivables", "contracts",
     "materials", "products", "production", "warehouse", "tasks", "customers", "knowledge", "ai",
-    "wake", "assistant", "staff", "reports", "profit", "broadcasts", "wecom", "audit", "settings",
+    "wake", "assistant", "staff", "reports", "profit", "tokens", "broadcasts", "wecom", "audit",
+    "settings",
 ]  # fmt: skip
 
 

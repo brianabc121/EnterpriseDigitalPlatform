@@ -7124,6 +7124,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/tokens/calls": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Calls
+         * @description 近 7 天每一次大模型调用（新的在前）。
+         */
+        get: operations["list_calls_api_v1_tokens_calls_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tokens/calls/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Export Calls
+         * @description 导出近 7 天的明细（CSV，Excel 直接打开）。每次导出记操作日志。
+         */
+        get: operations["export_calls_api_v1_tokens_calls_export_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tokens/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Summary
+         * @description 一个月的 tokens 和费用：合计、上月同期、每天、按场景、按模型、按员工。
+         */
+        get: operations["get_summary_api_v1_tokens_summary_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/transfer-targets": {
         parameters: {
             query?: never;
@@ -10920,7 +10980,7 @@ export interface components {
          * @description 控制台的菜单，与前端 menu.ts 的菜单名一致（前端按 OpenAPI 的枚举检查）。
          * @enum {string}
          */
-        ConsoleMenu: "dashboard" | "workbench" | "sessions" | "todos" | "orders" | "receivables" | "contracts" | "materials" | "products" | "production" | "warehouse" | "tasks" | "customers" | "knowledge" | "ai" | "wake" | "assistant" | "staff" | "reports" | "profit" | "broadcasts" | "wecom" | "audit" | "settings";
+        ConsoleMenu: "dashboard" | "workbench" | "sessions" | "todos" | "orders" | "receivables" | "contracts" | "materials" | "products" | "production" | "warehouse" | "tasks" | "customers" | "knowledge" | "ai" | "wake" | "assistant" | "staff" | "reports" | "profit" | "tokens" | "broadcasts" | "wecom" | "audit" | "settings";
         /**
          * ConsoleOut
          * @description 按岗位的控制台（设计文档 §25.15）。
@@ -19327,7 +19387,7 @@ export interface components {
          * Permission
          * @enum {string}
          */
-        Permission: "dashboard:view" | "workbench:use" | "customer:read" | "customer:read_all" | "customer:create" | "customer:assign" | "customer:view_sensitive" | "customer:export" | "customer:manage" | "session:read_all" | "session:read_team" | "session:transfer" | "session:transfer_any" | "session:monitor" | "routing:manage" | "staff:read" | "staff:manage" | "quick_reply:manage" | "kb:read" | "kb:manage" | "kb:publish" | "form_kb:manage" | "report:view" | "settings:manage" | "broadcast:manage" | "tenant:manage" | "audit:read" | "todo:read" | "todo:handle" | "todo:assign" | "todo:config" | "todo:export" | "order:read" | "order:create" | "order:review" | "order:price" | "order:payment" | "order:credit" | "order:export" | "order:config" | "product:manage" | "product:view_cost" | "inventory:manage" | "warehouse:confirm" | "production:work" | "production:assign" | "integration:manage" | "task:use" | "task:assign" | "task:read_all" | "assistant:use" | "finance:view" | "finance:manage" | "print:manage" | "profit:view" | "profit:manage" | "contract:use" | "contract:manage" | "material:use" | "material:manage";
+        Permission: "dashboard:view" | "workbench:use" | "customer:read" | "customer:read_all" | "customer:create" | "customer:assign" | "customer:view_sensitive" | "customer:export" | "customer:manage" | "session:read_all" | "session:read_team" | "session:transfer" | "session:transfer_any" | "session:monitor" | "routing:manage" | "staff:read" | "staff:manage" | "quick_reply:manage" | "kb:read" | "kb:manage" | "kb:publish" | "form_kb:manage" | "report:view" | "settings:manage" | "broadcast:manage" | "tenant:manage" | "audit:read" | "todo:read" | "todo:handle" | "todo:assign" | "todo:config" | "todo:export" | "order:read" | "order:create" | "order:review" | "order:price" | "order:payment" | "order:credit" | "order:export" | "order:config" | "product:manage" | "product:view_cost" | "inventory:manage" | "warehouse:confirm" | "production:work" | "production:assign" | "integration:manage" | "task:use" | "task:assign" | "task:read_all" | "assistant:use" | "finance:view" | "finance:manage" | "print:manage" | "profit:view" | "profit:manage" | "contract:use" | "contract:manage" | "material:use" | "material:manage" | "token:view";
         /** PermissionInfo */
         PermissionInfo: {
             code: components["schemas"]["Permission"];
@@ -25018,6 +25078,218 @@ export interface components {
             /** Title */
             title?: string | null;
         };
+        /** TokenAmounts */
+        TokenAmounts: {
+            /**
+             * Calls
+             * @description 调用次数
+             */
+            calls: number;
+            /**
+             * Completion Tokens
+             * @description 输出 tokens
+             */
+            completion_tokens: number;
+            /**
+             * Cost
+             * @description 费用（分）：按平台给模型设置的价格在调用时算好
+             */
+            cost: number;
+            /**
+             * Failed
+             * @description 失败的调用（不收费）
+             */
+            failed: number;
+            /**
+             * Prompt Tokens
+             * @description 输入 tokens
+             */
+            prompt_tokens: number;
+            /**
+             * Tokens
+             * @description 输入加输出
+             */
+            tokens: number;
+        };
+        /** TokenCall */
+        TokenCall: {
+            /** Completion Tokens */
+            completion_tokens: number;
+            /**
+             * Cost
+             * @description 费用（分）
+             */
+            cost: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Error */
+            error: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Latency Ms */
+            latency_ms: number;
+            /** Model */
+            model: string;
+            /**
+             * Own Key
+             * @description 用的是企业自己的接口密钥
+             */
+            own_key: boolean;
+            /** Prompt Tokens */
+            prompt_tokens: number;
+            /** Provider */
+            provider: string;
+            /** Scene */
+            scene: string;
+            /** Scene Label */
+            scene_label: string;
+            /** Session Id */
+            session_id: string | null;
+            /**
+             * Staff Id
+             * @description 触发的员工；系统（AI 接待、定时任务）为空
+             */
+            staff_id: string | null;
+            /** Staff Name */
+            staff_name: string | null;
+            /**
+             * Status
+             * @description ok 成功、error 失败、busy 并发已满
+             */
+            status: string;
+            /** Tokens */
+            tokens: number;
+        };
+        /**
+         * TokenCallPage
+         * @description 近 7 天的调用明细（新的在前）。
+         */
+        TokenCallPage: {
+            /**
+             * Cost
+             * @description 符合筛选条件的费用合计（分）
+             */
+            cost: number;
+            /** Items */
+            items: components["schemas"]["TokenCall"][];
+            /**
+             * Scenes
+             * @description 近 7 天出现过的场景（筛选用）
+             */
+            scenes: components["schemas"]["TokenOption"][];
+            /**
+             * Since
+             * Format: date-time
+             * @description 明细从这个时间开始（7 天前）
+             */
+            since: string;
+            /**
+             * Staff
+             * @description 近 7 天触发过调用的员工（筛选用）
+             */
+            staff: components["schemas"]["TokenStaff"][];
+            /**
+             * Tokens
+             * @description 符合筛选条件的 tokens 合计
+             */
+            tokens: number;
+            /**
+             * Total
+             * @description 符合筛选条件的调用次数
+             */
+            total: number;
+        };
+        /** TokenDay */
+        TokenDay: {
+            /**
+             * Calls
+             * @description 调用次数
+             */
+            calls: number;
+            /**
+             * Completion Tokens
+             * @description 输出 tokens
+             */
+            completion_tokens: number;
+            /**
+             * Cost
+             * @description 费用（分）：按平台给模型设置的价格在调用时算好
+             */
+            cost: number;
+            /**
+             * Day
+             * Format: date
+             */
+            day: string;
+            /**
+             * Failed
+             * @description 失败的调用（不收费）
+             */
+            failed: number;
+            /**
+             * Prompt Tokens
+             * @description 输入 tokens
+             */
+            prompt_tokens: number;
+            /**
+             * Tokens
+             * @description 输入加输出
+             */
+            tokens: number;
+        };
+        /** TokenGroup */
+        TokenGroup: {
+            /**
+             * Calls
+             * @description 调用次数
+             */
+            calls: number;
+            /**
+             * Completion Tokens
+             * @description 输出 tokens
+             */
+            completion_tokens: number;
+            /**
+             * Cost
+             * @description 费用（分）：按平台给模型设置的价格在调用时算好
+             */
+            cost: number;
+            /**
+             * Failed
+             * @description 失败的调用（不收费）
+             */
+            failed: number;
+            /**
+             * Key
+             * @description 场景、供应商/模型或员工 ID（system 为系统）
+             */
+            key: string;
+            /** Label */
+            label: string;
+            /**
+             * Prompt Tokens
+             * @description 输入 tokens
+             */
+            prompt_tokens: number;
+            /**
+             * Tokens
+             * @description 输入加输出
+             */
+            tokens: number;
+        };
+        /** TokenOption */
+        TokenOption: {
+            /** Key */
+            key: string;
+            /** Label */
+            label: string;
+        };
         /** TokenResponse */
         TokenResponse: {
             /** Access Token */
@@ -25033,6 +25305,54 @@ export interface components {
              * @constant
              */
             token_type: "bearer";
+        };
+        /** TokenStaff */
+        TokenStaff: {
+            /**
+             * Id
+             * @description 员工 ID；system 为系统
+             */
+            id: string;
+            /** Name */
+            name: string;
+        };
+        /**
+         * TokenSummary
+         * @description 一个月的 token 用量和费用（设计文档 §37.4）。
+         */
+        TokenSummary: {
+            /** By Model */
+            by_model: components["schemas"]["TokenGroup"][];
+            /** By Scene */
+            by_scene: components["schemas"]["TokenGroup"][];
+            /** By Staff */
+            by_staff: components["schemas"]["TokenGroup"][];
+            /**
+             * Days
+             * @description 每天的用量（本月到今天为止）
+             */
+            days: components["schemas"]["TokenDay"][];
+            /**
+             * Month
+             * @description YYYY-MM
+             */
+            month: string;
+            /**
+             * Own Key
+             * @description 现在用的是企业自己的大模型接口密钥（费用记 0）
+             */
+            own_key: boolean;
+            /** @description 上个月的同一时段：本月看到今天为止，以前的月份是整个上月 */
+            previous: components["schemas"]["TokenAmounts"];
+            /** Timezone */
+            timezone: string;
+            /**
+             * Today
+             * Format: date
+             * @description 企业时区的今天
+             */
+            today: string;
+            totals: components["schemas"]["TokenAmounts"];
         };
         /** TrackingEvent */
         TrackingEvent: {
@@ -60561,6 +60881,245 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TodoOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    list_calls_api_v1_tokens_calls_get: {
+        parameters: {
+            query?: {
+                /** @description 场景 */
+                scene?: string | null;
+                /** @description ok 成功、failed 失败 */
+                status?: ("ok" | "failed") | null;
+                /** @description 员工 ID；system 为系统（AI 接待、定时任务） */
+                staff_id?: string | null;
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TokenCallPage"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    export_calls_api_v1_tokens_calls_export_get: {
+        parameters: {
+            query?: {
+                /** @description 场景 */
+                scene?: string | null;
+                /** @description ok 成功、failed 失败 */
+                status?: ("ok" | "failed") | null;
+                /** @description 员工 ID；system 为系统（AI 接待、定时任务） */
+                staff_id?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_summary_api_v1_tokens_summary_get: {
+        parameters: {
+            query?: {
+                /** @description YYYY-MM，默认本月 */
+                month?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TokenSummary"];
                 };
             };
             /** @description Bad Request */

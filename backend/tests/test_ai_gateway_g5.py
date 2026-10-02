@@ -378,6 +378,7 @@ async def test_rerank_orders_knowledge(desk: Desk, app: FastAPI, fake_llm: FakeL
             "embed_model": "fake-embed",
             "embed_dim": 1024,
             "rerank_model": "fake-rerank",
+            "prices": {"input": 2, "output": 6},
             "is_default": True,
         },
     )
@@ -393,5 +394,10 @@ async def test_rerank_orders_knowledge(desk: Desk, app: FastAPI, fake_llm: FakeL
     assert hits[0]["title"] == "偏远地区快递几天能到？"
     assert scores == sorted(scores, reverse=True)
     assert scores[0] == rerank_score("偏远地区快递几天能到", "偏远地区快递几天能到？")
-    reranks = await desk.sql("SELECT model, status FROM llm_calls WHERE scene = 'rerank'")
+    reranks = await desk.sql(
+        "SELECT model, status, prompt_tokens, cost FROM llm_calls WHERE scene = 'rerank'"
+    )
     assert reranks and reranks[-1]["model"] == "fake-rerank"
+    # 供应商返回了用量：记 tokens，按输入价计费（token 计费，设计文档 §37.3）。
+    used = reranks[-1]["prompt_tokens"]
+    assert used > 0 and reranks[-1]["cost"] == pytest.approx(used * 2 / 1000, abs=1e-4)

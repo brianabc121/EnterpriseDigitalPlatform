@@ -65,6 +65,7 @@ class Permission(StrEnum):
     CONTRACT_MANAGE = "contract:manage"  # 合同：全部合同、模板和分类，合同设置
     MATERIAL_USE = "material:use"  # 企业资料：查看、上传、分享，修改自己上传的（设计文档 §36.5）
     MATERIAL_MANAGE = "material:manage"  # 企业资料：文件夹，修改和删除全部资料，停用别人的分享
+    TOKEN_VIEW = "token:view"  # Token 计费：企业 AI 用掉的 tokens 和费用、近 7 天的明细（§37.6）
 
 
 ALL_PERMISSIONS = frozenset(Permission)
@@ -110,6 +111,10 @@ PERMISSION_INFO: dict[Permission, tuple[str, str]] = {
     Permission.FINANCE_MANAGE: ("应收的跟进、催收和导出", "财务"),
     Permission.PROFIT_VIEW: ("查看和导出盈利报表（全公司的收入、成本、毛利和净利润）", "财务"),
     Permission.PROFIT_MANAGE: ("登记、修改和删除费用与其他收入", "财务"),
+    Permission.TOKEN_VIEW: (
+        "查看企业 AI 用掉的 tokens 和费用、近 7 天的调用明细，导出明细",
+        "财务",
+    ),
     Permission.CONTRACT_USE: (
         "起草和处理自己负责的合同（AI 生成、编辑、定稿、签署），上传合同模板",
         "合同",
