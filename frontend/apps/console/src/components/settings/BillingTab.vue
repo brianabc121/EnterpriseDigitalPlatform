@@ -141,6 +141,7 @@ onMounted(load)
           <div class="sub">坐席 {{ formatLimit(p.limits.seats, '个') }}</div>
           <div class="sub">每月 AI 回复 {{ formatLimit(p.limits.ai_replies_monthly, '条') }}</div>
           <div class="sub">知识条目 {{ formatLimit(p.limits.kb_items, '条') }}</div>
+          <div class="sub">企业资料存储 {{ formatLimit(p.limits.material_gb, 'GB') }}</div>
           <el-tag disable-transitions v-if="p.code === overview.plan?.code" size="small" type="success">当前套餐</el-tag>
         </el-card>
       </div>

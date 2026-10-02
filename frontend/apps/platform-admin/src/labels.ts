@@ -11,7 +11,7 @@ export const HEALTH_STATUS: Record<string, { label: string; type: string }> = {
   disabled: { label: '未启用', type: 'info' },
 }
 
-export type LimitKey = 'seats' | 'ai_replies_monthly' | 'kb_items' | 'channels'
+export type LimitKey = 'seats' | 'ai_replies_monthly' | 'kb_items' | 'channels' | 'material_gb'
 export type FeatureKey = 'ai' | 'wecom' | 'broadcast' | 'extraction' | 'zone' | 'todos' | 'orders'
 
 export const LIMIT_LABELS: Record<LimitKey, { label: string; unit: string }> = {
@@ -19,6 +19,7 @@ export const LIMIT_LABELS: Record<LimitKey, { label: string; unit: string }> = {
   ai_replies_monthly: { label: '每月 AI 回复', unit: '条' },
   kb_items: { label: '知识条目', unit: '条' },
   channels: { label: '接入渠道', unit: '个' },
+  material_gb: { label: '企业资料存储', unit: 'GB' },
 }
 
 export const FEATURE_LABELS: Record<FeatureKey, string> = {
