@@ -62,7 +62,8 @@ def _parse(content: str) -> tuple[str, list[str]] | None:
     return (summary, list(dict.fromkeys(tags))[:MAX_TAGS]) if summary else None
 
 
-async def _transcript(session: AsyncSession, session_id: uuid.UUID) -> list[tuple[str, str]]:
+async def transcript(session: AsyncSession, session_id: uuid.UUID) -> list[tuple[str, str]]:
+    """会话的文字记录（最近 60 条，客户、坐席和智能客服的），脱敏后用于交给大模型。"""
     rows = (
         await session.scalars(
             select(Message)
@@ -87,7 +88,7 @@ async def generate(ctx: AppContext, tenant_id: uuid.UUID, session_id: uuid.UUID)
         existing = await session.get(SessionSummary, session_id)
         if existing is not None and existing.status == SummaryStatus.CONFIRMED:
             return existing
-        lines = await _transcript(session, session_id)
+        lines = await transcript(session, session_id)
         customer_id = chat.customer_id
     if not any(role == "客户" for role, _ in lines):
         raise Conflict("会话里没有客户的消息，不需要小结")

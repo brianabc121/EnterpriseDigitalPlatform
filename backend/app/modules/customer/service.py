@@ -21,6 +21,7 @@ from app.modules.customer.schemas import (
 )
 from app.modules.iam.models import Staff, StaffStatus
 from app.modules.iam.principal import Principal
+from app.modules.prospects.models import OPEN_STATUSES, CustomerProspect
 from app.modules.routing.scope import team_members
 from app.modules.security.keys import TenantKeyring
 
@@ -77,7 +78,12 @@ def _with_owner() -> Select[Customer, str]:
     )
 
 
-async def _to_out(keys: TenantKeyring, customer: Customer, owner_name: str | None) -> CustomerOut:
+async def _to_out(
+    keys: TenantKeyring,
+    customer: Customer,
+    owner_name: str | None,
+    prospect_status: str | None = None,
+) -> CustomerOut:
     phone, email = await sensitive.masked(keys, customer)
     return CustomerOut(
         id=customer.id,
@@ -90,7 +96,21 @@ async def _to_out(keys: TenantKeyring, customer: Customer, owner_name: str | Non
         email=email,
         company=customer.company,
         created_at=customer.created_at,
+        prospect_status=prospect_status,
     )
+
+
+async def prospect_statuses(session: AsyncSession, customer_ids: list[UUID]) -> dict[UUID, str]:
+    """客户的"意向"标签：待确认或跟进中的意向记录（设计文档 §35.5）。"""
+    if not customer_ids:
+        return {}
+    rows = await session.execute(
+        select(CustomerProspect.customer_id, CustomerProspect.status).where(
+            CustomerProspect.customer_id.in_(customer_ids),
+            CustomerProspect.status.in_(OPEN_STATUSES),
+        )
+    )
+    return {customer_id: status for customer_id, status in rows}
 
 
 async def search_condition(keys: TenantKeyring, tenant_id: UUID, q: str) -> ColumnElement[bool]:
@@ -122,14 +142,20 @@ async def list_customers(
     if q and q.strip():
         scope = and_(scope, await search_condition(keys, principal.tenant_id, q))
     total = await session.scalar(select(func.count()).select_from(Customer).where(scope))
-    rows = await session.execute(
-        _with_owner()
-        .where(scope)
-        .order_by(Customer.created_at.desc(), Customer.id.desc())
-        .limit(limit)
-        .offset(offset)
+    rows = (
+        await session.execute(
+            _with_owner()
+            .where(scope)
+            .order_by(Customer.created_at.desc(), Customer.id.desc())
+            .limit(limit)
+            .offset(offset)
+        )
+    ).all()
+    prospects = await prospect_statuses(session, [c.id for c, _ in rows])
+    return CustomerPage(
+        items=[await _to_out(keys, c, name, prospects.get(c.id)) for c, name in rows],
+        total=total or 0,
     )
-    return CustomerPage(items=[await _to_out(keys, c, name) for c, name in rows], total=total or 0)
 
 
 async def ensure_visible(
@@ -179,8 +205,9 @@ async def get_customer_detail(
         .where(CustomerIdentity.customer_id == customer_id)
         .order_by(CustomerIdentity.created_at)
     )
+    prospects = await prospect_statuses(session, [customer.id])
     return CustomerDetail(
-        **(await _to_out(keys, customer, owner_name)).model_dump(),
+        **(await _to_out(keys, customer, owner_name, prospects.get(customer.id))).model_dump(),
         notes=customer.notes,
         identities=[
             CustomerIdentityOut(

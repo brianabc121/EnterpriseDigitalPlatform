@@ -193,6 +193,16 @@ MATRIX: list[tuple[str, str, dict[str, Any] | None]] = [
     ("POST", "/api/v1/contracts/{contract_id}/save-as-template", {"name": "越权另存"}),
     ("GET", "/api/v1/contracts/{contract_id}/docx", None),
     ("GET", "/api/v1/contracts/{contract_id}/scan", None),
+    ("GET", "/api/v1/prospects/customer/{customer_id}", None),
+    ("GET", "/api/v1/prospects/{prospect_id}", None),
+    ("PATCH", "/api/v1/prospects/{prospect_id}", {"level": "low"}),
+    ("POST", "/api/v1/prospects/{prospect_id}/followups", {"content": "越权跟进"}),
+    ("POST", "/api/v1/prospects/{prospect_id}/won", None),
+    ("POST", "/api/v1/prospects/{prospect_id}/lost", {"reason": "越权放弃"}),
+    ("POST", "/api/v1/prospects/{prospect_id}/reopen", None),
+    ("POST", "/api/v1/prospects/{prospect_id}/accept", None),
+    ("POST", "/api/v1/prospects/{prospect_id}/dismiss", None),
+    ("POST", "/api/v1/prospects/{prospect_id}/message", None),
     ("POST", "/api/v1/production/orders/{order_id}/claim", None),
     ("POST", "/api/v1/production/orders/{order_id}/release", None),
     ("POST", "/api/v1/production/orders/{order_id}/items/{order_item_id}/done", None),
@@ -465,8 +475,11 @@ async def build(desk: Desk) -> Tenant:
         desk.tenant_id,
         f"{desk.code}/_contracts/x/签字版.pdf",
     )
+    # 坐席客户的意向记录（直接写库，流程见 test_prospects.py）。
+    prospect = await prospect_of(desk, chat["customer_id"])
     await desk.flush()
     ids = {
+        "prospect_id": prospect,
         "contract_category_id": str(contract_category["id"]),
         "contract_template_id": str(contract_template["id"]),
         "contract_id": str(contract["id"]),
@@ -506,6 +519,25 @@ async def build(desk: Desk) -> Tenant:
         "tenant_id": str(desk.tenant_id),
     }
     return Tenant(desk, agent, other, visitor, ids)
+
+
+async def prospect_of(desk: Desk, customer_id: uuid.UUID) -> str:
+    """客户跟进中的意向记录，带一条跟进记录。"""
+    [prospect] = await desk.sql(
+        "INSERT INTO customer_prospects (id, tenant_id, customer_id, interest, next_follow_at)"
+        " VALUES ($1, $2, $3, '智能门锁', current_date + 3) RETURNING id",
+        uuid.uuid4(),
+        desk.tenant_id,
+        customer_id,
+    )
+    await desk.sql(
+        "INSERT INTO prospect_followups (id, tenant_id, prospect_id, method, content)"
+        " VALUES ($1, $2, $3, 'phone', '电话沟通')",
+        uuid.uuid4(),
+        desk.tenant_id,
+        prospect["id"],
+    )
+    return str(prospect["id"])
 
 
 async def orders(desk: Desk, chat: Any) -> dict[str, str]:
@@ -865,6 +897,8 @@ async def snapshot(desk: Desk) -> list[Any]:
         "contract_categories": "id, name, parent_id, sort",
         "contract_templates": "id, name, status, body, used_count",
         "contracts": "id, status, title, owner_id, body, void_reason",
+        "customer_prospects": "id, status, level, follower_id, next_follow_at, follow_count",
+        "prospect_followups": "id, prospect_id, content",
     }
     rows = []
     for table, columns in tables.items():
@@ -1226,6 +1260,7 @@ async def test_agents_only_reach_their_own_sessions_and_customers(
         "contract_category_id": acme.ids["contract_category_id"],
         "contract_template_id": acme.ids["contract_template_id"],
         "contract_id": acme.ids["contract_id"],
+        "prospect_id": await prospect_of(desk, chat["customer_id"]),
         "message_id": await email(desk, chat),
         # Dave 自己的个人待办和 IM 绑定；机器人和群只有管理员能管理。
         **await dave_assistant(desk, acme.other_agent.staff_id, acme.ids["bot_id"]),

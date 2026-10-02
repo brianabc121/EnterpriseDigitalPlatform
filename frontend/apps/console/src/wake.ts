@@ -39,6 +39,7 @@ export const CATEGORY_LABEL: Record<string, string> = {
   service: '客服',
   trend: '趋势',
   knowledge: '知识',
+  customer: '客户',
   contract: '合同',
   system: '系统',
 }

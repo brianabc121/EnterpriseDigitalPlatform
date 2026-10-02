@@ -105,7 +105,7 @@ async def put_settings(desk: Desk, **changes: Any) -> httpx.Response:
 
 async def test_all_checks_run_on_an_empty_tenant(desk: Desk) -> None:
     stats = await wake(desk, RunKind.DAILY, trigger=RunTrigger.MANUAL)
-    assert (stats["checks"], stats["ran"], stats["errors"]) == (len(checks.CHECKS), 18, [])
+    assert (stats["checks"], stats["ran"], stats["errors"]) == (len(checks.CHECKS), 19, [])
     assert (stats["found"], stats["new"]) == (0, 0)
     # 简报：没有问题时也发一句，让管理员知道 AI 醒来过。
     [(title, body)] = await notes(desk, runner.KIND_BRIEF)

@@ -13,13 +13,19 @@ import PrivacyDialog from '../components/customers/PrivacyDialog.vue'
 import PrivacyRequestsDrawer from '../components/customers/PrivacyRequestsDrawer.vue'
 import TransferRequestDialog from '../components/customers/TransferRequestDialog.vue'
 import TransferRequestsDrawer from '../components/customers/TransferRequestsDrawer.vue'
+import ProspectList from '../components/prospects/ProspectList.vue'
 import CustomerPanel from '../components/workbench/CustomerPanel.vue'
 import { CUSTOMER_SOURCE } from '../labels'
+import { prospectTag } from '../prospects'
 import { useAuthStore } from '../stores/auth'
 
 const PAGE_SIZE = 20
 
 const auth = useAuthStore()
+const route = useRoute()
+const router = useRouter()
+/** 两个页签：全部客户、意向客户（§35.5，链接 /customers?tab=prospects）。 */
+const tab = ref<'all' | 'prospects'>(route.query.tab === 'prospects' ? 'prospects' : 'all')
 const items = ref<Schemas['CustomerOut'][]>([])
 const total = ref(0)
 const page = ref(1)
@@ -75,6 +81,10 @@ const selected = ref<Schemas['CustomerOut'][]>([])
 const transferOpen = ref(false)
 const historyOpen = ref(false)
 const historyOf = ref<Schemas['CustomerOut'] | null>(null)
+
+function tagOf(customer: Schemas['CustomerOut']): ReturnType<typeof prospectTag> {
+  return prospectTag(customer.prospect_status)
+}
 
 function showHistory(customer: Schemas['CustomerOut']): void {
   historyOf.value = customer
@@ -155,8 +165,6 @@ async function create(): Promise<void> {
 }
 
 /** 从站内信打开 /customers?customer=<id>：直接打开客户资料（AI 登记的线索在里面确认）。 */
-const route = useRoute()
-const router = useRouter()
 async function openFromQuery(): Promise<void> {
   const id = typeof route.query.customer === 'string' ? route.query.customer : ''
   if (!id) return
@@ -164,9 +172,20 @@ async function openFromQuery(): Promise<void> {
     params: { path: { customer_id: id } },
   })
   if (data) openWith(data, 'profile')
-  await router.replace({ query: {} })
+  await router.replace({ query: { ...route.query, customer: undefined } })
 }
 
+function switchTab(name: string | number): void {
+  void router.replace({ query: { ...route.query, tab: name === 'prospects' ? 'prospects' : undefined } })
+  if (name === 'all') void load()
+}
+
+watch(
+  () => route.query.tab,
+  (value) => {
+    tab.value = value === 'prospects' ? 'prospects' : 'all'
+  },
+)
 watch(() => route.query.customer, openFromQuery)
 onMounted(async () => {
   await Promise.all([load(), openFromQuery()])
@@ -177,7 +196,7 @@ onMounted(async () => {
   <div>
     <div class="page-header">
       <h2>客户</h2>
-      <div class="toolbar">
+      <div v-if="tab === 'all'" class="toolbar">
         <el-input
           v-model="q"
           placeholder="名称、公司，或完整手机号、邮箱"
@@ -211,6 +230,11 @@ onMounted(async () => {
         <el-button v-if="canCreate" type="primary" @click="openCreate">新建客户</el-button>
       </div>
     </div>
+    <el-tabs v-model="tab" class="tabs" data-testid="customer-tabs" @tab-change="switchTab">
+      <el-tab-pane label="全部客户" name="all" />
+      <el-tab-pane label="意向客户" name="prospects" />
+    </el-tabs>
+    <template v-if="tab === 'all'">
     <el-alert
       v-if="!seesAll"
       type="info"
@@ -232,6 +256,15 @@ onMounted(async () => {
           <el-button link type="primary" @click="openWith(row, 'profile')">
             {{ row.display_name }}
           </el-button>
+          <el-tag
+            v-if="tagOf(row)"
+            :type="tagOf(row)?.type"
+            size="small"
+            class="prospect-tag"
+            :data-testid="`customer-prospect-tag-${row.id}`"
+          >
+            {{ tagOf(row)?.text }}
+          </el-tag>
         </template>
       </el-table-column>
       <el-table-column label="联系方式" min-width="170">
@@ -278,6 +311,8 @@ onMounted(async () => {
         </template>
       </el-table-column>
     </el-table>
+    </template>
+    <ProspectList v-else />
     <OwnerTransferDialog
       v-model="transferOpen"
       :customer-ids="selected.map((c) => c.id)"
@@ -297,7 +332,7 @@ onMounted(async () => {
     <el-drawer v-model="profileOpen" :title="current?.display_name" size="380px" @closed="load">
       <CustomerPanel v-if="current && profileOpen" :key="current.id" :customer-id="current.id" />
     </el-drawer>
-    <div class="page-footer">
+    <div v-if="tab === 'all'" class="page-footer">
       <el-pagination
         v-model:current-page="page"
         layout="total, prev, pager, next"
@@ -343,6 +378,14 @@ onMounted(async () => {
 <style scoped>
 .scope-tip {
   margin-bottom: 12px;
+}
+
+.tabs {
+  margin-bottom: 4px;
+}
+
+.prospect-tag {
+  margin-left: 6px;
 }
 
 .tag {

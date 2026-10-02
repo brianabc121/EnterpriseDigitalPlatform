@@ -1,7 +1,7 @@
 """客户数据治理（设计文档 §3.3、§18）：合并重复客户、个人信息查询与删除请求。
 
-- 合并：来源客户的渠道身份、会话、留言、归属历史、企业微信关系并入目标客户，标签取并集，
-  备注拼接，手机号、邮箱、公司在目标为空时补上；来源客户随后删除。
+- 合并：来源客户的渠道身份、会话（和会话小结）、留言、订单、合同、意向记录、归属历史、企业微信
+  关系并入目标客户，标签取并集，备注拼接，手机号、邮箱、公司在目标为空时补上；来源客户随后删除。
 - 个人信息查询：生成客户的个人信息副本（档案、渠道身份、会话、消息、留言等），记一条请求记录。
 - 个人信息删除：删除客户及其会话、消息、留言、聊天文件，解散服务群，清除知识候选里引用的对话
   片段；请求记录只保留掩码后的名称和数量。企业微信里的好友关系需要员工在企业微信中删除。
@@ -20,12 +20,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.context import AppContext
 from app.core.errors import Unprocessable
 from app.core.ids import new_id
+from app.modules.ai.models import AiSecurityEvent, SessionSummary
 from app.modules.audit.service import record_audit
 from app.modules.channels.models import ChannelAccount
+from app.modules.contracts.models import Contract
 from app.modules.conversation.models import ChatSession, Message, Room
 from app.modules.customer import sensitive
 from app.modules.customer.models import (
     CustomerIdentity,
+    CustomerLeadDraft,
     CustomerOwnerHistory,
     CustomerTransferRequest,
     OwnerChangeReason,
@@ -47,6 +50,10 @@ from app.modules.orders.models import (
     OrderPayment,
 )
 from app.modules.orders.models import STATUS_LABELS as ORDER_STATUS_LABELS
+from app.modules.prospects import service as prospect_service
+from app.modules.prospects.models import LEVEL_LABELS as PROSPECT_LEVEL_LABELS
+from app.modules.prospects.models import METHOD_LABELS, CustomerProspect, ProspectFollowup
+from app.modules.prospects.models import STATUS_LABELS as PROSPECT_STATUS_LABELS
 from app.modules.security.models import PrivacyRequest
 from app.modules.todos import fields as todo_fields
 from app.modules.todos.models import STATUS_LABELS, Todo, TodoType
@@ -64,8 +71,12 @@ _MOVED: tuple[type[Any], ...] = (
     CustomerIdentity,
     Room,
     ChatSession,
+    SessionSummary,
+    CustomerLeadDraft,
+    AiSecurityEvent,
     Todo,
     Order,
+    Contract,
     CustomerOwnerHistory,
     WecomContactFollow,
     WecomGroupMember,
@@ -140,6 +151,9 @@ async def merge_customers(
         .values(status=TransferRequestStatus.CANCELLED, decided_at=_now())
     )
     moved: dict[str, int] = {}
+    # 意向客户：同一客户只能有一条待确认或跟进中的，合并成一条。
+    if count := await prospect_service.merge_customers(session, target.id, ids):
+        moved["customer_prospects"] = count
     for model in _MOVED:
         result = await session.execute(
             update(model).where(model.customer_id.in_(ids)).values(customer_id=target.id)
@@ -163,6 +177,50 @@ async def merge_customers(
 
 
 # ---- 个人信息查询 ----
+
+
+async def _prospect_documents(
+    session: AsyncSession, customer_id: uuid.UUID, names: dict[uuid.UUID, str]
+) -> list[dict[str, Any]]:
+    """意向客户的记录（想要什么、顾虑、状态）和跟进记录。"""
+    rows = (
+        await session.scalars(
+            select(CustomerProspect)
+            .where(CustomerProspect.customer_id == customer_id)
+            .order_by(CustomerProspect.created_at)
+        )
+    ).all()
+    documents = []
+    for prospect in rows:
+        followups = (
+            await session.scalars(
+                select(ProspectFollowup)
+                .where(ProspectFollowup.prospect_id == prospect.id)
+                .order_by(ProspectFollowup.created_at)
+            )
+        ).all()
+        documents.append(
+            {
+                "status": PROSPECT_STATUS_LABELS.get(prospect.status, prospect.status),
+                "level": PROSPECT_LEVEL_LABELS.get(prospect.level, prospect.level),
+                "interest": prospect.interest,
+                "concerns": prospect.concerns,
+                "follower": names.get(prospect.follower_id) if prospect.follower_id else None,
+                "lost_reason": prospect.lost_reason,
+                "created_at": _iso(prospect.created_at),
+                "closed_at": _iso(prospect.closed_at),
+                "followups": [
+                    {
+                        "method": METHOD_LABELS.get(f.method, f.method),
+                        "content": f.content,
+                        "staff": names.get(f.staff_id) if f.staff_id else None,
+                        "created_at": _iso(f.created_at),
+                    }
+                    for f in followups
+                ],
+            }
+        )
+    return documents
 
 
 def _iso(value: datetime | None) -> str | None:
@@ -231,6 +289,7 @@ async def personal_data(
         )
     ).all()
     order_documents = [await _order_document(ctx, session, order) for order in orders]
+    prospects = await _prospect_documents(session, customer.id, names)
     history = (
         await session.scalars(
             select(CustomerOwnerHistory)
@@ -309,6 +368,7 @@ async def personal_data(
             for (t, type_name), values in zip(todos, todo_values, strict=True)
         ],
         orders=order_documents,
+        prospects=prospects,
         owner_history=[
             {
                 "from": names.get(h.from_owner_id) if h.from_owner_id else None,

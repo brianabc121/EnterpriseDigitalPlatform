@@ -74,6 +74,7 @@ from app.modules.orders.jobs import run_collections as run_order_collections
 from app.modules.orders.jobs import run_draft_followups as run_order_followups
 from app.modules.print import delivery as print_delivery
 from app.modules.products.service import embed_pending as embed_products
+from app.modules.prospects import ai as prospects_ai
 from app.modules.security.retention import run_retention
 from app.modules.security.scanning import run_file_scan
 from app.modules.sessions.engine import republish_orphans, run_session_timers
@@ -153,6 +154,7 @@ JOBS = (
     Job("mail-poll", 10, poll_mailboxes),
     Job("wake-dispatch", 60, wake.dispatch),
     Job("wake-purge", 3600, wake.purge),
+    Job("prospects-scan", 300, prospects_ai.scan),
 )
 
 

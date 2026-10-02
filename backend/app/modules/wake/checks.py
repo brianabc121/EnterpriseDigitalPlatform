@@ -40,6 +40,7 @@ from app.modules.orders.models import Order, OrderItem, OrderStatus, WorkStatus
 from app.modules.print.models import Printer, PrinterStatus
 from app.modules.products import stock
 from app.modules.products.models import Product, ProductKind, ProductStatus
+from app.modules.prospects.models import CustomerProspect, ProspectStatus
 from app.modules.todos import assign
 from app.modules.todos.models import ACTIVE, Todo, TodoStatus
 from app.modules.wake.models import Severity
@@ -55,6 +56,7 @@ class Category:
     SERVICE = "service"
     TREND = "trend"
     KNOWLEDGE = "knowledge"
+    CUSTOMER = "customer"
     CONTRACT = "contract"
     SYSTEM = "system"
 
@@ -68,6 +70,7 @@ CATEGORY_LABELS: dict[str, str] = {
     Category.SERVICE: "客服",
     Category.TREND: "趋势",
     Category.KNOWLEDGE: "知识",
+    Category.CUSTOMER: "客户",
     Category.CONTRACT: "合同",
     Category.SYSTEM: "系统",
 }
@@ -923,6 +926,75 @@ async def kb_backlog(scope: Scope) -> list[Hit]:
     ]
 
 
+# ---- 客户 ----
+
+
+async def prospect_due(scope: Scope) -> list[Hit]:
+    """跟进中的意向客户到了下次跟进日期（§35.4），按跟进人合并成一条；跟进以后（下次跟进日期改到
+    以后）自动消除。过了日期的是警告，过了 3 天以上的是严重。"""
+    today = scope.today
+    active = and_(
+        CustomerProspect.status == ProspectStatus.ACTIVE,
+        CustomerProspect.next_follow_at.is_not(None),
+    )
+    rows = (
+        await scope.session.execute(
+            select(
+                CustomerProspect.follower_id,
+                CustomerProspect.next_follow_at,
+                Customer.display_name,
+            )
+            .join(Customer, Customer.id == CustomerProspect.customer_id)
+            .where(active, CustomerProspect.next_follow_at <= today)
+            .order_by(CustomerProspect.next_follow_at, Customer.display_name)
+        )
+    ).all()
+    # 日期变了：今天该跟进的变成逾期，逾期的变严重，新的一批到了日期。
+    upcoming = await scope.earliest(
+        CustomerProspect.next_follow_at, active, CustomerProspect.next_follow_at > today
+    )
+    if rows:
+        scope.due(scope.midnight(today + timedelta(days=1)))
+    elif upcoming is not None:
+        scope.due(scope.midnight(upcoming))
+    groups: dict[uuid.UUID | None, list[tuple[date, str]]] = {}
+    for follower_id, next_at, name in rows:
+        assert next_at is not None
+        groups.setdefault(follower_id, []).append((next_at, name))
+    names = await scope.names()
+    hits = []
+    for follower_id, items in list(groups.items())[:MAX_HITS]:
+        overdue = [d for d, _ in items if d < today]
+        late = [d for d in overdue if today - d > CRITICAL_LATE]
+        who = names.get(follower_id, "员工") if follower_id else None
+        detail = "、".join(n for _, n in items[:3])
+        detail += f"等 {len(items)} 位。" if len(items) > 3 else "。"
+        if overdue:
+            detail += f"其中 {len(overdue)} 位已经过了下次跟进日期（最早 {min(overdue):%m-%d}）。"
+        view = "overdue" if overdue else "today"
+        link = f"/customers?tab=prospects&view={view}"
+        hits.append(
+            Hit(
+                key=f"staff:{follower_id}" if follower_id else "unassigned",
+                title=(
+                    f"{who} 有 {len(items)} 位意向客户该跟进了"
+                    if who
+                    else f"有 {len(items)} 位意向客户该跟进了，还没有跟进人"
+                ),
+                detail=detail,
+                severity=(
+                    Severity.CRITICAL if late else Severity.WARNING if overdue else Severity.INFO
+                ),
+                assignees=await scope.people(follower_id, permission=Permission.CUSTOMER_ASSIGN),
+                link=link + (f"&follower={follower_id}" if follower_id else ""),
+                entity_type="staff" if follower_id else None,
+                entity_id=follower_id,
+                data={"due": len(items), "overdue": len(overdue)},
+            )
+        )
+    return hits
+
+
 # ---- 合同 ----
 
 
@@ -1148,6 +1220,14 @@ CHECKS: tuple[Check, ...] = (
         unhappy_customer,
         params=(Param("days", "最近", "天", 1, 1, 30),),
         domains=("sessions", "session_intents", "customers", "todos"),
+    ),
+    Check(
+        "prospect_due",
+        Category.CUSTOMER,
+        "意向客户该跟进了",
+        "跟进中的意向客户到了下次跟进日期还没跟进，按跟进人合并提醒",
+        prospect_due,
+        domains=("customer_prospects", "customers"),
     ),
     Check(
         "orders_drop",

@@ -46,6 +46,7 @@ from app.modules.platform.router import router as platform_ops_router
 from app.modules.print.router import router as print_router
 from app.modules.products.router import router as products_router
 from app.modules.profit.router import router as profit_router
+from app.modules.prospects.router import router as prospects_router
 from app.modules.quickreply.router import router as quick_reply_router
 from app.modules.reports.router import router as reports_router
 from app.modules.routing.router import router as routing_router
@@ -167,6 +168,7 @@ def create_app(
     app.include_router(mail_router)
     app.include_router(wake_router)
     app.include_router(contracts_router)
+    app.include_router(prospects_router)
     app.include_router(reports_router)
     app.include_router(usage_router)
     app.include_router(audit_router)

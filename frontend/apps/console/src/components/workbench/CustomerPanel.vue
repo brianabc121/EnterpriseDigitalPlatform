@@ -5,6 +5,7 @@ import { onMounted, reactive, ref } from 'vue'
 
 import { api, formatDateTime } from '../../api'
 import ContactFields from '../customers/ContactFields.vue'
+import CustomerProspect from '../prospects/CustomerProspect.vue'
 import CustomerWecomInfo from '../wecom/CustomerWecomInfo.vue'
 
 const props = defineProps<{ customerId: string }>()
@@ -182,6 +183,8 @@ onMounted(load)
           </el-button>
         </el-form>
       </section>
+
+      <CustomerProspect :customer-id="customer.id" :customer-name="customer.display_name" />
 
       <section v-if="leads.some((l) => l.status === 'pending')" class="block" data-testid="lead-drafts">
         <h3>AI 登记的线索 <span class="muted small">确认后写入客户档案</span></h3>

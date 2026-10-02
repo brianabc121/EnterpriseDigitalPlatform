@@ -176,18 +176,35 @@ const menu = (page, title) =>
   page.locator('[data-testid="main-menu"] .el-menu-item', { hasText: title }).click()
 
 /** 打开嵌入了 Widget 的页面，点开客服按钮，返回 Widget 所在的 frame。 */
-async function openShop(browser, url, label) {
+async function openShop(browser, url, label, { waitHistory = false } = {}) {
   const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 }, locale: 'zh-CN' })
   const page = await ctx.newPage()
   watchErrors(page, label)
+  // 老访客：收起的窗口加载完历史消息后，按钮上不应该有角标（以前的消息不算新消息）。
+  const history = waitHistory
+    ? page.waitForResponse((r) => r.url().includes('/api/v1/visitor/messages'), { timeout: 20000 })
+    : null
   await page.goto(url)
   const button = page.locator('[data-edp-widget-button]')
   await button.waitFor()
   const frameEl = page.locator('iframe[title="在线客服"]')
   const hiddenBefore = !(await frameEl.isVisible())
+  let badgeBefore = null
+  if (history) {
+    await history
+    await page.waitForTimeout(1500)
+    badgeBefore = await button.locator('span').isVisible()
+  }
   await button.click()
   await frameEl.waitFor({ state: 'visible' })
-  return { ctx, page, button, frame: page.frameLocator('iframe[title="在线客服"]'), hiddenBefore }
+  return {
+    ctx,
+    page,
+    button,
+    frame: page.frameLocator('iframe[title="在线客服"]'),
+    hiddenBefore,
+    badgeBefore,
+  }
 }
 
 async function imageLoaded(locator) {
@@ -311,11 +328,16 @@ async function run(browser) {
     await alice.page.fill('textarea[data-testid="composer-input"]', '订单今天下午发货')
     await alice.page.click('[data-testid="send-button"]')
     const badge = shop.button.locator('span')
-    await badge.filter({ hasText: '1' }).waitFor({ timeout: 15000 })
+    const counted = await badge
+      .filter({ hasText: /^1$/ })
+      .waitFor({ timeout: 15000 })
+      .then(() => true)
+      .catch(() => false)
     await shop.page.screenshot({ path: `${SHOTS}/5-unread-badge.png` })
+    const badgeText = await badge.textContent()
     await shop.button.click()
     await badge.waitFor({ state: 'hidden' })
-    check('收起时收到消息显示未读角标，打开后清零', true)
+    check('收起时收到消息显示未读角标，打开后清零', counted, { badge: badgeText })
 
     // 6. 坐席结束会话，访客评价
     await alice.page.click('[data-testid="close-session"]')
@@ -350,12 +372,17 @@ async function run(browser) {
     await shop.ctx.close()
 
     // 8. 同一会员换一台设备（没有本地访客令牌）：还是同一个客户，看得到之前的对话
-    const phone = await openShop(browser, `${SITE}/shop.html`, 'second-device')
+    const phone = await openShop(browser, `${SITE}/shop.html`, 'second-device', {
+      waitHistory: true,
+    })
     await phone.frame
       .locator('[data-testid="message"]', { hasText: '想问下订单什么时候发货' })
       .waitFor({ timeout: 15000 })
     const customers = await json(`${API}/api/v1/customers`, { token: adminToken })
     check('实名访客换设备后续接同一客户和对话历史', customers.total === 1, customers.items)
+    check('换设备打开网页：以前的消息不算未读，按钮上没有角标', phone.badgeBefore === false, {
+      badgeBefore: phone.badgeBefore,
+    })
     await phone.ctx.close()
 
     // 9. 未授权的网站嵌入：拒绝

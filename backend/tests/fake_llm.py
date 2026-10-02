@@ -27,6 +27,10 @@
   - 知识与制度核对：知识答案里的"数字 + 单位"（天、小时、元、%……）在制度里同一单位是别的数字时
     判为冲突，按制度的数字改写答案；一致时 consistent。
   - 制度转问答："标题：内容"或者带数字规定的句子写成问答（最多 2 条）。
+  - 整理意向客户：客户第一句带"要、想、买、多少钱、价格、规格、有货"的话是想要什么；"贵、优惠、便宜"
+    是价格，"考虑、商量"是还要考虑，"比较、别家"是在比较，"交期、多久"是交期；客户说"N 天后""下周"
+    "明天"时按这个天数跟进，否则 3 天。
+  - 意向客户跟进话术：问候客户，提到想要什么；有参考资料时引用第一条的第一句。
 - /v1/rerank：问题词项被文档覆盖的比例作为相关度。
 - /v1/systemone：模拟 TypeSafe 的判断模型（Jev，设计文档 §32）。按"客户最新的消息"里的关键词回答：
   下单意向（"我要""下单""地址是" → 准备下单；"有货""发货""优惠""怎么买" → 意向明确；"多少钱""规格"
@@ -66,6 +70,8 @@ from app.modules.ai.prompts import (
     TASK_KB_GAP,
     TASK_ORDER_EXTRACT,
     TASK_PHRASE,
+    TASK_PROSPECT,
+    TASK_PROSPECT_MESSAGE,
     TASK_REPLY,
     TASK_REWRITE,
     TASK_SESSION_SUMMARY,
@@ -754,6 +760,60 @@ def _contract(user: str) -> str:
     )
 
 
+PROSPECT_WANTS = ("要", "想", "买", "多少钱", "价格", "规格", "有货")
+PROSPECT_CONCERNS = (
+    (("贵", "优惠", "便宜"), "价格"),
+    (("考虑", "商量"), "还要考虑"),
+    (("比较", "别家"), "在和别家比较"),
+    (("交期", "多久"), "交期"),
+)
+
+
+def _prospect(user: str) -> str:
+    """整理意向客户：想要什么、顾虑、几天后跟进。"""
+    said = [
+        line.removeprefix("客户：").strip()
+        for line in _section(user, "对话").splitlines()
+        if line.startswith("客户：")
+    ]
+    wants = [t for t in said if any(w in t for w in PROSPECT_WANTS)]
+    interest = (wants or said or [""])[0]
+    concerns = [
+        label for words, label in PROSPECT_CONCERNS if any(w in t for t in said for w in words)
+    ]
+    days = 3
+    for text in said:
+        if match := re.search(r"(\d+)\s*天后", text):
+            days = int(match.group(1))
+        elif "下周" in text:
+            days = 7
+        elif "明天" in text:
+            days = 1
+    return json.dumps(
+        {"interest": interest[:60], "concerns": "、".join(concerns), "follow_days": days},
+        ensure_ascii=False,
+    )
+
+
+def _prospect_message(user: str) -> str:
+    """意向客户跟进话术：问候、想要什么，有参考资料时引用第一条的第一句。"""
+    customer = re.search(r"【客户】(.*)", user)
+    interest = re.search(r"【想要什么】(.*)", user)
+    name = customer.group(1).strip() if customer else "您"
+    wanted = interest.group(1).strip() if interest else ""
+    if not wanted or wanted.startswith("（"):
+        wanted = "产品"
+    text = f"{name}您好！上次您问到的{wanted}，我们一直给您留意着。"
+    used: list[int] = []
+    references = _section(user, "参考资料")
+    first = re.match(r"\[(\d+)\] [^\n]*\n([^。\n]*。?)", references)
+    if first:
+        text += first.group(2)
+        used = [int(first.group(1))]
+    text += "您看什么时候方便，我给您发一份详细的报价？"
+    return json.dumps({"text": text, "used": used}, ensure_ascii=False)
+
+
 def rerank_score(query: str, document: str) -> float:
     wanted = set(terms(query))
     if not wanted:
@@ -840,6 +900,10 @@ class FakeLLM:
             content = "这不是 JSON" if self.mode == "bad_json" else _kb_gap(last_user)
         elif task == TASK_CONTRACT:
             content = "这不是 JSON" if self.mode == "bad_json" else _contract(last_user)
+        elif task == TASK_PROSPECT:
+            content = "这不是 JSON" if self.mode == "bad_json" else _prospect(last_user)
+        elif task == TASK_PROSPECT_MESSAGE:
+            content = _prospect_message(last_user)
         elif task == TASK_SUGGEST:
             answers = [*_products(system), *_answers(system)] or ["您好，我帮您确认一下，请稍等。"]
             content = json.dumps({"suggestions": answers[:3]}, ensure_ascii=False)
