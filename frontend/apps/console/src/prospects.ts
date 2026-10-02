@@ -42,6 +42,7 @@ export const LEVEL_TAG: Record<ProspectLevel, TagType> = {
 export const LEVELS: ProspectLevel[] = ['high', 'medium', 'low']
 
 export const SOURCE_LABEL: Record<ProspectSource, string> = { ai: 'AI', staff: '员工' }
+export const SOURCE_TEXT: Record<ProspectSource, string> = { ai: 'AI 转入', staff: '员工转入' }
 
 export const METHOD_LABEL: Record<FollowMethod, string> = {
   phone: '电话',

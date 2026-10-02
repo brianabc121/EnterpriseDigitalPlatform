@@ -285,7 +285,7 @@ onMounted(async () => {
           <span v-else class="muted">—</span>
         </template>
       </el-table-column>
-      <el-table-column v-else label="状态" width="110">
+      <el-table-column v-else label="状态" width="150">
         <template #default="{ row }">
           <el-tag :type="STATUS_TAG[row.status as ProspectSummary['status']]" size="small">
             {{ STATUS_LABEL[row.status as ProspectSummary['status']] }}
@@ -379,7 +379,7 @@ onMounted(async () => {
 
 .count {
   margin-left: 4px;
-  color: var(--el-text-color-secondary);
+  opacity: 0.7;
 }
 
 .filter {

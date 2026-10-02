@@ -67,12 +67,14 @@ onMounted(load)
         转入意向客户
       </el-button>
     </template>
+    <!-- 用到时才渲染：客户资料常在抽屉里，里面不放隐藏的对话框和抽屉。 -->
     <ProspectCreateDialog
+      v-if="createOpen"
       v-model="createOpen"
       :customer="{ id: props.customerId, name: props.customerName }"
       @created="load"
     />
-    <ProspectDrawer :prospect-id="openId" @close="openId = null" @changed="load" />
+    <ProspectDrawer v-if="openId" :prospect-id="openId" @close="openId = null" @changed="load" />
   </section>
 </template>
 

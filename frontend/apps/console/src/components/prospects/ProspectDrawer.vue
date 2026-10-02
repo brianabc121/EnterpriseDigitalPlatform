@@ -13,7 +13,7 @@ import {
   LEVELS,
   METHOD_LABEL,
   METHODS,
-  SOURCE_LABEL,
+  SOURCE_TEXT,
   STATUS_LABEL,
   STATUS_TAG,
   type FollowMethod,
@@ -255,7 +255,7 @@ watch(
             意向{{ LEVEL_LABEL[prospect.level] }}
           </el-tag>
           <span class="muted">
-            {{ SOURCE_LABEL[prospect.source] }}转入
+            {{ SOURCE_TEXT[prospect.source] }}
             <template v-if="prospect.created_by_name">（{{ prospect.created_by_name }}）</template>
             · {{ formatDateTime(prospect.created_at) }}
           </span>

@@ -115,9 +115,13 @@ function recentDeal(value: string): string {
   return new Date(value).toLocaleDateString('zh-CN')
 }
 
-watch(open, (value) => {
-  if (value) void reset()
-})
+watch(
+  open,
+  (value) => {
+    if (value) void reset()
+  },
+  { immediate: true },
+)
 watch(
   () => form.customerId,
   (id) => {

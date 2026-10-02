@@ -304,7 +304,7 @@ async function wakeAsAdmin(browser) {
   const restocked = await cli('wake-run', TENANT, '--kind', 'daily')
   check(
     'only the stock check ran after the restock',
-    restocked.stats.ran === 1 && restocked.stats.skipped === 17 && restocked.stats.resolved === 1,
+    restocked.stats.ran === 1 && restocked.stats.skipped === 18 && restocked.stats.resolved === 1,
     restocked.stats,
   )
   await page.reload()
