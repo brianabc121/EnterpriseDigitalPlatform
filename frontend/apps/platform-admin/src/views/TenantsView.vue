@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import { errorMessage, formatUsage, SUBSCRIPTION_STATUS, type Schemas } from '@edp/api-client'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { computed, onMounted, reactive, ref } from 'vue'
+import type { FormInstance, FormRules } from 'element-plus'
+import { computed, nextTick, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
 import { api, formatDateTime } from '../api'
 import TenantUsageDrawer from '../components/TenantUsageDrawer.vue'
 import { TENANT_STATUS } from '../labels'
+import { tenantFieldError, type TenantField } from '../tenant-validation'
 
 type Tenant = Schemas['TenantOut']
 
@@ -40,6 +42,22 @@ const form = reactive({
 })
 const activePlans = computed(() => plans.value.filter((p) => p.status === 'active'))
 const chosenPlan = computed(() => plans.value.find((p) => p.code === form.planCode) ?? null)
+const createForm = ref<FormInstance>()
+const codeServerError = ref('')
+const fields: TenantField[] = ['code', 'name', 'adminUsername', 'adminDisplayName', 'adminPassword', 'months']
+const createRules: FormRules = Object.fromEntries(fields.map((field) => [field, [{
+  validator: (_rule: unknown, value: unknown, callback: (error?: Error) => void) => {
+    const message = tenantFieldError(field, value)
+    callback(message ? new Error(message) : undefined)
+  },
+  trigger: ['blur', 'change'],
+}]]))
+
+async function validateInput(field: TenantField): Promise<void> {
+  if (field === 'code') codeServerError.value = ''
+  await nextTick()
+  await createForm.value?.validateField(field).catch(() => false)
+}
 
 async function load(): Promise<void> {
   loading.value = true
@@ -69,9 +87,20 @@ function openCreate(): void {
     months: 12,
   })
   dialogVisible.value = true
+  codeServerError.value = ''
+  void nextTick(() => createForm.value?.clearValidate())
 }
 
 async function create(): Promise<void> {
+  if (saving.value) return
+  codeServerError.value = ''
+  const valid = await createForm.value?.validate().catch(() => false)
+  if (!valid) {
+    ElMessage.warning('请按字段下方的提示修正后再开通')
+    await nextTick()
+    document.querySelector<HTMLInputElement>('.tenant-create-form .is-error input')?.focus()
+    return
+  }
   saving.value = true
   const { data, error } = await api.POST('/platform/v1/tenants', {
     body: {
@@ -83,12 +112,14 @@ async function create(): Promise<void> {
         password: form.adminPassword,
       },
       plan_code: form.planCode || null,
-      months: form.months,
+      months: chosenPlan.value?.trial_days === 0 ? form.months : 12,
     },
   })
   saving.value = false
   if (!data) {
-    ElMessage.error(errorMessage(error))
+    const message = errorMessage(error)
+    if (message === '企业代码已被使用') codeServerError.value = message
+    ElMessage.error(message)
     return
   }
   ElMessage.success(`已开通：企业代码 ${data.code}，管理员 ${form.adminUsername}`)
@@ -259,37 +290,38 @@ onMounted(load)
     </el-dialog>
 
     <el-dialog v-model="dialogVisible" title="开通租户" width="480px">
-      <el-form label-width="96px" @submit.prevent="create">
-        <el-form-item label="企业代码" required>
-          <el-input v-model="form.code" placeholder="小写字母开头，3-32 位，可含数字和 -" />
+      <el-form ref="createForm" class="tenant-create-form" :model="form" :rules="createRules" status-icon label-width="96px" @submit.prevent="create">
+        <el-form-item label="企业代码" prop="code" :error="codeServerError" required>
+          <el-input v-model="form.code" placeholder="小写字母开头，3-32 位，可含数字和 -" @input="validateInput('code')" />
         </el-form-item>
-        <el-form-item label="企业名称" required>
-          <el-input v-model="form.name" />
+        <el-form-item label="企业名称" prop="name" required>
+          <el-input v-model="form.name" placeholder="1～128 个字符" @input="validateInput('name')" />
         </el-form-item>
         <el-form-item label="套餐">
           <el-select v-model="form.planCode" placeholder="不按套餐计费" clearable data-testid="create-plan">
             <el-option v-for="p in activePlans" :key="p.code" :label="p.name" :value="p.code" />
           </el-select>
         </el-form-item>
-        <el-form-item v-if="chosenPlan && chosenPlan.trial_days === 0" label="订阅月数">
+        <el-form-item v-if="chosenPlan && chosenPlan.trial_days === 0" label="订阅月数" prop="months">
           <el-input-number v-model="form.months" :min="1" :max="60" />
         </el-form-item>
         <p v-if="chosenPlan && chosenPlan.trial_days > 0" class="hint">
           开通后先试用 {{ chosenPlan.trial_days }} 天。
         </p>
         <el-divider content-position="left">首个管理员</el-divider>
-        <el-form-item label="用户名" required>
-          <el-input v-model="form.adminUsername" />
+        <el-form-item label="用户名" prop="adminUsername" required>
+          <el-input v-model="form.adminUsername" placeholder="3～64 位，字母、数字、_、. 或 -" @input="validateInput('adminUsername')" />
         </el-form-item>
-        <el-form-item label="姓名" required>
-          <el-input v-model="form.adminDisplayName" />
+        <el-form-item label="姓名" prop="adminDisplayName" required>
+          <el-input v-model="form.adminDisplayName" placeholder="1～64 个字符" @input="validateInput('adminDisplayName')" />
         </el-form-item>
-        <el-form-item label="初始密码" required>
+        <el-form-item label="初始密码" prop="adminPassword" required>
           <el-input
             v-model="form.adminPassword"
             type="password"
             show-password
-            placeholder="至少 8 位"
+            placeholder="8～128 位"
+            @input="validateInput('adminPassword')"
           />
         </el-form-item>
       </el-form>
@@ -302,6 +334,11 @@ onMounted(load)
 </template>
 
 <style scoped>
+.tenant-create-form :deep(.el-form-item__error) {
+  position: static;
+  line-height: 1.5;
+}
+
 .page-header {
   display: flex;
   align-items: center;
