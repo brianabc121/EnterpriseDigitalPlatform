@@ -29,7 +29,12 @@ const DOC_ACCEPT = '.pdf,.docx,.md,.markdown,.txt,.html,.htm'
 const SHEET_ACCEPT = '.xlsx,.csv'
 const spaces = useKbSpacesStore()
 const tab = ref<'csv' | 'file' | 'crawl'>('csv')
-const target = reactive({ placement: [] as string[], agentOnly: false, publish: false })
+const target = reactive({
+  placement: [] as string[],
+  agentOnly: false,
+  publish: false,
+  policy: false,
+})
 const upload = reactive({ kind: 'document' as 'document' | 'excel', file: null as File | null })
 const crawl = reactive({ url: '', maxPages: 20 })
 const submitting = ref(false)
@@ -63,6 +68,8 @@ function targetBody() {
     ...placementOf(target.placement),
     visibility: target.agentOnly ? ('agent' as const) : ('public' as const),
     publish: target.publish,
+    // 规章制度（§33.7.1）：只用于文档和网页，问答表不适用。
+    policy: target.policy && !(tab.value === 'file' && upload.kind === 'excel'),
   }
 }
 
@@ -139,6 +146,7 @@ watch(open, (visible) => {
     target.placement = [...(props.placement ?? [])]
     target.publish = false
     target.agentOnly = false
+    target.policy = false
     void spaces.ensure()
     void loadJobs()
   } else if (poller) {
@@ -304,6 +312,13 @@ async function submit(): Promise<void> {
       <el-checkbox v-model="target.agentOnly">仅坐席可见</el-checkbox>
       <el-checkbox v-if="auth.can('kb:publish')" v-model="target.publish" data-testid="kb-import-publish">
         导入后立即发布
+      </el-checkbox>
+      <el-checkbox
+        v-if="!(tab === 'file' && upload.kind === 'excel')"
+        v-model="target.policy"
+        data-testid="kb-import-policy"
+      >
+        规章制度（AI 整理知识库时作为依据）
       </el-checkbox>
     </div>
 

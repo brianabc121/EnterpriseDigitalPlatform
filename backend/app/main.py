@@ -60,6 +60,7 @@ from app.modules.transport.sessions import SessionStore
 from app.modules.usage.router import platform_router as platform_usage_router
 from app.modules.usage.router import router as usage_router
 from app.modules.visitor.router import router as visitor_router
+from app.modules.wake.router import router as wake_router
 from app.modules.warehouse.router import router as warehouse_router
 from app.modules.wecom.callbacks import router as wecom_hooks_router
 from app.modules.wecom.router import router as wecom_router
@@ -163,6 +164,7 @@ def create_app(
     app.include_router(wecom_router)
     app.include_router(wecom_hooks_router)
     app.include_router(mail_router)
+    app.include_router(wake_router)
     app.include_router(reports_router)
     app.include_router(usage_router)
     app.include_router(audit_router)

@@ -4,13 +4,17 @@ from enum import StrEnum
 from typing import Any
 
 from sqlalchemy import (
+    BigInteger,
     Double,
+    FetchedValue,
+    ForeignKey,
     ForeignKeyConstraint,
     SmallInteger,
     String,
     Text,
     UniqueConstraint,
     func,
+    text,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
@@ -85,6 +89,13 @@ class KbItem(IdMixin, TimestampMixin, TenantMixin, Base):
     expiry_notified_at: Mapped[datetime | None]
     # 文档的文件名或抓取的页面地址。
     source_url: Mapped[str | None] = mapped_column(Text)
+    # 规章制度（设计文档 §33.7.1）：知识库整理时作为依据。
+    policy: Mapped[bool] = mapped_column(server_default="false")
+    # 增量更新索引（§33.9）：最近一次变化的编号，由数据库触发器写入（命中次数、评价等计数的
+    # 变化不算）。
+    change_seq: Mapped[int | None] = mapped_column(
+        BigInteger, server_default=FetchedValue(), server_onupdate=FetchedValue()
+    )
 
 
 class ChunkKind(StrEnum):
@@ -154,6 +165,7 @@ class CandidateKind(StrEnum):
     CONFLICT = "conflict"  # 同一问题但答案与已有知识不一致（可能是政策变化）
     GAP = "gap"  # 坐席也没能解答的问题（知识缺口）
     PHRASE = "phrase"  # 高满意度会话里坐席的优秀回复（话术候选）
+    DUPLICATE = "duplicate"  # 两条问答几乎一样（知识库整理，设计文档 §33.7.2）
 
 
 class CandidateStatus(StrEnum):
@@ -168,6 +180,7 @@ class CandidateSource(StrEnum):
     SIDEBAR = "sidebar"  # 员工在企业微信侧边栏里的一问一答
     ZONE = "zone"  # 数据与智能专区返回的群聊问答候选
     GROUP = "group"  # AI 公司助理记录的内部群聊（设计文档 §27.4）
+    POLICY = "policy"  # 知识库整理：对照现行的规章制度（设计文档 §33.7）
 
 
 class KbCandidate(IdMixin, TimestampMixin, TenantMixin, Base):
@@ -311,6 +324,26 @@ class ImportStatus(StrEnum):
     RUNNING = "running"
     DONE = "done"
     FAILED = "failed"
+
+
+class KbAlignMark(Base):
+    """知识库整理的核对记录（设计文档 §33.7.4）：一条知识和制度的核对（item:<id>）、一条知识找重复
+    （scan:<id>）、一段制度（section:<制度>:<摘要>）或一对重复的知识（dup:<id>:<id>）。签名（核对时的
+    版本）不变时不再核对；知识的变化编号（item_seq）和现行制度的指纹都没变时连检索也不用做。"""
+
+    __tablename__ = "kb_align_marks"
+
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("tenants.id"), primary_key=True, server_default=text("app_current_tenant()")
+    )
+    key: Mapped[str] = mapped_column(String(160), primary_key=True)
+    signature: Mapped[str] = mapped_column(String(64))
+    verdict: Mapped[str] = mapped_column(String(16))
+    candidate_id: Mapped[uuid.UUID | None]
+    # 核对时这条知识的变化编号（增量更新索引，§33.9）和现行制度的指纹：都没变时不必再检索。
+    item_seq: Mapped[int | None] = mapped_column(BigInteger)
+    policy_sig: Mapped[str | None] = mapped_column(String(40))
+    checked_at: Mapped[datetime] = mapped_column(server_default=func.now())
 
 
 class KbImportJob(IdMixin, TenantMixin, Base):

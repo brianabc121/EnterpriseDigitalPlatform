@@ -111,7 +111,7 @@ export const PERMISSION_MODULES: readonly PermissionModuleConfig[] = [
     key: 'admin',
     title: '员工与设置',
     icon: 'setting',
-    pages: ['staff', 'ai', 'wecom', 'settings'],
+    pages: ['staff', 'ai', 'wake', 'wecom', 'settings'],
     permissions: [
       'staff:read',
       'staff:manage',

@@ -3616,6 +3616,163 @@
         "title": "ChatOut",
         "type": "object"
       },
+      "CheckConfig": {
+        "properties": {
+          "enabled": {
+            "default": true,
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "params": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Params",
+            "type": "object"
+          }
+        },
+        "title": "CheckConfig",
+        "type": "object"
+      },
+      "CheckOut": {
+        "properties": {
+          "available": {
+            "description": "套餐包含它需要的功能",
+            "title": "Available",
+            "type": "boolean"
+          },
+          "category": {
+            "title": "Category",
+            "type": "string"
+          },
+          "category_label": {
+            "title": "Category Label",
+            "type": "string"
+          },
+          "changed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "这些表最近一次变化的时间",
+            "title": "Changed At"
+          },
+          "checked_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "最近一次实际检查的时间",
+            "title": "Checked At"
+          },
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "domains": {
+            "description": "检查时读的数据表（增量更新索引里比对它们的变化）",
+            "items": {
+              "type": "string"
+            },
+            "title": "Domains",
+            "type": "array"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "hourly": {
+            "description": "每小时检查也做；否则只在每日巡检里做",
+            "title": "Hourly",
+            "type": "boolean"
+          },
+          "params": {
+            "items": {
+              "$ref": "#/components/schemas/CheckParamOut"
+            },
+            "title": "Params",
+            "type": "array"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "category",
+          "category_label",
+          "title",
+          "description",
+          "hourly",
+          "available",
+          "enabled",
+          "params",
+          "domains",
+          "checked_at",
+          "changed_at"
+        ],
+        "title": "CheckOut",
+        "type": "object"
+      },
+      "CheckParamOut": {
+        "properties": {
+          "default": {
+            "title": "Default",
+            "type": "integer"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "maximum": {
+            "title": "Maximum",
+            "type": "integer"
+          },
+          "minimum": {
+            "title": "Minimum",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "unit": {
+            "title": "Unit",
+            "type": "string"
+          },
+          "value": {
+            "description": "现在的值",
+            "title": "Value",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "name",
+          "label",
+          "unit",
+          "default",
+          "minimum",
+          "maximum",
+          "value"
+        ],
+        "title": "CheckParamOut",
+        "type": "object"
+      },
       "ClosureRequest": {
         "properties": {
           "confirm_code": {
@@ -4044,6 +4201,7 @@
           "customers",
           "knowledge",
           "ai",
+          "wake",
           "assistant",
           "staff",
           "reports",
@@ -5604,6 +5762,37 @@
           "day"
         ],
         "title": "DailyStats",
+        "type": "object"
+      },
+      "DataChange": {
+        "properties": {
+          "changed_at": {
+            "format": "date-time",
+            "title": "Changed At",
+            "type": "string"
+          },
+          "domain": {
+            "description": "数据表",
+            "title": "Domain",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "seq": {
+            "description": "最近一次变化的编号（全库递增）",
+            "title": "Seq",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "domain",
+          "label",
+          "seq",
+          "changed_at"
+        ],
+        "title": "DataChange",
         "type": "object"
       },
       "DeadLetterAction": {
@@ -7652,6 +7841,291 @@
           "value"
         ],
         "title": "FieldValue",
+        "type": "object"
+      },
+      "FindingOut": {
+        "properties": {
+          "assignees": {
+            "description": "负责人",
+            "items": {
+              "$ref": "#/components/schemas/Person"
+            },
+            "title": "Assignees",
+            "type": "array"
+          },
+          "can_handle": {
+            "description": "可以忽略、标记已处理（负责人或管理员）",
+            "title": "Can Handle",
+            "type": "boolean"
+          },
+          "category": {
+            "title": "Category",
+            "type": "string"
+          },
+          "category_label": {
+            "title": "Category Label",
+            "type": "string"
+          },
+          "check_code": {
+            "title": "Check Code",
+            "type": "string"
+          },
+          "check_title": {
+            "description": "检查项的名称",
+            "title": "Check Title",
+            "type": "string"
+          },
+          "data": {
+            "additionalProperties": true,
+            "description": "检查时的数字；since 是开始等待的时间（页面显示已经多久）",
+            "title": "Data",
+            "type": "object"
+          },
+          "detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detail"
+          },
+          "entity_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entity Id"
+          },
+          "entity_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entity Type"
+          },
+          "escalated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "升级给管理员的时间",
+            "title": "Escalated At"
+          },
+          "first_seen_at": {
+            "format": "date-time",
+            "title": "First Seen At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "ignore_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ignore Note"
+          },
+          "ignored_by": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Person"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "ignored_until": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "忽略到什么时候；一直忽略时为空",
+            "title": "Ignored Until"
+          },
+          "last_seen_at": {
+            "description": "最近一次检查仍然发现的时间",
+            "format": "date-time",
+            "title": "Last Seen At",
+            "type": "string"
+          },
+          "link": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "打开对象的页面（订单、单据、待办……）",
+            "title": "Link"
+          },
+          "mine": {
+            "description": "负责人包含自己",
+            "title": "Mine",
+            "type": "boolean"
+          },
+          "notified_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notified At"
+          },
+          "resolve_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resolve Note"
+          },
+          "resolved_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resolved At"
+          },
+          "resolved_by": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Person"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "标记已处理的人；自动消除时为空"
+          },
+          "seen_count": {
+            "title": "Seen Count",
+            "type": "integer"
+          },
+          "severity": {
+            "description": "info 提示、warning 注意、critical 严重",
+            "enum": [
+              "info",
+              "warning",
+              "critical"
+            ],
+            "title": "Severity",
+            "type": "string"
+          },
+          "status": {
+            "description": "open 待处理、ignored 已忽略、resolved 已消除",
+            "enum": [
+              "open",
+              "ignored",
+              "resolved"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "check_code",
+          "check_title",
+          "category",
+          "category_label",
+          "severity",
+          "status",
+          "title",
+          "detail",
+          "link",
+          "entity_type",
+          "entity_id",
+          "data",
+          "assignees",
+          "first_seen_at",
+          "last_seen_at",
+          "seen_count",
+          "notified_at",
+          "escalated_at",
+          "resolved_at",
+          "resolved_by",
+          "resolve_note",
+          "ignored_by",
+          "ignored_until",
+          "ignore_note",
+          "mine",
+          "can_handle"
+        ],
+        "title": "FindingOut",
+        "type": "object"
+      },
+      "FindingPage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/FindingOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "open": {
+            "$ref": "#/components/schemas/SeverityCounts",
+            "description": "同一范围（自己负责的或全部）待处理的问题数"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "open"
+        ],
+        "title": "FindingPage",
         "type": "object"
       },
       "FollowOut": {
@@ -9830,6 +10304,40 @@
         "title": "IdentityOut",
         "type": "object"
       },
+      "IgnoreRequest": {
+        "properties": {
+          "days": {
+            "anyOf": [
+              {
+                "maximum": 365.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": 7,
+            "description": "几天内不再提醒；为空表示一直忽略（直到问题消除）",
+            "title": "Days"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "原因",
+            "title": "Note"
+          }
+        },
+        "title": "IgnoreRequest",
+        "type": "object"
+      },
       "ImOpAction": {
         "properties": {
           "ids": {
@@ -10883,6 +11391,59 @@
         "title": "JssdkConfig",
         "type": "object"
       },
+      "KbAlignment": {
+        "properties": {
+          "enabled": {
+            "description": "开启了定期整理",
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "最近一次整理完成的时间",
+            "title": "Finished At"
+          },
+          "pending": {
+            "description": "待处理的制度对齐建议",
+            "title": "Pending",
+            "type": "integer"
+          },
+          "policies": {
+            "description": "现行制度几份",
+            "title": "Policies",
+            "type": "integer"
+          },
+          "report": {
+            "additionalProperties": true,
+            "description": "整理报告（§33.7.2）",
+            "title": "Report",
+            "type": "object"
+          },
+          "running": {
+            "description": "正在排队或整理",
+            "title": "Running",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "finished_at",
+          "report",
+          "policies",
+          "pending",
+          "running",
+          "enabled"
+        ],
+        "title": "KbAlignment",
+        "type": "object"
+      },
       "KbAudienceOption": {
         "properties": {
           "id": {
@@ -11035,7 +11596,7 @@
             "type": "string"
           },
           "kind": {
-            "description": "new 新问题、similar 相似问法、conflict 答案冲突、gap 知识缺口、phrase 优秀话术（question 为标题，answer 为话术）",
+            "description": "new 新问题、similar 相似问法、conflict 答案冲突、gap 知识缺口、phrase 优秀话术（question 为标题，answer 为话术）、duplicate 重复的知识（target 是保留的一条）",
             "title": "Kind",
             "type": "string"
           },
@@ -11148,7 +11709,7 @@
           },
           "source": {
             "default": "session",
-            "description": "来源：session 会话、sidebar 侧边栏、zone 专区、group 群聊",
+            "description": "来源：session 会话、sidebar 侧边栏、zone 专区、group 群聊、policy 制度对齐",
             "title": "Source",
             "type": "string"
           },
@@ -11304,7 +11865,7 @@
             "type": "string"
           },
           "kind": {
-            "description": "new 新问题、similar 相似问法、conflict 答案冲突、gap 知识缺口、phrase 优秀话术（question 为标题，answer 为话术）",
+            "description": "new 新问题、similar 相似问法、conflict 答案冲突、gap 知识缺口、phrase 优秀话术（question 为标题，answer 为话术）、duplicate 重复的知识（target 是保留的一条）",
             "title": "Kind",
             "type": "string"
           },
@@ -11409,7 +11970,7 @@
           },
           "source": {
             "default": "session",
-            "description": "来源：session 会话、sidebar 侧边栏、zone 专区、group 群聊",
+            "description": "来源：session 会话、sidebar 侧边栏、zone 专区、group 群聊、policy 制度对齐",
             "title": "Source",
             "type": "string"
           },
@@ -11699,6 +12260,12 @@
             "description": "最多抓取的网页数，默认 20",
             "title": "Max Pages"
           },
+          "policy": {
+            "default": false,
+            "description": "标为规章制度（文档和网页；问答表不适用）",
+            "title": "Policy",
+            "type": "boolean"
+          },
           "publish": {
             "default": false,
             "description": "导入后立即发布（需要 kb:publish）",
@@ -11812,8 +12379,32 @@
         "type": "object"
       },
       "KbEvidence": {
-        "description": "一段证据对话（提炼时已脱敏）。来自侧边栏问答或内部群聊（§27.4）时没有会话。",
+        "description": "建议的依据。从聊天提炼的是一段证据对话（已脱敏，来自侧边栏问答或内部群聊（§27.4）时没有会话）；\n知识库整理（§33.7）的是规章制度的原文（kind=policy），或者重复的另一条知识（kind=duplicate）。",
         "properties": {
+          "answer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "重复的另一条知识的答案",
+            "title": "Answer"
+          },
+          "excerpt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "依据的制度原文",
+            "title": "Excerpt"
+          },
           "group_name": {
             "anyOf": [
               {
@@ -11826,12 +12417,73 @@
             "description": "来自 AI 助理记录的群聊时的群名",
             "title": "Group Name"
           },
+          "hits": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "重复的另一条知识被引用的次数",
+            "title": "Hits"
+          },
+          "item_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "重复的另一条知识",
+            "title": "Item Id"
+          },
+          "kind": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "为空是证据对话；policy 制度原文；duplicate 重复的另一条知识",
+            "title": "Kind"
+          },
           "lines": {
             "items": {
               "$ref": "#/components/schemas/KbEvidenceLine"
             },
             "title": "Lines",
             "type": "array"
+          },
+          "policy_item_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "依据的规章制度",
+            "title": "Policy Item Id"
+          },
+          "policy_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Policy Title"
           },
           "question": {
             "anyOf": [
@@ -11843,6 +12495,30 @@
               }
             ],
             "title": "Question"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "为什么提出这条建议（哪里不一致）",
+            "title": "Reason"
+          },
+          "same_answer": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "两条重复知识的答案是否相同",
+            "title": "Same Answer"
           },
           "seen_at": {
             "format": "date-time",
@@ -11860,11 +12536,21 @@
               }
             ],
             "title": "Session Id"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
           }
         },
         "required": [
-          "seen_at",
-          "lines"
+          "seen_at"
         ],
         "title": "KbEvidence",
         "type": "object"
@@ -12286,6 +12972,12 @@
             "description": "负责人：到期前收到提醒",
             "title": "Owner Id"
           },
+          "policy": {
+            "default": false,
+            "description": "规章制度：AI 唤醒整理知识库时作为依据（§33.7.1）",
+            "title": "Policy",
+            "type": "boolean"
+          },
           "publish": {
             "default": false,
             "description": "创建后立即发布（需要 kb:publish）",
@@ -12475,6 +13167,11 @@
             ],
             "title": "Owner Id"
           },
+          "policy": {
+            "description": "规章制度（知识库整理的依据）",
+            "title": "Policy",
+            "type": "boolean"
+          },
           "published_at": {
             "anyOf": [
               {
@@ -12613,6 +13310,7 @@
           "owner_id",
           "audience_group_ids",
           "source_url",
+          "policy",
           "archived_at",
           "created_at",
           "updated_at"
@@ -12851,6 +13549,18 @@
             ],
             "description": "传 null 表示不设负责人",
             "title": "Owner Id"
+          },
+          "policy": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "规章制度",
+            "title": "Policy"
           },
           "questions": {
             "anyOf": [
@@ -13484,6 +14194,12 @@
             ],
             "title": "Kind",
             "type": "string"
+          },
+          "policy": {
+            "default": false,
+            "description": "标为规章制度（文档和网页；问答表不适用）",
+            "title": "Policy",
+            "type": "boolean"
           },
           "publish": {
             "default": false,
@@ -21862,6 +22578,25 @@
         "title": "PermissionList",
         "type": "object"
       },
+      "Person": {
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "Person",
+        "type": "object"
+      },
       "PersonalData": {
         "description": "客户个人信息副本（个人信息查询请求）。",
         "properties": {
@@ -26495,6 +27230,24 @@
         "title": "ResendResult",
         "type": "object"
       },
+      "ResolveRequest": {
+        "properties": {
+          "note": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          }
+        },
+        "title": "ResolveRequest",
+        "type": "object"
+      },
       "RetentionPolicy": {
         "description": "聊天记录保留期（到期后由调度进程删除）。为空表示一直保留。",
         "properties": {
@@ -27275,6 +28028,180 @@
           "cells"
         ],
         "title": "RowOut",
+        "type": "object"
+      },
+      "RunOut": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "created_by": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Person"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "description": "hourly 每小时检查、daily 每日巡检、kb 知识库整理",
+            "enum": [
+              "hourly",
+              "daily",
+              "kb"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "kind_label": {
+            "title": "Kind Label",
+            "type": "string"
+          },
+          "not_before": {
+            "format": "date-time",
+            "title": "Not Before",
+            "type": "string"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "stats": {
+            "additionalProperties": true,
+            "description": "巡检：checks 检查项、ran 实际运行、skipped 数据没变而跳过、found 发现、new 新问题、resolved 已消除、notified 通知人数；整理：整理报告",
+            "title": "Stats",
+            "type": "object"
+          },
+          "status": {
+            "enum": [
+              "queued",
+              "running",
+              "done",
+              "failed",
+              "skipped"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "每日巡检的 AI 简报",
+            "title": "Summary"
+          },
+          "trigger": {
+            "description": "schedule 定时、event 规章制度变化、manual 立即唤醒、continue 接着上次整理",
+            "enum": [
+              "schedule",
+              "event",
+              "manual",
+              "continue"
+            ],
+            "title": "Trigger",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "kind_label",
+          "trigger",
+          "status",
+          "not_before",
+          "started_at",
+          "finished_at",
+          "stats",
+          "summary",
+          "error",
+          "created_by",
+          "created_at"
+        ],
+        "title": "RunOut",
+        "type": "object"
+      },
+      "RunPage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/RunOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total"
+        ],
+        "title": "RunPage",
+        "type": "object"
+      },
+      "RunRequest": {
+        "properties": {
+          "kind": {
+            "description": "daily 立即巡检、kb 立即整理知识库",
+            "enum": [
+              "daily",
+              "kb"
+            ],
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "title": "RunRequest",
         "type": "object"
       },
       "SendMessageRequest": {
@@ -28480,6 +29407,32 @@
           "confirmed_at"
         ],
         "title": "SessionSummaryOut",
+        "type": "object"
+      },
+      "SeverityCounts": {
+        "properties": {
+          "critical": {
+            "default": 0,
+            "title": "Critical",
+            "type": "integer"
+          },
+          "info": {
+            "default": 0,
+            "title": "Info",
+            "type": "integer"
+          },
+          "total": {
+            "default": 0,
+            "title": "Total",
+            "type": "integer"
+          },
+          "warning": {
+            "default": 0,
+            "title": "Warning",
+            "type": "integer"
+          }
+        },
+        "title": "SeverityCounts",
         "type": "object"
       },
       "ShipRequest": {
@@ -31744,6 +32697,12 @@
           },
           "name": {
             "title": "Name",
+            "type": "string"
+          },
+          "timezone": {
+            "default": "Asia/Shanghai",
+            "description": "企业的时区（默认路由策略的工作时间）：报表的今天、本月按它算",
+            "title": "Timezone",
             "type": "string"
           }
         },
@@ -36359,6 +37318,241 @@
           "reason"
         ],
         "title": "VoidRequest",
+        "type": "object"
+      },
+      "WakeOverview": {
+        "properties": {
+          "available": {
+            "description": "套餐包含 AI 唤醒（AI 接待与坐席助手）",
+            "title": "Available",
+            "type": "boolean"
+          },
+          "brief": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RunOut"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "最近一次每日巡检（含 AI 简报）"
+          },
+          "data_index": {
+            "description": "增量更新索引：最近有变化的数据表（最多 12 张）",
+            "items": {
+              "$ref": "#/components/schemas/DataChange"
+            },
+            "title": "Data Index",
+            "type": "array"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "kb": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RunOut"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "最近一次知识库整理"
+          },
+          "latest": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RunOut"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "最近一次完成的巡检（每小时或每日）"
+          },
+          "next_daily": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "下一次每日巡检",
+            "title": "Next Daily"
+          },
+          "next_hourly": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "下一次每小时检查",
+            "title": "Next Hourly"
+          },
+          "next_kb": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "下一次知识库整理",
+            "title": "Next Kb"
+          },
+          "open": {
+            "$ref": "#/components/schemas/SeverityCounts"
+          },
+          "pending": {
+            "description": "排队中、执行中的唤醒",
+            "items": {
+              "$ref": "#/components/schemas/RunOut"
+            },
+            "title": "Pending",
+            "type": "array"
+          },
+          "tracked": {
+            "description": "增量更新索引里有记录的数据表数",
+            "title": "Tracked",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "available",
+          "enabled",
+          "next_hourly",
+          "next_daily",
+          "next_kb",
+          "open",
+          "brief",
+          "latest",
+          "kb",
+          "pending",
+          "data_index",
+          "tracked"
+        ],
+        "title": "WakeOverview",
+        "type": "object"
+      },
+      "WakeSettings": {
+        "properties": {
+          "brief_staff_ids": {
+            "description": "除租户管理员外，还有谁收到每日简报",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 20,
+            "title": "Brief Staff Ids",
+            "type": "array"
+          },
+          "checks": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/CheckConfig"
+            },
+            "description": "检查项的开关和数字（只保存改过的）",
+            "title": "Checks",
+            "type": "object"
+          },
+          "daily_time": {
+            "default": "08:30",
+            "description": "每日巡检的时间",
+            "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$",
+            "title": "Daily Time",
+            "type": "string"
+          },
+          "daily_workdays_only": {
+            "default": true,
+            "description": "每日巡检只在工作日（按默认路由策略的工作时间）",
+            "title": "Daily Workdays Only",
+            "type": "boolean"
+          },
+          "enabled": {
+            "default": true,
+            "description": "开启 AI 唤醒：关掉后不再巡检、不再整理知识库",
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "escalate_days": {
+            "default": 2,
+            "description": "问题超过几天没处理就升级给管理员",
+            "maximum": 30.0,
+            "minimum": 1.0,
+            "title": "Escalate Days",
+            "type": "integer"
+          },
+          "hourly": {
+            "default": true,
+            "description": "工作时间内每小时检查需要及时处理的问题",
+            "title": "Hourly",
+            "type": "boolean"
+          },
+          "kb_enabled": {
+            "default": true,
+            "description": "定期整理知识库，对照现行的规章制度",
+            "title": "Kb Enabled",
+            "type": "boolean"
+          },
+          "kb_hold_conflicts": {
+            "default": false,
+            "description": "和现行制度冲突、还没处理的知识先暂停用于 AI 接待（坐席仍然能看到）",
+            "title": "Kb Hold Conflicts",
+            "type": "boolean"
+          },
+          "kb_on_policy_change": {
+            "default": true,
+            "description": "规章制度新增、修改、废止后 10 分钟自动整理",
+            "title": "Kb On Policy Change",
+            "type": "boolean"
+          },
+          "kb_time": {
+            "default": "08:00",
+            "description": "知识库整理的时间",
+            "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$",
+            "title": "Kb Time",
+            "type": "string"
+          },
+          "kb_weekday": {
+            "default": 1,
+            "description": "每周哪一天整理（1 是周一）",
+            "maximum": 7.0,
+            "minimum": 1.0,
+            "title": "Kb Weekday",
+            "type": "integer"
+          }
+        },
+        "title": "WakeSettings",
+        "type": "object"
+      },
+      "WakeSettingsOut": {
+        "properties": {
+          "checks": {
+            "items": {
+              "$ref": "#/components/schemas/CheckOut"
+            },
+            "title": "Checks",
+            "type": "array"
+          },
+          "settings": {
+            "$ref": "#/components/schemas/WakeSettings"
+          }
+        },
+        "required": [
+          "settings",
+          "checks"
+        ],
+        "title": "WakeSettingsOut",
         "type": "object"
       },
       "WarehouseCounts": {
@@ -51331,6 +52525,180 @@
         ]
       }
     },
+    "/api/v1/kb/alignment": {
+      "get": {
+        "description": "最近一次知识库整理的报告、现行制度几份、待处理的制度对齐建议。",
+        "operationId": "alignment_api_v1_kb_alignment_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KbAlignment"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Alignment",
+        "tags": [
+          "knowledge"
+        ]
+      }
+    },
+    "/api/v1/kb/alignment/run": {
+      "post": {
+        "description": "立即整理：对照现行的规章制度检查知识（只核对有变化的），建议进审核台。",
+        "operationId": "run_alignment_api_v1_kb_alignment_run_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Run Alignment",
+        "tags": [
+          "knowledge"
+        ]
+      }
+    },
     "/api/v1/kb/audience-options": {
       "get": {
         "description": "编辑知识时可以选择的负责人（在职员工）和推送技能组。",
@@ -51420,7 +52788,7 @@
     },
     "/api/v1/kb/candidates": {
       "get": {
-        "description": "从会话提炼的候选。待审的按出现次数和最近出现时间排序。",
+        "description": "从会话提炼的候选和知识库整理的建议。待审的按出现次数和最近出现时间排序。",
         "operationId": "list_candidates_api_v1_kb_candidates_get",
         "parameters": [
           {
@@ -51451,7 +52819,8 @@
                     "similar",
                     "conflict",
                     "gap",
-                    "phrase"
+                    "phrase",
+                    "duplicate"
                   ],
                   "type": "string"
                 },
@@ -51460,6 +52829,31 @@
                 }
               ],
               "title": "Kind"
+            }
+          },
+          {
+            "description": "来源；policy 是知识库整理（制度对齐）生成的",
+            "in": "query",
+            "name": "source",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "session",
+                    "sidebar",
+                    "zone",
+                    "group",
+                    "policy"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "来源；policy 是知识库整理（制度对齐）生成的",
+              "title": "Source"
             }
           },
           {
@@ -53249,6 +54643,48 @@
               "default": false,
               "description": "只看我负责的",
               "title": "Mine",
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "true 只看规章制度；false 只看不是规章制度的",
+            "in": "query",
+            "name": "policy",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "true 只看规章制度；false 只看不是规章制度的",
+              "title": "Policy"
+            }
+          },
+          {
+            "description": "只看没有负责人的已发布知识",
+            "in": "query",
+            "name": "no_owner",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "只看没有负责人的已发布知识",
+              "title": "No Owner",
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "只看员工评价差的（点踩多于点赞且至少 3 次）",
+            "in": "query",
+            "name": "disliked",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "只看员工评价差的（点踩多于点赞且至少 3 次）",
+              "title": "Disliked",
               "type": "boolean"
             }
           },
@@ -79124,6 +80560,914 @@
         "summary": "Create Upload",
         "tags": [
           "visitor"
+        ]
+      }
+    },
+    "/api/v1/wake/findings": {
+      "get": {
+        "description": "巡检发现的问题：待处理的在前，按级别和发现的先后排列。",
+        "operationId": "list_findings_api_v1_wake_findings_get",
+        "parameters": [
+          {
+            "description": "mine 自己负责的；all 全部（管理员）",
+            "in": "query",
+            "name": "view",
+            "required": false,
+            "schema": {
+              "default": "mine",
+              "description": "mine 自己负责的；all 全部（管理员）",
+              "enum": [
+                "mine",
+                "all"
+              ],
+              "title": "View",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "open",
+                    "ignored",
+                    "resolved"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "category",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 16,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Category"
+            }
+          },
+          {
+            "in": "query",
+            "name": "severity",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "info",
+                    "warning",
+                    "critical"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Severity"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FindingPage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Findings",
+        "tags": [
+          "wake"
+        ]
+      }
+    },
+    "/api/v1/wake/findings/{finding_id}/ignore": {
+      "post": {
+        "description": "忽略：几天内不再提醒（到期后仍然存在就重新打开），或者一直忽略。负责人或管理员。",
+        "operationId": "ignore_finding_api_v1_wake_findings__finding_id__ignore_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "finding_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Finding Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IgnoreRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FindingOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Ignore Finding",
+        "tags": [
+          "wake"
+        ]
+      }
+    },
+    "/api/v1/wake/findings/{finding_id}/resolve": {
+      "post": {
+        "description": "标记已处理：下次检查仍然发现就重新打开。负责人或管理员。",
+        "operationId": "resolve_finding_api_v1_wake_findings__finding_id__resolve_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "finding_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Finding Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/ResolveRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Payload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FindingOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Resolve Finding",
+        "tags": [
+          "wake"
+        ]
+      }
+    },
+    "/api/v1/wake/overview": {
+      "get": {
+        "description": "下次唤醒的时间、最近一次简报和知识库整理、各级别的问题数、增量更新索引最近的变化。",
+        "operationId": "overview_api_v1_wake_overview_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WakeOverview"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Overview",
+        "tags": [
+          "wake"
+        ]
+      }
+    },
+    "/api/v1/wake/runs": {
+      "get": {
+        "description": "唤醒记录（新的在前）。",
+        "operationId": "list_runs_api_v1_wake_runs_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "kind",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "hourly",
+                    "daily",
+                    "kb"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Kind"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunPage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Runs",
+        "tags": [
+          "wake"
+        ]
+      },
+      "post": {
+        "description": "立即唤醒：daily 立即巡检（全部检查项重新检查、写简报），kb 立即整理知识库。实时消费\n进程几秒内开始执行。",
+        "operationId": "run_now_api_v1_wake_runs_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RunRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Run Now",
+        "tags": [
+          "wake"
+        ]
+      }
+    },
+    "/api/v1/wake/settings": {
+      "get": {
+        "description": "设置，以及检查项的目录（名称、说明、数字的默认值和范围、读的数据表、最近检查的时间）。",
+        "operationId": "get_settings_api_v1_wake_settings_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WakeSettingsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Settings",
+        "tags": [
+          "wake"
+        ]
+      },
+      "put": {
+        "operationId": "update_settings_api_v1_wake_settings_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WakeSettings"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WakeSettingsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Update Settings",
+        "tags": [
+          "wake"
         ]
       }
     },

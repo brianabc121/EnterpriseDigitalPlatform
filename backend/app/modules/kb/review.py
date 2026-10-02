@@ -3,6 +3,8 @@
 - 新问题、知识缺口：通过（可以先编辑，缺口需要补充答案）后新建为问答并发布；
 - 相似问法：通过后把问法并入原问答；
 - 冲突：通过后用候选的答案更新原问答（新版本，可回滚）；
+- 重复（知识库整理发现的，§33.7.2）：通过后把另一条的问法并入保留的一条（可以同时替换答案），
+  另一条下线；
 - 任意候选都可以合并到审核人选定的已有知识，或驳回（需填写理由，用于改进提炼）。
 可选的自动通过规则只适用于"给已有问答增加相似问法"，且要求证据不少于 3 条、相似度足够高。
 """
@@ -128,6 +130,7 @@ async def list_candidates(
     kind: str | None,
     limit: int,
     offset: int,
+    source: str | None = None,
     now: datetime | None = None,
 ) -> KbCandidatePage:
     """按影响排序：出现次数多、最近还在出现的在前（设计 §12.5）。"""
@@ -135,6 +138,8 @@ async def list_candidates(
     query = select(KbCandidate).where(KbCandidate.status == status)
     if kind:
         query = query.where(KbCandidate.kind == kind)
+    if source:
+        query = query.where(KbCandidate.source == source)
     total = await session.scalar(select(func.count()).select_from(query.subquery()))
     order = (
         (KbCandidate.occurrences.desc(), KbCandidate.last_seen_at.desc())
@@ -320,6 +325,28 @@ async def approve(
             note=f"合并候选问法：{question}",
         )
         _reviewed(session, principal, candidate, CandidateStatus.MERGED, item=target)
+    elif candidate.kind == CandidateKind.DUPLICATE and target is not None:
+        other = await _duplicate_of(session, candidate)
+        if other is not None:
+            await revise(
+                ctx,
+                session,
+                target,
+                staff_id=principal.staff_id,
+                questions=[other.title, *other.questions],
+                content=payload.answer,
+                note=f"合并重复的知识：{other.title}",
+            )
+            if other.status != ItemStatus.ARCHIVED:
+                await service.take_offline(session, other, datetime.now(UTC))
+        _reviewed(
+            session,
+            principal,
+            candidate,
+            CandidateStatus.MERGED,
+            item=target,
+            note=f"合并了重复的知识「{other.title}」并下线" if other else None,
+        )
     elif candidate.kind == CandidateKind.CONFLICT and target is not None:
         if not answer:
             raise Unprocessable("请填写答案")
@@ -357,6 +384,19 @@ async def approve(
         target = item
     await session.commit()
     return await _out(session, candidate)
+
+
+async def _duplicate_of(session: AsyncSession, candidate: KbCandidate) -> KbItem | None:
+    """重复建议里要并入保留的一条、然后下线的那条知识。"""
+    for entry in candidate.evidence:
+        if isinstance(entry, dict) and entry.get("kind") == "duplicate" and entry.get("item_id"):
+            try:
+                item_id = uuid.UUID(str(entry["item_id"]))
+            except ValueError:
+                continue
+            if item_id != candidate.target_item_id:
+                return await session.get(KbItem, item_id, with_for_update=True)
+    return None
 
 
 async def merge(

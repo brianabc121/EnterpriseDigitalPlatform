@@ -1,4 +1,5 @@
 import {
+  AlarmClock,
   Avatar,
   Box,
   ChatDotRound,
@@ -40,6 +41,7 @@ export const MENU_ICONS: Record<MenuIcon, Component> = {
   user: User,
   reading: Reading,
   ai: MagicStick,
+  wake: AlarmClock,
   assistant: ChatLineRound,
   avatar: Avatar,
   chart: DataLine,

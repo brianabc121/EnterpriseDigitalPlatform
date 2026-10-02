@@ -2209,6 +2209,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/kb/alignment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Alignment
+         * @description 最近一次知识库整理的报告、现行制度几份、待处理的制度对齐建议。
+         */
+        get: operations["alignment_api_v1_kb_alignment_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/kb/alignment/run": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Run Alignment
+         * @description 立即整理：对照现行的规章制度检查知识（只核对有变化的），建议进审核台。
+         */
+        post: operations["run_alignment_api_v1_kb_alignment_run_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/kb/audience-options": {
         parameters: {
             query?: never;
@@ -2238,7 +2278,7 @@ export interface paths {
         };
         /**
          * List Candidates
-         * @description 从会话提炼的候选。待审的按出现次数和最近出现时间排序。
+         * @description 从会话提炼的候选和知识库整理的建议。待审的按出现次数和最近出现时间排序。
          */
         get: operations["list_candidates_api_v1_kb_candidates_get"];
         put?: never;
@@ -6548,6 +6588,132 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/wake/findings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Findings
+         * @description 巡检发现的问题：待处理的在前，按级别和发现的先后排列。
+         */
+        get: operations["list_findings_api_v1_wake_findings_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/wake/findings/{finding_id}/ignore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ignore Finding
+         * @description 忽略：几天内不再提醒（到期后仍然存在就重新打开），或者一直忽略。负责人或管理员。
+         */
+        post: operations["ignore_finding_api_v1_wake_findings__finding_id__ignore_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/wake/findings/{finding_id}/resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Resolve Finding
+         * @description 标记已处理：下次检查仍然发现就重新打开。负责人或管理员。
+         */
+        post: operations["resolve_finding_api_v1_wake_findings__finding_id__resolve_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/wake/overview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Overview
+         * @description 下次唤醒的时间、最近一次简报和知识库整理、各级别的问题数、增量更新索引最近的变化。
+         */
+        get: operations["overview_api_v1_wake_overview_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/wake/runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Runs
+         * @description 唤醒记录（新的在前）。
+         */
+        get: operations["list_runs_api_v1_wake_runs_get"];
+        put?: never;
+        /**
+         * Run Now
+         * @description 立即唤醒：daily 立即巡检（全部检查项重新检查、写简报），kb 立即整理知识库。实时消费
+         *     进程几秒内开始执行。
+         */
+        post: operations["run_now_api_v1_wake_runs_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/wake/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Settings
+         * @description 设置，以及检查项的目录（名称、说明、数字的默认值和范围、读的数据表、最近检查的时间）。
+         */
+        get: operations["get_settings_api_v1_wake_settings_get"];
+        /** Update Settings */
+        put: operations["update_settings_api_v1_wake_settings_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/warehouse/categories": {
         parameters: {
             query?: never;
@@ -9603,6 +9769,80 @@ export interface components {
              */
             tools: string[];
         };
+        /** CheckConfig */
+        CheckConfig: {
+            /**
+             * Enabled
+             * @default true
+             */
+            enabled: boolean;
+            /** Params */
+            params?: {
+                [key: string]: number;
+            };
+        };
+        /** CheckOut */
+        CheckOut: {
+            /**
+             * Available
+             * @description 套餐包含它需要的功能
+             */
+            available: boolean;
+            /** Category */
+            category: string;
+            /** Category Label */
+            category_label: string;
+            /**
+             * Changed At
+             * @description 这些表最近一次变化的时间
+             */
+            changed_at: string | null;
+            /**
+             * Checked At
+             * @description 最近一次实际检查的时间
+             */
+            checked_at: string | null;
+            /** Code */
+            code: string;
+            /** Description */
+            description: string;
+            /**
+             * Domains
+             * @description 检查时读的数据表（增量更新索引里比对它们的变化）
+             */
+            domains: string[];
+            /** Enabled */
+            enabled: boolean;
+            /**
+             * Hourly
+             * @description 每小时检查也做；否则只在每日巡检里做
+             */
+            hourly: boolean;
+            /** Params */
+            params: components["schemas"]["CheckParamOut"][];
+            /** Title */
+            title: string;
+        };
+        /** CheckParamOut */
+        CheckParamOut: {
+            /** Default */
+            default: number;
+            /** Label */
+            label: string;
+            /** Maximum */
+            maximum: number;
+            /** Minimum */
+            minimum: number;
+            /** Name */
+            name: string;
+            /** Unit */
+            unit: string;
+            /**
+             * Value
+             * @description 现在的值
+             */
+            value: number;
+        };
         /** ClosureRequest */
         ClosureRequest: {
             /**
@@ -9748,7 +9988,7 @@ export interface components {
          * @description 控制台的菜单，与前端 menu.ts 的菜单名一致（前端按 OpenAPI 的枚举检查）。
          * @enum {string}
          */
-        ConsoleMenu: "dashboard" | "workbench" | "sessions" | "todos" | "orders" | "receivables" | "products" | "production" | "warehouse" | "tasks" | "customers" | "knowledge" | "ai" | "assistant" | "staff" | "reports" | "profit" | "broadcasts" | "wecom" | "audit" | "settings";
+        ConsoleMenu: "dashboard" | "workbench" | "sessions" | "todos" | "orders" | "receivables" | "products" | "production" | "warehouse" | "tasks" | "customers" | "knowledge" | "ai" | "wake" | "assistant" | "staff" | "reports" | "profit" | "broadcasts" | "wecom" | "audit" | "settings";
         /**
          * ConsoleOut
          * @description 按岗位的控制台（设计文档 §25.15）。
@@ -10386,6 +10626,26 @@ export interface components {
              * @description 新会话数（按会话创建时间统计）
              */
             sessions: number;
+        };
+        /** DataChange */
+        DataChange: {
+            /**
+             * Changed At
+             * Format: date-time
+             */
+            changed_at: string;
+            /**
+             * Domain
+             * @description 数据表
+             */
+            domain: string;
+            /** Label */
+            label: string;
+            /**
+             * Seq
+             * @description 最近一次变化的编号（全库递增）
+             */
+            seq: number;
         };
         /** DeadLetterAction */
         DeadLetterAction: {
@@ -11253,6 +11513,115 @@ export interface components {
             /** Value */
             value: string;
         };
+        /** FindingOut */
+        FindingOut: {
+            /**
+             * Assignees
+             * @description 负责人
+             */
+            assignees: components["schemas"]["Person"][];
+            /**
+             * Can Handle
+             * @description 可以忽略、标记已处理（负责人或管理员）
+             */
+            can_handle: boolean;
+            /** Category */
+            category: string;
+            /** Category Label */
+            category_label: string;
+            /** Check Code */
+            check_code: string;
+            /**
+             * Check Title
+             * @description 检查项的名称
+             */
+            check_title: string;
+            /**
+             * Data
+             * @description 检查时的数字；since 是开始等待的时间（页面显示已经多久）
+             */
+            data: {
+                [key: string]: unknown;
+            };
+            /** Detail */
+            detail: string | null;
+            /** Entity Id */
+            entity_id: string | null;
+            /** Entity Type */
+            entity_type: string | null;
+            /**
+             * Escalated At
+             * @description 升级给管理员的时间
+             */
+            escalated_at: string | null;
+            /**
+             * First Seen At
+             * Format: date-time
+             */
+            first_seen_at: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Ignore Note */
+            ignore_note: string | null;
+            ignored_by: components["schemas"]["Person"] | null;
+            /**
+             * Ignored Until
+             * @description 忽略到什么时候；一直忽略时为空
+             */
+            ignored_until: string | null;
+            /**
+             * Last Seen At
+             * Format: date-time
+             * @description 最近一次检查仍然发现的时间
+             */
+            last_seen_at: string;
+            /**
+             * Link
+             * @description 打开对象的页面（订单、单据、待办……）
+             */
+            link: string | null;
+            /**
+             * Mine
+             * @description 负责人包含自己
+             */
+            mine: boolean;
+            /** Notified At */
+            notified_at: string | null;
+            /** Resolve Note */
+            resolve_note: string | null;
+            /** Resolved At */
+            resolved_at: string | null;
+            /** @description 标记已处理的人；自动消除时为空 */
+            resolved_by: components["schemas"]["Person"] | null;
+            /** Seen Count */
+            seen_count: number;
+            /**
+             * Severity
+             * @description info 提示、warning 注意、critical 严重
+             * @enum {string}
+             */
+            severity: "info" | "warning" | "critical";
+            /**
+             * Status
+             * @description open 待处理、ignored 已忽略、resolved 已消除
+             * @enum {string}
+             */
+            status: "open" | "ignored" | "resolved";
+            /** Title */
+            title: string;
+        };
+        /** FindingPage */
+        FindingPage: {
+            /** Items */
+            items: components["schemas"]["FindingOut"][];
+            /** @description 同一范围（自己负责的或全部）待处理的问题数 */
+            open: components["schemas"]["SeverityCounts"];
+            /** Total */
+            total: number;
+        };
         /** FollowOut */
         FollowOut: {
             /** Added At */
@@ -12090,6 +12459,20 @@ export interface components {
             /** Staff Name */
             staff_name: string | null;
         };
+        /** IgnoreRequest */
+        IgnoreRequest: {
+            /**
+             * Days
+             * @description 几天内不再提醒；为空表示一直忽略（直到问题消除）
+             * @default 7
+             */
+            days: number | null;
+            /**
+             * Note
+             * @description 原因
+             */
+            note?: string | null;
+        };
         /** ImOpAction */
         ImOpAction: {
             /** Ids */
@@ -12549,6 +12932,41 @@ export interface components {
             /** Corp Id */
             corp_id: string;
         };
+        /** KbAlignment */
+        KbAlignment: {
+            /**
+             * Enabled
+             * @description 开启了定期整理
+             */
+            enabled: boolean;
+            /**
+             * Finished At
+             * @description 最近一次整理完成的时间
+             */
+            finished_at: string | null;
+            /**
+             * Pending
+             * @description 待处理的制度对齐建议
+             */
+            pending: number;
+            /**
+             * Policies
+             * @description 现行制度几份
+             */
+            policies: number;
+            /**
+             * Report
+             * @description 整理报告（§33.7.2）
+             */
+            report: {
+                [key: string]: unknown;
+            };
+            /**
+             * Running
+             * @description 正在排队或整理
+             */
+            running: boolean;
+        };
         /** KbAudienceOption */
         KbAudienceOption: {
             /**
@@ -12611,7 +13029,7 @@ export interface components {
             id: string;
             /**
              * Kind
-             * @description new 新问题、similar 相似问法、conflict 答案冲突、gap 知识缺口、phrase 优秀话术（question 为标题，answer 为话术）
+             * @description new 新问题、similar 相似问法、conflict 答案冲突、gap 知识缺口、phrase 优秀话术（question 为标题，answer 为话术）、duplicate 重复的知识（target 是保留的一条）
              */
             kind: string;
             /**
@@ -12655,7 +13073,7 @@ export interface components {
             similarity: number | null;
             /**
              * Source
-             * @description 来源：session 会话、sidebar 侧边栏、zone 专区、group 群聊
+             * @description 来源：session 会话、sidebar 侧边栏、zone 专区、group 群聊、policy 制度对齐
              * @default session
              */
             source: string;
@@ -12720,7 +13138,7 @@ export interface components {
             id: string;
             /**
              * Kind
-             * @description new 新问题、similar 相似问法、conflict 答案冲突、gap 知识缺口、phrase 优秀话术（question 为标题，answer 为话术）
+             * @description new 新问题、similar 相似问法、conflict 答案冲突、gap 知识缺口、phrase 优秀话术（question 为标题，answer 为话术）、duplicate 重复的知识（target 是保留的一条）
              */
             kind: string;
             /**
@@ -12759,7 +13177,7 @@ export interface components {
             similarity: number | null;
             /**
              * Source
-             * @description 来源：session 会话、sidebar 侧边栏、zone 专区、group 群聊
+             * @description 来源：session 会话、sidebar 侧边栏、zone 专区、group 群聊、policy 制度对齐
              * @default session
              */
             source: string;
@@ -12874,6 +13292,12 @@ export interface components {
              */
             max_pages?: number | null;
             /**
+             * Policy
+             * @description 标为规章制度（文档和网页；问答表不适用）
+             * @default false
+             */
+            policy: boolean;
+            /**
              * Publish
              * @description 导入后立即发布（需要 kb:publish）
              * @default false
@@ -12927,18 +13351,61 @@ export interface components {
         };
         /**
          * KbEvidence
-         * @description 一段证据对话（提炼时已脱敏）。来自侧边栏问答或内部群聊（§27.4）时没有会话。
+         * @description 建议的依据。从聊天提炼的是一段证据对话（已脱敏，来自侧边栏问答或内部群聊（§27.4）时没有会话）；
+         *     知识库整理（§33.7）的是规章制度的原文（kind=policy），或者重复的另一条知识（kind=duplicate）。
          */
         KbEvidence: {
+            /**
+             * Answer
+             * @description 重复的另一条知识的答案
+             */
+            answer?: string | null;
+            /**
+             * Excerpt
+             * @description 依据的制度原文
+             */
+            excerpt?: string | null;
             /**
              * Group Name
              * @description 来自 AI 助理记录的群聊时的群名
              */
             group_name?: string | null;
+            /**
+             * Hits
+             * @description 重复的另一条知识被引用的次数
+             */
+            hits?: number | null;
+            /**
+             * Item Id
+             * @description 重复的另一条知识
+             */
+            item_id?: string | null;
+            /**
+             * Kind
+             * @description 为空是证据对话；policy 制度原文；duplicate 重复的另一条知识
+             */
+            kind?: string | null;
             /** Lines */
-            lines: components["schemas"]["KbEvidenceLine"][];
+            lines?: components["schemas"]["KbEvidenceLine"][];
+            /**
+             * Policy Item Id
+             * @description 依据的规章制度
+             */
+            policy_item_id?: string | null;
+            /** Policy Title */
+            policy_title?: string | null;
             /** Question */
             question?: string | null;
+            /**
+             * Reason
+             * @description 为什么提出这条建议（哪里不一致）
+             */
+            reason?: string | null;
+            /**
+             * Same Answer
+             * @description 两条重复知识的答案是否相同
+             */
+            same_answer?: boolean | null;
             /**
              * Seen At
              * Format: date-time
@@ -12946,6 +13413,8 @@ export interface components {
             seen_at: string;
             /** Session Id */
             session_id?: string | null;
+            /** Title */
+            title?: string | null;
         };
         /** KbEvidenceLine */
         KbEvidenceLine: {
@@ -13154,6 +13623,12 @@ export interface components {
              */
             owner_id?: string | null;
             /**
+             * Policy
+             * @description 规章制度：AI 唤醒整理知识库时作为依据（§33.7.1）
+             * @default false
+             */
+            policy: boolean;
+            /**
              * Publish
              * @description 创建后立即发布（需要 kb:publish）
              * @default false
@@ -13233,6 +13708,11 @@ export interface components {
             must_read: boolean;
             /** Owner Id */
             owner_id: string | null;
+            /**
+             * Policy
+             * @description 规章制度（知识库整理的依据）
+             */
+            policy: boolean;
             /** Published At */
             published_at: string | null;
             /** Questions */
@@ -13383,6 +13863,11 @@ export interface components {
              * @description 传 null 表示不设负责人
              */
             owner_id?: string | null;
+            /**
+             * Policy
+             * @description 规章制度
+             */
+            policy?: boolean | null;
             /** Questions */
             questions?: string[] | null;
             /**
@@ -13644,6 +14129,12 @@ export interface components {
              * @enum {string}
              */
             kind: "document" | "excel";
+            /**
+             * Policy
+             * @description 标为规章制度（文档和网页；问答表不适用）
+             * @default false
+             */
+            policy: boolean;
             /**
              * Publish
              * @description 导入后立即发布（需要 kb:publish）
@@ -16799,6 +17290,16 @@ export interface components {
             /** Items */
             items: components["schemas"]["PermissionInfo"][];
         };
+        /** Person */
+        Person: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+        };
         /**
          * PersonalData
          * @description 客户个人信息副本（个人信息查询请求）。
@@ -18771,6 +19272,11 @@ export interface components {
             /** Done */
             done: number;
         };
+        /** ResolveRequest */
+        ResolveRequest: {
+            /** Note */
+            note?: string | null;
+        };
         /**
          * RetentionPolicy
          * @description 聊天记录保留期（到期后由调度进程删除）。为空表示一直保留。
@@ -19100,6 +19606,78 @@ export interface components {
             };
             /** Key */
             key: string;
+        };
+        /** RunOut */
+        RunOut: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            created_by: components["schemas"]["Person"] | null;
+            /** Error */
+            error: string | null;
+            /** Finished At */
+            finished_at: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Kind
+             * @description hourly 每小时检查、daily 每日巡检、kb 知识库整理
+             * @enum {string}
+             */
+            kind: "hourly" | "daily" | "kb";
+            /** Kind Label */
+            kind_label: string;
+            /**
+             * Not Before
+             * Format: date-time
+             */
+            not_before: string;
+            /** Started At */
+            started_at: string | null;
+            /**
+             * Stats
+             * @description 巡检：checks 检查项、ran 实际运行、skipped 数据没变而跳过、found 发现、new 新问题、resolved 已消除、notified 通知人数；整理：整理报告
+             */
+            stats: {
+                [key: string]: unknown;
+            };
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "queued" | "running" | "done" | "failed" | "skipped";
+            /**
+             * Summary
+             * @description 每日巡检的 AI 简报
+             */
+            summary: string | null;
+            /**
+             * Trigger
+             * @description schedule 定时、event 规章制度变化、manual 立即唤醒、continue 接着上次整理
+             * @enum {string}
+             */
+            trigger: "schedule" | "event" | "manual" | "continue";
+        };
+        /** RunPage */
+        RunPage: {
+            /** Items */
+            items: components["schemas"]["RunOut"][];
+            /** Total */
+            total: number;
+        };
+        /** RunRequest */
+        RunRequest: {
+            /**
+             * Kind
+             * @description daily 立即巡检、kb 立即整理知识库
+             * @enum {string}
+             */
+            kind: "daily" | "kb";
         };
         /** SendMessageRequest */
         SendMessageRequest: {
@@ -19571,6 +20149,29 @@ export interface components {
             summary: string;
             /** Tags */
             tags: string[];
+        };
+        /** SeverityCounts */
+        SeverityCounts: {
+            /**
+             * Critical
+             * @default 0
+             */
+            critical: number;
+            /**
+             * Info
+             * @default 0
+             */
+            info: number;
+            /**
+             * Total
+             * @default 0
+             */
+            total: number;
+            /**
+             * Warning
+             * @default 0
+             */
+            warning: number;
         };
         /** ShipRequest */
         ShipRequest: {
@@ -20847,6 +21448,12 @@ export interface components {
             id: string;
             /** Name */
             name: string;
+            /**
+             * Timezone
+             * @description 企业的时区（默认路由策略的工作时间）：报表的今天、本月按它算
+             * @default Asia/Shanghai
+             */
+            timezone: string;
         };
         /** TenantChannels */
         TenantChannels: {
@@ -22598,6 +23205,134 @@ export interface components {
         VoidRequest: {
             /** Reason */
             reason: string;
+        };
+        /** WakeOverview */
+        WakeOverview: {
+            /**
+             * Available
+             * @description 套餐包含 AI 唤醒（AI 接待与坐席助手）
+             */
+            available: boolean;
+            /** @description 最近一次每日巡检（含 AI 简报） */
+            brief: components["schemas"]["RunOut"] | null;
+            /**
+             * Data Index
+             * @description 增量更新索引：最近有变化的数据表（最多 12 张）
+             */
+            data_index: components["schemas"]["DataChange"][];
+            /** Enabled */
+            enabled: boolean;
+            /** @description 最近一次知识库整理 */
+            kb: components["schemas"]["RunOut"] | null;
+            /** @description 最近一次完成的巡检（每小时或每日） */
+            latest: components["schemas"]["RunOut"] | null;
+            /**
+             * Next Daily
+             * @description 下一次每日巡检
+             */
+            next_daily: string | null;
+            /**
+             * Next Hourly
+             * @description 下一次每小时检查
+             */
+            next_hourly: string | null;
+            /**
+             * Next Kb
+             * @description 下一次知识库整理
+             */
+            next_kb: string | null;
+            open: components["schemas"]["SeverityCounts"];
+            /**
+             * Pending
+             * @description 排队中、执行中的唤醒
+             */
+            pending: components["schemas"]["RunOut"][];
+            /**
+             * Tracked
+             * @description 增量更新索引里有记录的数据表数
+             */
+            tracked: number;
+        };
+        /** WakeSettings */
+        WakeSettings: {
+            /**
+             * Brief Staff Ids
+             * @description 除租户管理员外，还有谁收到每日简报
+             */
+            brief_staff_ids?: string[];
+            /**
+             * Checks
+             * @description 检查项的开关和数字（只保存改过的）
+             */
+            checks?: {
+                [key: string]: components["schemas"]["CheckConfig"];
+            };
+            /**
+             * Daily Time
+             * @description 每日巡检的时间
+             * @default 08:30
+             */
+            daily_time: string;
+            /**
+             * Daily Workdays Only
+             * @description 每日巡检只在工作日（按默认路由策略的工作时间）
+             * @default true
+             */
+            daily_workdays_only: boolean;
+            /**
+             * Enabled
+             * @description 开启 AI 唤醒：关掉后不再巡检、不再整理知识库
+             * @default true
+             */
+            enabled: boolean;
+            /**
+             * Escalate Days
+             * @description 问题超过几天没处理就升级给管理员
+             * @default 2
+             */
+            escalate_days: number;
+            /**
+             * Hourly
+             * @description 工作时间内每小时检查需要及时处理的问题
+             * @default true
+             */
+            hourly: boolean;
+            /**
+             * Kb Enabled
+             * @description 定期整理知识库，对照现行的规章制度
+             * @default true
+             */
+            kb_enabled: boolean;
+            /**
+             * Kb Hold Conflicts
+             * @description 和现行制度冲突、还没处理的知识先暂停用于 AI 接待（坐席仍然能看到）
+             * @default false
+             */
+            kb_hold_conflicts: boolean;
+            /**
+             * Kb On Policy Change
+             * @description 规章制度新增、修改、废止后 10 分钟自动整理
+             * @default true
+             */
+            kb_on_policy_change: boolean;
+            /**
+             * Kb Time
+             * @description 知识库整理的时间
+             * @default 08:00
+             */
+            kb_time: string;
+            /**
+             * Kb Weekday
+             * @description 每周哪一天整理（1 是周一）
+             * @default 1
+             */
+            kb_weekday: number;
+        };
+        /** WakeSettingsOut */
+        WakeSettingsOut: {
+            /** Checks */
+            checks: components["schemas"]["CheckOut"][];
+            settings: components["schemas"]["WakeSettings"];
         };
         /** WarehouseCounts */
         WarehouseCounts: {
@@ -33556,6 +34291,154 @@ export interface operations {
             };
         };
     };
+    alignment_api_v1_kb_alignment_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KbAlignment"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    run_alignment_api_v1_kb_alignment_run_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RunOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     audience_options_api_v1_kb_audience_options_get: {
         parameters: {
             query?: never;
@@ -33634,7 +34517,9 @@ export interface operations {
         parameters: {
             query?: {
                 status?: "pending" | "approved" | "merged" | "rejected";
-                kind?: ("new" | "similar" | "conflict" | "gap" | "phrase") | null;
+                kind?: ("new" | "similar" | "conflict" | "gap" | "phrase" | "duplicate") | null;
+                /** @description 来源；policy 是知识库整理（制度对齐）生成的 */
+                source?: ("session" | "sidebar" | "zone" | "group" | "policy") | null;
                 limit?: number;
                 offset?: number;
             };
@@ -34892,6 +35777,12 @@ export interface operations {
                 owner_id?: string | null;
                 /** @description 只看我负责的 */
                 mine?: boolean;
+                /** @description true 只看规章制度；false 只看不是规章制度的 */
+                policy?: boolean | null;
+                /** @description 只看没有负责人的已发布知识 */
+                no_owner?: boolean;
+                /** @description 只看员工评价差的（点踩多于点赞且至少 3 次） */
+                disliked?: boolean;
                 limit?: number;
                 offset?: number;
             };
@@ -53891,6 +54782,630 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["UploadOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    list_findings_api_v1_wake_findings_get: {
+        parameters: {
+            query?: {
+                /** @description mine 自己负责的；all 全部（管理员） */
+                view?: "mine" | "all";
+                status?: ("open" | "ignored" | "resolved") | null;
+                category?: string | null;
+                severity?: ("info" | "warning" | "critical") | null;
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FindingPage"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    ignore_finding_api_v1_wake_findings__finding_id__ignore_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                finding_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["IgnoreRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FindingOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    resolve_finding_api_v1_wake_findings__finding_id__resolve_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                finding_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["ResolveRequest"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FindingOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    overview_api_v1_wake_overview_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WakeOverview"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    list_runs_api_v1_wake_runs_get: {
+        parameters: {
+            query?: {
+                kind?: ("hourly" | "daily" | "kb") | null;
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RunPage"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    run_now_api_v1_wake_runs_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RunRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RunOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_settings_api_v1_wake_settings_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WakeSettingsOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    update_settings_api_v1_wake_settings_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WakeSettings"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WakeSettingsOut"];
                 };
             };
             /** @description Bad Request */

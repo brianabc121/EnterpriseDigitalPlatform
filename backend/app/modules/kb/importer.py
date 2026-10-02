@@ -85,6 +85,7 @@ async def _target(
         "space_id": str(space_id) if space_id else None,
         "category_id": str(category_id) if category_id else None,
         "visibility": payload.visibility or "public",
+        "policy": payload.policy,
     }
 
 
@@ -281,6 +282,7 @@ def _create(params: dict[str, Any], **fields: Any) -> KbItemCreate:
         space_id=params.get("space_id"),
         category_id=params.get("category_id"),
         visibility=params.get("visibility") or "public",
+        policy=bool(params.get("policy")) and fields.get("kind") == ItemKind.DOC,
         **fields,
     )
 

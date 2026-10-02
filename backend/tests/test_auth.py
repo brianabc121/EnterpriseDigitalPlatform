@@ -73,6 +73,8 @@ async def test_me_returns_profile_roles_and_permissions(
     me = response.json()
     assert me["username"] == "admin"
     assert me["tenant"]["code"] == "acme"
+    # 企业的时区（默认路由策略的工作时间）：报表的今天、本月按它算。
+    assert me["tenant"]["timezone"] == "Asia/Shanghai"
     assert me["roles"] == ["tenant_admin"]
     assert set(me["permissions"]) == set(ALL_PERMISSIONS)
 

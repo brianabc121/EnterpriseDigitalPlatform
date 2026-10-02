@@ -44,6 +44,7 @@ from app.modules.kb.schemas import (
     KbItemUpdate,
 )
 from app.modules.kb.text import chunk_document, terms
+from app.modules.wake import queue as wake_queue
 
 logger = logging.getLogger(__name__)
 
@@ -51,6 +52,10 @@ ITEM_NOT_FOUND = "知识不存在"
 MAX_IMPORT_ROWS = 2000
 # 修改这些字段会影响检索或回答，已发布的条目需要重建检索单元并升级版本。
 _CONTENT_FIELDS = {"title", "content", "questions", "visibility", "valid_from", "valid_to"}
+# 规章制度改了这些字段（或者标为、取消规章制度）时重新整理知识库（§33.7.4）。
+_POLICY_FIELDS = _CONTENT_FIELDS | {"policy"}
+# 员工评价差：点踩多于点赞、至少 3 次（知识库整理的整理清单，§33.7.2）。
+DISLIKED_AT_LEAST = 3
 # 版本快照保存的字段。
 _SNAPSHOT_FIELDS = (
     "title",
@@ -107,6 +112,9 @@ async def list_items(
     owner_id: uuid.UUID | None = None,
     unassigned: bool = False,
     expiring: bool = False,
+    policy: bool | None = None,
+    no_owner: bool = False,
+    disliked: bool = False,
     now: datetime | None = None,
 ) -> KbItemPage:
     query = _scope(principal)
@@ -141,6 +149,16 @@ async def list_items(
         order = [KbItem.valid_to.asc(), KbItem.id.desc()]
     if must_read:
         query = query.where(KbItem.must_read.is_(True))
+    if policy is not None:
+        query = query.where(KbItem.policy.is_(policy))
+    if no_owner:
+        query = query.where(KbItem.status == ItemStatus.PUBLISHED, KbItem.owner_id.is_(None))
+    if disliked:
+        query = query.where(
+            KbItem.status == ItemStatus.PUBLISHED,
+            KbItem.dislikes > KbItem.likes,
+            KbItem.dislikes >= DISLIKED_AT_LEAST,
+        )
     if kind:
         query = query.where(KbItem.kind == kind)
     if category:
@@ -260,6 +278,7 @@ async def create_item(
         owner_id=payload.owner_id,
         audience_group_ids=groups,
         source_url=source_url,
+        policy=payload.policy,
     )
     session.add(item)
     await session.flush()
@@ -311,6 +330,12 @@ async def update_item(
         item.version += 1
         await reindex(ctx, session, item)
         await snapshot(session, item, VersionChange.UPDATED, principal.staff_id)
+    if (
+        item.status == ItemStatus.PUBLISHED
+        and (item.policy or "policy" in changed)
+        and _POLICY_FIELDS & changed
+    ):
+        await wake_queue.policy_changed(session, item.tenant_id, datetime.now(UTC))
     detail = payload.model_dump(mode="json", exclude_unset=True)
     _audit(session, principal, "kb_item.update", item, detail, ip)
     await session.commit()
@@ -403,6 +428,8 @@ async def _publish(
     await snapshot(session, item, change, principal.staff_id, note=note)
     await reindex(ctx, session, item)
     _audit(session, principal, "kb_item.publish", item, {"version": item.version}, ip)
+    if item.policy:
+        await wake_queue.policy_changed(session, item.tenant_id, datetime.now(UTC))
 
 
 async def publish_item(
@@ -425,14 +452,22 @@ async def archive_item(
 ) -> KbItem:
     """下线：AI 与坐席不再使用，保留条目以便重新发布。"""
     item = await get_item(session, principal, item_id)
-    item.status = ItemStatus.ARCHIVED
-    item.archived_at = datetime.now(UTC)
-    await session.execute(delete(KbChunk).where(KbChunk.item_id == item.id))
-    await answer_cache.clear(session, item.tenant_id)
+    await take_offline(session, item, datetime.now(UTC))
     _audit(session, principal, "kb_item.archive", item, None, ip)
     await session.commit()
     await session.refresh(item)
     return item
+
+
+async def take_offline(session: AsyncSession, item: KbItem, now: datetime) -> None:
+    """下线（由调用方提交）：删除检索单元、清空答案缓存；规章制度下线后重新整理知识库。"""
+    published = item.status == ItemStatus.PUBLISHED
+    item.status = ItemStatus.ARCHIVED
+    item.archived_at = now
+    await session.execute(delete(KbChunk).where(KbChunk.item_id == item.id))
+    await answer_cache.clear(session, item.tenant_id)
+    if published and item.policy:
+        await wake_queue.policy_changed(session, item.tenant_id, now)
 
 
 async def list_versions(
@@ -497,6 +532,9 @@ async def expire_items(ctx: AppContext, *, now: datetime | None = None) -> int:
         ).all()
         for tenant_id in {item.tenant_id for item in items}:
             await answer_cache.clear(session, tenant_id)
+        # 规章制度到期：现行制度变了，重新整理知识库（§33.7.4）。
+        for tenant_id in {item.tenant_id for item in items if item.policy}:
+            await wake_queue.policy_changed(session, tenant_id, now)
         for item in items:
             item.status = ItemStatus.ARCHIVED
             item.archived_at = now

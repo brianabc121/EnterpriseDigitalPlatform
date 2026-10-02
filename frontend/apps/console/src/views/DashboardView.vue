@@ -9,13 +9,15 @@ import type { HomeData } from '../components/home/home'
 import KeeperHome from '../components/home/KeeperHome.vue'
 import KnowledgeHome from '../components/home/KnowledgeHome.vue'
 import TeamHome from '../components/home/TeamHome.vue'
+import WakeHome from '../components/home/WakeHome.vue'
 import { PROFILE_LABEL } from '../menu'
 import { ORDERS_CHANGED } from '../orders'
 import { useAuthStore } from '../stores/auth'
 import { TODOS_CHANGED } from '../todos'
 
 /**
- * 首页（§25.15）：按员工的岗位依次显示——管理员和主管看团队的实时接待和待处理的事情，客服看自己的
+ * 首页（§25.15）：最上面是 AI 巡检发现的、需要我处理的问题（§33.5，有的时候才显示）；然后按员工的
+ * 岗位依次显示——管理员和主管看团队的实时接待和待处理的事情，客服看自己的
  * 接待和待办，仓管看待确认的单据和库存不足，知识管理员看待审核和快到期的知识。工人没有首页。
  * 实时接待每 15 秒刷新；待办、订单、仓库的数量每分钟刷新，有变化时立即刷新。只取显示的菜单的数字。
  */
@@ -100,6 +102,7 @@ onBeforeUnmount(() => {
       <span class="muted" data-testid="home-profiles">{{ auth.me?.tenant.name }} · {{ roleText }}</span>
     </div>
 
+    <WakeHome :can-open-wake="shown('wake')" />
     <TeamHome v-if="team" :data="data" />
     <AgentHome v-if="has('agent')" :data="data" />
     <FinanceHome v-if="finance" :data="data" @changed="onChanged" />

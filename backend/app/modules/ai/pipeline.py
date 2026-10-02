@@ -197,6 +197,7 @@ async def _retrieve(
                 limit=KNOWLEDGE_LIMIT,
                 space_ids=space_ids or None,
                 vector=vector if index == 0 else None,
+                customer_facing=True,
             )
             for hit in hits:
                 if hit.item_id not in best or hit.score > best[hit.item_id].score:

@@ -54,6 +54,8 @@ from app.modules.todos.notify import run_digest as run_todo_digest
 from app.modules.todos.notify import run_timers as run_todo_timers
 from app.modules.transport import crypto as transport_crypto
 from app.modules.usage.service import RollupReport, rollup_day
+from app.modules.wake import runner as wake_runner
+from app.modules.wake.models import RunTrigger
 from app.modules.wecom.contacts import poll_transfers
 from app.modules.wecom.handlers import on_sync
 from app.modules.wecom.kf import sync_all as kf_sync_all
@@ -359,6 +361,22 @@ async def rewrap_keys(settings: Settings, old_key_env: str | None) -> dict[str, 
         await db.dispose()
 
 
+async def wake_run(settings: Settings, code: str, kind: str, force: bool) -> dict[str, Any]:
+    """立即执行一次 AI 唤醒（设计文档 §33），返回这次的统计。不加 --force 时和定时唤醒一样，
+    增量更新索引里没有变化的检查项跳过。"""
+    ctx = AppContext.create(settings)
+    try:
+        async with ctx.db.platform_sessionmaker() as session:
+            tenant_id = await session.scalar(select(Tenant.id).where(Tenant.code == code))
+        if tenant_id is None:
+            raise SystemExit(f"租户不存在：{code}")
+        trigger = RunTrigger.MANUAL if force else RunTrigger.SCHEDULE
+        run = await wake_runner.run_once(ctx, tenant_id, kind, trigger)
+        return {"id": str(run.id), "status": run.status, "stats": run.stats, "error": run.error}
+    finally:
+        await ctx.aclose()
+
+
 def export_openapi(output: Path | None) -> None:
     schema = create_app(get_settings()).openapi()
     text = json.dumps(schema, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
@@ -451,6 +469,14 @@ def main(argv: list[str] | None = None) -> int:
         "不填时只把早期直接用主密钥加密的租户密文换成租户密钥加密",
     )
 
+    wake = commands.add_parser(
+        "wake-run", help="立即执行一次 AI 唤醒（数据巡检或知识库整理），输出统计"
+    )
+    wake.add_argument("tenant", help="租户代码")
+    wake.add_argument("--kind", choices=["hourly", "daily", "kb"], default="daily")
+    wake.add_argument(
+        "--force", action="store_true", help="不看增量更新索引，全部重新检查（同“立即唤醒”）"
+    )
     openapi = commands.add_parser("export-openapi", help="导出 OpenAPI 描述（供前端生成类型）")
     openapi.add_argument("output", nargs="?", type=Path)
 
@@ -549,6 +575,10 @@ def main(argv: list[str] | None = None) -> int:
         result = asyncio.run(rewrap_keys(get_settings(), args.old_key_env))
         print(json.dumps(result, ensure_ascii=False))
         return 1 if result["failed"] else 0
+    elif args.command == "wake-run":
+        result = asyncio.run(wake_run(get_settings(), args.tenant, args.kind, args.force))
+        print(json.dumps(result, ensure_ascii=False))
+        return 0 if result["status"] in ("done", "skipped") else 1
     elif args.command == "export-openapi":
         export_openapi(args.output)
     elif args.command == "transport-keygen":

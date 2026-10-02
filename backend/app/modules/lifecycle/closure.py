@@ -24,6 +24,7 @@ from app.core.ids import new_id
 from app.core.security import verify_password
 from app.modules.audit.service import record_audit
 from app.modules.billing.service import tenant_policy
+from app.modules.changes.service import OFF_SETTING
 from app.modules.conversation.models import Room
 from app.modules.iam.models import Staff
 from app.modules.iam.principal import Principal
@@ -164,6 +165,8 @@ async def _count_and_delete(session: AsyncSession, tenant_id: uuid.UUID) -> dict
             clause += " AND actor_type NOT IN ('platform', 'system')"
         return clause
 
+    # 删除的行不再记入增量更新索引（否则提交时又为这个租户建起 index，§33.9）。
+    await session.execute(text(f"SET LOCAL {OFF_SETTING} = 'on'"))
     counts: dict[str, int] = {}
     for table in tables:
         statement = text(f'SELECT count(*) FROM "{table}" WHERE {where(table)}')

@@ -173,6 +173,9 @@ MATRIX: list[tuple[str, str, dict[str, Any] | None]] = [
         {"kind": "expense", "category": "越权修改", "amount": "1", "occurred_on": "2026-01-01"},
     ),
     ("DELETE", "/api/v1/profit/entries/{profit_entry_id}", None),
+    # AI 唤醒发现的问题（§33.4）：负责人或管理员才能忽略、标记已处理。
+    ("POST", "/api/v1/wake/findings/{finding_id}/ignore", {"days": 7}),
+    ("POST", "/api/v1/wake/findings/{finding_id}/resolve", {}),
     ("POST", "/api/v1/production/orders/{order_id}/claim", None),
     ("POST", "/api/v1/production/orders/{order_id}/release", None),
     ("POST", "/api/v1/production/orders/{order_id}/items/{order_item_id}/done", None),
@@ -412,8 +415,19 @@ async def build(desk: Desk) -> Tenant:
         uuid.uuid4(),
         desk.tenant_id,
     )
+    # AI 唤醒发现的一个问题，负责人是管理员（坐席不是负责人）。
+    [finding] = await desk.sql(
+        "INSERT INTO wake_findings (id, tenant_id, check_code, fingerprint, category, severity,"
+        " title, assignee_ids) SELECT $1, $2, 'stock_low', $3, 'warehouse', 'warning',"
+        " '库存不足', array_agg(id) FROM staff WHERE tenant_id = $2 AND username = 'admin'"
+        " RETURNING id",
+        uuid.uuid4(),
+        desk.tenant_id,
+        f"stock_low:product:{uuid.uuid4()}",
+    )
     await desk.flush()
     ids = {
+        "finding_id": str(finding["id"]),
         "printer_id": str(printer["id"]),
         "print_job_id": str(print_job["id"]),
         "profit_entry_id": str(profit_entry["id"]),
@@ -804,6 +818,7 @@ async def snapshot(desk: Desk) -> list[Any]:
         "assistant_groups": "id, name, recording, extract, message_count",
         "assistant_group_messages": "id, extracted_at",
         "profit_entries": "id, kind, category, amount, occurred_on, note, recurring",
+        "wake_findings": "id, status, ignored_until, resolved_at, resolve_note",
     }
     rows = []
     for table, columns in tables.items():
@@ -1161,6 +1176,7 @@ async def test_agents_only_reach_their_own_sessions_and_customers(
         "printer_id": acme.ids["printer_id"],
         "print_job_id": acme.ids["print_job_id"],
         "profit_entry_id": acme.ids["profit_entry_id"],
+        "finding_id": acme.ids["finding_id"],
         "message_id": await email(desk, chat),
         # Dave 自己的个人待办和 IM 绑定；机器人和群只有管理员能管理。
         **await dave_assistant(desk, acme.other_agent.staff_id, acme.ids["bot_id"]),

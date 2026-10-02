@@ -35,6 +35,18 @@ const pending = computed(() => detail.value?.status === 'pending')
 const kind = computed(() => detail.value?.kind ?? 'new')
 const creates = computed(() => kind.value === 'new' || kind.value === 'gap')
 const isPhrase = computed(() => kind.value === 'phrase')
+const isDuplicate = computed(() => kind.value === 'duplicate')
+/** 知识库整理（§33.7）对照规章制度提出的建议：没有出现次数和提炼模型。 */
+const fromPolicy = computed(() => detail.value?.source === 'policy')
+/** 证据的种类：聊天里的对话，或者知识库整理（§33.7）依据的制度原文、重复的另一条知识。 */
+const evidenceKind = computed(() => detail.value?.evidence[0]?.kind ?? null)
+const evidenceTitle = computed(() =>
+  evidenceKind.value === 'policy'
+    ? '依据的规章制度'
+    : evidenceKind.value === 'duplicate'
+      ? '重复的另一条知识（通过后它的问法并进上面这条，它下线）'
+      : '证据对话（已脱敏）',
+)
 const diff = computed(() =>
   kind.value === 'conflict' && detail.value?.target
     ? diffText(detail.value.target.content, form.answer)
@@ -58,7 +70,8 @@ watch(
     detail.value = data
     Object.assign(form, {
       question: data.question,
-      answer: data.answer ?? '',
+      // 重复的知识：默认保留原来的答案（可以改）。
+      answer: data.answer ?? (data.kind === 'duplicate' ? (data.target?.content ?? '') : ''),
       category: data.category,
       agentOnly: false,
     })
@@ -95,7 +108,11 @@ async function approve(): Promise<void> {
           visibility: creates.value ? (form.agentOnly ? 'agent' : 'public') : null,
         },
       }),
-    kind.value === 'similar' ? '已并入原问答' : isPhrase.value ? '已加入共享话术' : '已发布',
+    kind.value === 'similar' || isDuplicate.value
+      ? '已合并'
+      : isPhrase.value
+        ? '已加入共享话术'
+        : '已发布',
   )
 }
 
@@ -145,7 +162,10 @@ async function reject(): Promise<void> {
         <div class="head">
           <el-tag :type="CANDIDATE_KIND_TAG[detail.kind]">{{ CANDIDATE_KIND[detail.kind] }}</el-tag>
           <el-tag v-if="!pending" type="info">{{ CANDIDATE_STATUS[detail.status] }}</el-tag>
-          <span class="muted">
+          <span v-if="fromPolicy" class="muted" data-testid="candidate-from-policy">
+            制度对齐 · AI 整理知识库时提出 · {{ formatDateTime(detail.last_seen_at) }}
+          </span>
+          <span v-else class="muted">
             出现 {{ detail.occurrences }} 次（近 7 天 {{ detail.recent }} 次）· 首次
             {{ formatDateTime(detail.first_seen_at) }}
           </span>
@@ -216,7 +236,16 @@ async function reject(): Promise<void> {
           </div>
         </template>
 
-        <template v-if="pending && canPublish && detail.similar.length && !isPhrase">
+        <template
+          v-if="
+            pending &&
+            canPublish &&
+            detail.similar.length &&
+            !isPhrase &&
+            !isDuplicate &&
+            !(fromPolicy && kind === 'conflict')
+          "
+        >
           <h4>相似的已有知识</h4>
           <div v-for="hit in detail.similar" :key="hit.item_id" class="similar">
             <div class="similar-head">
@@ -237,16 +266,30 @@ async function reject(): Promise<void> {
           </div>
         </template>
 
-        <h4>证据对话（已脱敏）</h4>
+        <h4>{{ evidenceTitle }}</h4>
         <div class="evidence">
           <div v-for="(e, i) in detail.evidence" :key="i" class="dialog" data-testid="evidence">
-            <div class="muted">{{ formatDateTime(e.seen_at) }}</div>
-            <p v-for="(line, j) in e.lines" :key="j" class="line">
-              <span class="role">{{ line.role }}：</span>{{ line.text }}
-            </p>
+            <template v-if="e.kind === 'policy'">
+              <div class="target-title" data-testid="evidence-policy">《{{ e.policy_title }}》</div>
+              <p class="line">{{ e.excerpt }}</p>
+              <p v-if="e.reason" class="muted">{{ e.reason }}</p>
+            </template>
+            <template v-else-if="e.kind === 'duplicate'">
+              <div class="target-title" data-testid="evidence-duplicate">{{ e.title }}</div>
+              <p class="line">{{ e.answer }}</p>
+              <p class="muted">
+                引用 {{ e.hits ?? 0 }} 次 · {{ e.same_answer ? '答案相同' : '答案不同，合并前请核对' }}
+              </p>
+            </template>
+            <template v-else>
+              <div class="muted">{{ formatDateTime(e.seen_at) }}</div>
+              <p v-for="(line, j) in e.lines" :key="j" class="line">
+                <span class="role">{{ line.role }}：</span>{{ line.text }}
+              </p>
+            </template>
           </div>
         </div>
-        <p class="muted trace">
+        <p v-if="detail.model || detail.prompt_version" class="muted trace">
           提炼模型 {{ detail.model ?? '—' }} · 提示词 {{ detail.prompt_version ?? '—' }}
         </p>
         <p v-if="detail.review_note" class="muted">处理说明：{{ detail.review_note }}</p>

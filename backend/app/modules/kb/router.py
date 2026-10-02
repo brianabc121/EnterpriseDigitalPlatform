@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import UTC, date, datetime
 from typing import Annotated, Literal
 from uuid import UUID
 from zoneinfo import ZoneInfo
@@ -12,6 +12,7 @@ from app.core.dates import date_range, today, zone
 from app.core.deps import client_ip, get_app_settings, get_context
 from app.core.errors import ERROR_RESPONSES
 from app.core.permissions import Permission
+from app.modules.billing.entitlements import require_feature
 from app.modules.iam.deps import TenantDb, require_permission
 from app.modules.iam.models import Staff, StaffStatus
 from app.modules.iam.principal import Principal
@@ -58,6 +59,8 @@ from app.modules.kb.schemas import (
     KbVersionOut,
 )
 from app.modules.routing.models import SkillGroup
+from app.modules.wake import service as wake_service
+from app.modules.wake.schemas import KbAlignment, RunOut
 from app.modules.wecom.notify import announce_must_read
 
 router = APIRouter(prefix="/api/v1/kb", tags=["knowledge"], responses=ERROR_RESPONSES)
@@ -89,6 +92,13 @@ async def list_items(
     unassigned: Annotated[bool, Query(description="只看没有归入空间的")] = False,
     owner_id: UUID | None = None,
     mine: Annotated[bool, Query(description="只看我负责的")] = False,
+    policy: Annotated[
+        bool | None, Query(description="true 只看规章制度；false 只看不是规章制度的")
+    ] = None,
+    no_owner: Annotated[bool, Query(description="只看没有负责人的已发布知识")] = False,
+    disliked: Annotated[
+        bool, Query(description="只看员工评价差的（点踩多于点赞且至少 3 次）")
+    ] = False,
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> KbItemPage:
@@ -109,6 +119,9 @@ async def list_items(
         category_id=category_id,
         unassigned=unassigned,
         owner_id=principal.staff_id if mine else owner_id,
+        policy=policy,
+        no_owner=no_owner,
+        disliked=disliked,
     )
 
 
@@ -409,13 +422,17 @@ async def list_candidates(
     status_: Annotated[
         Literal["pending", "approved", "merged", "rejected"], Query(alias="status")
     ] = "pending",
-    kind: Literal["new", "similar", "conflict", "gap", "phrase"] | None = None,
+    kind: Literal["new", "similar", "conflict", "gap", "phrase", "duplicate"] | None = None,
+    source: Annotated[
+        Literal["session", "sidebar", "zone", "group", "policy"] | None,
+        Query(description="来源；policy 是知识库整理（制度对齐）生成的"),
+    ] = None,
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> KbCandidatePage:
-    """从会话提炼的候选。待审的按出现次数和最近出现时间排序。"""
+    """从会话提炼的候选和知识库整理的建议。待审的按出现次数和最近出现时间排序。"""
     return await review.list_candidates(
-        session, status=status_, kind=kind, limit=limit, offset=offset
+        session, status=status_, kind=kind, source=source, limit=limit, offset=offset
     )
 
 
@@ -456,6 +473,26 @@ async def reject_candidate(
     candidate_id: UUID, payload: KbCandidateReject, session: TenantDb, principal: CanPublish
 ) -> KbCandidateOut:
     return await review.reject(session, principal, candidate_id, payload.reason)
+
+
+# ---- 制度对齐（设计文档 §33.7） ----
+
+
+@router.get("/alignment", response_model=KbAlignment)
+async def alignment(session: TenantDb, principal: CanManage) -> KbAlignment:
+    """最近一次知识库整理的报告、现行制度几份、待处理的制度对齐建议。"""
+    return await wake_service.kb_alignment(session, principal.tenant_id, datetime.now(UTC))
+
+
+@router.post("/alignment/run", response_model=RunOut)
+async def run_alignment(request: Request, session: TenantDb, principal: CanManage) -> RunOut:
+    """立即整理：对照现行的规章制度检查知识（只核对有变化的），建议进审核台。"""
+    await require_feature(session, principal.tenant_id, "ai")
+    out = await wake_service.run_now(
+        session, principal, "kb", datetime.now(UTC), client_ip(request)
+    )
+    await session.commit()
+    return out
 
 
 # ---- 运营指标与周报（设计文档 §12.6、§12.7） ----

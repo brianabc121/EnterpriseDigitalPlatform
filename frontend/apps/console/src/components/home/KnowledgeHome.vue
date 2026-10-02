@@ -14,6 +14,7 @@ const CANDIDATE_KIND: Record<string, string> = {
   conflict: '答案冲突',
   gap: '知识缺口',
   phrase: '优秀话术',
+  duplicate: '重复',
 }
 
 const candidates = ref<Schemas['KbCandidateOut'][]>([])

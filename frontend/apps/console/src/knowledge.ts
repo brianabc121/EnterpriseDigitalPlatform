@@ -6,6 +6,7 @@ export const CANDIDATE_SOURCE: Record<string, string> = {
   sidebar: '侧边栏',
   zone: '专区',
   group: '群聊',
+  policy: '制度对齐',
 }
 
 export const CANDIDATE_KIND: Record<string, string> = {
@@ -14,6 +15,7 @@ export const CANDIDATE_KIND: Record<string, string> = {
   conflict: '答案冲突',
   gap: '知识缺口',
   phrase: '优秀话术',
+  duplicate: '重复',
 }
 
 export const CANDIDATE_KIND_TAG: Record<string, 'primary' | 'success' | 'danger' | 'warning'> = {
@@ -22,6 +24,7 @@ export const CANDIDATE_KIND_TAG: Record<string, 'primary' | 'success' | 'danger'
   conflict: 'danger',
   gap: 'warning',
   phrase: 'success',
+  duplicate: 'warning',
 }
 
 export const CANDIDATE_STATUS: Record<string, string> = {
@@ -38,6 +41,7 @@ export const APPROVE_LABEL: Record<string, string> = {
   conflict: '用新答案更新',
   gap: '补充答案并发布',
   phrase: '加入共享话术',
+  duplicate: '合并，另一条下线',
 }
 
 export const VERSION_CHANGE: Record<string, string> = {

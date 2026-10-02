@@ -12,14 +12,21 @@ import {
 } from '../../knowledge'
 import CandidateDrawer from './CandidateDrawer.vue'
 
-/** 审核台（设计 §12.5）：从会话提炼的候选按影响排序；缺口单独筛选即为"知识缺口榜"。 */
+/**
+ * 审核台（设计 §12.5）：从会话提炼的候选按影响排序；缺口单独筛选即为"知识缺口榜"。知识库整理
+ * （§33.7）的建议来源是"制度对齐"：与制度冲突、制度里有知识库里没有、重复的知识。
+ */
+const props = defineProps<{ source?: Source }>()
 const emit = defineEmits<{ reviewed: []; pending: [count: number] }>()
 
-type Kind = '' | 'new' | 'similar' | 'conflict' | 'gap' | 'phrase'
+type Kind = '' | 'new' | 'similar' | 'conflict' | 'gap' | 'phrase' | 'duplicate'
 type Status = 'pending' | 'approved' | 'merged' | 'rejected'
+type Source = '' | 'session' | 'sidebar' | 'zone' | 'group' | 'policy'
 
 const PAGE_SIZE = 20
+const POLICY_HINT = '来源是"制度对齐"的是 AI 对照现行规章制度整理知识库时提出的修改建议。'
 const kind = ref<Kind>('')
+const source = ref<Source>(props.source ?? '')
 const status = ref<Status>('pending')
 const page = ref(1)
 const loading = ref(false)
@@ -37,6 +44,7 @@ async function load(): Promise<void> {
       query: {
         status: status.value,
         kind: kind.value || undefined,
+        source: source.value || undefined,
         limit: PAGE_SIZE,
         offset: (page.value - 1) * PAGE_SIZE,
       },
@@ -57,7 +65,13 @@ function onReviewed(): void {
   void load()
 }
 
-watch([kind, status], () => {
+watch(
+  () => props.source,
+  (value) => {
+    if (value !== undefined) source.value = value
+  },
+)
+watch([kind, status, source], () => {
   page.value = 1
   void load()
 })
@@ -75,6 +89,15 @@ defineExpose({ load })
           {{ label }} {{ data?.pending[value] ?? 0 }}
         </el-radio-button>
       </el-radio-group>
+      <el-select v-model="source" size="small" class="source-filter" data-testid="candidate-source">
+        <el-option label="全部来源" value="" />
+        <el-option
+          v-for="(label, value) in CANDIDATE_SOURCE"
+          :key="value"
+          :label="label"
+          :value="value"
+        />
+      </el-select>
       <el-select v-model="status" size="small" class="status" data-testid="candidate-status">
         <el-option
           v-for="(label, value) in CANDIDATE_STATUS"
@@ -86,7 +109,7 @@ defineExpose({ load })
     </div>
     <p class="hint">
       系统每小时从已结束的会话里提炼问答和没有解答的问题（先脱敏），相似的归为一类；
-      出现次数多、最近还在出现的排在前面。
+      出现次数多、最近还在出现的排在前面。{{ POLICY_HINT }}
     </p>
 
     <el-table
@@ -177,6 +200,10 @@ defineExpose({ load })
 
 .status {
   width: 110px;
+}
+
+.source-filter {
+  width: 120px;
 }
 
 .hint {
