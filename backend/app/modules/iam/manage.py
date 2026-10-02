@@ -4,6 +4,8 @@
   坐席下线、接待中的会话退回队列，IM 登录也被踢下线。名下客户需要另行交接。
 - 不能停用自己；至少保留一名启用状态的租户管理员；启用时检查坐席额度。
 - 不能修改权限高于自己的员工，也不能分配超出自己权限的角色（防止越权提权）。
+- 按员工设置的页面和权限（§31）：只记录和角色的差别，多给的不能超出自己的权限；保存后员工的有效
+  权限也不能超出自己的权限（例如把别人去掉的权限加回来）。租户管理员不能单独调整。
 - 自定义角色：权限不能超出自己的权限；系统角色不能修改或删除；还有员工使用的角色不能删除。
 """
 
@@ -24,6 +26,7 @@ from app.core.security import hash_password, verify_password
 from app.modules.audit.service import record_audit
 from app.modules.billing.entitlements import check_limit
 from app.modules.conversation import imids, outbox
+from app.modules.iam import access
 from app.modules.iam.console import role_profile
 from app.modules.iam.models import RefreshToken, Role, Staff, StaffRole, StaffStatus
 from app.modules.iam.principal import Principal
@@ -36,7 +39,15 @@ from app.modules.iam.schemas import (
     StaffOut,
     StaffUpdate,
 )
-from app.modules.iam.service import IssuedTokens, issue_tokens, role_permissions
+from app.modules.iam.service import (
+    IssuedTokens,
+    effective_permissions,
+    granted_by,
+    issue_tokens,
+    role_permissions,
+    roles_of,
+    staff_out,
+)
 from app.modules.routing.models import AgentState, AgentStatus
 from app.modules.sessions.engine import assign_queued, lock_tenant_routing, requeue_unanswered
 from app.modules.todos.assign import reassign_from as reassign_todos
@@ -58,28 +69,12 @@ def permission_catalog() -> list[PermissionInfo]:
 # ---- 员工 ----
 
 
-async def _roles_of(session: AsyncSession, staff_id: UUID) -> list[Role]:
-    return list(
-        (
-            await session.scalars(
-                select(Role)
-                .join(StaffRole, StaffRole.role_id == Role.id)
-                .where(StaffRole.staff_id == staff_id)
-                .order_by(Role.code)
-            )
-        ).all()
-    )
-
-
 async def _target(session: AsyncSession, principal: Principal, staff_id: UUID) -> Staff:
-    """要管理的员工：不存在返回 404；权限高于自己时拒绝。"""
+    """要管理的员工：不存在返回 404；权限（有效权限，§31.4）高于自己时拒绝。"""
     staff = await session.get(Staff, staff_id, with_for_update=True)
     if staff is None:
         raise NotFound("员工不存在")
-    held = frozenset(
-        p for role in await _roles_of(session, staff.id) for p in role_permissions(role)
-    )
-    if not held <= principal.permissions:
+    if not effective_permissions(staff, await roles_of(session, staff.id)) <= principal.permissions:
         raise Forbidden("不能管理权限高于自己的员工")
     return staff
 
@@ -121,17 +116,6 @@ async def _revoke_tokens(session: AsyncSession, staff_id: UUID) -> None:
     )
 
 
-def _staff_out(staff: Staff, roles: list[str]) -> StaffOut:
-    return StaffOut(
-        id=staff.id,
-        username=staff.username,
-        display_name=staff.display_name,
-        status=staff.status,
-        roles=sorted(roles),
-        created_at=staff.created_at,
-    )
-
-
 async def update_staff(
     ctx: AppContext,
     session: AsyncSession,
@@ -142,10 +126,25 @@ async def update_staff(
     ip: str | None,
 ) -> StaffOut:
     staff = await _target(session, principal, staff_id)
-    current = await _roles_of(session, staff.id)
+    current = await roles_of(session, staff.id)
     roles = current
     if payload.role_codes is not None:
         roles = await _resolve_roles(session, principal, payload.role_codes)
+    saved = access.snapshot(staff)
+    if "access" in payload.model_fields_set:
+        access.apply(
+            staff,
+            payload.access,
+            roles=roles,
+            granted=granted_by(roles),
+            operator=principal.permissions,
+        )
+    elif not access.adjustable(roles):
+        # 改成租户管理员后不能再单独调整，清掉原来的设置。
+        access.apply(staff, None, roles=roles, granted=frozenset(), operator=frozenset())
+    # 保存后的有效权限不能超出自己的权限（例如把别人去掉的权限恢复回来）。
+    if not effective_permissions(staff, roles) <= principal.permissions:
+        raise Forbidden("不能给出超出自身权限的权限")
     status = payload.status or staff.status
     if staff.id == principal.staff_id and status != StaffStatus.ACTIVE:
         raise Unprocessable("不能停用自己的账号")
@@ -171,6 +170,8 @@ async def update_staff(
             for role in roles
         )
         changes["roles"] = sorted(r.code for r in roles)
+    if access.snapshot(staff) != saved:
+        changes["access"] = access.snapshot(staff)
     rooms: set[UUID] = set()
     if status != staff.status:
         staff.status = status
@@ -212,7 +213,7 @@ async def update_staff(
             await ctx.im.force_logout(imids.staff_user(principal.tenant_code, staff.id))
         except Exception:
             logger.warning("cannot log staff %s out of IM", staff.id, exc_info=True)
-    return _staff_out(staff, [r.code for r in roles])
+    return staff_out(staff, roles)
 
 
 async def reset_password(

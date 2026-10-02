@@ -387,6 +387,7 @@ async def test_the_finance_position_is_the_admin_by_default_or_a_custom_role(des
     assert me["console"] == {
         "profiles": ["finance"],
         "menus": ["dashboard", "orders", "receivables", "tasks", "customers", "assistant"],
+        "home": None,
     }
     assert (await call(desk, cai.headers, "GET", "/api/v1/orders"))["total"] == 7
     assert (await summary(desk, cai.headers))["open"]["count"] == 5

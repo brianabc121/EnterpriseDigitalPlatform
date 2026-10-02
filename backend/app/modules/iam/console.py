@@ -5,6 +5,7 @@
 - 菜单：管理员看全部；其他岗位按企业的设置（tenant_settings.console，没有设置时用默认值）。一个员工
   有几个岗位时菜单合在一起，再去掉没有权限的和套餐里关闭的功能。隐藏菜单不改变权限，接口照常
   按权限判断。
+- 按员工设置了页面的（§31），按员工自己的页面，同样去掉没有权限的和套餐里关闭的。
 """
 
 import uuid
@@ -24,7 +25,7 @@ from app.core.consoles import (
     ConsoleProfile,
 )
 from app.core.permissions import Permission
-from app.modules.iam.models import Role, StaffRole
+from app.modules.iam.models import Role
 from app.modules.iam.service import role_permissions
 from app.modules.security.models import TenantSetting
 
@@ -99,10 +100,14 @@ def menus_for(
     settings: ConsoleSettings,
     permissions: Iterable[str],
     features: Mapping[str, bool],
+    own: Sequence[ConsoleMenu] | None = None,
 ) -> list[ConsoleMenu]:
-    """显示的菜单：岗位的菜单合在一起，去掉没有权限的和套餐里关闭的功能。"""
-    if ConsoleProfile.ADMIN in profiles:
-        chosen: set[ConsoleMenu] = set(ALL_MENUS)
+    """显示的菜单：岗位的菜单合在一起（按员工设置了页面时用员工自己的 own），去掉没有权限的和套餐
+    里关闭的功能。"""
+    if own is not None:
+        chosen: set[ConsoleMenu] = set(own)
+    elif ConsoleProfile.ADMIN in profiles:
+        chosen = set(ALL_MENUS)
     else:
         chosen = set()
         for profile in profiles:
@@ -133,15 +138,3 @@ async def save_settings(
         session.add(row)
     row.console = value.model_dump(mode="json")
     row.updated_by = staff_id
-
-
-async def staff_roles(session: AsyncSession, staff_id: uuid.UUID) -> list[Role]:
-    return list(
-        (
-            await session.scalars(
-                select(Role)
-                .join(StaffRole, StaffRole.role_id == Role.id)
-                .where(StaffRole.staff_id == staff_id)
-            )
-        ).all()
-    )

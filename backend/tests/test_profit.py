@@ -524,7 +524,7 @@ async def test_export_menu_and_permissions(desk: Desk) -> None:
     )  # fmt: skip
     viewer = await desk.agent("view", roles=["boss_view"], online=False)
     console = (await call(desk, viewer.headers, "GET", "/api/v1/me"))["console"]
-    assert console == {"profiles": ["finance"], "menus": ["profit"]}
+    assert console == {"profiles": ["finance"], "menus": ["profit"], "home": None}
     assert (await get(desk, "/summary", viewer.headers, **period))["current"][
         "revenue"
     ] == "3079.00"

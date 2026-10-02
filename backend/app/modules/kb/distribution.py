@@ -1,7 +1,6 @@
 """知识分发（设计文档 §12.6）：知识动态、必读确认、员工对知识的评价。"""
 
 import uuid
-from collections import defaultdict
 
 from sqlalchemy import ColumnElement, and_, delete, func, literal, or_, select
 from sqlalchemy.dialects.postgresql import ARRAY, insert
@@ -9,9 +8,9 @@ from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.permissions import Permission
-from app.modules.iam.models import Role, Staff, StaffRole, StaffStatus
+from app.modules.iam.models import Staff
 from app.modules.iam.principal import Principal
-from app.modules.iam.service import role_permissions
+from app.modules.iam.service import active_staff_permissions
 from app.modules.kb.models import (
     ItemStatus,
     KbFeedback,
@@ -156,14 +155,7 @@ async def audience(
     session: AsyncSession, permission: str = Permission.WORKBENCH_USE
 ) -> list[Staff]:
     """有某项权限的在职员工。默认是需要确认必读知识的员工：有接待权限（workbench:use）的。"""
-    roles = {role.id: role_permissions(role) for role in (await session.scalars(select(Role)))}
-    granted: dict[uuid.UUID, set[str]] = defaultdict(set)
-    for staff_id, role_id in await session.execute(select(StaffRole.staff_id, StaffRole.role_id)):
-        granted[staff_id] |= roles.get(role_id, frozenset())
-    staff = await session.scalars(
-        select(Staff).where(Staff.status == StaffStatus.ACTIVE).order_by(Staff.created_at)
-    )
-    return [s for s in staff.all() if permission in granted[s.id]]
+    return [s for s, granted in await active_staff_permissions(session) if permission in granted]
 
 
 async def item_audience(session: AsyncSession, item: KbItem) -> list[Staff]:

@@ -35,6 +35,8 @@ async def desk(
 async def console(desk: Desk, headers: dict[str, str]) -> dict[str, Any]:
     me = await call(desk, headers, "GET", "/api/v1/me")
     result: dict[str, Any] = me["console"]
+    # 没有按员工设置登录后打开的页面（§31），打开第一个菜单。
+    assert result.pop("home") is None
     return result
 
 

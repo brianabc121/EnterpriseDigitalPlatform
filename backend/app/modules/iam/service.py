@@ -1,4 +1,5 @@
 from collections import defaultdict
+from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
@@ -23,6 +24,7 @@ from app.db.errors import violated_unique_constraint
 from app.db.session import bind_tenant
 from app.modules.audit.service import record_audit
 from app.modules.billing.entitlements import check_limit
+from app.modules.iam import access
 from app.modules.iam.models import RefreshToken, Role, Staff, StaffRole, StaffStatus
 from app.modules.iam.principal import Principal
 from app.modules.iam.schemas import StaffCreate, StaffOut
@@ -37,6 +39,56 @@ def role_permissions(role: Role) -> frozenset[str]:
     自定义角色以数据库中保存的为准。"""
     spec = _SYSTEM_ROLES.get(role.code) if role.is_system else None
     return frozenset(spec.permissions) if spec else frozenset(role.permissions)
+
+
+def granted_by(roles: Iterable[Role]) -> frozenset[str]:
+    """角色给的权限（并集）。"""
+    return frozenset(p for role in roles for p in role_permissions(role))
+
+
+def effective_permissions(staff: Staff, roles: Iterable[Role]) -> frozenset[str]:
+    """员工被授予的权限（设计文档 §31.4）：角色权限的并集，加上多给的、减去去掉的；租户管理员只看
+    角色。不含仓管另外获得的确认权限（见 principal_for）。"""
+    roles = list(roles)
+    granted = granted_by(roles)
+    return access.grant(granted, staff) if access.adjustable(roles) else granted
+
+
+async def roles_of(session: AsyncSession, staff_id: UUID) -> list[Role]:
+    return list(
+        (
+            await session.scalars(
+                select(Role)
+                .join(StaffRole, StaffRole.role_id == Role.id)
+                .where(StaffRole.staff_id == staff_id)
+                .order_by(Role.code)
+            )
+        ).all()
+    )
+
+
+async def staff_permissions(session: AsyncSession, staff: Staff) -> frozenset[str]:
+    """员工被授予的权限（不含仓管另外获得的）。"""
+    return effective_permissions(staff, await roles_of(session, staff.id))
+
+
+async def _roles_by_staff(session: AsyncSession) -> dict[UUID, list[Role]]:
+    roles = {role.id: role for role in await session.scalars(select(Role))}
+    held: dict[UUID, list[Role]] = defaultdict(list)
+    for staff_id, role_id in await session.execute(select(StaffRole.staff_id, StaffRole.role_id)):
+        if role_id in roles:
+            held[staff_id].append(roles[role_id])
+    return held
+
+
+async def active_staff_permissions(session: AsyncSession) -> list[tuple[Staff, frozenset[str]]]:
+    """启用状态的员工和各自被授予的权限（不含仓管另外获得的），按创建的先后。用于"有某项权限的
+    员工"（通知对象、必读知识的读者等）。"""
+    held = await _roles_by_staff(session)
+    staff = await session.scalars(
+        select(Staff).where(Staff.status == StaffStatus.ACTIVE).order_by(Staff.created_at)
+    )
+    return [(s, effective_permissions(s, held[s.id])) for s in staff.all()]
 
 
 INVALID_CREDENTIALS = "企业代码、用户名或密码错误"
@@ -173,15 +225,8 @@ async def principal_for(session: AsyncSession, tenant_id: UUID, staff_id: UUID) 
     staff = await session.get(Staff, staff_id)
     if staff is None or staff.status != StaffStatus.ACTIVE:
         return None
-    roles = (
-        await session.scalars(
-            select(Role)
-            .join(StaffRole, StaffRole.role_id == Role.id)
-            .where(StaffRole.staff_id == staff.id)
-            .order_by(Role.code)
-        )
-    ).all()
-    permissions = frozenset(p for role in roles for p in role_permissions(role))
+    roles = await roles_of(session, staff.id)
+    permissions = effective_permissions(staff, roles)
     if not permissions >= warehouse_settings.KEEPER_PERMISSIONS:
         # 仓管（设置里指定的员工，或者最早创建的工人）另外可以确认单据、调整库存（§25.13）。
         permissions |= await warehouse_settings.keeper_permissions(session, tenant.id, staff.id)
@@ -201,25 +246,24 @@ async def list_roles(session: AsyncSession) -> list[Role]:
     return list((await session.scalars(select(Role).order_by(Role.created_at, Role.code))).all())
 
 
+def staff_out(staff: Staff, roles: Iterable[Role]) -> StaffOut:
+    roles = list(roles)
+    return StaffOut(
+        id=staff.id,
+        username=staff.username,
+        display_name=staff.display_name,
+        status=staff.status,
+        roles=sorted(role.code for role in roles),
+        created_at=staff.created_at,
+        access=access.out(staff, roles),
+        permissions=access.known(effective_permissions(staff, roles)),
+    )
+
+
 async def list_staff(session: AsyncSession) -> list[StaffOut]:
     staff_rows = (await session.scalars(select(Staff).order_by(Staff.created_at))).all()
-    role_rows = await session.execute(
-        select(StaffRole.staff_id, Role.code).join(Role, Role.id == StaffRole.role_id)
-    )
-    roles_by_staff: dict[UUID, list[str]] = defaultdict(list)
-    for staff_id, code in role_rows:
-        roles_by_staff[staff_id].append(code)
-    return [
-        StaffOut(
-            id=s.id,
-            username=s.username,
-            display_name=s.display_name,
-            status=s.status,
-            roles=sorted(roles_by_staff[s.id]),
-            created_at=s.created_at,
-        )
-        for s in staff_rows
-    ]
+    held = await _roles_by_staff(session)
+    return [staff_out(s, held[s.id]) for s in staff_rows]
 
 
 async def create_staff(
@@ -233,10 +277,6 @@ async def create_staff(
     # 不能把超出自己权限的角色分配给别人（防止越权提权）。
     if any(not role_permissions(role) <= principal.permissions for role in roles):
         raise Forbidden("不能分配超出自身权限的角色")
-    if await session.scalar(select(Staff.id).where(Staff.username == payload.username)):
-        raise Conflict("用户名已存在")
-    await check_limit(session, principal.tenant_id, "seats")
-
     staff = Staff(
         id=new_id(),
         tenant_id=principal.tenant_id,
@@ -244,6 +284,17 @@ async def create_staff(
         display_name=payload.display_name,
         password_hash=hash_password(payload.password),
     )
+    # 按员工设置的页面和权限（§31）：多给的也不能超出自己的权限。
+    access.apply(
+        staff,
+        payload.access,
+        roles=roles,
+        granted=granted_by(roles),
+        operator=principal.permissions,
+    )
+    if await session.scalar(select(Staff.id).where(Staff.username == payload.username)):
+        raise Conflict("用户名已存在")
+    await check_limit(session, principal.tenant_id, "seats")
     session.add(staff)
     try:
         await session.flush()
@@ -256,6 +307,9 @@ async def create_staff(
         StaffRole(tenant_id=principal.tenant_id, staff_id=staff.id, role_id=role.id)
         for role in roles
     )
+    detail: dict[str, object] = {"username": staff.username, "roles": sorted(requested)}
+    if (saved := access.snapshot(staff)) is not None:
+        detail["access"] = saved
     record_audit(
         session,
         action="staff.create",
@@ -264,16 +318,9 @@ async def create_staff(
         tenant_id=principal.tenant_id,
         resource_type="staff",
         resource_id=str(staff.id),
-        detail={"username": staff.username, "roles": sorted(requested)},
+        detail=detail,
         ip=ip,
     )
     await session.commit()
     await session.refresh(staff)
-    return StaffOut(
-        id=staff.id,
-        username=staff.username,
-        display_name=staff.display_name,
-        status=staff.status,
-        roles=sorted(requested),
-        created_at=staff.created_at,
-    )
+    return staff_out(staff, roles)
