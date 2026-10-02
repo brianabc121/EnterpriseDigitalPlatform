@@ -84,6 +84,8 @@ async def test_every_tenant_table_is_tracked_unless_excluded(
     }
     assert wrong == {}
     assert len(tracked) - len(changes.EXCLUDED) > 80
+    # 页面上"增量更新索引"按中文名显示每张表。
+    assert set(tracked) - changes.EXCLUDED - set(changes.DOMAIN_LABELS) == set()
 
 
 async def test_changes_stamp_rows_and_update_the_tenant_index(

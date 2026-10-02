@@ -101,7 +101,10 @@ export function age(finding: Finding, now: Date = new Date()): string {
   return `发现 ${duration(now.getTime() - new Date(finding.first_seen_at).getTime())}`
 }
 
-/** 巡检记录的一句话：检查了几项（其中几项数据没有变化而跳过）、发现、新问题、已消除。 */
+/**
+ * 巡检记录的一句话：检查了几项（其中几项数据没有变化而跳过）、新问题、已消除、还有几个待处理、通知了几人。
+ * 跳过的检查项之前发现的问题仍然算待处理。
+ */
 export function runSummary(run: WakeRun): string {
   const s = run.stats as Record<string, unknown>
   if (run.status === 'skipped') return 'AI 唤醒已关闭或者套餐不包含 AI，没有执行'
@@ -110,10 +113,12 @@ export function runSummary(run: WakeRun): string {
   if (run.kind === 'kb') return kbSummary(s)
   const parts = [`检查 ${num(s.checks)} 项`]
   if (num(s.skipped)) parts[0] += `（${num(s.skipped)} 项数据没有变化，直接跳过）`
-  parts.push(`发现 ${num(s.found)} 个问题`)
   if (num(s.new)) parts.push(`新问题 ${num(s.new)} 个`)
+  if (num(s.raised)) parts.push(`变严重 ${num(s.raised)} 个`)
   if (num(s.resolved)) parts.push(`已消除 ${num(s.resolved)} 个`)
   if (num(s.escalated)) parts.push(`升级 ${num(s.escalated)} 个`)
+  const open = s.open && typeof s.open === 'object' ? Object.values(s.open as object) : []
+  parts.push(`待处理 ${open.reduce((sum: number, n) => sum + num(n), 0)} 个`)
   if (num(s.notified)) parts.push(`通知 ${num(s.notified)} 人`)
   const errors = Array.isArray(s.errors) ? s.errors.length : 0
   if (errors) parts.push(`${errors} 项出错`)
@@ -139,11 +144,11 @@ export function kbSummary(s: Record<string, unknown>): string {
   return parts.join('，')
 }
 
-/** 大模型调用和费用（没有调用时为空）。 */
+/** 大模型调用和费用（没有调用时为空）。费用按供应商价格估算，单位是分。 */
 export function llmUsage(stats: Record<string, unknown>): string {
   const calls = num(stats.llm_calls)
   if (!calls) return ''
-  return `大模型 ${calls} 次 · ¥${num(stats.llm_cost).toFixed(4)}`
+  return `大模型 ${calls} 次 · ¥${(num(stats.llm_cost) / 100).toFixed(4)}`
 }
 
 function num(value: unknown): number {

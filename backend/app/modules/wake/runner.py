@@ -227,11 +227,13 @@ async def run_due(ctx: AppContext, *, now: datetime | None = None, limit: int = 
                 lease_until=None,
             )
         )
+        # 有人在等的（立即唤醒、立即整理）先执行。
+        manual_first = case((WakeRun.trigger == RunTrigger.MANUAL, 0), else_=1)
         runs = (
             await session.scalars(
                 select(WakeRun)
                 .where(WakeRun.status == RunStatus.QUEUED, WakeRun.not_before <= now)
-                .order_by(WakeRun.not_before, WakeRun.created_at)
+                .order_by(manual_first, WakeRun.not_before, WakeRun.created_at)
                 .limit(limit)
                 .with_for_update(skip_locked=True)
             )

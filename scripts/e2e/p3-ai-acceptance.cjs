@@ -148,11 +148,15 @@ async function waitFor(fn, timeout = 15000) {
   }
 }
 
+/** 逐个输入标签：回车后输入框清空才算加上，再输入下一个（偶尔回车没生效时再按一次）。 */
 async function addTags(page, testid, values) {
   const input = page.locator(`input[data-testid="${testid}"]`)
   for (const value of values) {
     await input.fill(value)
-    await input.press('Enter')
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      await input.press('Enter')
+      if (await waitFor(async () => (await input.inputValue()) === '', 2000)) break
+    }
   }
 }
 

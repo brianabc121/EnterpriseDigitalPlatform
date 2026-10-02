@@ -24,6 +24,7 @@ type Status = 'pending' | 'approved' | 'merged' | 'rejected'
 type Source = '' | 'session' | 'sidebar' | 'zone' | 'group' | 'policy'
 
 const PAGE_SIZE = 20
+const POLICY_HINT = '来源是"制度对齐"的是 AI 对照现行规章制度整理知识库时提出的修改建议。'
 const kind = ref<Kind>('')
 const source = ref<Source>(props.source ?? '')
 const status = ref<Status>('pending')
@@ -108,8 +109,7 @@ defineExpose({ load })
     </div>
     <p class="hint">
       系统每小时从已结束的会话里提炼问答和没有解答的问题（先脱敏），相似的归为一类；
-      出现次数多、最近还在出现的排在前面。来源是"制度对齐"的是 AI 对照现行规章制度整理知识库时
-      提出的修改建议。
+      出现次数多、最近还在出现的排在前面。{{ POLICY_HINT }}
     </p>
 
     <el-table

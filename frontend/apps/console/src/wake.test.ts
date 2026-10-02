@@ -102,11 +102,22 @@ describe('duration and age', () => {
 
 describe('runSummary', () => {
   it('tells how many checks were skipped because their data did not change', () => {
-    const text = runSummary(
-      run({ stats: { checks: 17, ran: 5, skipped: 12, found: 3, new: 1, resolved: 2, notified: 2, errors: [] } }),
+    const stats = {
+      checks: 17,
+      ran: 5,
+      skipped: 12,
+      found: 3,
+      new: 1,
+      resolved: 2,
+      notified: 2,
+      errors: [],
+      open: { critical: 1, warning: 3, info: 0 },
+    }
+    expect(runSummary(run({ stats }))).toBe(
+      '检查 17 项（12 项数据没有变化，直接跳过），新问题 1 个，已消除 2 个，待处理 4 个，通知 2 人',
     )
-    expect(text).toBe(
-      '检查 17 项（12 项数据没有变化，直接跳过），发现 3 个问题，新问题 1 个，已消除 2 个，通知 2 人',
+    expect(runSummary(run({ stats: { checks: 5, ran: 5, errors: ['stock_low'] } }))).toBe(
+      '检查 5 项，待处理 0 个，1 项出错',
     )
   })
 
@@ -131,7 +142,7 @@ describe('kbSummary', () => {
   })
 
   it('shows model usage only when the model was called', () => {
-    expect(llmUsage({ llm_calls: 3, llm_cost: 0.0123 })).toBe('大模型 3 次 · ¥0.0123')
+    expect(llmUsage({ llm_calls: 3, llm_cost: 1.23 })).toBe('大模型 3 次 · ¥0.0123')
     expect(llmUsage({ llm_calls: 0 })).toBe('')
   })
 })

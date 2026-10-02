@@ -36,6 +36,8 @@ const kind = computed(() => detail.value?.kind ?? 'new')
 const creates = computed(() => kind.value === 'new' || kind.value === 'gap')
 const isPhrase = computed(() => kind.value === 'phrase')
 const isDuplicate = computed(() => kind.value === 'duplicate')
+/** 知识库整理（§33.7）对照规章制度提出的建议：没有出现次数和提炼模型。 */
+const fromPolicy = computed(() => detail.value?.source === 'policy')
 /** 证据的种类：聊天里的对话，或者知识库整理（§33.7）依据的制度原文、重复的另一条知识。 */
 const evidenceKind = computed(() => detail.value?.evidence[0]?.kind ?? null)
 const evidenceTitle = computed(() =>
@@ -160,7 +162,10 @@ async function reject(): Promise<void> {
         <div class="head">
           <el-tag :type="CANDIDATE_KIND_TAG[detail.kind]">{{ CANDIDATE_KIND[detail.kind] }}</el-tag>
           <el-tag v-if="!pending" type="info">{{ CANDIDATE_STATUS[detail.status] }}</el-tag>
-          <span class="muted">
+          <span v-if="fromPolicy" class="muted" data-testid="candidate-from-policy">
+            制度对齐 · AI 整理知识库时提出 · {{ formatDateTime(detail.last_seen_at) }}
+          </span>
+          <span v-else class="muted">
             出现 {{ detail.occurrences }} 次（近 7 天 {{ detail.recent }} 次）· 首次
             {{ formatDateTime(detail.first_seen_at) }}
           </span>
@@ -231,7 +236,16 @@ async function reject(): Promise<void> {
           </div>
         </template>
 
-        <template v-if="pending && canPublish && detail.similar.length && !isPhrase && !isDuplicate">
+        <template
+          v-if="
+            pending &&
+            canPublish &&
+            detail.similar.length &&
+            !isPhrase &&
+            !isDuplicate &&
+            !(fromPolicy && kind === 'conflict')
+          "
+        >
           <h4>相似的已有知识</h4>
           <div v-for="hit in detail.similar" :key="hit.item_id" class="similar">
             <div class="similar-head">
@@ -275,7 +289,7 @@ async function reject(): Promise<void> {
             </template>
           </div>
         </div>
-        <p class="muted trace">
+        <p v-if="detail.model || detail.prompt_version" class="muted trace">
           提炼模型 {{ detail.model ?? '—' }} · 提示词 {{ detail.prompt_version ?? '—' }}
         </p>
         <p v-if="detail.review_note" class="muted">处理说明：{{ detail.review_note }}</p>

@@ -35,6 +35,10 @@ type Tab = 'findings' | 'runs' | 'index' | 'settings'
 const TABS: Tab[] = ['findings', 'runs', 'index', 'settings']
 const PAGE_SIZE = 20
 const POLL_MS = 3000
+const INDEX_HELP =
+  '企业的每张数据表都有增量字段（change_seq）。数据新增、修改、删除时，数据库在事务提交时更新这张索引表：' +
+  '每张表最近一次变化的编号和时间。AI 检查前先比对这里的编号——检查项读的表都没有新的变化时直接跳过，' +
+  '不再全表查询；有变化时按增量字段只找变了的数据。'
 
 const route = useRoute()
 const router = useRouter()
@@ -304,11 +308,7 @@ onBeforeUnmount(() => clearInterval(poll))
       </el-tab-pane>
 
       <el-tab-pane label="增量更新索引" name="index" lazy>
-        <p class="muted explain">
-          企业的每张数据表都有增量字段（change_seq）。数据新增、修改、删除时，数据库在事务提交时更新
-          这张索引表：每张表最近一次变化的编号和时间。AI 检查前先比对这里的编号——检查项读的表都没有新的
-          变化时直接跳过，不再全表查询；有变化时按增量字段只找变了的数据。
-        </p>
+        <p class="muted explain">{{ INDEX_HELP }}</p>
         <el-table :data="overview?.data_index ?? []" data-testid="wake-data-index" empty-text="还没有数据变化">
           <el-table-column label="数据" min-width="160">
             <template #default="{ row }">

@@ -185,6 +185,65 @@ FUNCTIONS = [
     """,
 ]
 
+# 消息分区维护（0017）：从默认分区搬行时删除的行排队了延迟执行的 index 更新，排队的触发事件没执行完
+# 时不能 ALTER TABLE 默认分区。搬完先让它们立即执行，再恢复延迟。没有这个触发器（降级后）时
+# 照常执行。
+ENSURE_PARTITIONS = """
+CREATE OR REPLACE FUNCTION edp_ensure_message_partitions(months_ahead integer)
+RETURNS integer
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+  first_month timestamp := date_trunc('month', now() AT TIME ZONE 'UTC');
+  lower_bound timestamptz;
+  upper_bound timestamptz;
+  partition_name text;
+  fk record;
+  created integer := 0;
+BEGIN
+  FOR i IN 0..months_ahead LOOP
+    lower_bound := (first_month + make_interval(months => i)) AT TIME ZONE 'UTC';
+    upper_bound := (first_month + make_interval(months => i + 1)) AT TIME ZONE 'UTC';
+    partition_name := 'messages_' || to_char(lower_bound AT TIME ZONE 'UTC', '"y"YYYY"m"MM');
+    IF to_regclass(partition_name) IS NULL THEN
+      EXECUTE format(
+        'CREATE TABLE %I (LIKE messages INCLUDING DEFAULTS INCLUDING CONSTRAINTS)',
+        partition_name
+      );
+      FOR fk IN
+        SELECT conname, pg_get_constraintdef(oid) AS definition
+        FROM pg_constraint WHERE conrelid = 'messages'::regclass AND contype = 'f'
+      LOOP
+        EXECUTE format(
+          'ALTER TABLE %I ADD CONSTRAINT %I %s', partition_name, fk.conname, fk.definition
+        );
+      END LOOP;
+      ALTER TABLE messages_default NO FORCE ROW LEVEL SECURITY;
+      EXECUTE format(
+        'WITH moved AS (DELETE FROM messages_default WHERE sent_at >= %L AND sent_at < %L'
+        ' RETURNING *) INSERT INTO %I SELECT * FROM moved',
+        lower_bound, upper_bound, partition_name
+      );
+      IF EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'edp_data_index') THEN
+        SET CONSTRAINTS edp_data_index IMMEDIATE;
+        SET CONSTRAINTS edp_data_index DEFERRED;
+      END IF;
+      ALTER TABLE messages_default FORCE ROW LEVEL SECURITY;
+      EXECUTE format(
+        'ALTER TABLE messages ATTACH PARTITION %I FOR VALUES FROM (%L) TO (%L)',
+        partition_name, lower_bound, upper_bound
+      );
+      PERFORM edp_protect_partition(partition_name);
+      created := created + 1;
+    END IF;
+  END LOOP;
+  RETURN created;
+END
+$$
+"""
+
 # 带 tenant_id 的表（分区表只取父表）。
 TENANT_TABLES_SQL = """
 SELECT c.relname
@@ -204,6 +263,7 @@ def _tracked() -> list[str]:
 def upgrade() -> None:
     for statement in FUNCTIONS:
         op.execute(statement)
+    op.execute(ENSURE_PARTITIONS)
     for table in _tracked():
         ignored = IGNORED_COLUMNS.get(table, ())
         array = "ARRAY[" + ", ".join(f"'{c}'" for c in ignored) + "]::text[]" if ignored else "'{}'"

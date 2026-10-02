@@ -11,6 +11,9 @@ import { checkOverrides, groupChecks, WEEKDAYS, type WakeCheck, type WakeSetting
  * 开关和数字。检查项旁边显示它读的数据表和最近一次实际检查的时间：数据没变时检查项会跳过（§33.9）。
  */
 const emit = defineEmits<{ saved: [] }>()
+const CHECKS_HELP =
+  '每个检查项是一段按口径的查询。检查前先比对增量更新索引：检查项读的数据表都没有新的变化、口径没改、' +
+  '也没到时限时直接跳过，不再查询这些表。'
 
 const loading = ref(false)
 const saving = ref(false)
@@ -155,10 +158,7 @@ onMounted(load)
     </el-form>
 
     <h4 class="checks-title">检查项</h4>
-    <p class="hint block">
-      每个检查项是一段按口径的查询。检查前先比对增量更新索引：检查项读的数据表都没有新的变化、口径没改、
-      也没到时限时直接跳过，不再查询这些表。
-    </p>
+    <p class="hint block">{{ CHECKS_HELP }}</p>
     <div v-for="[label, items] in groups" :key="label" class="group">
       <div class="group-title">{{ label }}</div>
       <div

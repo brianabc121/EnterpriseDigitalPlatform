@@ -48,6 +48,7 @@ const TITLES = {
   customers: '客户',
   knowledge: '知识库',
   ai: 'AI 接待',
+  wake: 'AI 唤醒',
   assistant: 'AI 助理',
   staff: '员工',
   reports: '报表',

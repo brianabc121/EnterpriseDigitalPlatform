@@ -45,8 +45,10 @@ async def enqueue(
     if queued is not None:
         if start < queued.not_before:
             queued.not_before = start
-        if trigger == RunTrigger.MANUAL and queued.created_by is None:
-            queued.created_by = created_by
+        if trigger == RunTrigger.MANUAL:
+            # 立即唤醒合并到排队中的定时唤醒：也要全部重新检查。
+            queued.trigger = RunTrigger.MANUAL
+            queued.created_by = queued.created_by or created_by
         return queued
     run = WakeRun(
         tenant_id=tenant_id,
