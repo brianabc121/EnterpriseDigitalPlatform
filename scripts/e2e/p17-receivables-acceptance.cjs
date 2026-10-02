@@ -335,7 +335,10 @@ async function financeRole(admin, ctx) {
   await dialog.locator('[data-testid="role-console"]').click()
   await admin.locator('.el-select-dropdown__item:visible', { hasText: '财务' }).click()
   await dialog.locator('[data-testid="role-fill-defaults"]').click()
-  const checked = await dialog.locator('.el-checkbox.is-checked').allInnerTexts()
+  // 只数权限项（不含每个模块的"全选"）。
+  const checked = await dialog
+    .locator('[data-testid^="perm-"].is-checked:not([data-testid^="perm-module"])')
+    .allInnerTexts()
   check(
     '选了岗位"财务"后一键填入默认权限：查看应收账款、跟进催收导出、查看订单、登记收款等 8 项',
     checked.length === 8 && checked.some((t) => t.includes('应收账款')) && checked.some((t) => t.includes('登记收款')),
