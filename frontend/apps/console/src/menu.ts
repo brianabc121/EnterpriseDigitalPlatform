@@ -21,6 +21,7 @@ export type MenuIcon =
   | 'avatar'
   | 'chart'
   | 'profit'
+  | 'tokens'
   | 'integration'
   | 'broadcast'
   | 'audit'
@@ -171,6 +172,8 @@ export const MENU: readonly MenuItem[] = [
     permission: 'profit:view',
     feature: 'orders',
   },
+  // 企业 token 计费（§37）：管理员和财务默认有。
+  { name: 'tokens', path: '/tokens', title: 'Token 计费', icon: 'tokens', permission: 'token:view' },
   {
     name: 'broadcasts',
     path: '/broadcasts',

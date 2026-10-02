@@ -83,8 +83,8 @@ export const PERMISSION_MODULES: readonly PermissionModuleConfig[] = [
     key: 'finance',
     title: '财务',
     icon: 'money',
-    pages: ['receivables', 'profit'],
-    permissions: ['finance:view', 'finance:manage', 'profit:view', 'profit:manage'],
+    pages: ['receivables', 'profit', 'tokens'],
+    permissions: ['finance:view', 'finance:manage', 'profit:view', 'profit:manage', 'token:view'],
   },
   {
     key: 'contracts',
