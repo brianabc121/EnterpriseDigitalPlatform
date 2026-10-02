@@ -110,7 +110,7 @@ async function consoleLogin(browser, username) {
 }
 
 const menu = (page, title) =>
-  page.locator('[data-testid="main-menu"] .el-menu-item', { hasText: title }).click()
+  page.locator('[data-testid="main-menu"] .el-menu-item', { hasText: new RegExp('^\\s*' + title) }).click()
 const tab = (page, title) => page.locator('.el-tabs__item', { hasText: title }).click()
 const option = (page, text) =>
   page.locator('.el-select-dropdown__item:visible', { hasText: text }).first().click()

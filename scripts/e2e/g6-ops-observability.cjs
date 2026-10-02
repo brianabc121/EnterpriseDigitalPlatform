@@ -350,10 +350,6 @@ async function healthSection(ctx) {
 
 async function metricsSection() {
   if (!METRICS_URLS) return
-  const bodies = await Promise.all(
-    METRICS_URLS.split(',').map((url) => fetch(url.trim()).then((r) => r.text())),
-  )
-  const all = bodies.join('\n')
   const expected = [
     'edp_http_requests_total{method="GET",route="/api/v1/customers"',
     'edp_events_processed_total{',
@@ -362,7 +358,16 @@ async function metricsSection() {
     'edp_rate_limited_total{rule="tenant-api"',
     'edp_job_last_success_timestamp_seconds{task="partitions"}',
   ]
-  const missing = expected.filter((line) => !all.includes(line))
+  // 租户等状态类指标由调度进程每 15 秒刷新一次，新建的租户要等下一次刷新才出现：最多等 40 秒。
+  let missing = expected
+  for (let attempt = 0; attempt < 8 && missing.length; attempt += 1) {
+    if (attempt) await new Promise((resolve) => setTimeout(resolve, 5000))
+    const bodies = await Promise.all(
+      METRICS_URLS.split(',').map((url) => fetch(url.trim()).then((r) => r.text())),
+    )
+    const all = bodies.join('\n')
+    missing = expected.filter((line) => !all.includes(line))
+  }
   check('三个进程的 /metrics 有请求、事件、分区、租户、限流和调度任务的指标', missing.length === 0, missing)
 }
 

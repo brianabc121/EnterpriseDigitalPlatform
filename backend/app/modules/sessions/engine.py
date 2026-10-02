@@ -38,6 +38,7 @@ from app.modules.conversation.models import (
     TransferStatus,
 )
 from app.modules.customer.models import Customer
+from app.modules.notifications.push import notify_staff
 from app.modules.routing import priority as prio
 from app.modules.routing.assign import (
     HEARTBEAT_TTL,
@@ -56,7 +57,6 @@ from app.modules.routing.models import (
 )
 from app.modules.todos import service as todos
 from app.modules.wecom import menus
-from app.modules.wecom.notify import notify_staff
 from app.observability import metrics
 
 logger = logging.getLogger(__name__)

@@ -7,7 +7,7 @@ from pydantic import ValidationError
 
 from app.context import AppContext
 from app.core.config import Settings
-from app.core.consoles import DEFAULT_MENUS, PROFILE_LABELS, ConsoleProfile
+from app.core.consoles import DEFAULT_MENUS, PROFILE_LABELS, PROFILE_PERMISSIONS, ConsoleProfile
 from app.core.dates import today
 from app.core.deps import (
     client_ip,
@@ -39,6 +39,8 @@ from app.modules.iam.schemas import (
     PasswordChange,
     PasswordReset,
     PermissionList,
+    ProfilePermissionList,
+    ProfilePermissions,
     RoleCreate,
     RoleList,
     RoleOut,
@@ -232,6 +234,21 @@ async def list_roles(session: TenantDb, _: CanReadStaff) -> RoleList:
     roles = await service.list_roles(session)
     members = await manage.role_members(session)
     return RoleList(items=[manage.role_out(role, members[role.id]) for role in roles])
+
+
+@router.get("/roles/profile-permissions", response_model=ProfilePermissionList)
+async def profile_permissions(_: CanReadStaff) -> ProfilePermissionList:
+    """每个岗位的默认权限：新建自定义角色时选了岗位可以一键填入（设计文档 §28.5）。"""
+    return ProfilePermissionList(
+        items=[
+            ProfilePermissions(
+                profile=profile,
+                label=PROFILE_LABELS[profile],
+                permissions=sorted(PROFILE_PERMISSIONS[profile]),
+            )
+            for profile in ConsoleProfile
+        ]
+    )
 
 
 @router.post("/roles", response_model=RoleOut, status_code=status.HTTP_201_CREATED)

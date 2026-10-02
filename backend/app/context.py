@@ -49,6 +49,8 @@ class AppContext:
     prompts: PromptStore
     # 抓取官网帮助中心等外部网页（知识导入）。不自动跟随跳转：每一跳都要检查地址。
     web: httpx.AsyncClient
+    # AI 公司助理接入的 IM 平台（Telegram、飞书、钉钉、WhatsApp、企业微信机器人的回复地址）。
+    bots: httpx.AsyncClient
     # 没有配置语音转文字（EDP_ASR_BASE_URL）时为空。
     asr: AsrClient | None = None
     # 没有配置病毒扫描（EDP_CLAMAV_HOST）时为空。
@@ -68,6 +70,7 @@ class AppContext:
         asr_transport: httpx.AsyncBaseTransport | None = None,
         llm_transport: httpx.AsyncBaseTransport | None = None,
         web_transport: httpx.AsyncBaseTransport | None = None,
+        imbots_transport: httpx.AsyncBaseTransport | None = None,
     ) -> "AppContext":
         redis = Redis.from_url(settings.redis_url)
         db = Database(settings)
@@ -111,6 +114,9 @@ class AppContext:
                 follow_redirects=False,
                 headers={"User-Agent": CRAWLER_AGENT},
             ),
+            bots=httpx.AsyncClient(
+                transport=imbots_transport, timeout=settings.imbot_timeout_seconds
+            ),
             asr=asr,
             clamav=(
                 ClamAV(
@@ -131,6 +137,7 @@ class AppContext:
             await self.wecom.aclose()
         await self.storage.aclose()
         await self.web.aclose()
+        await self.bots.aclose()
         await self.llms.aclose()
         await self.llm.aclose()
         await self.im.aclose()

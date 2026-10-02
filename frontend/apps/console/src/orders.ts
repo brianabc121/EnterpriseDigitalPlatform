@@ -308,6 +308,8 @@ const EVENT: Record<string, string> = {
   link_regenerated: '重新生成跟踪链接',
   change_requested: '客户要求修改',
   collection_due: '暂欠到期未收清',
+  collection_followup: '应收跟进',
+  collection_manual: '发起催收',
   followup_created: '客户没有完成下单，生成跟进待办',
   claimed: '领取加工',
   released: '退回待领取',
@@ -380,8 +382,16 @@ export function describeOrderEvent(event: OrderEvent, names: Map<string, string>
       extra = text(payload.request)
       break
     case 'collection_due':
+    case 'collection_manual':
       extra = `还有 ${money(text(payload.outstanding))} 未收`
       break
+    case 'collection_followup': {
+      const promise = text(payload.promise_date)
+      extra = [promise ? `客户承诺 ${promise} 付款` : '', text(payload.note)]
+        .filter(Boolean)
+        .join('，')
+      break
+    }
     case 'worker_assigned':
       extra = text(payload.worker)
       break

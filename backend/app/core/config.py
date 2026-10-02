@@ -162,6 +162,12 @@ class Settings(BaseSettings):
     wecom_sso_url: str = "https://login.work.weixin.qq.com/wwlogin/sso/login"
     # 员工控制台的对外地址：授权完成、登录后跳回这里，应用消息里的链接也指向这里。
     console_public_url: str = "http://localhost:5173"
+    # AI 公司助理接入的 IM 平台接口地址（设计文档 §27.3.1）；联调时可以指向模拟服务。
+    telegram_api_url: str = "https://api.telegram.org"
+    feishu_api_url: str = "https://open.feishu.cn"
+    dingtalk_api_url: str = "https://api.dingtalk.com"
+    whatsapp_api_url: str = "https://graph.facebook.com/v21.0"
+    imbot_timeout_seconds: float = 15.0
 
     # 按租户限流（设计文档 §9.3 租户公平）：每个租户每分钟的员工接口请求、访客接口请求、OpenIM 回调
     # 和大模型调用上限，平台可以在运营后台按租户调整；0 表示不限。访客另有每人每分钟的上限。

@@ -1,5 +1,13 @@
 /** 知识沉淀闭环（审核台、版本、周报）用到的名称和小工具，与后端 app/modules/kb 一致。 */
 
+/** 候选的来源（§12.3、§27.4）。 */
+export const CANDIDATE_SOURCE: Record<string, string> = {
+  session: '会话',
+  sidebar: '侧边栏',
+  zone: '专区',
+  group: '群聊',
+}
+
 export const CANDIDATE_KIND: Record<string, string> = {
   new: '新问题',
   similar: '相似问法',

@@ -32,6 +32,8 @@ const groups = computed(() => {
 const dialogOpen = ref(false)
 const saving = ref(false)
 const editing = ref<Schemas['RoleOut'] | null>(null)
+/** 每个岗位的默认权限（/api/v1/roles/profile-permissions）。 */
+const defaults = ref<Record<string, Permission[]>>({})
 const form = reactive<{
   code: string
   name: string
@@ -46,9 +48,10 @@ const form = reactive<{
 
 async function load(): Promise<void> {
   loading.value = true
-  const [rolesResult, catalogResult] = await Promise.all([
+  const [rolesResult, catalogResult, defaultsResult] = await Promise.all([
     api.GET('/api/v1/roles'),
     api.GET('/api/v1/permissions'),
+    api.GET('/api/v1/roles/profile-permissions'),
   ])
   loading.value = false
   if (!rolesResult.data || !catalogResult.data) {
@@ -57,6 +60,22 @@ async function load(): Promise<void> {
   }
   roles.value = rolesResult.data.items
   catalog.value = catalogResult.data.items
+  if (defaultsResult.data) {
+    defaults.value = Object.fromEntries(
+      defaultsResult.data.items.map((item) => [item.profile, item.permissions]),
+    )
+  }
+}
+
+/** 选了岗位后一键填入这个岗位的默认权限（§28.5）；自己没有的权限不能授予，跳过。 */
+function fillDefaults(): void {
+  if (!form.console) return
+  const wanted = defaults.value[form.console] ?? []
+  const allowed = wanted.filter((code) => grantable(code))
+  form.permissions = [...allowed]
+  if (allowed.length < wanted.length) {
+    ElMessage.warning('有些默认权限你自己没有，没有填入')
+  }
 }
 
 function openEditor(role: Schemas['RoleOut'] | null): void {
@@ -193,6 +212,15 @@ defineExpose({ load })
             <el-option label="按权限自动判断" value="" />
             <el-option v-for="[value, label] in CONSOLE_PROFILES" :key="value" :label="label" :value="value" />
           </el-select>
+          <el-button
+            v-if="form.console"
+            link
+            type="primary"
+            class="fill"
+            data-testid="role-fill-defaults"
+            @click="fillDefaults"
+            >填入这个岗位的默认权限</el-button
+          >
           <div class="hint console-hint">决定员工看到的菜单和首页；每个岗位的菜单在“设置 → 控制台”里调整。</div>
         </el-form-item>
         <el-form-item label="权限" required>
@@ -244,6 +272,10 @@ defineExpose({ load })
 
 .console {
   width: 200px;
+}
+
+.fill {
+  margin-left: 8px;
 }
 
 .console-hint {

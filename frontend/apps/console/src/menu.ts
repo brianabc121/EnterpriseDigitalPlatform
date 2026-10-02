@@ -5,13 +5,16 @@ export type MenuIcon =
   | 'chat'
   | 'history'
   | 'ticket'
+  | 'task'
   | 'order'
   | 'goods'
+  | 'money'
   | 'production'
   | 'warehouse'
   | 'user'
   | 'reading'
   | 'ai'
+  | 'assistant'
   | 'avatar'
   | 'chart'
   | 'integration'
@@ -36,6 +39,7 @@ export const CONSOLE_PROFILES: [ConsoleProfile, string][] = [
   ['admin', '管理员'],
   ['supervisor', '主管'],
   ['agent', '客服'],
+  ['finance', '财务'],
   ['keeper', '仓管'],
   ['worker', '工人'],
   ['knowledge', '知识管理员'],
@@ -68,6 +72,15 @@ export const MENU: readonly MenuItem[] = [
     permission: 'order:read',
     feature: 'orders',
   },
+  // 应收账款（§28）：财务岗位的页面，管理员默认也有（管理员就是默认的财务）。
+  {
+    name: 'receivables',
+    path: '/receivables',
+    title: '应收账款',
+    icon: 'money',
+    permission: 'finance:view',
+    feature: 'orders',
+  },
   {
     name: 'products',
     path: '/products',
@@ -92,6 +105,8 @@ export const MENU: readonly MenuItem[] = [
     permission: 'inventory:manage',
     feature: 'orders',
   },
+  // 个人待办（§27.2）：每个岗位都有，排在"加工"之后，工人登录后仍先打开"加工"。
+  { name: 'tasks', path: '/tasks', title: '个人待办', icon: 'task', permission: 'task:use' },
   {
     name: 'customers',
     path: '/customers',
@@ -107,6 +122,15 @@ export const MENU: readonly MenuItem[] = [
     permission: 'kb:read',
   },
   { name: 'ai', path: '/ai', title: 'AI 接待', icon: 'ai', permission: 'settings:manage' },
+  // AI 公司助理（§27.3）：每个岗位都能对话和绑定；设置页签只给有设置权限的人。
+  {
+    name: 'assistant',
+    path: '/assistant',
+    title: 'AI 助理',
+    icon: 'assistant',
+    permission: 'assistant:use',
+    feature: 'ai',
+  },
   { name: 'staff', path: '/staff', title: '员工', icon: 'avatar', permission: 'staff:read' },
   { name: 'reports', path: '/reports', title: '报表', icon: 'chart', permission: 'report:view' },
   {

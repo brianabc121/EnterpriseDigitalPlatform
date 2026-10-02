@@ -473,6 +473,9 @@ async def detail(
             staff.get(order.credit_approved_by) if order.credit_approved_by else None
         ),
         payment_hint=order.payment_hint,
+        promise_date=order.promise_date,
+        followed_up_at=order.followed_up_at,
+        follow_up_note=order.follow_up_note,
         receiver=service.masked_receiver(order.receiver),
         missing=service.missing_required(order, settings),
         expected_at=order.expected_at,

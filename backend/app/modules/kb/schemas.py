@@ -195,9 +195,10 @@ class KbEvidenceLine(BaseModel):
 
 
 class KbEvidence(BaseModel):
-    """一段证据对话（提炼时已脱敏）。"""
+    """一段证据对话（提炼时已脱敏）。来自侧边栏问答或内部群聊（§27.4）时没有会话。"""
 
-    session_id: UUID
+    session_id: UUID | None = None
+    group_name: str | None = Field(default=None, description="来自 AI 助理记录的群聊时的群名")
     seen_at: datetime
     question: str | None = None
     lines: list[KbEvidenceLine]
@@ -229,6 +230,9 @@ class KbCandidateOut(BaseModel):
     result_item_id: UUID | None
     model: str | None
     prompt_version: str | None
+    source: str = Field(
+        default="session", description="来源：session 会话、sidebar 侧边栏、zone 专区、group 群聊"
+    )
 
 
 class KbCandidatePage(BaseModel):

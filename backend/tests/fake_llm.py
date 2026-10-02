@@ -18,6 +18,11 @@
     客户原话带"【低置信】"时置信度为 0.4。
   - 订单解析：客户说的"<商品> N 个/件/台"或"要 N 个 <商品>"是商品行，"收货人""电话""地址"
     后面的内容是收货信息，"货到付款""定金""月结"等是付款方式，"备注"后面的内容是备注。
+  - 公司助理：带工具时按员工的话选工具（"待办"→ list_my_tasks，"订单"→ lookup_orders，
+    "客户"→ lookup_customer，"记一下 / 提醒我"→ create_task，"完成"→ complete_task，
+    "大家 / 团队"→ team_overview，"商品 / 库存"→ search_products，其他 → search_knowledge），
+    拿到工具结果后把结果复述给员工；tool_plan 里有安排时优先按安排调用。
+  - 群聊知识提炼：带问号的一句话后面紧跟别人的回答就是一个问答，没有人回答的记为缺口。
 - /v1/rerank：问题词项被文档覆盖的比例作为相关度。
 - /v1/audio/transcriptions：语音转文字。音频内容里带 "text=..." 时返回这段文字（测试和验收
   发的"语音"里写好要转写的内容），否则返回固定的文字。
@@ -41,7 +46,9 @@ import httpx
 
 from app.modules.ai.prompts import (
     NO_REFERENCE,
+    TASK_ASSISTANT,
     TASK_EXTRACT,
+    TASK_GROUP_EXTRACT,
     TASK_ORDER_EXTRACT,
     TASK_PHRASE,
     TASK_REPLY,
@@ -305,6 +312,92 @@ def _order_extract(transcript: str) -> str:
     )
 
 
+_ASSISTANT_TOOLS: tuple[tuple[tuple[str, ...], str], ...] = (
+    (("记一下", "提醒我", "记一件"), "create_task"),
+    (("完成了", "做完了", "完成 "), "complete_task"),
+    (("大家", "团队", "全员"), "team_overview"),
+    (("客户待办", "待确认", "待认领"), "list_work_todos"),
+    (("待办", "我有什么事", "今天要做"), "list_my_tasks"),
+    (("订单",), "lookup_orders"),
+    (("客户",), "lookup_customer"),
+    (("商品", "库存", "价格"), "search_products"),
+)
+
+
+def _assistant_call(question: str, offered: set[str]) -> tuple[str, dict[str, Any]] | None:
+    """按员工的话选一个工具；没有合适的用知识库检索。"""
+    for words, name in _ASSISTANT_TOOLS:
+        if name in offered and any(w in question for w in words):
+            if name == "create_task":
+                title = question
+                for word in ("记一下", "提醒我", "记一件事", "：", ":"):
+                    title = title.split(word, 1)[-1]
+                return name, {"title": title.strip(" ，,。") or question[:20]}
+            if name == "complete_task":
+                key = question
+                for word in ("完成了", "做完了", "完成 "):
+                    key = key.split(word, 1)[-1]
+                return name, {"key": key.strip(" ，,。")}
+            if name == "list_my_tasks":
+                which = "today" if "今天" in question else "all"
+                return name, {"filter": "overdue" if "逾期" in question else which}
+            if name == "list_work_todos":
+                view = "pool" if "待认领" in question else "mine"
+                return name, {"view": "pending" if "待确认" in question else view}
+            if name == "lookup_orders":
+                match = re.search(r"[A-Z]{2}\d{8}-\d{4}", question)
+                q = match.group(0) if match else question.replace("订单", "").strip()
+                return name, {"q": q}
+            if name == "lookup_customer":
+                return name, {"q": question.replace("客户", "").strip(" 的情况怎么样？?")}
+            if name == "search_products":
+                query = question.replace("商品", "").replace("库存", "")
+                return name, {"query": query.strip(" 的有多少？?")}
+            return name, {}
+    if "search_knowledge" in offered:
+        return "search_knowledge", {"query": question}
+    return None
+
+
+def _assistant_reply(messages: list[dict[str, Any]], question: str) -> str:
+    outputs = [str(m.get("content") or "") for m in messages if m.get("role") == "tool"]
+    if outputs:
+        return outputs[-1][:500]
+    return "我可以帮你查询待办、订单、客户和知识库，或者帮你记一件事。"
+
+
+def _group_extract(transcript: str) -> str:
+    """群聊知识提炼：带问号的一句话后面紧跟别人的回答就是一个问答，没有人回答的记为缺口。"""
+    lines = [
+        (int(number), role, text.strip())
+        for number, role, text in re.findall(
+            r"(?ms)^\[(\d+)\] ([^：\n]+)：(.*?)(?=^\[\d+\] |\Z)", transcript
+        )
+    ]
+    pairs: list[dict[str, Any]] = []
+    unresolved: list[str] = []
+    for index, (number, role, text) in enumerate(lines):
+        question = text.splitlines()[0]
+        if not question.rstrip().endswith(("？", "?")):
+            continue
+        following = lines[index + 1] if index + 1 < len(lines) else None
+        if following is None or following[1] == role or following[2].rstrip().endswith(("？", "?")):
+            unresolved.append(question)
+            continue
+        pairs.append(
+            {
+                "question": question,
+                "answer": following[2],
+                "category": "",
+                "generalizable": True,
+                "time_sensitive": False,
+                "confidence": 0.8,
+                "evidence": [number, following[0]],
+            }
+        )
+    return json.dumps({"qa_pairs": pairs, "unresolved_questions": unresolved}, ensure_ascii=False)
+
+
 def rerank_score(query: str, document: str) -> float:
     wanted = set(terms(query))
     if not wanted:
@@ -329,7 +422,14 @@ class FakeLLM:
         system = next((m["content"] for m in messages if m.get("role") == "system"), "")
         last_user = next((m["content"] for m in reversed(messages) if m.get("role") == "user"), "")
         task = system.split("\n", 1)[0]
-        if task == TASK_REPLY and body.get("tools") and self.tool_plan:
+        if task == TASK_ASSISTANT and body.get("tools") and not self.tool_plan:
+            # 助理：按员工的话选工具，拿到结果后不再调用。
+            offered = {t["function"]["name"] for t in body["tools"]}
+            asked = not any(m.get("role") == "tool" for m in messages)
+            planned = _assistant_call(last_user, offered) if asked else None
+            if planned is not None:
+                self.tool_plan = [planned]
+        if task in (TASK_REPLY, TASK_ASSISTANT) and body.get("tools") and self.tool_plan:
             name, arguments = self.tool_plan.pop(0)
             return 200, self._completion(
                 body,
@@ -368,6 +468,10 @@ class FakeLLM:
             content = "这不是 JSON" if self.mode == "bad_json" else _order_extract(last_user)
         elif task == TASK_EXTRACT:
             content = "这不是 JSON" if self.mode == "bad_json" else _extract(last_user)
+        elif task == TASK_GROUP_EXTRACT:
+            content = "这不是 JSON" if self.mode == "bad_json" else _group_extract(last_user)
+        elif task == TASK_ASSISTANT:
+            content = _assistant_reply(messages, last_user)
         elif task == TASK_SUGGEST:
             answers = [*_products(system), *_answers(system)] or ["您好，我帮您确认一下，请稍等。"]
             content = json.dumps({"suggestions": answers[:3]}, ensure_ascii=False)

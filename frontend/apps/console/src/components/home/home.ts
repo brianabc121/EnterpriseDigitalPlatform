@@ -6,4 +6,5 @@ export interface HomeData {
   todos: Schemas['TodoCounts'] | null
   orders: Schemas['OrderCounts'] | null
   warehouse: Schemas['WarehouseCounts'] | null
+  receivables: Schemas['ReceivableSummary'] | null
 }

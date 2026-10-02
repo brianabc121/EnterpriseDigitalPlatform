@@ -99,6 +99,7 @@ def candidate_out(
         result_item_id=candidate.result_item_id,
         model=candidate.model,
         prompt_version=candidate.prompt_version,
+        source=candidate.source,
     )
 
 

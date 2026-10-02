@@ -150,6 +150,9 @@ MATRIX: list[tuple[str, str, dict[str, Any] | None]] = [
     ("GET", "/api/v1/orders/{order_id}/revisions/{version}", None),
     ("POST", "/api/v1/orders/{order_id}/items/{order_item_id}/restock", None),
     ("GET", "/api/v1/production/orders/{order_id}", None),
+    ("POST", "/api/v1/finance/receivables/{order_id}/followup", {"note": "越权跟进"}),
+    ("POST", "/api/v1/finance/receivables/{order_id}/collect", {}),
+    ("GET", "/api/v1/finance/customers/{customer_id}/statement", None),
     ("POST", "/api/v1/production/orders/{order_id}/claim", None),
     ("POST", "/api/v1/production/orders/{order_id}/release", None),
     ("POST", "/api/v1/production/orders/{order_id}/items/{order_item_id}/done", None),
@@ -213,6 +216,25 @@ MATRIX: list[tuple[str, str, dict[str, Any] | None]] = [
     ("POST", "/api/v1/mail/accounts/{account_id}/enable", None),
     ("POST", "/api/v1/mail/accounts/{account_id}/disable", None),
     ("GET", "/api/v1/mail/messages/{message_id}/original", None),
+    ("GET", "/api/v1/tasks/{task_id}", None),
+    ("PATCH", "/api/v1/tasks/{task_id}", {"title": "越权修改"}),
+    ("POST", "/api/v1/tasks/{task_id}/done", None),
+    ("POST", "/api/v1/tasks/{task_id}/reopen", None),
+    ("POST", "/api/v1/tasks/{task_id}/cancel", None),
+    ("GET", "/api/v1/assistant/bots/{bot_id}", None),
+    ("PUT", "/api/v1/assistant/bots/{bot_id}", {"provider": "wecom", "name": "越权修改"}),
+    ("DELETE", "/api/v1/assistant/bots/{bot_id}", None),
+    ("POST", "/api/v1/assistant/bots/{bot_id}/enable", None),
+    ("POST", "/api/v1/assistant/bots/{bot_id}/disable", None),
+    ("POST", "/api/v1/assistant/bots/{bot_id}/rotate-token", None),
+    ("POST", "/api/v1/assistant/bots/{bot_id}/test", None),
+    ("PUT", "/api/v1/assistant/identities/{identity_id}", {"staff_id": "{own_staff_id}"}),
+    ("DELETE", "/api/v1/assistant/identities/{identity_id}", None),
+    ("DELETE", "/api/v1/assistant/bindings/{identity_id}", None),
+    ("PATCH", "/api/v1/assistant/groups/{assistant_group_id}", {"name": "越权修改"}),
+    ("GET", "/api/v1/assistant/groups/{assistant_group_id}/messages", None),
+    ("POST", "/api/v1/assistant/groups/{assistant_group_id}/extract", None),
+    ("POST", "/api/v1/assistant/groups/{assistant_group_id}/clear", None),
 ]
 # 凭随机令牌访问的公开接口（订单跟踪页）：令牌本身就是访问凭证，不属于租户内的越权检查，
 # 令牌的有效期和失效见 test_orders.py。
@@ -347,10 +369,12 @@ async def build(desk: Desk) -> Tenant:
     )
     order_ids = await orders(desk, chat)
     mail_ids = await mail(desk, chat)
+    assistant_ids = await assistant(desk, agent.staff_id)
     await desk.flush()
     ids = {
         **order_ids,
         **mail_ids,
+        **assistant_ids,
         "customer_id": str(chat["customer_id"]),
         "staff_id": str(agent.staff_id),
         "channel_id": channel["id"],
@@ -520,6 +544,65 @@ async def mail(desk: Desk, chat: Any) -> dict[str, str]:
     return {"account_id": str(account["id"]), "message_id": await email(desk, chat)}
 
 
+async def assistant(desk: Desk, staff_id: uuid.UUID) -> dict[str, str]:
+    """个人待办、AI 助理的机器人、一个已绑定的 IM 账号和一个记录的群（直接写库，流程见
+    test_tasks.py、test_assistant.py）。"""
+    [task] = await desk.sql(
+        "INSERT INTO staff_tasks (id, tenant_id, no, owner_id, title)"
+        " VALUES ($1, $2, 'T20261002-0001', $3, '盘点仓库') RETURNING id",
+        uuid.uuid4(),
+        desk.tenant_id,
+        staff_id,
+    )
+    [bot] = await desk.sql(
+        "INSERT INTO assistant_bots (id, tenant_id, provider, name, webhook_token)"
+        " VALUES ($1, $2, 'wecom', '小助', $3) RETURNING id",
+        uuid.uuid4(),
+        desk.tenant_id,
+        f"token-{desk.code}",
+    )
+    [identity] = await desk.sql(
+        "INSERT INTO assistant_identities (id, tenant_id, bot_id, external_user_id, staff_id,"
+        " bound_at) VALUES ($1, $2, $3, 'zhangsan', $4, now()) RETURNING id",
+        uuid.uuid4(),
+        desk.tenant_id,
+        bot["id"],
+        staff_id,
+    )
+    [group] = await desk.sql(
+        "INSERT INTO assistant_groups (id, tenant_id, bot_id, external_chat_id, name)"
+        " VALUES ($1, $2, $3, 'chat-1', '售后群') RETURNING id",
+        uuid.uuid4(),
+        desk.tenant_id,
+        bot["id"],
+    )
+    return {
+        "task_id": str(task["id"]),
+        "bot_id": str(bot["id"]),
+        "identity_id": str(identity["id"]),
+        "assistant_group_id": str(group["id"]),
+    }
+
+
+async def dave_assistant(desk: Desk, staff_id: uuid.UUID, bot_id: str) -> dict[str, str]:
+    [task] = await desk.sql(
+        "INSERT INTO staff_tasks (id, tenant_id, no, owner_id, title)"
+        " VALUES ($1, $2, 'T20261002-0002', $3, 'Dave 的事') RETURNING id",
+        uuid.uuid4(),
+        desk.tenant_id,
+        staff_id,
+    )
+    [identity] = await desk.sql(
+        "INSERT INTO assistant_identities (id, tenant_id, bot_id, external_user_id, staff_id,"
+        " bound_at) VALUES ($1, $2, $3, 'dave', $4, now()) RETURNING id",
+        uuid.uuid4(),
+        desk.tenant_id,
+        uuid.UUID(bot_id),
+        staff_id,
+    )
+    return {"task_id": str(task["id"]), "identity_id": str(identity["id"])}
+
+
 async def email(desk: Desk, chat: Any) -> str:
     [row] = await desk.sql(
         "INSERT INTO messages (id, tenant_id, room_id, channel_account_id, session_id, direction,"
@@ -670,6 +753,11 @@ async def snapshot(desk: Desk) -> list[Any]:
         "record_versions": "id, seq, action",
         "form_kb_entries": "id, status, text, value, locked",
         "mail_accounts": "id, status, address, display_name, secret_enc, last_uid, failures",
+        "staff_tasks": "id, status, title, owner_id, due_at",
+        "assistant_bots": "id, name, status, webhook_token, secrets_enc, config",
+        "assistant_identities": "id, staff_id, bound_at",
+        "assistant_groups": "id, name, recording, extract, message_count",
+        "assistant_group_messages": "id, extracted_at",
     }
     rows = []
     for table, columns in tables.items():
@@ -1025,6 +1113,10 @@ async def test_agents_only_reach_their_own_sessions_and_customers(
         "record_id": dave_order_id,
         "account_id": acme.ids["account_id"],
         "message_id": await email(desk, chat),
+        # Dave 自己的个人待办和 IM 绑定；机器人和群只有管理员能管理。
+        **await dave_assistant(desk, acme.other_agent.staff_id, acme.ids["bot_id"]),
+        "bot_id": acme.ids["bot_id"],
+        "assistant_group_id": acme.ids["assistant_group_id"],
     }
     before = await snapshot(desk)
 

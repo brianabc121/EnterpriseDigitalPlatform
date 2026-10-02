@@ -408,8 +408,8 @@ async function requisitionSection(browser, ctx) {
   const short = await card(page, made.no).locator('[data-testid="production-material-short"]').innerText()
   await shot(page, '4-worker-pool-phone', true)
   check(
-    '工人老王（不再是仓管）只有"加工"；待领取里只有要加工的铝合金窗订单（现货的吸顶灯不用加工），卡片提示按配方算材料不够',
-    titles.length === 1 &&
+    '工人老王（不再是仓管）没有"仓库"（只有加工和每个岗位都有的个人待办、AI 助理）；待领取里只有要加工的铝合金窗订单（现货的吸顶灯不用加工），卡片提示按配方算材料不够',
+    titles.length === 3 &&
       listed.includes(made.no) &&
       !listed.includes(ready.no) &&
       short.includes(GLASS) &&

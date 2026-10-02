@@ -74,9 +74,11 @@ async def test_worker_claims_marks_items_and_completes_into_awaiting_shipment(de
     # 工人只有加工页：进不了订单中心。没有指定仓管时最早创建的工人担任仓管（§25.13）。
     assert (await desk.client.get("/api/v1/orders", headers=wang.headers)).status_code == 403
     me = (await desk.client.get("/api/v1/me", headers=wang.headers)).json()
-    assert set(me["permissions"]) == {"production:work", "inventory:manage", "warehouse:confirm"}
+    # 工人另有个人待办和 AI 助理（§27）。
+    worker_only = {"production:work", "task:use", "assistant:use"}
+    assert set(me["permissions"]) == worker_only | {"inventory:manage", "warehouse:confirm"}
     me = (await desk.client.get("/api/v1/me", headers=li.headers)).json()
-    assert set(me["permissions"]) == {"production:work"}
+    assert set(me["permissions"]) == worker_only
 
     # 待领取：货到付款的已确认订单可以开工；在线收款还没收清的不在里面。
     pool = await call(desk, wang.headers, "GET", f"{BASE}/orders?view=pool")

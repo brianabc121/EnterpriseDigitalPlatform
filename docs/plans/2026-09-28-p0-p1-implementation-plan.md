@@ -1921,3 +1921,149 @@ M1-1 至 M1-8 全部完成，验收标准已满足：
   就连接 IM 显示未读角标，懒加载省不了多少。
 - 真实模型联调、企业微信真实联调、压测和真实 Kubernetes 集群部署、会话存档专区：需要外部资源。
 - 各期"未做"列表里的功能（多仓库、OAuth 邮箱登录等）是范围决定，不是遗留问题。
+
+## 29. P16：个人待办、AI 公司助理与群聊记录（完成情况，2026-10-02）
+
+需求：待办事项具体到人（管理员、工人、客服、仓管……），彼此独立，管理员看全部；新增 AI 公司助理，企业可以配置企业微信、
+WhatsApp、Telegram、钉钉、飞书作为助理和员工沟通的 IM，需要通知的事交给助理，员工也可以通过和助理对话查询公司资料、
+订单、待办；助理可以被拉进群，默认不发消息，只记录群会话并从中提炼知识库。
+
+设计见设计文档 §27（v1.4）。
+
+| 批次 | 内容 | 状态 |
+|---|---|---|
+| P16-a | 设计文档 v1.4：个人待办（与客户待办并列、全员可用、管理员看全员、交办、提醒与汇总）、AI 公司助理（五个平台的能力边界、绑定码、统一的员工通知出口、按员工权限执行的工具、护栏）、群聊记录与提炼、数据、接口、前端、安全、不做的 | 已完成 |
+| P16-b | 后端：迁移 `0029`、权限点与岗位菜单、`tasks` 模块（接口、提醒、汇总）、`integrations/imbots`（五个适配器）、`assistant` 模块（机器人、绑定、回调入口、事件处理、引擎与工具、通知、群记录与提炼）、提示词与场景、调度任务、CLI | 已完成 |
+| P16-c | 前端：菜单"个人待办""AI 助理"（含角标）、个人待办页（我的 / 我交办的 / 全员、新建与交办、详情抽屉）、AI 助理页（对话、我的绑定、设置、机器人、群组、绑定管理）、审核台的来源"群聊"、审计标签 | 已完成 |
+| P16-d | 模拟 IM 平台、测试、文档 | 已完成（浏览器验收待补，见 29.2） |
+
+### 29.1 实现要点
+
+- **权限与岗位**（`core/permissions.py`、`core/consoles.py`）：新增 `task:use`（全部系统角色）、`task:assign`（租户管理员、
+  主管）、`task:read_all`（租户管理员）、`assistant:use`（全部系统角色）；菜单 `tasks`（排在"仓库"之后，工人登录后仍先打开
+  "加工"）和 `assistant`（套餐需要包含 AI），加进每个岗位的默认菜单。系统角色的权限以代码为准，已有租户自动生效。
+- **个人待办**（`modules/tasks`，表 `staff_tasks`，迁移 `0029`）：编号 `T` + 日期按天递增；数据范围 `owner_id = 我 OR
+  created_by = 我`（`task:read_all` 不限）；交办时校验接收人在职并写站内信 + push；修改截止时间重置提醒；完成 / 重新打开 /
+  取消的状态流转和 409；`counts`（我的未完成、今日到期、已逾期，有 `todo:read` 时附分派给我的客户待办数）、`overview`
+  （全员每人一行）；`tenant_settings.tasks`（提前提醒分钟、每日汇总）。调度任务 `task-timers`（每分钟：截止前一次、逾期一次，
+  按租户加行锁跳过别人正在处理的）和 `task-digest`（每 5 分钟检查，每个工作日上班后一次，Redis 按天去重）。
+- **员工通知的统一出口**（`notifications/push.py`）：`notify_staff` = 企业微信应用消息（原有）+ AI 助理（新增）；待办、
+  客户待办、会话分配与转接、知识到期与周报、必读知识的调用点都改为经它发送，站内信照旧由业务代码在事务里写入。
+- **IM 适配器**（`integrations/imbots`）：统一的 `receive`（验签、解析为 `InboundMessage`，或返回地址验证的响应）、
+  `send_text`（按会话或按人）、`setup`（保存时校验凭证；Telegram 另外 `setWebhook` 并取回用户名）和给控制台向导的
+  `ProviderSpec`。Telegram：`X-Telegram-Bot-Api-Secret-Token` = 回调令牌；飞书：`url_verification`、`header.token`、
+  可选的 Encrypt Key（AES-256-CBC + `X-Lark-Signature`）、`tenant_access_token` 进程内缓存；钉钉：`timestamp` + `sign`
+  （HMAC-SHA256，1 小时内）、`sessionWebhook` 回复、`oToMessages/batchSend` 主动通知；WhatsApp：`hub.challenge`、
+  `X-Hub-Signature-256`、`/{phone_number_id}/messages`；企业微信智能机器人：与其他回调相同的 AES 验签解密（JSON 或 XML），
+  通过 `response_url` 回复，不能主动发消息（通知仍走代开发应用的应用消息）。真实联调以各平台官方文档为准。
+- **助理**（`modules/assistant`）：`assistant_bots`（密钥 JSON 用租户数据密钥加密，`webhook_token` 随机，最多 10 个）、
+  `assistant_identities`（IM 账号 ↔ 员工，未绑定的也记录）、`assistant_groups`、`assistant_group_messages`、
+  `assistant_messages`（对话上下文与审计）；回调入口 `/hooks/assistant/{bot_id}/{token}`（平台连接跨租户找机器人、
+  常量时间比较令牌、停用的拒绝、验签失败 403、256 KB 上限）写入事件 `assistant.inbound`（按机器人 + 会话分区）后立即返回；
+  实时消费进程处理：私聊 → 记账号、"绑定 123456"（Redis 一次性绑定码，10 分钟）、未绑定的回复绑定说明、已绑定的交给引擎；
+  群聊 → 登记群、记录消息（按平台消息 ID 去重）、按群或租户的回复方式决定是否回答（只回答已绑定员工的 @）；企业微信按
+  `wecom_userid` 自动对应。引擎（`engine.py`）：租户设置、套餐 AI、员工在职、每人每分钟限流（Redis 固定窗口）、模型是否
+  支持工具（不支持时只做知识库问答）、最近 20 条上下文、先脱敏再调用（场景 `assistant`，提示词可发布版本）、最多 4 轮工具；
+  工具（`tools.py`）按员工权限提供，每个工具都用本人的 `Principal` 调用现有查询（`tasks`、`todos.queries`、
+  `orders.queries`、`customer.service`、`kb.search`、`products.search` + `stock.levels`、`tasks.overview`），输出脱敏后回传。
+  通知（`notify.py`）：事件 `assistant.notify` → 给员工在能主动发消息的机器人上的每个绑定各发一条（附控制台链接），
+  发送失败记在机器人上（连续失败次数、最近的错误），不影响业务。
+- **群聊提炼**（`assistant/extraction.py`）：调度任务 `assistant-group-extract`（每小时）：开启了提炼的群，取还没提炼的消息
+  （至少 3 条、最后一条已过 10 分钟），去寒暄、脱敏、说话人匿名为"同事 N"，场景 `group_extract` 的提示词输出与会话提炼相同的
+  结构，复用 `kb.extraction.record_pair / record_gap`（来源 `group`，证据带群名和匿名片段），记下提炼时间和候选数；
+  控制台"立即提炼"不等沉淀。`kb_candidates.prompt_version` 放宽到 40 字符。
+- **接口**：`/api/v1/tasks`（列表、counts、overview、staff、新建、详情、修改、done / reopen / cancel）、
+  `/api/v1/tenant/tasks-settings`；`/api/v1/assistant`（chat、chat/history、binding-code、bindings、settings、providers、
+  bots 及 enable / disable / rotate-token / test、identities、groups 及 messages / extract / clear）。机器人、绑定、群的
+  操作记审计。越权矩阵覆盖全部带 ID 的新接口；表加入快照。
+- **前端**：`tasks.ts`、`assistant.ts` 和单元测试；`TasksView`（我的：未完成 / 今天到期 / 已逾期 / 已完成；我交办的；全员：
+  每人一行，点开看这个人的；新建 / 交办对话框；详情抽屉：修改、完成并写备注、重新打开、取消）；`AssistantView`（对话面板显示
+  用到的工具；我的绑定：绑定码倒计时和已绑定的渠道；设置；机器人：按平台的接入向导、回调地址复制、测试发送、换地址、启停、
+  删除；群组：记录 / 提炼开关、群内回复方式、立即提炼、查看记录、清空；绑定管理）；菜单角标是我已逾期的事项数；审核台的
+  候选显示来源；操作日志的新动作有中文名。
+- **模拟 IM 平台**（`tests/fake_bots.py`）：按域名模拟 Telegram、飞书、钉钉（含 sessionWebhook）、WhatsApp、企业微信回复地址
+  的服务端接口，记录发出的文字，可以模拟发送失败；`tests/fake_llm.py` 增加"公司助理"（按员工的话选工具、复述工具结果）
+  和"群聊知识提炼"两个任务。
+
+### 29.2 验收
+
+- 后端：新增 `tests/test_tasks.py`（4 个：各岗位各自的清单与管理员的全员视图和交办、状态流转、到期和逾期提醒与每日汇总与
+  设置、客户待办数量）和 `tests/test_assistant.py`（7 个：Telegram 接入、回调令牌、绑定码、以本人权限查询、限流、解除绑定；
+  平台提醒经助理送达、关闭通知、发送失败记账；控制台对话与权限（没有权限的工具不提供、记一件事、完成一件事、团队概览、
+  没有 `assistant:use` 的角色、关闭助理）；模型不支持工具时只查知识库；飞书群记录（地址验证、只记录不说话、去重、调度提炼、
+  来源"群聊"与匿名证据、沉淀时间、立即提炼与缺口、暂停、被 @ 时回答、清空）；钉钉、WhatsApp、企业微信的验签与回复；
+  机器人管理与手工绑定、审计、删除级联）；`test_console`、`test_authz_matrix`（新接口与表）、`conftest` 更新。
+  迁移 `0029` 可以降级再升级。ruff、mypy 通过，OpenAPI 与生成的类型一致。完整套件 560 个测试通过、10 个跳过（对象存储和 OpenIM 的契约测试需要本地服务）；
+  `test_production`、`test_warehouse` 里工人的权限集合预期加上了 `task:use`、`assistant:use`。
+- 前端：控制台单元测试 22 个文件 150 个通过（新增 `tasks.test.ts`、`assistant.test.ts`，`menu.test.ts` 更新），ESLint、
+  类型检查和构建通过。
+- 本次没有写新的浏览器验收脚本（`scripts/e2e`），也没有在真实的 IM 平台上联调：各平台的回调格式按官方文档实现并用模拟服务
+  验证，上线前需要用真实的机器人逐个平台联调（企业微信智能机器人的 `response_url`、飞书的群消息权限、Telegram 的
+  `setWebhook` 需要公网 HTTPS）。
+- 未做（设计文档 §27.9）：助理主动给客户发消息、WhatsApp 模板消息、图片 / 语音消息、企业微信群的全量记录、从群聊自动生成
+  待办、按员工单独配置助理。
+
+## 30. P17：应收账款与财务岗位（完成情况，2026-10-02）
+
+需求：新增一个"应收账款"的页面；新增一个"财务"的角色——默认就是管理员，管理员可以自己创建一个新的财务角色。
+
+设计见设计文档 §28（v1.5）。
+
+| 批次 | 内容 | 状态 |
+|---|---|---|
+| P17-a | 设计文档 v1.5：现状与差距、应收的定义（到期日按收款方式、逾期天数、账龄分段）、页面（顶部数字、按订单、按客户、对账单、导出、首页）、财务岗位与权限（默认由管理员担任；自定义角色选岗位并一键填入默认权限）、每日逾期提醒、数据、接口、前端、安全、不做的 | 已完成 |
+| P17-b | 后端：权限点与岗位、迁移 `0030`、`finance` 模块（汇总、列表、按客户、最近收款、跟进、催收、对账单、导出）、订单数据范围、报表逾期口径、每日提醒、各岗位默认权限接口、测试 | 已完成 |
+| P17-c | 前端：菜单与路由、应收账款页、财务首页、角色对话框的岗位与默认权限、控制台设置、订单详情 | 已完成 |
+| P17-d | 浏览器验收 `p17-receivables-acceptance`、文档、PR、合并到 main | 已完成 |
+
+### 30.1 实现要点
+
+- **权限与岗位**（`core/permissions.py`、`core/consoles.py`、`iam/console.py`）：新增 `finance:view`（查看应收账款、账龄、
+  对账单；订单的数据范围 `orders.service.visible_to` 把它当作"看全部"）和 `finance:manage`（跟进、催收、导出），分组"财务"；
+  岗位 `finance`（财务，排在客服之后），菜单 `receivables`（排在"订单"之后，需要 `finance:view` 和套餐功能 `orders`），财务的
+  默认菜单是首页、订单、应收账款、个人待办、客户、AI 助理；没选岗位的自定义角色有 `finance:view` 或 `finance:manage` 的算财务
+  （有工作台权限的仍算客服）。租户管理员拥有全部权限，所以升级后管理员的菜单和首页自动多出应收账款——这就是"默认由管理员
+  担任"；主管系统角色不加这两个权限。不预置"财务"系统角色。
+- **各岗位的默认权限**（`PROFILE_PERMISSIONS`，`GET /api/v1/roles/profile-permissions`）：有同名系统角色的岗位就是该角色的
+  权限；财务是首页、应收账款查看与管理、查看订单、登记收款、查看客户、个人待办、AI 助理。"员工 → 角色"选了岗位后出现
+  "填入这个岗位的默认权限"，自己没有的权限跳过并提示。
+- **应收的定义**（`modules/finance/service.py`，设计文档 §28.3）：应收 = 已确认及之后、合计大于 0、没收清的订单；到期日是
+  一个 SQL `CASE`（暂欠 → 约定付款日；在线收款、没收到定金 → 确认当天；尾款 → "发货前收清"时是可以交付那天 [有加工的是加工
+  完成当天，不用加工的是开始处理当天]，"货到时收取"时是发货当天；货到付款 → 发货当天；没有发货环节时都是可以交付那天），
+  时间戳按租户时区转成日期；逾期天数 = 今天 − 到期日，账龄 = 今天 − 确认日，分段按逾期天数。筛选、排序、汇总、按客户分组
+  都用同一个表达式，行里的天数在 Python 里按同样的规则算。实现时发现设计稿里"货到付款到期日是完成当天"不成立——货到付款和
+  预付定金的订单收清前完成不了、"发货前收清"的尾款没收清发不了货，所以到期日改成"可以交付的那天"，设计文档已同步修正。
+- **接口**（`modules/finance/router.py`，前缀 `/api/v1/finance`）：`receivables/summary`（应收合计、逾期、今天到期、7 天内
+  到期、本月已收、五段账龄）、`receivables`（范围、账龄、收款方式、处理人、客户、关键字；按到期日 / 未收金额 / 账龄排序）、
+  `receivables/customers`（分组查询 + `HAVING` 只看有逾期的；最近收款和最近跟进另外取）、`receivables/recent-payments`、
+  `staff`（启用状态的员工：财务没有查看员工的权限，筛选处理人和指定催收人用它）、`receivables/{id}/followup`（承诺付款日
+  "不传不改、传 null 清除"，备注；写订单动态 `collection_followup`）、`receivables/{id}/collect`（催收待办交给指定的人或
+  订单处理人，没有处理人时按催收类型的分派规则；一个订单同时只有一条未完成的，409；收清后由收款流程自动完成；写订单动态
+  `collection_manual`）、`customers/{id}/statement`（期初 = 期间之前确认的订单合计 − 之前的净收款；期间内的订单和收款按日期
+  排列、逐行余额；只算已确认且没取消的订单）、`receivables/export`（CSV，审计 `finance.export`，不含收货信息）。订单详情
+  增加 `promise_date`、`followed_up_at`、`follow_up_note`。
+- **数据**（迁移 `0030`）：`orders.promise_date`、`followed_up_at`、`follow_up_note`；`tenant_settings.finance`（每日提醒的
+  日期）；`roles.console` 的检查约束加上 `finance`（降级时先把选了财务的角色清空）。
+- **每日提醒**（`modules/finance/jobs.py`，调度任务 `finance-overdue-remind` 每 30 分钟检查）：租户时区 9 点之后、当天没
+  提醒过、有逾期应收时，给有 `finance:manage` 的员工写站内信并经统一通知出口送达；没有财务角色时收到提醒的就是管理员。
+- **报表**：订单报表的"逾期应收"改用同一个到期日定义（原来只算暂欠）。
+- **前端**（`views/ReceivablesView.vue`、`components/finance/`、`components/home/FinanceHome.vue`）：顶部数字（点开就筛选）
+  和账龄条（点一段筛选、再点取消）；"按订单"的筛选、排序、表格（到期列按逾期红色 / 今天到期橙色）和操作（登记收款、跟进、
+  催收、打开订单）；"按客户"的汇总、对账单抽屉（期间可改、可打印：`print.ts` 的 `statementHtml`）和"查看订单"（按客户筛选，
+  带可关闭的标签）；手机上数字两列、账龄竖排、列表变卡片。登记收款的对话框从订单详情抽成 `PaymentDialog`（测试 id 不变）；
+  订单详情的收款区显示承诺付款日和最近跟进，动态显示跟进和催收。首页的财务一块给财务岗位和管理员显示。路由支持
+  `view`、`tab`、`id` 参数。
+
+### 30.2 验收
+
+- 后端完整套件 563 个测试通过、10 个跳过（对象存储和 OpenIM 的契约测试需要本地服务）。新增 `tests/test_finance.py`（3 个：
+  应收的定义与汇总、列表的范围 / 账龄 / 排序 / 关键字、按客户、最近收款、对账单、导出与审计；跟进、催收、收清后待办自动完成、
+  每日提醒一天一次；管理员默认有应收账款、各岗位默认权限、自定义财务角色的菜单与数据范围、坐席 403、按权限判断岗位），
+  `test_console`（菜单列表）、`test_authz_matrix`（三个新接口）更新。ruff、mypy 通过，OpenAPI 与生成的类型一致。迁移 `0030`
+  可以降级再升级。
+- 前端：控制台单元测试 23 个文件 155 个通过（新增 `finance.test.ts` 4 个，`menu.test.ts` 增加财务岗位的菜单），ESLint、类型
+  检查和构建通过。
+- 浏览器验收 `p17-receivables-acceptance`（25 项）全部通过，已加入 `e2e-full.yml`；`p0-acceptance`、`p11-transport-consoles-acceptance`
+  的管理员菜单列表加上"应收账款"，和 `p6-orders-acceptance`（登记收款的对话框改为共用组件）一起重新跑过。验收脚本用后端的
+  Python 环境把订单的到期日往前拨（接口不允许填过去的日期）。
+- 未做（设计文档 §28.11）：一笔款冲多张订单、预收款和客户余额、坏账核销、信用额度、发票、自动给客户发催款消息、财务软件对接。

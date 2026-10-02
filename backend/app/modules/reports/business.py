@@ -20,6 +20,7 @@ from app.core.dates import day_bounds
 from app.modules.ai.models import AiSecurityEvent
 from app.modules.channels.models import ChannelAccount
 from app.modules.conversation.models import ChatSession
+from app.modules.finance import service as finance_service
 from app.modules.iam.models import Staff
 from app.modules.iam.principal import Principal
 from app.modules.orders import service as order_service
@@ -30,7 +31,6 @@ from app.modules.orders.models import (
     OrderItem,
     OrderRevision,
     OrderStatus,
-    PaymentMethod,
 )
 from app.modules.orders.models import SOURCE_LABELS as ORDER_SOURCES
 from app.modules.products.models import ProductGap
@@ -420,12 +420,13 @@ async def order_report(
     unpaid = case((Order.total - net > 0, Order.total - net), else_=0)
     open_orders = and_(scope, Order.status.in_(CONFIRMED))
     receivable = await session.scalar(select(func.coalesce(func.sum(unpaid), 0)).where(open_orders))
+    # 逾期按应收账款的定义（设计文档 §28.3）：到期日按收款方式，不只是暂欠。
+    calendar = await finance_service.calendar(session, principal.tenant_id)
     overdue = (
         await session.execute(
             select(func.count(), func.coalesce(func.sum(unpaid), 0)).where(
                 open_orders,
-                Order.payment_method == PaymentMethod.CREDIT.value,
-                Order.credit_due_date < today,
+                finance_service.due_date(calendar) < calendar.today,
                 Order.total - net > 0,
             )
         )

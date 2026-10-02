@@ -39,8 +39,8 @@ from app.modules.kb.models import (
 from app.modules.kb.schemas import KbItemStat, KbItemStats, KbMetrics, KbReasonCount
 from app.modules.kb.service import STALE_AFTER
 from app.modules.notifications import service as notifications
+from app.modules.notifications.push import notify_staff
 from app.modules.tenancy.models import Tenant, TenantStatus
-from app.modules.wecom.notify import notify_staff
 
 logger = logging.getLogger(__name__)
 
