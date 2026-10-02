@@ -1,11 +1,12 @@
 <script setup lang="ts">
-defineProps<{ label: string; value: string; hint?: string; testid?: string }>()
+/** tone=danger：数值用红色（例如亏损的净利润，数值本身带负号）。 */
+defineProps<{ label: string; value: string; hint?: string; testid?: string; tone?: 'danger' }>()
 </script>
 
 <template>
   <div class="stat-tile" :data-testid="testid">
     <div class="label">{{ label }}</div>
-    <div class="value">{{ value }}</div>
+    <div class="value" :class="tone">{{ value }}</div>
     <div v-if="hint" class="hint">{{ hint }}</div>
   </div>
 </template>
@@ -30,6 +31,10 @@ defineProps<{ label: string; value: string; hint?: string; testid?: string }>()
   font-size: 24px;
   font-weight: 600;
   color: var(--el-text-color-primary);
+}
+
+.value.danger {
+  color: var(--el-color-danger);
 }
 
 .hint {

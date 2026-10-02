@@ -160,7 +160,7 @@ async def export_report(
         ip=client_ip(request),
     )
     await session.commit()
-    name = quote(f"盈利报表-{period.start:%Y%m%d}-{period.end:%Y%m%d}.xlsx")
+    name = quote(f"profit-{period.start:%Y%m%d}-{period.end:%Y%m%d}.xlsx")
     return Response(
         content,
         media_type=XLSX_MEDIA_TYPE,

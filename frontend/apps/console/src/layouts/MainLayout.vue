@@ -20,6 +20,7 @@ import {
   Setting,
   ShoppingCart,
   Tickets,
+  TrendCharts,
   User,
 } from '@element-plus/icons-vue'
 import { computed, onBeforeUnmount, onMounted, ref, type Component } from 'vue'
@@ -56,6 +57,7 @@ const icons: Record<MenuIcon, Component> = {
   assistant: ChatLineRound,
   avatar: Avatar,
   chart: DataLine,
+  profit: TrendCharts,
   integration: Connection,
   broadcast: Promotion,
   audit: Document,

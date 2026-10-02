@@ -38,3 +38,49 @@ export function labelEvery(count: number, width: number, labelWidth = 44): numbe
   const fit = Math.max(1, Math.floor(width / labelWidth))
   return Math.max(1, Math.ceil(count / fit))
 }
+
+/** 有正有负的刻度（盈亏）：一定包含 0，步长同样取"整"的。 */
+export function signedTicks(min: number, max: number, count = 4): number[] {
+  const lo = Math.min(0, min)
+  const hi = Math.max(0, max)
+  if (lo === 0) return niceTicks(hi, count)
+  if (hi === 0) {
+    return niceTicks(-lo, count)
+      .map((t) => (t === 0 ? 0 : -t))
+      .reverse()
+  }
+  const raw = (hi - lo) / count
+  const magnitude = 10 ** Math.floor(Math.log10(raw))
+  const step = [1, 2, 5, 10].map((m) => m * magnitude).find((s) => s >= raw) ?? raw
+  const ticks: number[] = []
+  for (let v = Math.floor(lo / step) * step; v < hi + step * 0.999; v += step) {
+    ticks.push(Number(v.toPrecision(12)) || 0)
+  }
+  return ticks
+}
+
+/**
+ * 从基线 y0 长出的柱子：值在基线上方（yValue < y0）向上、下方向下；离开基线的一端 4px 圆角，
+ * 贴着基线的一端是直角。
+ */
+export function signedColumnPath(
+  x: number,
+  y0: number,
+  width: number,
+  yValue: number,
+  radius = 4,
+): string {
+  if (yValue === y0) return ''
+  if (yValue < y0) return columnPath(x, yValue, width, y0 - yValue, radius)
+  const bottom = yValue
+  const r = Math.min(radius, width / 2, bottom - y0)
+  return [
+    `M${x},${y0}`,
+    `V${bottom - r}`,
+    `Q${x},${bottom} ${x + r},${bottom}`,
+    `H${x + width - r}`,
+    `Q${x + width},${bottom} ${x + width},${bottom - r}`,
+    `V${y0}`,
+    'Z',
+  ].join('')
+}

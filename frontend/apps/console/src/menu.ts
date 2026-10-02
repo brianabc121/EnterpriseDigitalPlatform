@@ -17,6 +17,7 @@ export type MenuIcon =
   | 'assistant'
   | 'avatar'
   | 'chart'
+  | 'profit'
   | 'integration'
   | 'broadcast'
   | 'audit'
@@ -133,6 +134,15 @@ export const MENU: readonly MenuItem[] = [
   },
   { name: 'staff', path: '/staff', title: '员工', icon: 'avatar', permission: 'staff:read' },
   { name: 'reports', path: '/reports', title: '报表', icon: 'chart', permission: 'report:view' },
+  // 盈利报表（§30）：默认只有管理员看得到。
+  {
+    name: 'profit',
+    path: '/profit',
+    title: '盈利报表',
+    icon: 'profit',
+    permission: 'profit:view',
+    feature: 'orders',
+  },
   {
     name: 'broadcasts',
     path: '/broadcasts',
