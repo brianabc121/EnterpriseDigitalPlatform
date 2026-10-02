@@ -123,6 +123,8 @@ class LlmCall(IdMixin, TenantMixin, Base):
     status: Mapped[str] = mapped_column(String(12))
     error: Mapped[str | None] = mapped_column(Text)
     session_id: Mapped[uuid.UUID | None]
+    # 触发调用的员工（设计文档 §37）；访客咨询时的 AI 接待、定时任务等系统调用为空。
+    staff_id: Mapped[uuid.UUID | None]
     # 按供应商价格估算的费用（分）；租户自带接口密钥的调用不计。
     cost: Mapped[float] = mapped_column(Double, server_default="0")
     # 使用的提示词版本，如 reply@3、reply@builtin。

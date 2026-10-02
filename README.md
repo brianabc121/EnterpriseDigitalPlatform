@@ -366,6 +366,10 @@ AI 与知识增强（G5）：
   `EDP_OSS_ENDPOINT`、`EDP_OSS_REGION`、`EDP_OSS_BUCKET`、`EDP_OSS_ACCESS_KEY_ID`、`EDP_OSS_ACCESS_KEY_SECRET`（RAM 用户，只授予这个
   Bucket 的读写），Bucket 的跨域规则允许控制台和 Widget 的域名 PUT、GET、HEAD 并暴露 `ETag`；开发时用模拟 OSS
   `uv run python -m tests.fake_oss --port 8905`（配置见 `scripts/ci/e2e.env`）。
+- **企业 token 计费（设计文档 §37）**："Token 计费"页面按月显示企业 AI 用掉的 tokens、费用、调用次数和日均（和上月同期
+  比较），每天的柱状图，按场景、模型、员工的构成；"查看近 7 天明细"列出每一次大模型调用（时间、场景、模型、输入和输出 tokens、
+  费用、耗时、状态、触发的员工、关联的会话），可以筛选和导出 CSV。费用按平台给模型设置的价格在调用时算好（自带接口密钥的记 0）；
+  员工在控制台里的操作记到员工名下，访客咨询时的 AI 接待和定时任务记为"系统"。新权限 `token:view`（管理员和财务岗位默认有）。
 - **保留期与病毒扫描**："设置 → 数据保留"设置聊天消息和文件的保留天数，调度进程每小时删除到期的内容（文件到期后
   消息里显示"文件已过期"）。配置 `EDP_CLAMAV_HOST` 后，调度进程每分钟用 ClamAV 扫描新的聊天附件，含有病毒的
   文件被删除，消息显示"已被拦截"，下载链接返回 410。开发时可以用 `uv run python -m tests.fake_clamd --port 3310`

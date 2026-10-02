@@ -28,6 +28,7 @@ from app.modules.iam.service import principal_for
 from app.modules.kb.models import Visibility
 from app.modules.kb.search import search as kb_search
 from app.modules.todos import sla
+from app.observability.context import bind_staff
 
 logger = logging.getLogger(__name__)
 
@@ -140,7 +141,23 @@ async def answer(
     bot_id: uuid.UUID | None,
     now: datetime | None = None,
 ) -> Reply:
-    """回答一位员工的提问并记录对话。任何情况下都返回一段可以直接发给员工的文字。"""
+    """回答一位员工的提问并记录对话。任何情况下都返回一段可以直接发给员工的文字。
+
+    机器人的消息不是员工请求，期间的大模型调用也记到这位员工名下（设计文档 §37）。
+    """
+    with bind_staff(tenant_id, staff_id):
+        return await _answer(ctx, tenant_id, staff_id, question, bot_id=bot_id, now=now)
+
+
+async def _answer(
+    ctx: AppContext,
+    tenant_id: uuid.UUID,
+    staff_id: uuid.UUID,
+    question: str,
+    *,
+    bot_id: uuid.UUID | None,
+    now: datetime | None,
+) -> Reply:
     now = now or utcnow()
     question = question.strip()[:2000]
     async with ctx.db.tenant_session(tenant_id) as session:

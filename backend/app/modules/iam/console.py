@@ -44,6 +44,7 @@ def auto_profile(permissions: Iterable[str]) -> ConsoleProfile:
         Permission.FINANCE_MANAGE,
         Permission.PROFIT_VIEW,
         Permission.PROFIT_MANAGE,
+        Permission.TOKEN_VIEW,
     }:
         return ConsoleProfile.FINANCE
     if granted & {Permission.WAREHOUSE_CONFIRM, Permission.INVENTORY_MANAGE}:

@@ -58,6 +58,7 @@ from app.modules.sessions.router import router as sessions_router
 from app.modules.tasks.router import router as tasks_router
 from app.modules.tenancy.router import router as platform_router
 from app.modules.todos.router import router as todos_router
+from app.modules.tokens.router import router as tokens_router
 from app.modules.transport.middleware import TransportMiddleware
 from app.modules.transport.router import router as transport_router
 from app.modules.transport.sessions import SessionStore
@@ -151,6 +152,7 @@ def create_app(
     app.include_router(finance_router)
     app.include_router(print_router)
     app.include_router(profit_router)
+    app.include_router(tokens_router)
     app.include_router(history_router)
     app.include_router(order_public_router)
     app.include_router(material_public_router)

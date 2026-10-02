@@ -6,7 +6,13 @@ from collections.abc import Callable
 import httpx
 import pytest
 
-from app.integrations.llm import EmbedEndpoint, LLMClient, LLMEndpoint, LLMUnavailable
+from app.integrations.llm import (
+    EmbedEndpoint,
+    LLMClient,
+    LLMEndpoint,
+    LLMUnavailable,
+    RerankEndpoint,
+)
 from app.modules.kb.text import similarity, split_passages, terms
 from tests.fake_llm import DIM, FakeLLM, embed_text
 
@@ -131,6 +137,31 @@ async def test_embeddings_are_batched_and_checked() -> None:
     with pytest.raises(LLMUnavailable, match="维度"):
         await wrong.embed(["x"])
     assert fake.requests[-1]["dimensions"] == 768
+
+
+@pytest.mark.parametrize(
+    ("usage", "tokens"),
+    [
+        ({"usage": {"total_tokens": 120}}, 120),  # Jina、Voyage
+        ({"meta": {"tokens": {"input_tokens": 80, "output_tokens": 0}}}, 80),  # Cohere 风格
+        ({"tokens": {"input_tokens": 50}}, 50),
+        ({}, 0),  # 没有返回用量
+    ],
+)
+async def test_rerank_records_the_tokens_the_provider_reports(
+    usage: dict[str, object], tokens: int
+) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        body = {"results": [{"index": 1, "relevance_score": 0.9}, {"index": 0, "score": 0.2}]}
+        return httpx.Response(200, json={**body, **usage})
+
+    endpoint = RerankEndpoint(base_url="https://rerank.example/v1", api_key="", model="r", price=2)
+    llm = LLMClient(None, rerank=endpoint, transport=httpx.MockTransport(handler))
+
+    result = await llm.rerank("快递几天到", ["开发票", "快递三天到"])
+
+    assert result.scores == [0.2, 0.9]
+    assert (result.prompt_tokens, result.cost) == (tokens, tokens * 2 / 1000)
 
 
 def test_chinese_terms_similarity_and_passages() -> None:
