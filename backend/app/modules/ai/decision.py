@@ -153,8 +153,10 @@ def signals(
     repeats: int,
     turns: int,
     max_turns: int,
+    negative_hint: bool = False,
 ) -> tuple[Signals, int]:
-    """计算软信号；返回信号和更新后的重复提问次数。"""
+    """计算软信号；返回信号和更新后的重复提问次数。negative_hint：意图判断认为客户生气激动
+    （设计文档 §32.6），和负面关键词一样计入负面情绪。"""
     repeated_now = bool(previous_question) and (
         similarity(question, previous_question or "") >= REPEAT_SIMILARITY
     )
@@ -162,7 +164,7 @@ def signals(
     result = Signals(
         low_relevance=best_relevance < relevance_threshold,
         low_confidence=confidence < LOW_CONFIDENCE,
-        negative=is_negative(question),
+        negative=is_negative(question) or negative_hint,
         repeated=repeats >= REPEATS_TO_SIGNAL,
         negation=bool(_contains(question, NEGATION)),
         too_many_turns=turns >= max_turns,

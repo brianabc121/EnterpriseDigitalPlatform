@@ -15,6 +15,7 @@ from fastapi import FastAPI
 from app.context import AppContext
 from app.core.config import Settings
 from app.events.bus import EventProcessor
+from app.modules.ai import intent
 from app.modules.ai.responder import run_due
 from app.modules.conversation import imids
 from app.modules.formkb import learn as form_learning
@@ -123,8 +124,8 @@ class Desk:
         await self.flush()
 
     async def flush(self) -> None:
-        """投递回调、处理事件、执行到期的 AI 回复、判断表单知识，直到没有新的动作（测试里 AI 不等待
-        合并）。"""
+        """投递回调、处理事件、判断客户的意图、执行到期的 AI 回复、判断表单知识，直到没有新的动作
+        （测试里 AI 和意图判断都不等待合并）。"""
         processor = EventProcessor(self.ctx.bus, event_handlers(self.ctx), consumer="test")
         await self.ctx.bus.ensure_groups()
         while True:
@@ -132,11 +133,13 @@ class Desk:
             self.im.callbacks.clear()
             await deliver(self.client, self.settings, callbacks)
             processed = await processor.process_available()
+            judged = await intent.run_due(self.ctx)
             answered = await run_due(self.ctx) if self.ctx.llm.enabled else 0
             learned = await form_learning.run_due(self.ctx)
             if (
                 not callbacks
                 and not processed
+                and not judged
                 and not answered
                 and not learned
                 and not self.im.callbacks

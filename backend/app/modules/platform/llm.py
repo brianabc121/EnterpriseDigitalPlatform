@@ -2,6 +2,9 @@
 
 接口密钥用 EDP_DATA_ENCRYPTION_KEY 加密保存，接口只返回末 4 位。保存后清空路由缓存，几秒内所有
 进程生效。
+
+判断模型（接口类型 typesafe，设计文档 §32.7）：只能用于"意图判断"场景，不能设为默认供应商，也不能
+指定给租户；接口类型创建后不能修改。
 """
 
 import uuid
@@ -16,9 +19,10 @@ from app.core.crypto import seal
 from app.core.errors import NotFound, Unprocessable
 from app.core.ids import new_id
 from app.integrations.llm import EmbedEndpoint, LLMEndpoint, LLMError
+from app.integrations.typesafe import JudgeEndpoint, Question
 from app.modules.ai import limiter
 from app.modules.ai import service as ai_service
-from app.modules.ai.llm_router import ROUTES_KEY, SCENES, LlmRoutes
+from app.modules.ai.llm_router import JUDGE_SCENES, ROUTES_KEY, SCENES, TYPESAFE, LlmRoutes
 from app.modules.ai.models import AiSettings, LlmCall
 from app.modules.audit.service import record_audit
 from app.modules.kb.models import EMBED_DIM
@@ -57,6 +61,7 @@ def provider_out(ctx: AppContext, provider: LlmProvider, tenants: int = 0) -> Ll
     return LlmProviderOut(
         id=provider.id,
         name=provider.name,
+        protocol="typesafe" if provider.protocol == TYPESAFE else "openai",
         base_url=provider.base_url,
         api_key_set=bool(provider.api_key_enc),
         api_key_hint=_hint(ctx, provider),
@@ -102,6 +107,20 @@ def _check_embedding(embed_model: str, embed_dim: int) -> None:
         raise Unprocessable(f"向量维度必须是 {EMBED_DIM}（与知识库的向量字段一致）")
 
 
+JUDGE_ONLY = "判断模型只能用于意图判断，不能设为默认供应商"
+
+
+def _check_judge(provider: LlmProvider) -> None:
+    """判断模型：不能做默认供应商；没有对话、向量、重排序模型。"""
+    if provider.protocol != TYPESAFE:
+        return
+    if provider.is_default:
+        raise Unprocessable(JUDGE_ONLY)
+    provider.fast_model = ""
+    provider.embed_model = ""
+    provider.rerank_model = ""
+
+
 async def _make_default(session: AsyncSession, provider: LlmProvider) -> None:
     await session.execute(
         update(LlmProvider)
@@ -141,9 +160,12 @@ async def create_provider(
     ip: str | None,
 ) -> LlmProviderOut:
     _check_embedding(payload.embed_model, payload.embed_dim)
+    if payload.protocol == TYPESAFE and payload.is_default:
+        raise Unprocessable(JUDGE_ONLY)
     provider = LlmProvider(
         id=new_id(),
         name=payload.name.strip(),
+        protocol=payload.protocol,
         base_url=payload.base_url.rstrip("/"),
         api_key_enc=seal(ctx.settings, payload.api_key) if payload.api_key else "",
         chat_model=payload.chat_model.strip(),
@@ -156,6 +178,7 @@ async def create_provider(
         capabilities=payload.capabilities.model_dump(),
         enabled=payload.enabled,
     )
+    _check_judge(provider)
     session.add(provider)
     await session.flush()
     if payload.is_default:
@@ -191,6 +214,9 @@ async def update_provider(
     if api_key is not None:
         provider.api_key_enc = seal(ctx.settings, api_key) if api_key else ""
     _check_embedding(provider.embed_model, provider.embed_dim)
+    if make_default is True and provider.protocol == TYPESAFE:
+        raise Unprocessable(JUDGE_ONLY)
+    _check_judge(provider)
     if make_default is True:
         await _make_default(session, provider)
     elif make_default is False:
@@ -282,10 +308,40 @@ async def check_endpoint(
     return LlmTestResult(chat=chat_check, embed=embed_check)
 
 
+async def check_judge(ctx: AppContext, endpoint: JudgeEndpoint) -> LlmTestResult:
+    """判断模型：问一个是非题，检查地址、密钥和模型名是否可用。"""
+    client = ctx.llms.new_judge_client(endpoint)
+    try:
+        result = await client.decide(
+            "客户：你好，我想问问这款沙发多少钱？",
+            {"check": Question("noul", "客户在询问价格")},
+        )
+        check = LlmCheck(ok=True, latency_ms=result.latency_ms, model=result.model)
+    except LLMError as exc:
+        check = LlmCheck(ok=False, error=str(exc)[:300])
+    finally:
+        await client.aclose()
+    return LlmTestResult(chat=check, embed=None)
+
+
 async def test_provider(
     ctx: AppContext, session: AsyncSession, provider_id: uuid.UUID
 ) -> LlmTestResult:
-    chat, embed = _endpoints(ctx, await get_provider(session, provider_id))
+    provider = await get_provider(session, provider_id)
+    if provider.protocol == TYPESAFE:
+        from app.core.crypto import unseal
+
+        key = unseal(ctx.settings, provider.api_key_enc) if provider.api_key_enc else ""
+        return await check_judge(
+            ctx,
+            JudgeEndpoint(
+                base_url=provider.base_url,
+                api_key=key,
+                model=provider.chat_model,
+                name=provider.name,
+            ),
+        )
+    chat, embed = _endpoints(ctx, provider)
     return await check_endpoint(ctx, chat, embed)
 
 
@@ -305,8 +361,10 @@ async def set_routes(
     unknown = set(routes) - set(SCENES)
     if unknown:
         raise Unprocessable(f"未知的场景：{'、'.join(sorted(unknown))}")
-    for provider_id in set(routes.values()):
-        await get_provider(session, provider_id)
+    for scene, provider_id in routes.items():
+        provider = await get_provider(session, provider_id)
+        if provider.protocol == TYPESAFE and scene not in JUDGE_SCENES:
+            raise Unprocessable(f"判断模型只能用于意图判断，不能用于「{SCENES[scene]}」")
     await platform_settings.write(session, ROUTES_KEY, LlmRoutes(routes=routes), actor_id=actor_id)
     record_audit(
         session,
@@ -354,7 +412,9 @@ async def assign_tenant_llm(
 ) -> TenantLlmOut:
     provider_id = payload.provider_id
     if provider_id is not None:
-        await get_provider(session, provider_id)
+        provider = await get_provider(session, provider_id)
+        if provider.protocol == TYPESAFE:
+            raise Unprocessable("判断模型只能用于意图判断，不能指定给租户")
     row = await session.get(AiSettings, tenant_id)
     if row is None:
         row = AiSettings(tenant_id=tenant_id, **ai_service.DEFAULTS)

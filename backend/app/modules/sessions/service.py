@@ -18,6 +18,8 @@ from sqlalchemy.orm import aliased
 from app.context import AppContext
 from app.core.errors import Forbidden, NotFound
 from app.core.permissions import Permission
+from app.modules.ai.intent import intent_label
+from app.modules.ai.models import SessionIntent
 from app.modules.channels.models import ChannelAccount, ChannelType
 from app.modules.conversation import outbox
 from app.modules.conversation.models import (
@@ -108,7 +110,7 @@ def _sessions(principal: Principal) -> Select[ChatSession, str, str | None, str]
 async def session_extras(
     session: AsyncSession, principal: Principal, chats: list[ChatSession]
 ) -> dict[UUID, dict[str, Any]]:
-    """渠道类型、接待坐席的未读数、邮件会话最近一封客户邮件的主题。
+    """渠道类型、接待坐席的未读数、邮件会话最近一封客户邮件的主题、意图判断（设计文档 §32.5）。
 
     未读：坐席看过之后到达平台的客户消息。按到达平台的时间（created_at）而不是发送时间算：
     邮件的时间是邮件服务器收到的时间，收取有间隔，可能早于坐席看过的时间。
@@ -161,11 +163,32 @@ async def session_extras(
             .ext(distinct_on(Message.session_id))
         )
         subjects = {session_id: subject for session_id, subject in found if session_id}
+    intents: dict[UUID, dict[str, Any]] = {
+        session_id: {
+            "purchase_stage": stage,
+            "purchase_probability": probability,
+            "real_intent": intent_label(code),
+            "intent_at": judged_at,
+        }
+        for session_id, stage, probability, code, judged_at in await session.execute(
+            select(
+                SessionIntent.session_id,
+                SessionIntent.stage,
+                SessionIntent.purchase_probability,
+                SessionIntent.intent,
+                SessionIntent.judged_at,
+            ).where(
+                SessionIntent.session_id.in_([c.id for c in chats]),
+                SessionIntent.judged_at.is_not(None),
+            )
+        )
+    }
     return {
         c.id: {
             "channel_type": types.get(c.channel_account_id),
             "unread": unread.get(c.id, 0),
             "email_subject": subjects.get(c.id),
+            **intents.get(c.id, {}),
         }
         for c in chats
     }

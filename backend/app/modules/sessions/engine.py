@@ -20,7 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.context import AppContext
 from app.core.ids import new_id
 from app.events.bus import Event
-from app.modules.ai import copilot, reasons
+from app.modules.ai import copilot, intent, reasons
 from app.modules.ai import service as ai_service
 from app.modules.ai.schedule import remember_trace, schedule_reply
 from app.modules.conversation import outbox
@@ -201,6 +201,8 @@ async def on_message_received(ctx: AppContext, event: Event) -> None:
                 session, chat, message, now
             ):
                 todo.rooms.add(chat.room_id)
+            # 意图判断（设计文档 §32.4）：客户的文字消息稍后判断（合并连续的消息）。
+            await intent.schedule(ctx, session, chat, message, now)
             if message.sender_type == SenderType.CUSTOMER and await _ai_answers(session, chat):
                 # AI 接待中（或排队期间允许 AI 继续回答）：稍等片刻（合并客户连续发的消息）后由
                 # AI 回复，见 ai/responder.py。

@@ -5,6 +5,7 @@
 - 客户发来身份证号、银行卡号：提醒保护隐私。
 - 坐席的回复里有承诺类用语（保证、赔偿、全额退款……）：提醒确认是否符合公司政策。
 - 客户在同一会话里多次套问成本价、底价（设计文档 §25.2）：AI 接待期间就记下，坐席接手后能看到。
+- 意图判断认为客户准备下单（设计文档 §32.5）：提醒在右侧"订单"里生成订单（每个会话一次）。
 
 提醒写入 copilot_alerts 留痕（质检），并经在线信令推给接待坐席（协助者发的消息推给本人）。
 """
@@ -39,6 +40,7 @@ TEXTS = {
     AlertKind.PROMISE: "回复里有承诺类用语「{word}」，请确认符合公司政策。",
     AlertKind.PRICE_PROBE: "客户在这次对话里已经 {count} 次套问成本价或底价，AI 已用固定话术答复，"
     "请注意甄别。",
+    AlertKind.PURCHASE_READY: "客户准备下单（把握 {percent}），可以在右侧「订单」里生成订单。",
 }
 SERVING = (SessionStatus.HUMAN_SERVING, SessionStatus.TRANSFERRING)
 
@@ -145,3 +147,10 @@ def price_probe(
     """客户在同一会话里多次套价。返回是否推送给了接待坐席。"""
     _alert(session, chat, message_id, AlertKind.PRICE_PROBE, chat.assignee_id, count=str(count))
     return chat.assignee_id is not None
+
+
+def purchase_ready(
+    session: AsyncSession, chat: ChatSession, message_id: uuid.UUID | None, percent: str
+) -> None:
+    """意图判断：人工接待中客户第一次到"准备下单"（设计文档 §32.5）。"""
+    _alert(session, chat, message_id, AlertKind.PURCHASE_READY, chat.assignee_id, percent=percent)

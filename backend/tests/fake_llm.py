@@ -24,11 +24,17 @@
     拿到工具结果后把结果复述给员工；tool_plan 里有安排时优先按安排调用。
   - 群聊知识提炼：带问号的一句话后面紧跟别人的回答就是一个问答，没有人回答的记为缺口。
 - /v1/rerank：问题词项被文档覆盖的比例作为相关度。
+- /v1/systemone：模拟 TypeSafe 的判断模型（Jev，设计文档 §32）。按"客户最新的消息"里的关键词回答：
+  下单意向（"我要""下单""地址是" → 准备下单；"有货""发货""优惠""怎么买" → 意向明确；"多少钱""规格"
+  → 有兴趣；"看看""了解" → 随便了解；投诉、售后、查物流 → 没有）、真实意图（自定义意图按名称匹配）、
+  在意什么、情绪、要人工（"人工""真人""负责人"）、分配意图（按意图名称和售前、售后、投诉的常用词）。
+  对话模型收到"意图判断"任务时按同样的规则输出 JSON。judge_mode 为 down 时判断模型返回 503。
 - /v1/audio/transcriptions：语音转文字。音频内容里带 "text=..." 时返回这段文字（测试和验收
   发的"语音"里写好要转写的内容），否则返回固定的文字。
 - 可以切换模式模拟故障：down（503）、bad_json（不是 JSON）、promise（回复里带承诺类话术）、
   handoff（模型要求转人工）。独立运行时用 POST /_control {"mode": "down"} 切换；
-  {"tool_plan": [["save_lead_info", {...}]]} 安排接下来的工具调用。
+  {"tool_plan": [["save_lead_info", {...}]]} 安排接下来的工具调用；{"judge_mode": "down"} 让判断模型
+  返回 503。
 
 独立运行：uv run python -m tests.fake_llm --port 8900
 """
@@ -44,11 +50,13 @@ from typing import Any
 
 import httpx
 
+from app.modules.ai.decision import NEGATIVE
 from app.modules.ai.prompts import (
     NO_REFERENCE,
     TASK_ASSISTANT,
     TASK_EXTRACT,
     TASK_GROUP_EXTRACT,
+    TASK_INTENT,
     TASK_ORDER_EXTRACT,
     TASK_PHRASE,
     TASK_REPLY,
@@ -398,6 +406,219 @@ def _group_extract(transcript: str) -> str:
     return json.dumps({"qa_pairs": pairs, "unresolved_questions": unresolved}, ensure_ascii=False)
 
 
+# 意图判断（设计文档 §32）：按客户最新的消息里的关键词判断。
+_NO_PURCHASE = (
+    "投诉",
+    "退货",
+    "退款",
+    "换货",
+    "维修",
+    "坏了",
+    "物流",
+    "快递到哪",
+    "到哪了",
+    "订单号",
+)
+_PURCHASE_WORDS: tuple[tuple[int, tuple[str, ...]], ...] = (
+    (
+        4,
+        (
+            "我要",
+            "要了",
+            "下单",
+            "买了",
+            "拍了",
+            "付款",
+            "地址是",
+            "收货人",
+            "就这个",
+            "给我来",
+            "确认购买",
+        ),
+    ),
+    (3, ("怎么买", "有货", "库存", "现货", "发货", "几天能到", "多久能到", "优惠", "包邮")),
+    (2, ("多少钱", "价格", "价钱", "规格", "尺寸", "颜色", "材质", "效果", "型号", "区别", "哪款")),
+    (1, ("看看", "了解", "介绍", "有什么", "你们家")),
+)
+_HUMAN_WORDS = ("人工", "真人", "负责人", "找客服")
+_INTENT_WORDS: tuple[tuple[str, tuple[str, ...]], ...] = (
+    ("human", _HUMAN_WORDS),
+    ("complaint", ("投诉", "赔偿", "差评", "骗子")),
+    ("after_sales", ("退货", "换货", "维修", "坏了", "质量问题", "退款")),
+    ("order_change", ("改地址", "取消订单", "改数量")),
+    ("order_status", ("物流", "快递到哪", "到哪了", "订单号", "催发货")),
+    ("invoice", ("发票", "开票", "对公")),
+    ("cooperation", ("批发", "代理", "加盟", "合作")),
+    ("purchase", _PURCHASE_WORDS[0][1]),
+    ("delivery", ("有货", "库存", "现货", "发货", "几天能到", "多久能到", "运费", "包邮")),
+    ("price", ("多少钱", "价格", "价钱", "便宜", "优惠", "贵")),
+    ("product", ("规格", "尺寸", "颜色", "材质", "效果", "型号", "区别", "怎么用", "质量")),
+)
+_CONCERN_WORDS: tuple[tuple[str, tuple[str, ...]], ...] = (
+    ("price", ("贵", "便宜", "优惠", "价格", "多少钱", "折扣")),
+    ("quality", ("质量", "耐用", "正品", "好不好用", "效果")),
+    ("delivery", ("发货", "几天能到", "多久能到", "赶时间", "急用", "加急", "今天能发")),
+    ("service", ("退换", "保修", "售后", "安装")),
+    ("trust", ("靠谱", "骗", "正规", "资质", "真的假的")),
+)
+_MILD = ("着急", "急", "怎么还", "快点", "等了")
+_ROUTE_WORDS: dict[str, tuple[str, ...]] = {
+    "售后": ("退货", "换货", "维修", "坏了", "退款", "售后"),
+    "投诉": ("投诉", "赔偿", "差评"),
+    "售前": ("多少钱", "价格", "有货", "怎么买", "下单", "我要", "规格"),
+    "技术": ("怎么用", "安装", "设置", "报错"),
+}
+
+
+def _latest_customer(state: str) -> str:
+    """意图判断的对话里"客户最新的消息"。"""
+    block = state.rsplit("【客户最新的消息】", 1)[-1]
+    return "\n".join(
+        line.removeprefix("客户：") for line in block.splitlines() if line.startswith("客户：")
+    )
+
+
+def _purchase_level(text: str) -> int:
+    if any(word in text for word in _NO_PURCHASE):
+        return 0
+    return next((level for level, words in _PURCHASE_WORDS if any(w in text for w in words)), 0)
+
+
+def _pick_intent(text: str, customs: dict[str, str], available: set[str]) -> str:
+    """真实意图：要人工、投诉先看；租户自定义的按名称匹配；都没有时是 other。"""
+    for code, words in _INTENT_WORDS[:2]:
+        if code in available and any(w in text for w in words):
+            return code
+    for code, name in customs.items():
+        if name and name in text:
+            return code
+    for code, words in _INTENT_WORDS[2:]:
+        if code in available and any(w in text for w in words):
+            return code
+    return "other"
+
+
+def _concerns(text: str) -> list[str]:
+    return [code for code, words in _CONCERN_WORDS if any(w in text for w in words)][:2]
+
+
+def _emotion(text: str) -> int:
+    if any(word in text for word in NEGATIVE) or "！！" in text or "!!" in text:
+        return 2
+    return 1 if any(word in text for word in _MILD) else 0
+
+
+def _route(text: str, names: list[str]) -> str:
+    for name in names:
+        if name in text or any(w in text for w in _ROUTE_WORDS.get(name, ())):
+            return name
+    return "其他"
+
+
+def _spread(chosen: str, keys: list[str], weight: float) -> dict[str, float]:
+    rest = (1 - weight) / max(1, len(keys) - 1)
+    return {key: round(weight if key == chosen else rest, 4) for key in keys}
+
+
+def _decide(body: dict[str, Any]) -> dict[str, Any]:
+    """模拟判断模型：每个问题按键名回答（purchase、intent、concern、emotion、human、route）。"""
+    state = str(body.get("state") or "")
+    text = _latest_customer(state)
+    answers: dict[str, Any] = {}
+    for key, question in (body.get("questions") or {}).items():
+        criteria = question.get("criteria")
+        if key == "purchase":
+            level = _purchase_level(text)
+            levels = [str(i) for i in range(len(criteria or []) or 5)]
+            probabilities = _spread(str(level), levels, 0.82)
+            score = sum(int(k) * v for k, v in probabilities.items())
+            answers[key] = {
+                "type": "score",
+                "score": round(score, 4),
+                "confidence": 0.82,
+                "probabilities": probabilities,
+            }
+        elif key == "intent":
+            options = dict(criteria or {})
+            customs = {k: str(v).split("：", 1)[0] for k, v in options.items() if k.startswith("x")}
+            code = _pick_intent(text, customs, set(options))
+            choice = code if code in options else "other"
+            answers[key] = {
+                "type": "choice",
+                "choice": choice,
+                "confidence": 0.8,
+                "probabilities": _spread(choice, list(options), 0.8),
+            }
+        elif key == "concern":
+            options = list(dict(criteria or {}))
+            found = _concerns(text)
+            probabilities = dict.fromkeys(options, 0.02)
+            if found:
+                for code in found:
+                    probabilities[code] = round(0.8 / len(found), 4)
+            else:
+                probabilities["none"] = 0.9
+            choice = found[0] if found else "none"
+            answers[key] = {
+                "type": "choice",
+                "choice": choice,
+                "confidence": 0.8,
+                "probabilities": probabilities,
+            }
+        elif key == "emotion":
+            level = _emotion(text)
+            answers[key] = {
+                "type": "score",
+                "score": float(level),
+                "confidence": 0.9,
+                "probabilities": _spread(str(level), ["0", "1", "2"], 0.9),
+            }
+        elif key == "human" or question.get("type") == "noul":
+            # 要人工；运营后台"检查连通"问的是"客户在询问价格"。
+            about_price = "价格" in str(question.get("instructions") or "")
+            asked = any(w in text for w in _HUMAN_WORDS) or (
+                about_price and ("多少钱" in state or "价格" in state)
+            )
+            answers[key] = {"type": "noul", "noul": 0.95 if asked else 0.03}
+        elif key == "route":
+            names = [name for name in dict(criteria or {}) if name != "其他"]
+            choice = _route(text, names)
+            answers[key] = {
+                "type": "choice",
+                "choice": choice,
+                "confidence": 0.85,
+                "probabilities": _spread(choice, [*names, "其他"], 0.85),
+            }
+    questions = len(body.get("questions") or {})
+    return {
+        "model": "jev-fake-1",
+        "answers": answers,
+        "usage": {"input_tokens": (len(state) // 2 + 60) * questions, "output_tokens": 0},
+    }
+
+
+def _intent_llm(system: str, state: str) -> str:
+    """对话模型做意图判断（没有判断模型时）：同样的规则，按提示词要求输出 JSON。"""
+    text = _latest_customer(state)
+    section = system.split("【真实意图】", 1)[-1].split("【在意什么】", 1)[0]
+    codes = [line.split("：", 1)[0] for line in section.splitlines()[1:] if "：" in line]
+    customs = {code: code.removeprefix("x:") for code in codes if code.startswith("x:")}
+    routes_line = system.split("【分配意图】", 1)[-1].splitlines()
+    names = routes_line[1].split("、") if "【分配意图】" in system and len(routes_line) > 1 else []
+    data: dict[str, Any] = {
+        "purchase": _purchase_level(text),
+        "purchase_confidence": 0.8,
+        "intent": _pick_intent(text, customs, set(codes)),
+        "intent_confidence": 0.8,
+        "concerns": _concerns(text),
+        "emotion": _emotion(text),
+        "human": 0.95 if any(w in text for w in _HUMAN_WORDS) else 0.05,
+    }
+    if names:
+        data["route"] = _route(text, names)
+    return json.dumps(data, ensure_ascii=False)
+
+
 def rerank_score(query: str, document: str) -> float:
     wanted = set(terms(query))
     if not wanted:
@@ -413,6 +634,8 @@ class FakeLLM:
     intent: str | None = None
     # 请求带工具时按顺序返回的工具调用：(工具名, 参数)。
     tool_plan: list[tuple[str, dict[str, Any]]] = field(default_factory=list)
+    # 判断模型（/systemone）：down 时返回 503。
+    judge_mode: str = "normal"
 
     def chat(self, body: dict[str, Any]) -> tuple[int, dict[str, Any]]:
         self.requests.append(body)
@@ -472,6 +695,8 @@ class FakeLLM:
             content = "这不是 JSON" if self.mode == "bad_json" else _group_extract(last_user)
         elif task == TASK_ASSISTANT:
             content = _assistant_reply(messages, last_user)
+        elif task == TASK_INTENT:
+            content = "这不是 JSON" if self.mode == "bad_json" else _intent_llm(system, last_user)
         elif task == TASK_SUGGEST:
             answers = [*_products(system), *_answers(system)] or ["您好，我帮您确认一下，请稍等。"]
             content = json.dumps({"suggestions": answers[:3]}, ensure_ascii=False)
@@ -611,14 +836,27 @@ class FakeLLM:
         results.sort(key=lambda r: r["relevance_score"], reverse=True)
         return 200, {"model": body.get("model") or "fake-rerank", "results": results}
 
+    def decide(self, body: dict[str, Any]) -> tuple[int, dict[str, Any]]:
+        self.requests.append(body)
+        if self.judge_mode == "down":
+            return 503, {"error": {"message": "service unavailable"}}
+        if not isinstance(body.get("questions"), dict) or not body.get("model"):
+            return 422, {"error": {"message": "invalid request"}}
+        return 200, _decide(body)
+
     def handle(self, method: str, path: str, body: dict[str, Any]) -> tuple[int, dict[str, Any]]:
         if method == "POST" and path.endswith("/chat/completions"):
             return self.chat(body)
+        if method == "POST" and path.endswith("/systemone"):
+            return self.decide(body)
         if method == "POST" and path.endswith("/embeddings"):
             return self.embeddings(body)
         if method == "POST" and path.endswith("/rerank"):
             return self.rerank(body)
         if method == "POST" and path.endswith("/_control"):
+            if "judge_mode" in body and "mode" not in body:
+                self.judge_mode = str(body.get("judge_mode") or "normal")
+                return 200, {"judge_mode": self.judge_mode}
             self.mode = str(body.get("mode") or "normal")
             # 验收脚本安排接下来的工具调用：[["save_lead_info", {...}], ...]
             if isinstance(body.get("tool_plan"), list):

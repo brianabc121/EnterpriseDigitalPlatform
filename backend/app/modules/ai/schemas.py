@@ -2,9 +2,30 @@ from datetime import datetime
 from typing import Annotated, Any, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, Field, StringConstraints
+from pydantic import BaseModel, Field, StringConstraints, field_validator
 
 Keyword = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=32)]
+
+
+class CustomIntent(BaseModel):
+    """租户自定义的"真实意图"类别（设计文档 §32.7），加进判断的选项。"""
+
+    name: str = Field(min_length=1, max_length=16, description="名称，如 定制尺寸")
+    description: str = Field(default="", max_length=60, description="说明，帮助模型判断")
+
+    @field_validator("name", "description")
+    @classmethod
+    def _strip(cls, value: str) -> str:
+        return value.strip()
+
+
+def _unique_custom(items: list[CustomIntent]) -> list[CustomIntent]:
+    names = [item.name for item in items]
+    if any(not name for name in names):
+        raise ValueError("自定义意图的名称不能为空")
+    if len(set(names)) != len(names):
+        raise ValueError("自定义意图的名称不能重复")
+    return items
 
 
 class AiSettingsOut(BaseModel):
@@ -28,6 +49,18 @@ class AiSettingsOut(BaseModel):
         description="允许 AI 调用工具：再次检索、查看客户档案、登记线索、转人工、登记留言"
     )
     segment_replies: bool = Field(description="较长的回答分段发送，发送前显示正在输入")
+    intent_enabled: bool = Field(description="判断客户的下单意向和真实意图（坐席工作台显示，§32）")
+    intent_in_reply: bool = Field(
+        description="AI 回复参考意图判断：回复要求、要人工时转人工、情绪信号、分配意图"
+    )
+    intent_handoff_stage: int | None = Field(
+        description="高意向客户转人工：3 意向明确时、4 准备下单时，为空不转"
+    )
+    custom_intents: list[CustomIntent] = Field(description="自定义的真实意图类别（最多 10 个）")
+    intent_source: Literal["judge", "llm", "none"] = Field(
+        description="平台的意图判断：judge 判断模型、llm 大模型的轻量模型、none 没有配置"
+    )
+    intent_model: str | None = Field(description="判断用的供应商和模型")
     tools_supported: bool = Field(description="当前使用的模型是否支持工具调用")
     llm_configured: bool = Field(description="平台是否配置了大模型")
     embeddings_configured: bool = Field(description="平台是否配置了向量模型（语义检索）")
@@ -50,6 +83,68 @@ class AiSettingsUpdate(BaseModel):
     answer_cache: bool | None = None
     tools_enabled: bool | None = None
     segment_replies: bool | None = None
+    intent_enabled: bool | None = None
+    intent_in_reply: bool | None = None
+    intent_handoff_stage: Literal[3, 4] | None = Field(
+        default=None, description="3 意向明确时、4 准备下单时转人工；传 null 表示不转"
+    )
+    custom_intents: list[CustomIntent] | None = Field(default=None, max_length=10)
+
+    @field_validator("custom_intents")
+    @classmethod
+    def _custom(cls, items: list[CustomIntent] | None) -> list[CustomIntent] | None:
+        return None if items is None else _unique_custom(items)
+
+
+class IntentOption(BaseModel):
+    code: str = Field(description="编码：内置的如 price，自定义的是 x:名称")
+    label: str
+    probability: float
+
+
+class IntentJudgmentOut(BaseModel):
+    """一次意图判断（设计文档 §32.3）。"""
+
+    stage: int = Field(
+        ge=0, le=4, description="下单意向：0 没有、1 随便了解、2 有兴趣、3 意向明确、4 准备下单"
+    )
+    stage_label: str
+    stage_probability: float = Field(description="这一阶段的概率")
+    purchase_probability: float = Field(description="有下单意向的概率（意向明确与准备下单之和）")
+    has_purchase_intent: bool = Field(description="有下单意向（概率不低于 50%）")
+    score: float = Field(description="下单意向按概率加权的位置（0–4）")
+    distribution: list[float] = Field(description="5 级各自的概率")
+    intent: str | None = Field(description="真实意图的编码")
+    intent_label: str | None
+    intent_probability: float | None
+    intents: list[IntentOption] = Field(description="可能的意图（概率最高的前 3 个）")
+    concerns: list[IntentOption] = Field(description="客户在意的（价格、质量效果……），最多两个")
+    emotion: float | None = Field(description="情绪刻度：0 平静、1 有些着急、2 生气激动")
+    emotion_label: str | None
+    human_probability: float | None = Field(description="客户在要求人工的概率")
+    route: str | None = Field(description="分配意图（路由策略的意图名称）")
+    source: Literal["judge", "llm"] = Field(description="judge 判断模型、llm 大模型的轻量模型")
+    model: str | None
+
+
+class IntentHistoryPoint(BaseModel):
+    at: datetime
+    stage: int
+    stage_label: str
+    purchase_probability: float
+    intent_label: str | None
+
+
+class SessionIntentOut(IntentJudgmentOut):
+    """会话最新的意图判断与这次会话的变化。"""
+
+    session_id: UUID
+    message_id: UUID | None = Field(description="判断覆盖到的最后一条客户消息")
+    judged_at: datetime
+    peak_stage: int | None = Field(description="这次会话到过的最高阶段")
+    peak_at: datetime | None
+    pending: bool = Field(description="有新的客户消息正在等待判断")
+    history: list[IntentHistoryPoint] = Field(description="最近 20 次判断，按时间先后")
 
 
 class KnowledgeRef(BaseModel):
@@ -80,6 +175,9 @@ class AiOutcome(BaseModel):
         "price_probe（套价）、price_internal_term（内部价格口径）、price_cost_amount（成本价金额）"
     )
     knowledge: list[KnowledgeRef]
+    intent: IntentJudgmentOut | None = Field(
+        default=None, description="试一试：这个问题的意图判断（没有配置判断时为空）"
+    )
 
 
 class AiDecisionOut(AiOutcome):

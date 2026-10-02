@@ -52,6 +52,12 @@ class AiSettings(Base):
     segment_replies: Mapped[bool] = mapped_column(server_default="true")
     # 平台给租户设置的大模型并发上限；为空时用平台默认值（EDP_LLM_TENANT_CONCURRENCY）。
     llm_concurrency: Mapped[int | None]
+    # 意图判断（设计文档 §32）：是否判断、AI 回复是否参考、到哪个阶段转人工（3 意向明确、
+    # 4 准备下单，为空不转）、自定义的意图类别 [{"name": "定制尺寸", "description": "……"}]。
+    intent_enabled: Mapped[bool] = mapped_column(server_default="true")
+    intent_in_reply: Mapped[bool] = mapped_column(server_default="true")
+    intent_handoff_stage: Mapped[int | None] = mapped_column(SmallInteger)
+    custom_intents: Mapped[list[Any]] = mapped_column(JSONB, server_default="[]")
     updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
 
 
@@ -191,6 +197,7 @@ class AlertKind(StrEnum):
     SENSITIVE_INFO = "sensitive_info"  # 客户发来身份证号、银行卡号等敏感信息
     PROMISE = "promise"  # 坐席使用了承诺类话术
     PRICE_PROBE = "price_probe"  # 客户在同一会话里多次套问成本价、底价（设计文档 §25.2）
+    PURCHASE_READY = "purchase_ready"  # 意图判断：客户准备下单（设计文档 §32.5）
 
 
 class CopilotAlert(IdMixin, TenantMixin, Base):
@@ -209,6 +216,49 @@ class CopilotAlert(IdMixin, TenantMixin, Base):
     kind: Mapped[str] = mapped_column(String(24))
     detail: Mapped[dict[str, Any]] = mapped_column(server_default="{}")
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+
+class SessionIntent(TenantMixin, Base):
+    """会话最新的意图判断（设计文档 §32）：下单意向、真实意图、在意什么、情绪、要人工，
+    以及这次会话的变化；due_at 是待判断的时间，领取时推后作为租约。不存消息原文。"""
+
+    __tablename__ = "session_intents"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["tenant_id", "session_id"], ["sessions.tenant_id", "sessions.id"], ondelete="CASCADE"
+        ),
+    )
+
+    session_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    due_at: Mapped[datetime | None]
+    # 判断覆盖到的最后一条客户消息和它的发送时间（并发判断时，较早的结果不覆盖较新的）。
+    message_id: Mapped[uuid.UUID | None]
+    message_at: Mapped[datetime | None]
+    judged_at: Mapped[datetime | None]
+    # 下单意向：阶段 0–4（概率最大的一级）和它的概率、第 3、4 级的概率之和、按概率加权的位置。
+    stage: Mapped[int | None] = mapped_column(SmallInteger)
+    stage_probability: Mapped[float | None] = mapped_column(Double)
+    purchase_probability: Mapped[float | None] = mapped_column(Double)
+    score: Mapped[float | None] = mapped_column(Double)
+    intent: Mapped[str | None] = mapped_column(String(32))
+    intent_probability: Mapped[float | None] = mapped_column(Double)
+    concerns: Mapped[list[str]] = mapped_column(server_default="{}")
+    emotion: Mapped[float | None] = mapped_column(Double)
+    human: Mapped[float | None] = mapped_column(Double)
+    route: Mapped[str | None] = mapped_column(String(32))
+    source: Mapped[str | None] = mapped_column(String(12))
+    model: Mapped[str | None] = mapped_column(String(128))
+    # 分布：{"purchase": [5 级的概率], "intents": {编码: 概率}, "concerns": {编码: 概率}}。
+    answers: Mapped[dict[str, Any]] = mapped_column(server_default="{}")
+    peak_stage: Mapped[int | None] = mapped_column(SmallInteger)
+    peak_at: Mapped[datetime | None]
+    ready_alerted: Mapped[bool] = mapped_column(server_default="false")
+    judgments: Mapped[int] = mapped_column(server_default="0")
+    failures: Mapped[int] = mapped_column(SmallInteger, server_default="0")
+    # 最近 20 次判断：[{"at", "message_id", "stage", "p", "score", "intent"}]。
+    history: Mapped[list[Any]] = mapped_column(JSONB, server_default="[]")
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
 
 
 class SummaryStatus(StrEnum):

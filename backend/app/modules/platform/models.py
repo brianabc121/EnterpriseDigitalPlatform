@@ -39,6 +39,9 @@ class LlmProvider(IdMixin, TimestampMixin, Base):
     capabilities: Mapped[dict[str, Any]] = mapped_column(server_default="{}")
     is_default: Mapped[bool] = mapped_column(server_default="false")
     enabled: Mapped[bool] = mapped_column(server_default="true")
+    # 接口类型：openai（OpenAI 兼容：对话、向量、重排序）或 typesafe（判断模型 Jev，设计文档 §32.2，
+    # chat_model 是判断模型的名称，只用于"意图判断"场景）。
+    protocol: Mapped[str] = mapped_column(String(16), server_default="openai")
 
 
 class PromptTemplate(IdMixin, Base):

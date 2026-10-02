@@ -41,6 +41,14 @@ class SessionOut(BaseModel):
     channel_type: str | None = Field(default=None, description="渠道类型：web、wecom_kf、email……")
     unread: int = Field(default=0, description="接待坐席还没看过的客户消息数（只对接待坐席计算）")
     email_subject: str | None = Field(default=None, description="邮件会话：客户最近一封邮件的主题")
+    purchase_stage: int | None = Field(
+        default=None,
+        description="意图判断（§32）：下单意向 0 没有、1 随便了解、2 有兴趣、3 意向明确、"
+        "4 准备下单",
+    )
+    purchase_probability: float | None = Field(default=None, description="有下单意向的概率")
+    real_intent: str | None = Field(default=None, description="真实意图（名称）")
+    intent_at: datetime | None = Field(default=None, description="最近一次意图判断的时间")
     created_at: datetime
 
 
