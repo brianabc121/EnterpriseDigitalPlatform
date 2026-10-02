@@ -14,6 +14,8 @@ const form = reactive<Schemas['TenantPolicy']>({
 })
 const plans = ref<Schemas['PlanOut'][]>([])
 const saving = ref(false)
+// 读到现在的设置后再显示表单：否则加载完成时会覆盖已经改过的开关和数字。
+const loaded = ref(false)
 
 async function load(): Promise<void> {
   const [policy, planList] = await Promise.all([
@@ -26,6 +28,7 @@ async function load(): Promise<void> {
   }
   Object.assign(form, policy.data)
   plans.value = (planList.data?.items ?? []).filter((p) => p.status === 'active')
+  loaded.value = true
 }
 
 async function save(): Promise<void> {
@@ -43,9 +46,9 @@ onMounted(load)
 </script>
 
 <template>
-  <div class="page">
+  <div v-loading="!loaded" class="page">
     <h2>平台设置</h2>
-    <el-form label-width="150px" data-testid="tenant-policy">
+    <el-form v-if="loaded" label-width="150px" data-testid="tenant-policy">
       <el-divider content-position="left">自助注册</el-divider>
       <el-form-item label="开放自助注册">
         <el-switch v-model="form.signup_enabled" data-testid="signup-enabled" />
