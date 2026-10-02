@@ -63,9 +63,8 @@ async def test_totp_setup_and_login(app: FastAPI, client: httpx.AsyncClient) -> 
     )
     wrong = await client.post("/platform/v1/auth/mfa/enable", headers=ops, json={"code": "000000"})
     assert wrong.status_code == 422
-    enabled = await client.post(
-        "/platform/v1/auth/mfa/enable", headers=ops, json={"code": _code(secret)}
-    )
+    used = _code(secret)
+    enabled = await client.post("/platform/v1/auth/mfa/enable", headers=ops, json={"code": used})
     assert enabled.status_code == 204
 
     body = {"username": "ops", "password": PLATFORM_PASSWORD}
@@ -73,8 +72,9 @@ async def test_totp_setup_and_login(app: FastAPI, client: httpx.AsyncClient) -> 
     assert (need.status_code, need.json()["error"]["code"]) == (401, "mfa_required")
     bad = await client.post("/platform/v1/auth/login", json={**body, "otp": "123456"})
     assert (bad.status_code, bad.json()["error"]["message"]) == (401, "验证码错误")
-    # 启用时用过的验证码不能再用来登录；下一个时间步的可以。
-    replay = await client.post("/platform/v1/auth/login", json={**body, "otp": _code(secret)})
+    # 启用时用过的验证码不能再用来登录（用原来那个验证码：重新按当前时间算，跨过 30 秒的时间步时
+    # 就成了下一步的新验证码）；下一个时间步的可以。
+    replay = await client.post("/platform/v1/auth/login", json={**body, "otp": used})
     assert replay.status_code == 401
     ok = await client.post("/platform/v1/auth/login", json={**body, "otp": _code(secret, 1)})
     assert ok.status_code == 200, ok.text
