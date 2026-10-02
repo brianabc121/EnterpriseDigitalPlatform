@@ -306,8 +306,8 @@ async function claimSection(browser, ctx) {
   // 菜单收起时，待领取数显示在"加工"图标的右上角。
   const corner = await seen(page.locator('[data-testid="production-corner-badge"]', { hasText: '2' }))
   check(
-    '工人登录后进入"加工"（手机上菜单收起，只有这一个，图标上显示待领取 2），手上没有订单时先看"待领取"',
-    menus === 1 && active === 1 && corner,
+    '工人登录后进入"加工"（手机上菜单收起，只有加工和每个岗位都有的个人待办、AI 助理，图标上显示待领取 2），手上没有订单时先看"待领取"',
+    menus === 3 && active === 1 && corner,
     { menus, active, corner },
   )
   check(

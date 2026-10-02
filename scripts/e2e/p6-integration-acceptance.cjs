@@ -175,7 +175,7 @@ async function consoleLogin(browser, username) {
 }
 
 async function menu(page, title) {
-  await page.locator('[data-testid="main-menu"] .el-menu-item', { hasText: title }).click()
+  await page.locator('[data-testid="main-menu"] .el-menu-item', { hasText: new RegExp('^\\s*' + title) }).click()
 }
 
 const toast = (page, text) =>
