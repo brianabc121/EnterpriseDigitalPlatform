@@ -1311,6 +1311,382 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/contracts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Contracts
+         * @description 看得到的合同（最近修改的在前），以及各状态页签的数量。
+         */
+        get: operations["list_contracts_api_v1_contracts_get"];
+        put?: never;
+        /**
+         * Create Contract
+         * @description 空白新建或按模板新建：只填内置填写项和模板的默认值。
+         */
+        post: operations["create_contract_api_v1_contracts_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/contracts/categories": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Categories
+         * @description 全部分类（按顺序），每个分类直接挂着的模板数和看得到的合同数。
+         */
+        get: operations["list_categories_api_v1_contracts_categories_get"];
+        put?: never;
+        /** Create Category */
+        post: operations["create_category_api_v1_contracts_categories_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/contracts/categories/defaults": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add Default Categories
+         * @description 还没有分类时一键添加常用分类：销售合同、采购合同、服务合同、租赁合同、其他。
+         */
+        post: operations["add_default_categories_api_v1_contracts_categories_defaults_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/contracts/categories/{contract_category_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Category
+         * @description 删除空的分类（有下级分类、模板或合同时不能删除）。
+         */
+        delete: operations["delete_category_api_v1_contracts_categories__contract_category_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Update Category
+         * @description 改名、移到别的上级、调整顺序（最多 5 层，不能移到自己的下级下面）。
+         */
+        patch: operations["update_category_api_v1_contracts_categories__contract_category_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/contracts/generate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Generate Contract
+         * @description AI 按需求、知识库（规章制度优先）、订单和模板起草合同（需要套餐包含 AI）。
+         */
+        post: operations["generate_contract_api_v1_contracts_generate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/contracts/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Settings
+         * @description 合同设置和内置填写项的说明。
+         */
+        get: operations["get_settings_api_v1_contracts_settings_get"];
+        /** Save Settings */
+        put: operations["save_settings_api_v1_contracts_settings_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/contracts/templates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Templates */
+        get: operations["list_templates_api_v1_contracts_templates_get"];
+        put?: never;
+        /** Create Template */
+        post: operations["create_template_api_v1_contracts_templates_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/contracts/templates/upload": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Upload Template
+         * @description 上传模板文件（Word、PDF、Markdown、纯文本，最大 10 MB）：解析成正文，空白处换成填写项。
+         */
+        post: operations["upload_template_api_v1_contracts_templates_upload_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/contracts/templates/{contract_template_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Template */
+        get: operations["get_template_api_v1_contracts_templates__contract_template_id__get"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete Template
+         * @description 删除没有用过的模板（用过的只能停用）。
+         */
+        delete: operations["delete_template_api_v1_contracts_templates__contract_template_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Update Template
+         * @description 修改模板（创建人或有管理权限的员工）；status 停用或启用。
+         */
+        patch: operations["update_template_api_v1_contracts_templates__contract_template_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/contracts/templates/{contract_template_id}/file": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Template File
+         * @description 上传的原件的下载地址。
+         */
+        get: operations["template_file_api_v1_contracts_templates__contract_template_id__file_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/contracts/{contract_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Contract */
+        get: operations["get_contract_api_v1_contracts__contract_id__get"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete Contract
+         * @description 删除草稿（其他状态的合同只能作废）。
+         */
+        delete: operations["delete_contract_api_v1_contracts__contract_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Update Contract
+         * @description 修改草稿（正文、填写项、客户、订单、金额、日期）；改负责人需要管理权限。换了客户或订单时，
+         *     跟着它们的内置填写项重新填写（换了订单时金额也跟着订单）；正文里新加的内置填写项按数据填上。
+         */
+        patch: operations["update_contract_api_v1_contracts__contract_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/contracts/{contract_id}/docx": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Export Docx
+         * @description 导出 Word（没填的填写项显示成"＿＿＿（名称）"）。
+         */
+        get: operations["export_docx_api_v1_contracts__contract_id__docx_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/contracts/{contract_id}/finalize": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Finalize Contract
+         * @description 定稿：锁定正文（还有没填的填写项时不能定稿）。
+         */
+        post: operations["finalize_contract_api_v1_contracts__contract_id__finalize_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/contracts/{contract_id}/reopen": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reopen Contract
+         * @description 退回修改：已定稿的合同回到草稿。
+         */
+        post: operations["reopen_contract_api_v1_contracts__contract_id__reopen_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/contracts/{contract_id}/save-as-template": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Save As Template
+         * @description 把合同存成模板（填写项保留成 {{名称}}）。
+         */
+        post: operations["save_as_template_api_v1_contracts__contract_id__save_as_template_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/contracts/{contract_id}/scan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Contract Scan
+         * @description 签署扫描件的下载地址。
+         */
+        get: operations["contract_scan_api_v1_contracts__contract_id__scan_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/contracts/{contract_id}/sign": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sign Contract
+         * @description 登记签署：签订日期、起止日期，可以上传扫描件（PDF、JPG、PNG，最大 20 MB）。
+         */
+        post: operations["sign_contract_api_v1_contracts__contract_id__sign_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/contracts/{contract_id}/void": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Void Contract */
+        post: operations["void_contract_api_v1_contracts__contract_id__void_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/customers": {
         parameters: {
             query?: never;
@@ -9988,7 +10364,7 @@ export interface components {
          * @description 控制台的菜单，与前端 menu.ts 的菜单名一致（前端按 OpenAPI 的枚举检查）。
          * @enum {string}
          */
-        ConsoleMenu: "dashboard" | "workbench" | "sessions" | "todos" | "orders" | "receivables" | "products" | "production" | "warehouse" | "tasks" | "customers" | "knowledge" | "ai" | "wake" | "assistant" | "staff" | "reports" | "profit" | "broadcasts" | "wecom" | "audit" | "settings";
+        ConsoleMenu: "dashboard" | "workbench" | "sessions" | "todos" | "orders" | "receivables" | "contracts" | "products" | "production" | "warehouse" | "tasks" | "customers" | "knowledge" | "ai" | "wake" | "assistant" | "staff" | "reports" | "profit" | "broadcasts" | "wecom" | "audit" | "settings";
         /**
          * ConsoleOut
          * @description 按岗位的控制台（设计文档 §25.15）。
@@ -10075,6 +10451,658 @@ export interface components {
              * @description 平台敏感词
              */
             words?: string[];
+        };
+        /**
+         * ContractAiInfo
+         * @description AI 起草的依据（§34.3）。
+         */
+        ContractAiInfo: {
+            /**
+             * Completion Tokens
+             * @default 0
+             */
+            completion_tokens: number;
+            /**
+             * Cost
+             * @description 费用（分）
+             * @default 0
+             */
+            cost: number;
+            /** Generated At */
+            generated_at?: string | null;
+            /** Knowledge */
+            knowledge?: components["schemas"]["ContractKnowledgeRef"][];
+            /** Model */
+            model?: string | null;
+            /**
+             * Notes
+             * @description 需要人确认的地方
+             */
+            notes?: string[];
+            /**
+             * Prompt Tokens
+             * @default 0
+             */
+            prompt_tokens: number;
+            /** Requirement */
+            requirement?: string | null;
+        };
+        /** ContractCategoryCreate */
+        ContractCategoryCreate: {
+            /** Name */
+            name: string;
+            /** Parent Id */
+            parent_id?: string | null;
+            /** Sort */
+            sort?: number | null;
+        };
+        /** ContractCategoryList */
+        ContractCategoryList: {
+            /** Items */
+            items: components["schemas"]["ContractCategoryOut"][];
+            /** Max Depth */
+            max_depth: number;
+        };
+        /** ContractCategoryOut */
+        ContractCategoryOut: {
+            /**
+             * Contracts
+             * @description 直接在这个分类下的合同数（看得到的）
+             */
+            contracts: number;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Parent Id */
+            parent_id: string | null;
+            /** Sort */
+            sort: number;
+            /**
+             * Templates
+             * @description 直接在这个分类下的模板数
+             */
+            templates: number;
+        };
+        /** ContractCategoryUpdate */
+        ContractCategoryUpdate: {
+            /** Name */
+            name?: string | null;
+            /**
+             * Parent Id
+             * @description 移到这个上级下面（null 为第一级）
+             */
+            parent_id?: string | null;
+            /** Sort */
+            sort?: number | null;
+        };
+        /**
+         * ContractCreate
+         * @description 新建合同：空白或者按模板（只填内置填写项）。
+         */
+        ContractCreate: {
+            /** Body */
+            body?: string | null;
+            /** Category Id */
+            category_id?: string | null;
+            /** Customer Id */
+            customer_id?: string | null;
+            /** Order Id */
+            order_id?: string | null;
+            /** Template Id */
+            template_id?: string | null;
+            /** Title */
+            title?: string | null;
+        };
+        /**
+         * ContractFileLink
+         * @description 5 分钟有效的下载地址。
+         */
+        ContractFileLink: {
+            /** Filename */
+            filename: string;
+            /** Url */
+            url: string;
+        };
+        /**
+         * ContractGenerate
+         * @description AI 生成合同（§34.3）。
+         */
+        ContractGenerate: {
+            /** Category Id */
+            category_id?: string | null;
+            /** Customer Id */
+            customer_id?: string | null;
+            /** Order Id */
+            order_id?: string | null;
+            /**
+             * Requirement
+             * @description 需求
+             */
+            requirement: string;
+            /** Template Id */
+            template_id?: string | null;
+            /** Title */
+            title?: string | null;
+        };
+        /** ContractKnowledgeRef */
+        ContractKnowledgeRef: {
+            /**
+             * Item Id
+             * Format: uuid
+             */
+            item_id: string;
+            /**
+             * Policy
+             * @default false
+             */
+            policy: boolean;
+            /** Title */
+            title: string;
+            /**
+             * Used
+             * @description AI 说起草时用到了它
+             * @default false
+             */
+            used: boolean;
+            /** Version */
+            version?: number | null;
+        };
+        /** ContractOut */
+        ContractOut: {
+            ai: components["schemas"]["ContractAiInfo"] | null;
+            /** Ai Generated */
+            ai_generated: boolean;
+            /** Amount */
+            amount: string | null;
+            /** Body */
+            body: string;
+            /**
+             * Can Edit
+             * @description 可以修改正文和填写项（草稿，自己负责或有管理权限）
+             */
+            can_edit: boolean;
+            /**
+             * Can Manage
+             * @description 可以定稿、签署、作废（自己负责或有管理权限）
+             */
+            can_manage: boolean;
+            /** Category Id */
+            category_id: string | null;
+            /** Category Path */
+            category_path: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Created By */
+            created_by: string | null;
+            /** Created By Name */
+            created_by_name: string | null;
+            /** Customer Id */
+            customer_id: string | null;
+            /** Customer Name */
+            customer_name: string | null;
+            /** End Date */
+            end_date: string | null;
+            /**
+             * Expiry
+             * @description 已签署的合同：快到期或已到期
+             */
+            expiry?: ("expiring" | "expired") | null;
+            /** Field Values */
+            field_values: {
+                [key: string]: string;
+            };
+            /**
+             * Fields
+             * @description 正文里的填写项（内置的标出来）
+             */
+            fields: components["schemas"]["ContractTemplateField"][];
+            /** Finalized At */
+            finalized_at: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Missing
+             * @description 还没填的填写项
+             */
+            missing: string[];
+            /** No */
+            no: string;
+            /** Order Id */
+            order_id: string | null;
+            /** Order No */
+            order_no: string | null;
+            /** Owner Id */
+            owner_id: string | null;
+            /** Owner Name */
+            owner_name: string | null;
+            /** Requirement */
+            requirement: string | null;
+            /** Scan Name */
+            scan_name: string | null;
+            /** Sign Date */
+            sign_date: string | null;
+            /** Signed At */
+            signed_at: string | null;
+            /** Start Date */
+            start_date: string | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "draft" | "final" | "signed" | "void";
+            /** Template Id */
+            template_id: string | null;
+            /** Template Name */
+            template_name: string | null;
+            /** Title */
+            title: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Void Reason */
+            void_reason: string | null;
+            /** Voided At */
+            voided_at: string | null;
+        };
+        /** ContractPage */
+        ContractPage: {
+            /**
+             * Counts
+             * @description 各状态页签的数量
+             */
+            counts: {
+                [key: string]: number;
+            };
+            /** Items */
+            items: components["schemas"]["ContractSummary"][];
+            /** Total */
+            total: number;
+        };
+        /**
+         * ContractParty
+         * @description 我方信息：填写 {{我方名称}} 等内置填写项。名称为空时用企业的名称。
+         */
+        ContractParty: {
+            /**
+             * Account
+             * @description 账号
+             * @default
+             */
+            account: string;
+            /**
+             * Address
+             * @description 地址
+             * @default
+             */
+            address: string;
+            /**
+             * Bank
+             * @description 开户行
+             * @default
+             */
+            bank: string;
+            /**
+             * Name
+             * @description 企业全称
+             * @default
+             */
+            name: string;
+            /**
+             * Phone
+             * @description 电话
+             * @default
+             */
+            phone: string;
+            /**
+             * Representative
+             * @description 法定代表人或授权代表
+             * @default
+             */
+            representative: string;
+            /**
+             * Tax No
+             * @description 统一社会信用代码（税号）
+             * @default
+             */
+            tax_no: string;
+        };
+        /** ContractSaveAsTemplate */
+        ContractSaveAsTemplate: {
+            /** Category Id */
+            category_id?: string | null;
+            /** Description */
+            description?: string | null;
+            /** Name */
+            name: string;
+        };
+        /** ContractScanFile */
+        ContractScanFile: {
+            /**
+             * Content Base64
+             * @description 扫描件（PDF、JPG、PNG），最大 20 MB
+             */
+            content_base64: string;
+            /** Filename */
+            filename: string;
+        };
+        /** ContractSettings */
+        ContractSettings: {
+            /**
+             * Expiring Days
+             * @description 已签署的合同结束日期在几天内时算快到期
+             * @default 30
+             */
+            expiring_days: number;
+            party?: components["schemas"]["ContractParty"];
+            /**
+             * Prefix
+             * @description 编号前缀
+             * @default HT
+             */
+            prefix: string;
+        };
+        /** ContractSettingsOut */
+        ContractSettingsOut: {
+            /**
+             * Builtin
+             * @description 内置填写项和说明
+             */
+            builtin: components["schemas"]["ContractTemplateField"][];
+            settings: components["schemas"]["ContractSettings"];
+        };
+        /** ContractSign */
+        ContractSign: {
+            /** End Date */
+            end_date?: string | null;
+            scan?: components["schemas"]["ContractScanFile"] | null;
+            /**
+             * Sign Date
+             * Format: date
+             */
+            sign_date: string;
+            /** Start Date */
+            start_date?: string | null;
+        };
+        /** ContractSummary */
+        ContractSummary: {
+            /** Ai Generated */
+            ai_generated: boolean;
+            /** Amount */
+            amount: string | null;
+            /** Category Id */
+            category_id: string | null;
+            /** Category Path */
+            category_path: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Customer Id */
+            customer_id: string | null;
+            /** Customer Name */
+            customer_name: string | null;
+            /** End Date */
+            end_date: string | null;
+            /**
+             * Expiry
+             * @description 已签署的合同：快到期或已到期
+             */
+            expiry?: ("expiring" | "expired") | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Missing
+             * @description 还没填的填写项
+             */
+            missing: string[];
+            /** No */
+            no: string;
+            /** Order Id */
+            order_id: string | null;
+            /** Order No */
+            order_no: string | null;
+            /** Owner Id */
+            owner_id: string | null;
+            /** Owner Name */
+            owner_name: string | null;
+            /** Sign Date */
+            sign_date: string | null;
+            /** Start Date */
+            start_date: string | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "draft" | "final" | "signed" | "void";
+            /** Template Id */
+            template_id: string | null;
+            /** Template Name */
+            template_name: string | null;
+            /** Title */
+            title: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** ContractTemplateCreate */
+        ContractTemplateCreate: {
+            /**
+             * Body
+             * @default
+             */
+            body: string;
+            /** Category Id */
+            category_id?: string | null;
+            /** Description */
+            description?: string | null;
+            /** Fields */
+            fields?: components["schemas"]["ContractTemplateField"][];
+            /** Name */
+            name: string;
+        };
+        /**
+         * ContractTemplateField
+         * @description 模板的填写项：名称和正文里的 {{名称}} 对应。
+         */
+        ContractTemplateField: {
+            /**
+             * Builtin
+             * @description 内置填写项：由系统按数据填写
+             * @default false
+             */
+            builtin: boolean;
+            /**
+             * Default
+             * @description 默认值
+             * @default
+             */
+            default: string;
+            /**
+             * Hint
+             * @description 填写说明（AI 起草时也会参考）
+             * @default
+             */
+            hint: string;
+            /** Name */
+            name: string;
+        };
+        /** ContractTemplateOut */
+        ContractTemplateOut: {
+            /** Body */
+            body: string;
+            /** Can Edit */
+            can_edit: boolean;
+            /** Category Id */
+            category_id: string | null;
+            /** Category Path */
+            category_path: string;
+            /** Created By */
+            created_by: string | null;
+            /** Created By Name */
+            created_by_name: string | null;
+            /** Description */
+            description: string | null;
+            /** Field Count */
+            field_count: number;
+            /** Fields */
+            fields: components["schemas"]["ContractTemplateField"][];
+            /** File Name */
+            file_name: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "active" | "disabled";
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Used Count */
+            used_count: number;
+        };
+        /** ContractTemplatePage */
+        ContractTemplatePage: {
+            /** Items */
+            items: components["schemas"]["ContractTemplateSummary"][];
+            /** Total */
+            total: number;
+        };
+        /** ContractTemplateSummary */
+        ContractTemplateSummary: {
+            /** Can Edit */
+            can_edit: boolean;
+            /** Category Id */
+            category_id: string | null;
+            /** Category Path */
+            category_path: string;
+            /** Created By */
+            created_by: string | null;
+            /** Created By Name */
+            created_by_name: string | null;
+            /** Description */
+            description: string | null;
+            /** Field Count */
+            field_count: number;
+            /** File Name */
+            file_name: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "active" | "disabled";
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Used Count */
+            used_count: number;
+        };
+        /** ContractTemplateUpdate */
+        ContractTemplateUpdate: {
+            /** Body */
+            body?: string | null;
+            /** Category Id */
+            category_id?: string | null;
+            /** Description */
+            description?: string | null;
+            /** Fields */
+            fields?: components["schemas"]["ContractTemplateField"][] | null;
+            /** Name */
+            name?: string | null;
+            /** Status */
+            status?: ("active" | "disabled") | null;
+        };
+        /** ContractTemplateUpload */
+        ContractTemplateUpload: {
+            /** Category Id */
+            category_id?: string | null;
+            /**
+             * Content Base64
+             * @description 文件内容（base64），最大 10 MB
+             */
+            content_base64: string;
+            /** Description */
+            description?: string | null;
+            /** Filename */
+            filename: string;
+            /**
+             * Name
+             * @description 模板名称（默认取文件名）
+             */
+            name?: string | null;
+        };
+        /** ContractTemplateUploadOut */
+        ContractTemplateUploadOut: {
+            /**
+             * Detected
+             * @description 上传时把空白识别成的填写项
+             */
+            detected: string[];
+            template: components["schemas"]["ContractTemplateOut"];
+        };
+        /** ContractUpdate */
+        ContractUpdate: {
+            /** Amount */
+            amount?: number | string | null;
+            /** Body */
+            body?: string | null;
+            /** Category Id */
+            category_id?: string | null;
+            /** Customer Id */
+            customer_id?: string | null;
+            /** End Date */
+            end_date?: string | null;
+            /** Field Values */
+            field_values?: {
+                [key: string]: string;
+            } | null;
+            /** Order Id */
+            order_id?: string | null;
+            /** Owner Id */
+            owner_id?: string | null;
+            /** Start Date */
+            start_date?: string | null;
+            /** Title */
+            title?: string | null;
+        };
+        /** ContractVoid */
+        ContractVoid: {
+            /** Reason */
+            reason: string;
         };
         /** CopilotAlertList */
         CopilotAlertList: {
@@ -12386,7 +13414,7 @@ export interface components {
              * Record Type
              * @enum {string}
              */
-            record_type: "order" | "requisition" | "receipt" | "todo" | "goods" | "material";
+            record_type: "order" | "requisition" | "receipt" | "todo" | "goods" | "material" | "contract" | "contract_tpl";
             /** Seq */
             seq: number;
             /** Summary */
@@ -17276,7 +18304,7 @@ export interface components {
          * Permission
          * @enum {string}
          */
-        Permission: "dashboard:view" | "workbench:use" | "customer:read" | "customer:read_all" | "customer:create" | "customer:assign" | "customer:view_sensitive" | "customer:export" | "customer:manage" | "session:read_all" | "session:read_team" | "session:transfer" | "session:transfer_any" | "session:monitor" | "routing:manage" | "staff:read" | "staff:manage" | "quick_reply:manage" | "kb:read" | "kb:manage" | "kb:publish" | "form_kb:manage" | "report:view" | "settings:manage" | "broadcast:manage" | "tenant:manage" | "audit:read" | "todo:read" | "todo:handle" | "todo:assign" | "todo:config" | "todo:export" | "order:read" | "order:create" | "order:review" | "order:price" | "order:payment" | "order:credit" | "order:export" | "order:config" | "product:manage" | "product:view_cost" | "inventory:manage" | "warehouse:confirm" | "production:work" | "production:assign" | "integration:manage" | "task:use" | "task:assign" | "task:read_all" | "assistant:use" | "finance:view" | "finance:manage" | "print:manage" | "profit:view" | "profit:manage";
+        Permission: "dashboard:view" | "workbench:use" | "customer:read" | "customer:read_all" | "customer:create" | "customer:assign" | "customer:view_sensitive" | "customer:export" | "customer:manage" | "session:read_all" | "session:read_team" | "session:transfer" | "session:transfer_any" | "session:monitor" | "routing:manage" | "staff:read" | "staff:manage" | "quick_reply:manage" | "kb:read" | "kb:manage" | "kb:publish" | "form_kb:manage" | "report:view" | "settings:manage" | "broadcast:manage" | "tenant:manage" | "audit:read" | "todo:read" | "todo:handle" | "todo:assign" | "todo:config" | "todo:export" | "order:read" | "order:create" | "order:review" | "order:price" | "order:payment" | "order:credit" | "order:export" | "order:config" | "product:manage" | "product:view_cost" | "inventory:manage" | "warehouse:confirm" | "production:work" | "production:assign" | "integration:manage" | "task:use" | "task:assign" | "task:read_all" | "assistant:use" | "finance:view" | "finance:manage" | "print:manage" | "profit:view" | "profit:manage" | "contract:use" | "contract:manage";
         /** PermissionInfo */
         PermissionInfo: {
             code: components["schemas"]["Permission"];
@@ -19185,7 +20213,7 @@ export interface components {
              * Record Type
              * @enum {string}
              */
-            record_type: "order" | "requisition" | "receipt" | "todo" | "goods" | "material";
+            record_type: "order" | "requisition" | "receipt" | "todo" | "goods" | "material" | "contract" | "contract_tpl";
             /** Type Label */
             type_label: string;
             /**
@@ -30400,6 +31428,2097 @@ export interface operations {
             };
         };
     };
+    list_contracts_api_v1_contracts_get: {
+        parameters: {
+            query?: {
+                /** @description 状态页签 */
+                view?: "all" | "draft" | "final" | "signed" | "expiring" | "expired" | "void";
+                /** @description 包含下级分类 */
+                category_id?: string | null;
+                /** @description 名称、编号或客户 */
+                q?: string | null;
+                customer_id?: string | null;
+                order_id?: string | null;
+                owner_id?: string | null;
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContractPage"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    create_contract_api_v1_contracts_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ContractCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContractOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    list_categories_api_v1_contracts_categories_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContractCategoryList"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    create_category_api_v1_contracts_categories_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ContractCategoryCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContractCategoryOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    add_default_categories_api_v1_contracts_categories_defaults_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContractCategoryList"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    delete_category_api_v1_contracts_categories__contract_category_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                contract_category_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    update_category_api_v1_contracts_categories__contract_category_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                contract_category_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ContractCategoryUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContractCategoryOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    generate_contract_api_v1_contracts_generate_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ContractGenerate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContractOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_settings_api_v1_contracts_settings_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContractSettingsOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    save_settings_api_v1_contracts_settings_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ContractSettings"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContractSettingsOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    list_templates_api_v1_contracts_templates_get: {
+        parameters: {
+            query?: {
+                /** @description 包含下级分类 */
+                category_id?: string | null;
+                q?: string | null;
+                status?: ("active" | "disabled") | null;
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContractTemplatePage"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    create_template_api_v1_contracts_templates_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ContractTemplateCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContractTemplateOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    upload_template_api_v1_contracts_templates_upload_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ContractTemplateUpload"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContractTemplateUploadOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_template_api_v1_contracts_templates__contract_template_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                contract_template_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContractTemplateOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    delete_template_api_v1_contracts_templates__contract_template_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                contract_template_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    update_template_api_v1_contracts_templates__contract_template_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                contract_template_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ContractTemplateUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContractTemplateOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    template_file_api_v1_contracts_templates__contract_template_id__file_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                contract_template_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContractFileLink"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_contract_api_v1_contracts__contract_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                contract_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContractOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    delete_contract_api_v1_contracts__contract_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                contract_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    update_contract_api_v1_contracts__contract_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                contract_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ContractUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContractOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    export_docx_api_v1_contracts__contract_id__docx_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                contract_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Word 文件 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/vnd.openxmlformats-officedocument.wordprocessingml.document": unknown;
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    finalize_contract_api_v1_contracts__contract_id__finalize_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                contract_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContractOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    reopen_contract_api_v1_contracts__contract_id__reopen_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                contract_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContractOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    save_as_template_api_v1_contracts__contract_id__save_as_template_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                contract_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ContractSaveAsTemplate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContractTemplateOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    contract_scan_api_v1_contracts__contract_id__scan_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                contract_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContractFileLink"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    sign_contract_api_v1_contracts__contract_id__sign_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                contract_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ContractSign"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContractOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    void_contract_api_v1_contracts__contract_id__void_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                contract_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ContractVoid"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContractOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     list_customers_api_v1_customers_get: {
         parameters: {
             query?: {
@@ -34132,7 +37251,7 @@ export interface operations {
     history_feed_api_v1_history_get: {
         parameters: {
             query?: {
-                type?: ("order" | "requisition" | "receipt" | "todo" | "goods" | "material") | null;
+                type?: ("order" | "requisition" | "receipt" | "todo" | "goods" | "material" | "contract" | "contract_tpl") | null;
                 /** @description create、delete、change（其他修改）或具体的操作 */
                 action?: string | null;
                 actor_id?: string | null;
@@ -34219,7 +37338,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                record_type: "order" | "requisition" | "receipt" | "todo" | "goods" | "material";
+                record_type: "order" | "requisition" | "receipt" | "todo" | "goods" | "material" | "contract" | "contract_tpl";
                 record_id: string;
             };
             cookie?: never;
