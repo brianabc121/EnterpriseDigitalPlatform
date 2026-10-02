@@ -36,6 +36,7 @@ class ConsoleMenu(StrEnum):
     ORDERS = "orders"
     RECEIVABLES = "receivables"  # 应收账款（设计文档 §28）
     CONTRACTS = "contracts"  # 合同（设计文档 §34）
+    MATERIALS = "materials"  # 企业资料（设计文档 §36）
     PRODUCTS = "products"
     PRODUCTION = "production"
     WAREHOUSE = "warehouse"
@@ -68,6 +69,7 @@ DEFAULT_MENUS: dict[ConsoleProfile, tuple[ConsoleMenu, ...]] = {
         M.TASKS,
         M.ORDERS,
         M.CONTRACTS,
+        M.MATERIALS,
         M.CUSTOMERS,
         M.KNOWLEDGE,
         M.ASSISTANT,
@@ -91,7 +93,7 @@ DEFAULT_MENUS: dict[ConsoleProfile, tuple[ConsoleMenu, ...]] = {
         M.ASSISTANT,
     ),
     ConsoleProfile.WORKER: (M.PRODUCTION, M.TASKS, M.ASSISTANT),
-    ConsoleProfile.KNOWLEDGE: (M.DASHBOARD, M.KNOWLEDGE, M.TASKS, M.ASSISTANT),
+    ConsoleProfile.KNOWLEDGE: (M.DASHBOARD, M.KNOWLEDGE, M.MATERIALS, M.TASKS, M.ASSISTANT),
 }
 # 管理员固定看全部菜单，其他岗位可以调整。
 CONFIGURABLE: tuple[ConsoleProfile, ...] = tuple(p for p in ConsoleProfile if p != "admin")
@@ -115,6 +117,7 @@ MENU_RULES: dict[ConsoleMenu, tuple[Permission, str | None]] = {
     ConsoleMenu.ORDERS: (Permission.ORDER_READ, "orders"),
     ConsoleMenu.RECEIVABLES: (Permission.FINANCE_VIEW, "orders"),
     ConsoleMenu.CONTRACTS: (Permission.CONTRACT_USE, None),
+    ConsoleMenu.MATERIALS: (Permission.MATERIAL_USE, None),
     ConsoleMenu.PRODUCTS: (Permission.ORDER_READ, "orders"),
     ConsoleMenu.PRODUCTION: (Permission.PRODUCTION_WORK, "orders"),
     ConsoleMenu.WAREHOUSE: (Permission.INVENTORY_MANAGE, "orders"),

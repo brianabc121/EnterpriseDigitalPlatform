@@ -66,6 +66,24 @@ class Settings(BaseSettings):
     storage_secret_key: SecretStr = SecretStr(_DEV_STORAGE_SECRET_KEY)
     storage_bucket: str = "edp-files"
     storage_region: str = "us-east-1"
+    # 阿里云 OSS（企业资料，设计文档 §36）：没有配置 AccessKey 时"资料"页面不能上传。
+    # 开发和测试接仓库里的模拟 OSS（tests/fake_oss.py），用路径风格的地址。
+    oss_endpoint: str = ""
+    oss_region: str = ""
+    oss_bucket: str = ""
+    oss_access_key_id: str = ""
+    oss_access_key_secret: SecretStr = SecretStr("")
+    oss_public_endpoint: str = ""
+    oss_prefix: str = ""
+    oss_path_style: bool = False
+    # 资料的单个文件上限（字节）：视频 2 GB，其他 200 MB。超过 multipart_threshold 的用分片上传。
+    material_video_max_bytes: int = 2 * 1024**3
+    material_file_max_bytes: int = 200 * 1024**2
+    material_multipart_threshold: int = 64 * 1024**2
+    material_part_size: int = 16 * 1024**2
+    # 病毒扫描的上限：和 clamd 默认的 StreamMaxLength（25 MB）一致，更大的文件不扫描；
+    # 调大 clamd 的 StreamMaxLength 后可以一起调大。
+    material_scan_max_bytes: int = 25 * 1024**2
     # 平台签发的文件链接（/api/v1/files/...）的签名密钥。
     file_url_secret: SecretStr = SecretStr(_DEV_FILE_URL_SECRET)
     # 平台对外地址，用于拼接文件链接。

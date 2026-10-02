@@ -37,6 +37,7 @@ from app.modules.kb.reminders import remind_expiring
 from app.modules.kb.service import reindex_all
 from app.modules.lifecycle.closure import run_purges
 from app.modules.lifecycle.export import run_exports
+from app.modules.materials import jobs as material_jobs
 from app.modules.orders.jobs import run_collections as run_order_collections
 from app.modules.orders.jobs import run_draft_followups as run_order_followups
 from app.modules.products.service import embed_pending as embed_products
@@ -330,7 +331,12 @@ async def security_jobs(settings: Settings) -> dict[str, object]:
     try:
         retention = await run_retention(ctx)
         scan = await run_file_scan(ctx)
-        return {"retention": dataclasses.asdict(retention), "scan": dataclasses.asdict(scan)}
+        materials = await material_jobs.run_material_scan(ctx)
+        return {
+            "retention": dataclasses.asdict(retention),
+            "scan": dataclasses.asdict(scan),
+            "material_scan": dataclasses.asdict(materials),
+        }
     finally:
         await ctx.aclose()
 

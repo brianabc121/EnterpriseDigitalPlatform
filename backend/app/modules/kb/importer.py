@@ -19,6 +19,7 @@ from app.context import AppContext
 from app.core.errors import AppError, Forbidden, NotFound, Unprocessable
 from app.core.permissions import Permission
 from app.core.urls import check_outbound_url
+from app.integrations.oss import OssError
 from app.modules.iam.models import Staff
 from app.modules.iam.principal import Principal
 from app.modules.iam.service import principal_for
@@ -36,10 +37,12 @@ from app.modules.kb.schemas import (
     KbCrawlImport,
     KbImportJobOut,
     KbImportSummary,
+    KbImportTarget,
     KbItemCreate,
     KbItemUpdate,
     KbUploadImport,
 )
+from app.modules.materials.models import Material, MaterialKind
 from app.modules.notifications import service as notifications
 
 logger = logging.getLogger(__name__)
@@ -73,7 +76,9 @@ def job_out(job: KbImportJob, creator: str | None = None) -> KbImportJobOut:
 
 
 async def _target(
-    session: AsyncSession, principal: Principal, payload: KbUploadImport | KbCrawlImport
+    session: AsyncSession,
+    principal: Principal,
+    payload: KbUploadImport | KbCrawlImport | KbImportTarget,
 ) -> dict[str, Any]:
     if payload.publish and not principal.has(Permission.KB_PUBLISH):
         raise Forbidden("没有发布知识的权限")
@@ -143,6 +148,41 @@ async def create_crawl(
             **target,
             "url": url,
             "max_pages": min(payload.max_pages or DEFAULT_PAGES, ctx.settings.kb_crawl_max_pages),
+        },
+    )
+    session.add(job)
+    await session.commit()
+    await session.refresh(job)
+    return job_out(job, principal.display_name)
+
+
+async def create_from_material(
+    ctx: AppContext,
+    session: AsyncSession,
+    principal: Principal,
+    payload: KbImportTarget,
+    material: Material,
+) -> KbImportJobOut:
+    """企业资料加入知识库（设计文档 §36.4）：文件留在 OSS 上，导入时读取，导入后不删除。"""
+    if (
+        material.kind not in (MaterialKind.DOCUMENT, MaterialKind.TEXT)
+        or material.ext not in parsers.DOCUMENT_TYPES
+    ):
+        raise Unprocessable("只有 PDF、Word（.docx）、Markdown、TXT 文档和文字资料可以加入知识库")
+    limit = ctx.settings.kb_import_max_bytes
+    if material.size > limit:
+        raise Unprocessable(f"文件超过知识导入的上限（{limit // (1024 * 1024)} MB）")
+    target = await _target(session, principal, payload)
+    job = KbImportJob(
+        tenant_id=principal.tenant_id,
+        kind=ImportKind.DOCUMENT,
+        created_by=principal.staff_id,
+        params={
+            **target,
+            "filename": material.file_name[:200],
+            "oss_key": material.object_key,
+            "size": material.size,
+            "material_id": str(material.id),
         },
     )
     session.add(job)
@@ -270,7 +310,14 @@ async def _execute(ctx: AppContext, tenant_id: uuid.UUID, job_id: uuid.UUID) -> 
         kind = job.kind
     if kind == ImportKind.CRAWL:
         return await _crawl(ctx, tenant_id, principal, params)
-    data = await ctx.storage.get(str(params["object_key"]))
+    if params.get("oss_key"):
+        # 企业资料（§36.4）：从 OSS 读取，文件留在资料里。
+        try:
+            data = await ctx.oss.get(str(params["oss_key"]))
+        except OssError as exc:
+            raise ImportFailed("读取企业资料失败，资料可能已经删除") from exc
+    else:
+        data = await ctx.storage.get(str(params["object_key"]))
     if kind == ImportKind.EXCEL:
         return await _excel(ctx, tenant_id, principal, params, data)
     return await _document(ctx, tenant_id, principal, params, data)

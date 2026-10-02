@@ -15,6 +15,7 @@ from app.integrations.asr import AsrClient
 from app.integrations.clamav import ClamAV
 from app.integrations.llm import EmbedEndpoint, LLMClient, LLMEndpoint, RerankEndpoint
 from app.integrations.openim import OpenIMClient
+from app.integrations.oss import OssClient, OssConfig
 from app.integrations.storage import ObjectStore
 from app.integrations.wecom import WeComClient
 from app.modules.ai.llm_router import LlmRouter
@@ -53,6 +54,8 @@ class AppContext:
     bots: httpx.AsyncClient
     # 云打印机厂商（芯烨云、飞鹅云）的接口（设计文档 §29.3）。
     printing: httpx.AsyncClient
+    # 阿里云 OSS（企业资料，设计文档 §36）；没有配置时 enabled 为 False。
+    oss: OssClient
     # 没有配置语音转文字（EDP_ASR_BASE_URL）时为空。
     asr: AsrClient | None = None
     # 没有配置病毒扫描（EDP_CLAMAV_HOST）时为空。
@@ -74,6 +77,7 @@ class AppContext:
         web_transport: httpx.AsyncBaseTransport | None = None,
         imbots_transport: httpx.AsyncBaseTransport | None = None,
         print_transport: httpx.AsyncBaseTransport | None = None,
+        oss_transport: httpx.AsyncBaseTransport | None = None,
     ) -> "AppContext":
         redis = Redis.from_url(settings.redis_url)
         db = Database(settings)
@@ -123,6 +127,7 @@ class AppContext:
             printing=httpx.AsyncClient(
                 transport=print_transport, timeout=settings.print_timeout_seconds
             ),
+            oss=OssClient(oss_config(settings), transport=oss_transport),
             asr=asr,
             clamav=(
                 ClamAV(
@@ -145,11 +150,25 @@ class AppContext:
         await self.web.aclose()
         await self.bots.aclose()
         await self.printing.aclose()
+        await self.oss.aclose()
         await self.llms.aclose()
         await self.llm.aclose()
         await self.im.aclose()
         await self.redis.aclose()
         await self.db.dispose()
+
+
+def oss_config(settings: Settings) -> OssConfig:
+    return OssConfig(
+        endpoint=settings.oss_endpoint,
+        region=settings.oss_region,
+        bucket=settings.oss_bucket,
+        access_key_id=settings.oss_access_key_id,
+        access_key_secret=settings.oss_access_key_secret.get_secret_value(),
+        public_endpoint=settings.oss_public_endpoint,
+        prefix=settings.oss_prefix,
+        path_style=settings.oss_path_style,
+    )
 
 
 def llm_from_settings(settings: Settings, **kwargs: Any) -> LLMClient:

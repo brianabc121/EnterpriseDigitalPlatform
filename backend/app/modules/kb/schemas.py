@@ -407,6 +407,10 @@ class _ImportTarget(BaseModel):
     policy: bool = Field(default=False, description="标为规章制度（文档和网页；问答表不适用）")
 
 
+class KbImportTarget(_ImportTarget):
+    """导入到哪里（企业资料加入知识库时用，设计文档 §36.4）。"""
+
+
 class KbUploadImport(_ImportTarget):
     kind: Literal["document", "excel"] = Field(
         description="document：文档（PDF、Word、Markdown、网页、纯文本）；excel：问答表（.xlsx、.csv）"

@@ -203,6 +203,21 @@ MATRIX: list[tuple[str, str, dict[str, Any] | None]] = [
     ("POST", "/api/v1/prospects/{prospect_id}/accept", None),
     ("POST", "/api/v1/prospects/{prospect_id}/dismiss", None),
     ("POST", "/api/v1/prospects/{prospect_id}/message", None),
+    ("PATCH", "/api/v1/materials/folders/{material_folder_id}", {"name": "越权修改"}),
+    ("DELETE", "/api/v1/materials/folders/{material_folder_id}", None),
+    ("DELETE", "/api/v1/materials/shares/{material_share_id}", None),
+    ("GET", "/api/v1/materials/{material_id}", None),
+    ("PATCH", "/api/v1/materials/{material_id}", {"name": "越权修改"}),
+    ("DELETE", "/api/v1/materials/{material_id}", None),
+    ("POST", "/api/v1/materials/{material_id}/parts", {"part_numbers": [1]}),
+    ("POST", "/api/v1/materials/{material_id}/complete", {}),
+    ("DELETE", "/api/v1/materials/{material_id}/upload", None),
+    ("GET", "/api/v1/materials/{material_id}/text", None),
+    ("PUT", "/api/v1/materials/{material_id}/text", {"body": "越权修改"}),
+    ("GET", "/api/v1/materials/{material_id}/link", None),
+    ("POST", "/api/v1/materials/{material_id}/knowledge", {}),
+    ("GET", "/api/v1/materials/{material_id}/shares", None),
+    ("POST", "/api/v1/materials/{material_id}/shares", {"days": 1}),
     ("POST", "/api/v1/production/orders/{order_id}/claim", None),
     ("POST", "/api/v1/production/orders/{order_id}/release", None),
     ("POST", "/api/v1/production/orders/{order_id}/items/{order_item_id}/done", None),
@@ -232,7 +247,7 @@ MATRIX: list[tuple[str, str, dict[str, Any] | None]] = [
     (
         "PUT",
         "/api/v1/warehouse/documents/{document_id}",
-        {"lines": [{"product_id": "{own_material_id}", "quantity": 1}]},
+        {"lines": [{"product_id": "{own_raw_material_id}", "quantity": 1}]},
     ),
     ("POST", "/api/v1/warehouse/documents/{document_id}/confirm", None),
     ("POST", "/api/v1/warehouse/documents/{document_id}/reject", {"reason": "越权退回"}),
@@ -288,7 +303,11 @@ MATRIX: list[tuple[str, str, dict[str, Any] | None]] = [
 ]
 # 凭随机令牌访问的公开接口（订单跟踪页）：令牌本身就是访问凭证，不属于租户内的越权检查，
 # 令牌的有效期和失效见 test_orders.py。
-PUBLIC: set[tuple[str, str]] = {("GET", "/api/v1/public/orders/{token}")}
+PUBLIC: set[tuple[str, str]] = {
+    ("GET", "/api/v1/public/orders/{token}"),
+    # 资料的分享页（令牌的有效期和停用见 test_materials.py）。
+    ("GET", "/api/v1/public/materials/{token}"),
+}
 
 
 @dataclass
@@ -477,9 +496,11 @@ async def build(desk: Desk) -> Tenant:
     )
     # 坐席客户的意向记录（直接写库，流程见 test_prospects.py）。
     prospect = await prospect_of(desk, chat["customer_id"])
+    material_ids = await materials(desk)
     await desk.flush()
     ids = {
         "prospect_id": prospect,
+        **material_ids,
         "contract_category_id": str(contract_category["id"]),
         "contract_template_id": str(contract_template["id"]),
         "contract_id": str(contract["id"]),
@@ -519,6 +540,30 @@ async def build(desk: Desk) -> Tenant:
         "tenant_id": str(desk.tenant_id),
     }
     return Tenant(desk, agent, other, visitor, ids)
+
+
+async def materials(desk: Desk) -> dict[str, str]:
+    """管理员建的资料文件夹、里面的一份文字资料（文件在模拟 OSS 上）和它的分享链接。"""
+    client = desk.client
+    folder = await client.post(
+        "/api/v1/materials/folders", headers=desk.admin, json={"name": "产品资料"}
+    )
+    assert folder.status_code == 201, folder.text
+    text = await client.post(
+        "/api/v1/materials/texts",
+        headers=desk.admin,
+        json={"name": "安装说明", "body": "# 安装说明", "folder_id": folder.json()["id"]},
+    )
+    assert text.status_code == 201, text.text
+    share = await client.post(
+        f"/api/v1/materials/{text.json()['id']}/shares", headers=desk.admin, json={"days": 7}
+    )
+    assert share.status_code == 201, share.text
+    return {
+        "material_folder_id": folder.json()["id"],
+        "material_id": text.json()["id"],
+        "material_share_id": share.json()["id"],
+    }
 
 
 async def prospect_of(desk: Desk, customer_id: uuid.UUID) -> str:
@@ -647,7 +692,7 @@ async def orders(desk: Desk, chat: Any) -> dict[str, str]:
         "import_id": upload.json()["id"],
         "gap_id": str(gap["id"]),
         "order_version": str(confirmed.json()["order"]["version"]),
-        "material_id": material.json()["id"],
+        "raw_material_id": material.json()["id"],
         "document_id": str(document_id),
         # 修改历史：用订单的历史（订单是通过接口建的，有版本）。
         "record_type": "order",
@@ -899,6 +944,9 @@ async def snapshot(desk: Desk) -> list[Any]:
         "contracts": "id, status, title, owner_id, body, void_reason",
         "customer_prospects": "id, status, level, follower_id, next_follow_at, follow_count",
         "prospect_followups": "id, prospect_id, content",
+        "material_folders": "id, name, parent_id, sort",
+        "materials": "id, name, description, folder_id, status, tags, size, excerpt",
+        "material_shares": "id, material_id, expires_at, disabled_at",
     }
     rows = []
     for table, columns in tables.items():
@@ -1143,7 +1191,7 @@ async def test_other_tenants_ids_in_bodies_and_queries_are_rejected(
             {
                 "kind": "usage",
                 "product_id": own["product_id"],
-                "related_id": other["material_id"],
+                "related_id": other["raw_material_id"],
                 "value": 1,
             },
         ),
@@ -1151,6 +1199,31 @@ async def test_other_tenants_ids_in_bodies_and_queries_are_rejected(
             "PUT",
             f"/api/v1/form-kb/entries/{own['entry_id']}",
             {"product_id": other["product_id"]},
+        ),
+        (
+            "POST",
+            "/api/v1/materials/folders",
+            {"name": "x", "parent_id": other["material_folder_id"]},
+        ),
+        (
+            "PATCH",
+            f"/api/v1/materials/folders/{own['material_folder_id']}",
+            {"parent_id": other["material_folder_id"]},
+        ),
+        (
+            "POST",
+            "/api/v1/materials/uploads",
+            {"filename": "a.pdf", "size": 10, "folder_id": other["material_folder_id"]},
+        ),
+        (
+            "POST",
+            "/api/v1/materials/texts",
+            {"name": "x", "body": "x", "folder_id": other["material_folder_id"]},
+        ),
+        (
+            "PATCH",
+            f"/api/v1/materials/{own['material_id']}",
+            {"folder_id": other["material_folder_id"]},
         ),
     ]
     before = await snapshot(globex.desk)
@@ -1247,7 +1320,7 @@ async def test_agents_only_reach_their_own_sessions_and_customers(
         "key_id": acme.ids["key_id"],
         "endpoint_id": acme.ids["endpoint_id"],
         "delivery_id": acme.ids["delivery_id"],
-        "material_id": acme.ids["material_id"],
+        "raw_material_id": acme.ids["raw_material_id"],
         "document_id": acme.ids["document_id"],
         "entry_id": acme.ids["entry_id"],
         "record_type": "order",
@@ -1258,6 +1331,10 @@ async def test_agents_only_reach_their_own_sessions_and_customers(
         "profit_entry_id": acme.ids["profit_entry_id"],
         "finding_id": acme.ids["finding_id"],
         "contract_category_id": acme.ids["contract_category_id"],
+        # 管理员上传的资料、建的文件夹和分享链接：坐席能看、能分享，不能修改和删除。
+        "material_folder_id": acme.ids["material_folder_id"],
+        "material_id": acme.ids["material_id"],
+        "material_share_id": acme.ids["material_share_id"],
         "contract_template_id": acme.ids["contract_template_id"],
         "contract_id": acme.ids["contract_id"],
         "prospect_id": await prospect_of(desk, chat["customer_id"]),
@@ -1284,6 +1361,12 @@ async def test_agents_only_reach_their_own_sessions_and_customers(
             # 合同模板全员共享：能用合同的坐席都能查看模板、下载原件（修改只有创建人和管理员）。
             ("GET", "/api/v1/contracts/templates/{contract_template_id}"),
             ("GET", "/api/v1/contracts/templates/{contract_template_id}/file"),
+            # 企业资料全员共享：能用资料的坐席都能查看、下载和分享（修改只有上传的人和管理员）。
+            ("GET", "/api/v1/materials/{material_id}"),
+            ("GET", "/api/v1/materials/{material_id}/text"),
+            ("GET", "/api/v1/materials/{material_id}/link"),
+            ("GET", "/api/v1/materials/{material_id}/shares"),
+            ("POST", "/api/v1/materials/{material_id}/shares"),
         ):
             continue
         path = fill(template, dave_ids, acme.ids)

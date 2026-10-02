@@ -38,6 +38,8 @@ from app.modules.lifecycle.router import platform_router as platform_lifecycle_r
 from app.modules.lifecycle.router import public_router as signup_router
 from app.modules.lifecycle.router import router as tenant_router
 from app.modules.mail.router import router as mail_router
+from app.modules.materials.router import router as materials_router
+from app.modules.materials.shares import public_router as material_public_router
 from app.modules.notifications.router import router as notifications_router
 from app.modules.orders.production_router import router as production_router
 from app.modules.orders.public import router as order_public_router
@@ -81,6 +83,7 @@ def create_app(
     web_transport: httpx.AsyncBaseTransport | None = None,
     imbots_transport: httpx.AsyncBaseTransport | None = None,
     print_transport: httpx.AsyncBaseTransport | None = None,
+    oss_transport: httpx.AsyncBaseTransport | None = None,
 ) -> FastAPI:
     """应用工厂。开发环境：uvicorn app.main:create_app --factory --reload。
 
@@ -100,6 +103,7 @@ def create_app(
         web_transport=web_transport,
         imbots_transport=imbots_transport,
         print_transport=print_transport,
+        oss_transport=oss_transport,
     )
 
     @asynccontextmanager
@@ -149,6 +153,7 @@ def create_app(
     app.include_router(profit_router)
     app.include_router(history_router)
     app.include_router(order_public_router)
+    app.include_router(material_public_router)
     app.include_router(products_router)
     app.include_router(integration_router)
     app.include_router(open_router)
@@ -169,6 +174,7 @@ def create_app(
     app.include_router(wake_router)
     app.include_router(contracts_router)
     app.include_router(prospects_router)
+    app.include_router(materials_router)
     app.include_router(reports_router)
     app.include_router(usage_router)
     app.include_router(audit_router)

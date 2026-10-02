@@ -103,6 +103,7 @@ async def health(ctx: AppContext) -> HealthReport:
         metrics.update(await _business(session, now))
     components.append(await _wecom(ctx))
     components.append(await _clamav(ctx))
+    components.append(await _oss(ctx))
     components.extend(await _processes(ctx, metrics))
 
     statuses = {c.status for c in components}
@@ -210,6 +211,20 @@ async def _clamav(ctx: AppContext) -> ComponentHealth:
     return ComponentHealth(
         key="clamav", name="病毒扫描", status="down", detail="clamd 无响应，附件暂不扫描"
     )
+
+
+async def _oss(ctx: AppContext) -> ComponentHealth:
+    """企业资料存储（阿里云 OSS，§36.6）：能列举存储空间。"""
+    if not ctx.oss.enabled:
+        return ComponentHealth(
+            key="oss", name="企业资料存储", status="disabled", detail="没有配置阿里云 OSS"
+        )
+
+    async def ping() -> str | None:
+        await ctx.oss.ping()
+        return f"Bucket {ctx.oss.config.bucket}"
+
+    return await _probe("oss", "企业资料存储", ping)
 
 
 async def _processes(ctx: AppContext, metrics: dict[str, int | float]) -> list[ComponentHealth]:

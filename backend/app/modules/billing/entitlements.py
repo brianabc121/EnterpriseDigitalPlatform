@@ -24,9 +24,10 @@ from app.modules.billing.models import Plan, Subscription
 from app.modules.channels.models import ChannelAccount, ChannelStatus
 from app.modules.iam.models import Staff, StaffStatus
 from app.modules.kb.models import ItemStatus, KbItem
+from app.modules.materials.models import Material, MaterialStatus
 from app.modules.tenancy.models import Tenant
 
-LimitKey = Literal["seats", "ai_replies_monthly", "kb_items", "channels"]
+LimitKey = Literal["seats", "ai_replies_monthly", "kb_items", "channels", "material_gb"]
 FeatureKey = Literal["ai", "wecom", "broadcast", "extraction", "zone", "todos", "orders"]
 
 # 额度：名称与单位。
@@ -35,7 +36,9 @@ LIMITS: dict[str, tuple[str, str]] = {
     "ai_replies_monthly": ("每月 AI 回复", "条"),
     "kb_items": ("知识条目", "条"),
     "channels": ("接入渠道", "个"),
+    "material_gb": ("企业资料存储", "GB"),
 }
+GB = 1024**3
 FEATURES: dict[str, str] = {
     "ai": "AI 接待与坐席助手",
     "wecom": "企业微信接入",
@@ -200,8 +203,8 @@ async def used(
     key: str,
     tz: ZoneInfo,
     now: datetime | None = None,
-) -> int:
-    """某项额度的当前用量。"""
+) -> int | float:
+    """某项额度的当前用量（企业资料存储是 GB，保留两位小数）。"""
     if key == "seats":
         statement = select(func.count()).where(
             Staff.tenant_id == tenant_id, Staff.status == StaffStatus.ACTIVE
@@ -216,8 +219,18 @@ async def used(
         )
     elif key == "ai_replies_monthly":
         return await ai_replies_this_month(session, tenant_id, tz, now)
+    elif key == "material_gb":
+        return round(await material_bytes(session, tenant_id) / GB, 2)
     else:
         raise ValueError(f"unknown limit: {key}")
+    return int(await session.scalar(statement) or 0)
+
+
+async def material_bytes(session: AsyncSession, tenant_id: uuid.UUID) -> int:
+    """企业资料占用的空间（字节）：上传中的按登记的大小算，已拦截的文件已经删除，不算。"""
+    statement = select(func.coalesce(func.sum(Material.size), 0)).where(
+        Material.tenant_id == tenant_id, Material.status != MaterialStatus.BLOCKED
+    )
     return int(await session.scalar(statement) or 0)
 
 
@@ -240,6 +253,15 @@ async def check_limit(
     if current + adding > limit:
         label, unit = LIMITS[key]
         raise PlanLimitReached(f"已达到套餐的{label}上限（{limit} {unit}），{UPGRADE_HINT}")
+
+
+async def check_material_storage(session: AsyncSession, tenant_id: uuid.UUID, adding: int) -> None:
+    """再存 adding 字节的企业资料是否超出套餐的存储额度；超出时拒绝（409 plan_limit）。"""
+    limit = (await entitlements(session, tenant_id)).limit("material_gb")
+    if limit is None:
+        return
+    if await material_bytes(session, tenant_id) + adding > limit * GB:
+        raise PlanLimitReached(f"企业资料存储空间不足（套餐上限 {limit} GB），{UPGRADE_HINT}")
 
 
 async def has_feature(session: AsyncSession, tenant_id: uuid.UUID, feature: FeatureKey) -> bool:

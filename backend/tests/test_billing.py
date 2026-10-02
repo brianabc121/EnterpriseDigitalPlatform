@@ -93,6 +93,8 @@ async def test_trial_signup_by_ops_shows_plan_features_and_notice(
         "ai_replies_monthly": (1000, 0),
         "kb_items": (500, 0),
         "channels": (3, 1),
+        # 企业资料存储（GB，迁移 0039 给默认套餐设置的额度）。
+        "material_gb": (1, 0),
     }
     assert overview["metered"] and overview["subscription"]["status"] == "trial"
 
@@ -204,6 +206,7 @@ async def test_plan_crud_and_archive(app: FastAPI, client: httpx.AsyncClient) ->
         "ai_replies_monthly": None,
         "kb_items": None,
         "channels": None,
+        "material_gb": None,
     }
     assert (
         await client.post(PLANS, headers=ops, json={"code": "pro", "name": "x"})
