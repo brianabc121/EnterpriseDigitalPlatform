@@ -38,7 +38,12 @@ def auto_profile(permissions: Iterable[str]) -> ConsoleProfile:
         return ConsoleProfile.SUPERVISOR
     if Permission.WORKBENCH_USE in granted:
         return ConsoleProfile.AGENT
-    if granted & {Permission.FINANCE_VIEW, Permission.FINANCE_MANAGE}:
+    if granted & {
+        Permission.FINANCE_VIEW,
+        Permission.FINANCE_MANAGE,
+        Permission.PROFIT_VIEW,
+        Permission.PROFIT_MANAGE,
+    }:
         return ConsoleProfile.FINANCE
     if granted & {Permission.WAREHOUSE_CONFIRM, Permission.INVENTORY_MANAGE}:
         return ConsoleProfile.KEEPER
