@@ -560,6 +560,7 @@ class ProductionOrder(BaseModel):
     requisition_rejected: DocumentBrief | None = Field(
         description="被仓管退回、还没修改的领料单（带退回原因）"
     )
+    print_count: int = Field(default=0, description="加工单已经打印（排队或打印成功）的次数（§29）")
 
 
 class ProductionPage(BaseModel):

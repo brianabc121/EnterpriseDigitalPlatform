@@ -9,6 +9,7 @@ import ConsoleTab from '../components/settings/ConsoleTab.vue'
 import DataTab from '../components/settings/DataTab.vue'
 import IntegrationTab from '../components/settings/IntegrationTab.vue'
 import MailboxesTab from '../components/settings/MailboxesTab.vue'
+import PrintersTab from '../components/settings/PrintersTab.vue'
 import RetentionTab from '../components/settings/RetentionTab.vue'
 import RoutingPoliciesTab from '../components/settings/RoutingPoliciesTab.vue'
 import SkillGroupsTab from '../components/settings/SkillGroupsTab.vue'
@@ -26,6 +27,7 @@ const canIntegrate = computed(() => auth.can('integration:manage'))
 const canConfigOrders = computed(
   () => auth.can('order:config') && auth.me?.features?.orders !== false,
 )
+const canPrint = computed(() => auth.can('print:manage') && auth.me?.features?.orders !== false)
 // 站内信等链接可以直接打开某个页签（/settings?tab=mail）。
 const route = useRoute()
 const tab = ref(typeof route.query.tab === 'string' ? route.query.tab : 'channels')
@@ -66,6 +68,9 @@ watch(
       </el-tab-pane>
       <el-tab-pane v-if="canConfigOrders" label="订单" name="orders" lazy>
         <OrderSettingsTab />
+      </el-tab-pane>
+      <el-tab-pane v-if="canPrint" label="打印" name="print" lazy>
+        <PrintersTab />
       </el-tab-pane>
       <el-tab-pane v-if="canIntegrate" label="企业系统对接" name="integration" lazy>
         <IntegrationTab />

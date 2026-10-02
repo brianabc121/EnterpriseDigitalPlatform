@@ -169,6 +169,14 @@ class Settings(BaseSettings):
     whatsapp_api_url: str = "https://graph.facebook.com/v21.0"
     imbot_timeout_seconds: float = 15.0
 
+    # 云打印机（设计文档 §29.3）：芯烨云、飞鹅云的接口地址（测试和验收指向模拟厂商
+    # tests/fake_printer.py）和超时；print_immediate 为真时打印任务排队后由 API 进程马上尝试发送
+    # 一次（关掉后只由调度任务发送）。
+    print_xpyun_url: str = "https://open.xpyun.net"
+    print_feie_url: str = "https://api.feieyun.cn"
+    print_timeout_seconds: float = 10.0
+    print_immediate: bool = True
+
     # 按租户限流（设计文档 §9.3 租户公平）：每个租户每分钟的员工接口请求、访客接口请求、OpenIM 回调
     # 和大模型调用上限，平台可以在运营后台按租户调整；0 表示不限。访客另有每人每分钟的上限。
     tenant_api_per_minute: int = 6000

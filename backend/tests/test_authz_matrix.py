@@ -153,6 +153,18 @@ MATRIX: list[tuple[str, str, dict[str, Any] | None]] = [
     ("POST", "/api/v1/finance/receivables/{order_id}/followup", {"note": "越权跟进"}),
     ("POST", "/api/v1/finance/receivables/{order_id}/collect", {}),
     ("GET", "/api/v1/finance/customers/{customer_id}/statement", None),
+    # 云打印机（§29）。
+    (
+        "PUT",
+        "/api/v1/print/printers/{printer_id}",
+        {"name": "x", "brand": "xpyun", "account": "dev@example.com", "sn": "XPY0001"},
+    ),
+    ("DELETE", "/api/v1/print/printers/{printer_id}", None),
+    ("POST", "/api/v1/print/printers/{printer_id}/check", None),
+    ("POST", "/api/v1/print/printers/{printer_id}/test", None),
+    ("POST", "/api/v1/print/jobs/{print_job_id}/resend", None),
+    ("POST", "/api/v1/print/orders/{order_id}", None),
+    ("POST", "/api/v1/print/documents/{document_id}", None),
     ("POST", "/api/v1/production/orders/{order_id}/claim", None),
     ("POST", "/api/v1/production/orders/{order_id}/release", None),
     ("POST", "/api/v1/production/orders/{order_id}/items/{order_item_id}/done", None),
@@ -370,8 +382,25 @@ async def build(desk: Desk) -> Tenant:
     order_ids = await orders(desk, chat)
     mail_ids = await mail(desk, chat)
     assistant_ids = await assistant(desk, agent.staff_id)
+    # 云打印机和一条放弃的打印任务（直接写库，流程见 test_print.py）。
+    [printer] = await desk.sql(
+        "INSERT INTO printers (id, tenant_id, name, brand, account, key_enc, sn)"
+        " VALUES ($1, $2, '车间打印机', 'xpyun', 'dev@example.com', 'sealed', $3) RETURNING id",
+        uuid.uuid4(),
+        desk.tenant_id,
+        f"XPY{desk.code.upper()}",
+    )
+    [print_job] = await desk.sql(
+        "INSERT INTO print_jobs (id, tenant_id, printer_id, printer_name, kind, source, status)"
+        " VALUES ($1, $2, $3, '车间打印机', 'test', 'test', 'dead') RETURNING id",
+        uuid.uuid4(),
+        desk.tenant_id,
+        printer["id"],
+    )
     await desk.flush()
     ids = {
+        "printer_id": str(printer["id"]),
+        "print_job_id": str(print_job["id"]),
         **order_ids,
         **mail_ids,
         **assistant_ids,
@@ -1112,6 +1141,8 @@ async def test_agents_only_reach_their_own_sessions_and_customers(
         "record_type": "order",
         "record_id": dave_order_id,
         "account_id": acme.ids["account_id"],
+        "printer_id": acme.ids["printer_id"],
+        "print_job_id": acme.ids["print_job_id"],
         "message_id": await email(desk, chat),
         # Dave 自己的个人待办和 IM 绑定；机器人和群只有管理员能管理。
         **await dave_assistant(desk, acme.other_agent.staff_id, acme.ids["bot_id"]),

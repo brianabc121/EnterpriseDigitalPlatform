@@ -36,6 +36,9 @@ from app.modules.iam.principal import Principal
 from app.modules.notifications import service as notifications
 from app.modules.orders import service as order_service
 from app.modules.orders.models import Order, OrderItem, OrderStatus
+from app.modules.print import delivery as print_delivery
+from app.modules.print import service as print_service
+from app.modules.print.models import JobSource, TicketKind
 from app.modules.products import stock
 from app.modules.products.models import Product, ProductKind, ProductMaterial, StockKind
 from app.modules.todos import assign as todo_assign
@@ -297,7 +300,16 @@ async def create(
     document, todo = await open_document(
         ctx, session, principal, kind, order, checked, note, traced=formkb_record.traces(lines)
     )
+    # 配置了打印机时打一张领料单（§29.5）：和开单一起提交，提交后马上发送。
+    jobs = (
+        await print_service.enqueue_requisition(
+            session, principal, document, source=JobSource.REQUISITION
+        )
+        if kind == DocumentKind.REQUISITION
+        else []
+    )
     await session.commit()
+    print_delivery.kick(ctx, [job.id for job in jobs])
     await _dispatch(ctx, document, todo)
     return document
 
@@ -788,6 +800,7 @@ async def outs(
     )
     keeper = is_keeper(principal)
     me = principal.staff_id
+    printed = await print_service.print_counts(session, TicketKind.REQUISITION, ids)
     result: list[DocumentOut] = []
     for d in documents:
         rows = lines[d.id]
@@ -842,6 +855,7 @@ async def outs(
                 can_edit=open_ and (d.created_by == me or keeper),
                 can_confirm=pending and keeper,
                 can_void=open_ and (d.created_by == me or keeper),
+                print_count=printed.get(d.id, 0),
             )
         )
     return result

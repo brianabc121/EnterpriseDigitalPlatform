@@ -16,6 +16,7 @@ import {
 } from '../../warehouse'
 import DocSheet, { type SheetStep } from '../documents/DocSheet.vue'
 import HistoryDrawer from '../history/HistoryDrawer.vue'
+import PrintButton from '../printing/PrintButton.vue'
 import DocumentEditor from './DocumentEditor.vue'
 
 /**
@@ -222,6 +223,15 @@ function print(): void {
     <template #actions>
       <el-button v-if="doc" size="small" data-testid="document-history" @click="history = true">历史</el-button>
       <el-button v-if="doc" size="small" data-testid="document-print" @click="print">打印</el-button>
+      <PrintButton
+        v-if="doc?.kind === 'requisition'"
+        kind="requisition"
+        :ref-id="doc.id"
+        :count="doc.print_count"
+        label="云打印"
+        size="small"
+        @printed="(seq) => doc && (doc.print_count = seq)"
+      />
     </template>
     <template v-if="doc">
       <section class="doc-section">
