@@ -17,6 +17,8 @@ export const TYPE_LABEL: Record<RecordType, string> = {
   todo: '待办',
   goods: '成品',
   material: '材料',
+  contract: '合同',
+  contract_tpl: '合同模板',
 }
 
 export const ACTION_FILTERS: [string, string][] = [

@@ -9,6 +9,7 @@ export type MenuIcon =
   | 'order'
   | 'goods'
   | 'money'
+  | 'contract'
   | 'production'
   | 'warehouse'
   | 'user'
@@ -82,6 +83,14 @@ export const MENU: readonly MenuItem[] = [
     icon: 'money',
     permission: 'finance:view',
     feature: 'orders',
+  },
+  // 合同（§34）：起草、模板和分类；客服岗位默认也有。
+  {
+    name: 'contracts',
+    path: '/contracts',
+    title: '合同',
+    icon: 'contract',
+    permission: 'contract:use',
   },
   {
     name: 'products',

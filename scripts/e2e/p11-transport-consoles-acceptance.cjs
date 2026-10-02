@@ -41,6 +41,7 @@ const TITLES = {
   todos: '待办',
   orders: '订单',
   receivables: '应收账款',
+  contracts: '合同',
   products: '商品',
   production: '加工',
   warehouse: '仓库',
@@ -325,8 +326,8 @@ async function agentSection(browser, ctx) {
   await shot(page, '2-agent-home')
   const menu = await menus(page)
   check(
-    '客服：菜单只有首页、工作台、会话记录、待办、订单、个人待办、客户、知识库、AI 助理（没有"商品"）',
-    same(menu, ['首页', '工作台', '会话记录', '待办', '订单', '个人待办', '客户', '知识库', 'AI 助理']),
+    '客服：菜单只有首页、工作台、会话记录、待办、订单、合同、个人待办、客户、知识库、AI 助理（没有"商品"）',
+    same(menu, ['首页', '工作台', '会话记录', '待办', '订单', '合同', '个人待办', '客户', '知识库', 'AI 助理']),
     menu,
   )
   const numbers = {
@@ -470,7 +471,7 @@ async function combinedSection(browser) {
   const profiles = await page.locator('[data-testid="home-profiles"]').innerText()
   check(
     '客服兼仓管：两个岗位的菜单合在一起，首页依次显示客服和仓管的内容',
-    same(menu, ['首页', '工作台', '会话记录', '待办', '订单', '仓库', '个人待办', '客户', '知识库', 'AI 助理']) &&
+    same(menu, ['首页', '工作台', '会话记录', '待办', '订单', '合同', '仓库', '个人待办', '客户', '知识库', 'AI 助理']) &&
       profiles.includes('客服、仓管'),
     { menu, profiles },
   )
@@ -490,7 +491,7 @@ async function consoleSettingsSection(admin, browser) {
   const added = await menus(mei)
   check(
     '管理员给客服勾选"商品"后，客服重新打开控制台看到"商品"',
-    same(added, ['首页', '工作台', '会话记录', '待办', '订单', '商品', '个人待办', '客户', '知识库', 'AI 助理']),
+    same(added, ['首页', '工作台', '会话记录', '待办', '订单', '合同', '商品', '个人待办', '客户', '知识库', 'AI 助理']),
     added,
   )
   await admin.locator('[data-testid="console-reset-agent"]').click()

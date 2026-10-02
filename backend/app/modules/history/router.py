@@ -18,6 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import ERROR_RESPONSES, NotFound, Unprocessable
 from app.core.permissions import Permission
+from app.modules.contracts import history as contract_history
 from app.modules.history import names as history_names
 from app.modules.history.document import Changes, Doc, compare, summary
 from app.modules.history.models import TYPE_LABELS, RecordType, RecordVersion
@@ -48,6 +49,8 @@ MODULES: dict[str, ModuleType] = {
     RecordType.TODO: todo_history,
     RecordType.GOODS: product_history,
     RecordType.MATERIAL: product_history,
+    RecordType.CONTRACT: contract_history,
+    RecordType.CONTRACT_TPL: contract_history,
 }
 ACTOR_LABELS = {"ai": "AI", "system": "系统", "api": "企业系统", "visitor": "客户"}
 NOT_FOUND = "没有这条记录的修改历史，或者没有权限查看"
@@ -71,6 +74,7 @@ async def _visible(
     session: AsyncSession, principal: Principal, record_type: str, record_id: UUID
 ) -> bool:
     """能不能看到这条记录（与记录的详情接口一致）。"""
+    from app.modules.contracts import service as contract_service
     from app.modules.orders import service as order_service
     from app.modules.products.models import Product, ProductKind
     from app.modules.todos import service as todo_service
@@ -90,6 +94,13 @@ async def _visible(
                 return False
             await todo_service.get_visible(session, principal, record_id)
             return True
+        if record_type == RecordType.CONTRACT:
+            if not principal.has(Permission.CONTRACT_USE):
+                return False
+            await contract_service.get_visible(session, principal, record_id)
+            return True
+        if record_type == RecordType.CONTRACT_TPL:
+            return principal.has(Permission.CONTRACT_USE)
     except NotFound:
         return False
     readers = [Permission.PRODUCT_MANAGE, Permission.INVENTORY_MANAGE, Permission.WAREHOUSE_CONFIRM]

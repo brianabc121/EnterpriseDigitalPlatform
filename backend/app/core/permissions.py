@@ -61,6 +61,8 @@ class Permission(StrEnum):
     PRINT_MANAGE = "print:manage"  # 云打印机：打印机设置、全部打印记录、重新发送（设计文档 §29.4）
     PROFIT_VIEW = "profit:view"  # 盈利报表：全公司的收入、成本、毛利、费用、净利润和导出（§30.5）
     PROFIT_MANAGE = "profit:manage"  # 盈利报表：登记、修改、删除费用和其他收入
+    CONTRACT_USE = "contract:use"  # 合同：起草和处理自己负责的合同，上传模板（设计文档 §34.6）
+    CONTRACT_MANAGE = "contract:manage"  # 合同：全部合同、模板和分类，合同设置
 
 
 ALL_PERMISSIONS = frozenset(Permission)
@@ -106,6 +108,11 @@ PERMISSION_INFO: dict[Permission, tuple[str, str]] = {
     Permission.FINANCE_MANAGE: ("应收的跟进、催收和导出", "财务"),
     Permission.PROFIT_VIEW: ("查看和导出盈利报表（全公司的收入、成本、毛利和净利润）", "财务"),
     Permission.PROFIT_MANAGE: ("登记、修改和删除费用与其他收入", "财务"),
+    Permission.CONTRACT_USE: (
+        "起草和处理自己负责的合同（AI 生成、编辑、定稿、签署），上传合同模板",
+        "合同",
+    ),
+    Permission.CONTRACT_MANAGE: ("管理全部合同、模板和分类，合同设置", "合同"),
     Permission.PRINT_MANAGE: ("设置云打印机、查看全部打印记录、重新发送", "管理"),
     Permission.PRODUCTION_WORK: ("领取订单加工，标记商品完成或缺货", "加工"),
     Permission.PRODUCTION_ASSIGN: ("指派加工人，查看全部加工进度", "加工"),
@@ -154,6 +161,7 @@ DEFAULT_ROLES: tuple[RoleSpec, ...] = (
                 Permission.ORDER_CREATE,
                 Permission.ORDER_REVIEW,
                 Permission.ORDER_PAYMENT,
+                Permission.CONTRACT_USE,
                 Permission.TASK_USE,
                 Permission.ASSISTANT_USE,
             }
@@ -190,6 +198,8 @@ DEFAULT_ROLES: tuple[RoleSpec, ...] = (
                 Permission.PRODUCTION_ASSIGN,
                 Permission.INVENTORY_MANAGE,
                 Permission.FORM_KB_MANAGE,
+                Permission.CONTRACT_USE,
+                Permission.CONTRACT_MANAGE,
                 Permission.TASK_USE,
                 Permission.TASK_ASSIGN,
                 Permission.ASSISTANT_USE,

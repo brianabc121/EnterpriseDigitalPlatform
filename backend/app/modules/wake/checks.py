@@ -28,6 +28,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.dates import day_bounds
 from app.core.permissions import Permission
 from app.modules.ai.models import SessionIntent
+from app.modules.contracts import settings as contract_settings
+from app.modules.contracts.models import Contract, ContractStatus
 from app.modules.conversation.models import ChatSession, SessionStatus
 from app.modules.customer.models import Customer
 from app.modules.finance import service as finance
@@ -53,6 +55,7 @@ class Category:
     SERVICE = "service"
     TREND = "trend"
     KNOWLEDGE = "knowledge"
+    CONTRACT = "contract"
     SYSTEM = "system"
 
 
@@ -65,6 +68,7 @@ CATEGORY_LABELS: dict[str, str] = {
     Category.SERVICE: "客服",
     Category.TREND: "趋势",
     Category.KNOWLEDGE: "知识",
+    Category.CONTRACT: "合同",
     Category.SYSTEM: "系统",
 }
 
@@ -78,6 +82,7 @@ COMMON_DOMAINS = ("staff", "staff_roles", "roles", "routing_policies")
 CRITICAL_WAIT = timedelta(hours=24)
 CRITICAL_LATE = timedelta(days=3)
 CRITICAL_UNPAID_DAYS = 7
+CONTRACT_CRITICAL_DAYS = 7
 
 
 @dataclass(frozen=True)
@@ -918,6 +923,58 @@ async def kb_backlog(scope: Scope) -> list[Hit]:
     ]
 
 
+# ---- 合同 ----
+
+
+async def contract_expiring(scope: Scope) -> list[Hit]:
+    """已签署、结束日期在合同设置的天数内的合同（§34.9）。7 天内算严重；过了结束日期自动消除。"""
+    days = (await contract_settings.load(scope.session, scope.tenant_id)).expiring_days
+    today = scope.today
+    horizon = today + timedelta(days=days)
+    signed = and_(Contract.status == ContractStatus.SIGNED, Contract.end_date.is_not(None))
+    rows = await scope.session.execute(
+        select(
+            Contract.id,
+            Contract.no,
+            Contract.title,
+            Contract.end_date,
+            Contract.owner_id,
+            Contract.created_by,
+        )
+        .where(signed, Contract.end_date >= today, Contract.end_date <= horizon)
+        .order_by(Contract.end_date)
+        .limit(MAX_HITS)
+    )
+    # 下一份合同进入提醒范围的时刻。
+    upcoming = await scope.earliest(Contract.end_date, signed, Contract.end_date > horizon)
+    if upcoming is not None:
+        scope.due(scope.midnight(upcoming - timedelta(days=days)))
+    hits = []
+    for contract_id, no, title, end, owner_id, creator in rows:
+        assert end is not None
+        left = (end - today).days
+        # 到期的第二天消除；还没到 7 天的到时变严重。
+        scope.due(scope.midnight(end + timedelta(days=1)))
+        if left > CONTRACT_CRITICAL_DAYS:
+            scope.due(scope.midnight(end - timedelta(days=CONTRACT_CRITICAL_DAYS)))
+        hits.append(
+            Hit(
+                key=f"contract:{contract_id}",
+                title=f"合同 {no}「{title}」快到期了",
+                detail=f"结束日期 {end:%Y-%m-%d}，到期前和客户确认续签还是结束。",
+                severity=Severity.CRITICAL if left <= CONTRACT_CRITICAL_DAYS else Severity.WARNING,
+                assignees=await scope.people(
+                    owner_id, creator, permission=Permission.CONTRACT_MANAGE
+                ),
+                link=f"/contracts?id={contract_id}",
+                entity_type="contract",
+                entity_id=contract_id,
+                data={"end_date": end.isoformat()},
+            )
+        )
+    return hits
+
+
 # ---- 系统 ----
 
 
@@ -1137,6 +1194,14 @@ CHECKS: tuple[Check, ...] = (
         mailbox_error,
         hourly=True,
         domains=("mail_accounts",),
+    ),
+    Check(
+        "contract_expiring",
+        Category.CONTRACT,
+        "合同快到期",
+        "已签署的合同结束日期在合同设置的天数内（默认 30 天），提醒负责人续签或结束",
+        contract_expiring,
+        domains=("contracts", "tenant_settings"),
     ),
     Check(
         "printer_offline",

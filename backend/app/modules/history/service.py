@@ -34,6 +34,8 @@ BUILDERS: dict[str, str] = {
     RecordType.TODO: "app.modules.todos.history",
     RecordType.GOODS: "app.modules.products.history",
     RecordType.MATERIAL: "app.modules.products.history",
+    RecordType.CONTRACT: "app.modules.contracts.history",
+    RecordType.CONTRACT_TPL: "app.modules.contracts.history",
 }
 # 不说明具体做了什么的动作：同一次操作里还有更具体的动作时，用具体的作为主要操作。
 GENERIC = frozenset({"update", "status", "payment"})

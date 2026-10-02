@@ -19,6 +19,7 @@ from app.modules.audit.router import router as audit_router
 from app.modules.billing.router import platform_router as platform_billing_router
 from app.modules.billing.router import router as billing_router
 from app.modules.channels.router import router as channels_router
+from app.modules.contracts.router import router as contracts_router
 from app.modules.conversation.hooks import router as openim_hooks_router
 from app.modules.conversation.router import router as conversation_router
 from app.modules.customer.router import router as customer_router
@@ -165,6 +166,7 @@ def create_app(
     app.include_router(wecom_hooks_router)
     app.include_router(mail_router)
     app.include_router(wake_router)
+    app.include_router(contracts_router)
     app.include_router(reports_router)
     app.include_router(usage_router)
     app.include_router(audit_router)

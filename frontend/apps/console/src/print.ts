@@ -2,6 +2,7 @@
  * 打印单据（设计文档 §25.14）：只打印单据本身——单号、日期、明细、合计、开单人和确认人、签字栏。
  * 在新窗口里生成一张简单的打印页，不受控制台页面样式的影响。
  */
+import type { Block, Span } from './contracts'
 import type { CustomerStatement } from './finance'
 import { money } from './orders'
 import type { WarehouseDocument } from './warehouse'
@@ -138,6 +139,52 @@ export function statementHtml(statement: CustomerStatement, company: string): st
   <tbody>${open || '<tr><td colspan="5">没有未收清的订单</td></tr>'}</tbody>
 </table>
 <div class="foot"><div>制表人：${escape(statement.generated_by)}</div><div>制表日期：${escape(day(statement.generated_at))}</div></div>
+</body></html>`
+}
+
+function spansHtml(spans: Span[] | undefined): string {
+  return (spans ?? [])
+    .map((span) => {
+      const text = escape(span.field === 'missing' ? `＿＿＿（${span.text}）` : span.text)
+      return span.bold ? `<strong>${text}</strong>` : text
+    })
+    .join('')
+}
+
+/** 合同的打印页（§34.4）：和预览、导出的 Word 同一套排版，A4、宋体，没填的填写项印成"＿＿＿（名称）"。 */
+export function contractHtml(blocks: Block[], title: string): string {
+  const body = blocks
+    .map((block) => {
+      if (block.kind === 'title') return `<h1>${spansHtml(block.spans)}</h1>`
+      if (block.kind === 'heading') return `<h3 class="level-${block.level ?? 1}">${spansHtml(block.spans)}</h3>`
+      if (block.kind === 'bullet') return `<p class="bullet">• ${spansHtml(block.spans)}</p>`
+      if (block.kind === 'table') {
+        const rows = (block.rows ?? [])
+          .map((row, r) => {
+            const tag = block.header && r === 0 ? 'th' : 'td'
+            return `<tr>${row.map((cell) => `<${tag}>${spansHtml(cell)}</${tag}>`).join('')}</tr>`
+          })
+          .join('')
+        return `<table>${rows}</table>`
+      }
+      return `<p>${spansHtml(block.spans)}</p>`
+    })
+    .join('\n')
+  return `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8">
+<title>${escape(title)}</title>
+<style>
+  @page { size: A4; margin: 2.5cm 2.2cm; }
+  body { font-family: SimSun, "Songti SC", serif; margin: 24px; color: #111; font-size: 14px; line-height: 1.9; }
+  h1 { margin: 0 0 20px; font-size: 22px; text-align: center; letter-spacing: 2px; }
+  h3 { margin: 14px 0 6px; font-size: 15px; }
+  h3.level-2 { font-size: 14px; }
+  p { margin: 0 0 4px; text-align: justify; }
+  p.bullet { padding-left: 1.2em; text-indent: -1.2em; }
+  table { width: 100%; margin: 8px 0 12px; border-collapse: collapse; font-size: 13px; }
+  th, td { border: 1px solid #333; padding: 4px 8px; text-align: center; }
+  @media print { body { margin: 0; } }
+</style></head><body>
+${body}
 </body></html>`
 }
 

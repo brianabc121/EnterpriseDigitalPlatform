@@ -39,6 +39,7 @@ import OrderFormDialog from './OrderFormDialog.vue'
  * 修改历史（每个版本的内容和改动，任意两个版本对比，§25.14）、关联的待办和跟踪链接，以及按权限和状态显示的处理操作。
  * 加工（§25.11）：每个商品的加工进度和缺货，加工人与加工完成时间；登记到货、指派加工人。
  * 仓库（§25.13）：现货商品直接从成品库存发货；订单的领料单和入库单。
+ * 合同（§34.5）："生成合同"带上订单和客户打开 AI 生成合同。
  */
 const props = withDefaults(defineProps<{ orderId: string | null; size?: string }>(), {
   size: '760px',
@@ -84,6 +85,8 @@ const open = computed({
 const names = computed(() => new Map(options.value.staff.map((s) => [s.id, s.name])))
 const receiver = computed(() => revealed.value ?? detail.value?.receiver ?? {})
 const review = computed(() => auth.can('order:review'))
+// 合同（§34.5）：带上订单和客户打开 AI 生成合同。
+const canContract = computed(() => auth.can('contract:use') && detail.value?.status !== 'cancelled')
 const methods = computed(() =>
   (settings.value?.payment_methods ?? ['online', 'cod', 'deposit', 'credit']).map(
     (m) => [m, PAYMENT_METHOD[m] ?? m] as const,
@@ -749,6 +752,13 @@ async function onSaved(): Promise<void> {
 
     <template v-if="detail" #footer>
       <div class="actions">
+        <el-button
+          v-if="canContract"
+          :disabled="acting"
+          data-testid="order-contract"
+          @click="router.push({ path: '/contracts', query: { order: detail.id } })"
+          >生成合同</el-button
+        >
         <el-button v-if="detail.allowed.edit" :disabled="acting" data-testid="order-edit" @click="editing = true"
           >修改</el-button
         >

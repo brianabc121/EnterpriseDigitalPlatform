@@ -87,6 +87,13 @@ export const PERMISSION_MODULES: readonly PermissionModuleConfig[] = [
     permissions: ['finance:view', 'finance:manage', 'profit:view', 'profit:manage'],
   },
   {
+    key: 'contracts',
+    title: '合同',
+    icon: 'contract',
+    pages: ['contracts'],
+    permissions: ['contract:use', 'contract:manage'],
+  },
+  {
     key: 'production',
     title: '加工与仓库',
     icon: 'warehouse',

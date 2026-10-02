@@ -6,7 +6,9 @@ from pydantic import BaseModel, Field
 
 from app.modules.history.document import Changes, Doc
 
-RecordTypeValue = Literal["order", "requisition", "receipt", "todo", "goods", "material"]
+RecordTypeValue = Literal[
+    "order", "requisition", "receipt", "todo", "goods", "material", "contract", "contract_tpl"
+]
 
 
 class FieldOut(BaseModel):
