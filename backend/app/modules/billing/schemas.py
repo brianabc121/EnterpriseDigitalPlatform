@@ -19,6 +19,9 @@ class PlanLimits(BaseModel):
     )
     kb_items: int | None = Field(default=None, ge=0, le=10_000_000, description="知识条目数")
     channels: int | None = Field(default=None, ge=0, le=10_000, description="启用的接入渠道数")
+    material_gb: int | None = Field(
+        default=None, ge=0, le=1_000_000, description="企业资料存储（GB，阿里云 OSS）"
+    )
 
 
 class PlanFeatures(BaseModel):
@@ -163,7 +166,7 @@ class LimitUsage(BaseModel):
     label: str
     unit: str
     limit: int | None = Field(description="上限；为空表示不限")
-    used: int
+    used: int | float = Field(description="当前用量（企业资料存储是 GB，保留两位小数）")
     overridden: bool = Field(description="平台为本租户单独设置了这项额度")
 
 

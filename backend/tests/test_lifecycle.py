@@ -28,6 +28,7 @@ from tests.factories import (
     provision,
 )
 from tests.fake_openim import FakeOpenIM
+from tests.fake_oss import FakeOSS
 from tests.fake_storage import FakeStorage
 from tests.support import DatabaseUrls
 from tests.test_visitor import channel_key, init
@@ -245,6 +246,7 @@ async def test_purge_deletes_tenant_data_and_leaves_a_record(
     app: FastAPI,
     client: httpx.AsyncClient,
     fake_storage: FakeStorage,
+    fake_oss: FakeOSS,
     database_urls: DatabaseUrls,
 ) -> None:
     ops = await _ops(app, client)
@@ -258,6 +260,21 @@ async def test_purge_deletes_tenant_data_and_leaves_a_record(
     fake_storage.objects["/edp-files/acme/2026/09/abc/a.png"] = (b"PNG", "image/png")
     fake_storage.objects["/edp-files/other/2026/09/abc/b.png"] = (b"OTHER", "image/png")
     assert visitor.group_id in desk.im.groups
+    # 企业资料（阿里云 OSS）：一份文字资料和一个没有传完的分片上传；另一个企业也有一份。
+    text = {"name": "说明", "body": "# 说明"}
+    assert (
+        await client.post("/api/v1/materials/texts", headers=desk.admin, json=text)
+    ).status_code == 201
+    big = await client.post(
+        "/api/v1/materials/uploads",
+        headers=desk.admin,
+        json={"filename": "演示.mp4", "size": 100 * 1024 * 1024},
+    )
+    assert big.json()["method"] == "multipart" and fake_oss.uploads
+    other_admin = bearer(await login(client, "other"))
+    assert (
+        await client.post("/api/v1/materials/texts", headers=other_admin, json=text)
+    ).status_code == 201
 
     # 没有申请注销时不能删除。
     not_closing = await client.post(f"/platform/v1/tenants/{desk.tenant_id}/purge", headers=ops)
@@ -277,6 +294,10 @@ async def test_purge_deletes_tenant_data_and_leaves_a_record(
     assert counts["tables"]["customers"] == 1
     assert "subscriptions" not in counts["tables"]
     assert counts["objects"] == 2  # 聊天文件和导出文件
+    assert (counts["oss_objects"], counts["oss_bytes"]) == (1, len("# 说明".encode()))
+    assert fake_oss.uploads == {}
+    assert [k for k in fake_oss.objects if str(desk.tenant_id) in k] == []
+    assert [k for k in fake_oss.objects if str(other) in k] != []
     assert counts["im_groups"] == 1 and visitor.group_id not in desk.im.groups
     assert deletion["export_id"] is not None
     for table in ("staff", "customers", "messages", "sessions", "rooms", "channel_accounts"):

@@ -70,6 +70,7 @@ from app.modules.kb.service import expire_items
 from app.modules.lifecycle.closure import run_purges
 from app.modules.lifecycle.export import run_exports
 from app.modules.mail.inbox import poll_due as poll_mailboxes
+from app.modules.materials import jobs as material_jobs
 from app.modules.orders.jobs import run_collections as run_order_collections
 from app.modules.orders.jobs import run_draft_followups as run_order_followups
 from app.modules.print import delivery as print_delivery
@@ -155,6 +156,8 @@ JOBS = (
     Job("wake-dispatch", 60, wake.dispatch),
     Job("wake-purge", 3600, wake.purge),
     Job("prospects-scan", 300, prospects_ai.scan),
+    Job("material-scan", 60, material_jobs.run_material_scan),
+    Job("material-uploads", 3600, material_jobs.cleanup_uploads),
 )
 
 

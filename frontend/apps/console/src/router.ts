@@ -32,6 +32,7 @@ const VIEWS: Record<string, LazyView> = {
   orders: () => import('./views/OrdersView.vue'),
   receivables: () => import('./views/ReceivablesView.vue'),
   contracts: () => import('./views/ContractsView.vue'),
+  materials: () => import('./views/MaterialsView.vue'),
   products: () => import('./views/ProductsView.vue'),
   production: () => import('./views/ProductionView.vue'),
   warehouse: () => import('./views/WarehouseView.vue'),

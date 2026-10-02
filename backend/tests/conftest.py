@@ -28,11 +28,13 @@ from app.integrations.llm import EmbedEndpoint, LLMClient, LLMEndpoint
 from app.integrations.openim import OpenIMClient
 from app.main import create_app
 from app.modules.conversation import hooks
+from tests import fake_oss as fake_oss_module
 from tests.fake_bots import FakeBots
 from tests.fake_llm import DIM as FAKE_EMBED_DIM
 from tests.fake_llm import FakeLLM
 from tests.fake_openim import SECRET as FAKE_OPENIM_SECRET
 from tests.fake_openim import FakeOpenIM
+from tests.fake_oss import FakeOSS
 from tests.fake_printer import FakePrinterCloud
 from tests.fake_storage import FakeStorage
 from tests.fake_web import FakeWeb
@@ -155,6 +157,13 @@ def settings(database_urls: DatabaseUrls) -> Settings:
         intent_debounce_seconds=0,
         # 打印任务只由测试里显式调用 delivery.deliver_due 发送，结果可以确定。
         print_immediate=False,
+        # 企业资料接模拟 OSS（tests/fake_oss.py）。
+        oss_endpoint="http://fake-oss",
+        oss_region=fake_oss_module.REGION,
+        oss_bucket=fake_oss_module.BUCKET,
+        oss_access_key_id=fake_oss_module.ACCESS_KEY_ID,
+        oss_access_key_secret=fake_oss_module.ACCESS_KEY_SECRET,
+        oss_path_style=True,
     )
 
 
@@ -166,6 +175,11 @@ def fake_im() -> FakeOpenIM:
 @pytest.fixture
 def fake_llm() -> FakeLLM:
     return FakeLLM()
+
+
+@pytest.fixture
+def fake_oss() -> FakeOSS:
+    return FakeOSS()
 
 
 def fake_llm_client(fake: FakeLLM) -> LLMClient:
@@ -206,6 +220,7 @@ async def app(
     fake_web: FakeWeb,
     fake_bots: FakeBots,
     fake_printer: FakePrinterCloud,
+    fake_oss: FakeOSS,
 ) -> AsyncIterator[FastAPI]:
     im = OpenIMClient(
         settings.openim_api_url, secret=FAKE_OPENIM_SECRET, transport=fake_im.transport()
@@ -219,10 +234,12 @@ async def app(
         web_transport=fake_web.transport(),
         imbots_transport=fake_bots.transport(),
         print_transport=fake_printer.transport(),
+        oss_transport=fake_oss.transport(),
     )
     yield application
     await application.state.ctx.web.aclose()
     await application.state.ctx.printing.aclose()
+    await application.state.ctx.oss.aclose()
     await application.state.ctx.llm.aclose()
     await application.state.ctx.storage.aclose()
     await im.aclose()

@@ -10,6 +10,7 @@ export type MenuIcon =
   | 'goods'
   | 'money'
   | 'contract'
+  | 'material'
   | 'production'
   | 'warehouse'
   | 'user'
@@ -91,6 +92,14 @@ export const MENU: readonly MenuItem[] = [
     title: '合同',
     icon: 'contract',
     permission: 'contract:use',
+  },
+  // 企业资料（§36）：视频、文档、图片和文字资料，文件存放在阿里云 OSS；客服岗位默认也有。
+  {
+    name: 'materials',
+    path: '/materials',
+    title: '资料',
+    icon: 'material',
+    permission: 'material:use',
   },
   {
     name: 'products',

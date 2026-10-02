@@ -63,6 +63,8 @@ class Permission(StrEnum):
     PROFIT_MANAGE = "profit:manage"  # 盈利报表：登记、修改、删除费用和其他收入
     CONTRACT_USE = "contract:use"  # 合同：起草和处理自己负责的合同，上传模板（设计文档 §34.6）
     CONTRACT_MANAGE = "contract:manage"  # 合同：全部合同、模板和分类，合同设置
+    MATERIAL_USE = "material:use"  # 企业资料：查看、上传、分享，修改自己上传的（设计文档 §36.5）
+    MATERIAL_MANAGE = "material:manage"  # 企业资料：文件夹，修改和删除全部资料，停用别人的分享
 
 
 ALL_PERMISSIONS = frozenset(Permission)
@@ -113,6 +115,11 @@ PERMISSION_INFO: dict[Permission, tuple[str, str]] = {
         "合同",
     ),
     Permission.CONTRACT_MANAGE: ("管理全部合同、模板和分类，合同设置", "合同"),
+    Permission.MATERIAL_USE: (
+        "查看、下载和上传企业资料，写文字资料，分享给客户，修改和删除自己上传的",
+        "资料",
+    ),
+    Permission.MATERIAL_MANAGE: ("管理资料文件夹，修改和删除全部资料，停用别人的分享链接", "资料"),
     Permission.PRINT_MANAGE: ("设置云打印机、查看全部打印记录、重新发送", "管理"),
     Permission.PRODUCTION_WORK: ("领取订单加工，标记商品完成或缺货", "加工"),
     Permission.PRODUCTION_ASSIGN: ("指派加工人，查看全部加工进度", "加工"),
@@ -162,6 +169,7 @@ DEFAULT_ROLES: tuple[RoleSpec, ...] = (
                 Permission.ORDER_REVIEW,
                 Permission.ORDER_PAYMENT,
                 Permission.CONTRACT_USE,
+                Permission.MATERIAL_USE,
                 Permission.TASK_USE,
                 Permission.ASSISTANT_USE,
             }
@@ -200,6 +208,8 @@ DEFAULT_ROLES: tuple[RoleSpec, ...] = (
                 Permission.FORM_KB_MANAGE,
                 Permission.CONTRACT_USE,
                 Permission.CONTRACT_MANAGE,
+                Permission.MATERIAL_USE,
+                Permission.MATERIAL_MANAGE,
                 Permission.TASK_USE,
                 Permission.TASK_ASSIGN,
                 Permission.ASSISTANT_USE,
@@ -216,6 +226,7 @@ DEFAULT_ROLES: tuple[RoleSpec, ...] = (
                 Permission.KB_MANAGE,
                 Permission.KB_PUBLISH,
                 Permission.FORM_KB_MANAGE,
+                Permission.MATERIAL_USE,
                 Permission.TASK_USE,
                 Permission.ASSISTANT_USE,
             }

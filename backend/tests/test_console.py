@@ -15,9 +15,9 @@ from tests.test_orders import call
 from tests.test_warehouse import material
 
 ALL = [
-    "dashboard", "workbench", "sessions", "todos", "orders", "receivables", "contracts", "products",
-    "production", "warehouse", "tasks", "customers", "knowledge", "ai", "wake", "assistant",
-    "staff", "reports", "profit", "broadcasts", "wecom", "audit", "settings",
+    "dashboard", "workbench", "sessions", "todos", "orders", "receivables", "contracts",
+    "materials", "products", "production", "warehouse", "tasks", "customers", "knowledge", "ai",
+    "wake", "assistant", "staff", "reports", "profit", "broadcasts", "wecom", "audit", "settings",
 ]  # fmt: skip
 
 
@@ -53,6 +53,7 @@ async def test_each_role_has_its_own_console(desk: Desk) -> None:
             "todos",
             "orders",
             "contracts",
+            "materials",
             "tasks",
             "customers",
             "knowledge",
@@ -64,14 +65,15 @@ async def test_each_role_has_its_own_console(desk: Desk) -> None:
     assert await console(desk, boss.headers) == {
         "profiles": ["supervisor"],
         "menus": [
-            "dashboard", "workbench", "sessions", "todos", "orders", "contracts", "products",
-            "warehouse", "tasks", "customers", "knowledge", "assistant", "reports", "broadcasts",
+            "dashboard", "workbench", "sessions", "todos", "orders", "contracts", "materials",
+            "products", "warehouse", "tasks", "customers", "knowledge", "assistant", "reports",
+            "broadcasts",
         ],
     }  # fmt: skip
     kate = await desk.agent("kate", roles=["knowledge_manager"], online=False)
     assert await console(desk, kate.headers) == {
         "profiles": ["knowledge"],
-        "menus": ["dashboard", "tasks", "knowledge", "assistant"],
+        "menus": ["dashboard", "materials", "tasks", "knowledge", "assistant"],
     }
 
     # 工人：没有仓管角色的员工时，最早创建的工人担任仓管（另外获得确认单据和库存的权限）。
@@ -91,8 +93,8 @@ async def test_each_role_has_its_own_console(desk: Desk) -> None:
     assert await console(desk, both.headers) == {
         "profiles": ["agent", "keeper"],
         "menus": [
-            "dashboard", "workbench", "sessions", "todos", "orders", "contracts", "warehouse",
-            "tasks", "customers", "knowledge", "assistant",
+            "dashboard", "workbench", "sessions", "todos", "orders", "contracts", "materials",
+            "warehouse", "tasks", "customers", "knowledge", "assistant",
         ],
     }  # fmt: skip
 

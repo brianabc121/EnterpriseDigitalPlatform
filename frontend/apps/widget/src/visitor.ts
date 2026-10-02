@@ -194,3 +194,14 @@ export async function fetchTracking(token: string): Promise<Tracking> {
   if (!data) throw new Error(errorMessage(error, '订单链接已失效，请联系客服'))
   return data
 }
+
+export type SharedMaterial = Schemas['PublicMaterial']
+
+/** 分享给客户的企业资料：凭分享链接里的令牌查看，不需要登录。 */
+export async function fetchSharedMaterial(token: string): Promise<SharedMaterial> {
+  const { data, error } = await api.GET('/api/v1/public/materials/{token}', {
+    params: { path: { token } },
+  })
+  if (!data) throw new Error(errorMessage(error, '分享链接已失效，请联系发给您链接的人'))
+  return data
+}

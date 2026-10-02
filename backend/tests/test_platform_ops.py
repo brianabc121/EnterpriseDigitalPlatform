@@ -360,6 +360,8 @@ async def test_health_reports_components(app: FastAPI, client: httpx.AsyncClient
         "partitions": "ok",
         "wecom": "disabled",
         "clamav": "disabled",
+        # 企业资料存储接的是模拟 OSS（tests/fake_oss.py）。
+        "oss": "ok",
         # 测试里没有运行实时消费进程和调度进程。
         "worker": "down",
         "scheduler": "down",

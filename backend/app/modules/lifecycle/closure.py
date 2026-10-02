@@ -3,8 +3,9 @@
 - 管理员输入登录密码和企业代码确认后申请；平台运营也可以代为申请。
 - 保留期（tenant_policy.retention_days）内：员工仍可登录下载导出文件或撤销申请；新访客不能再
   发起咨询，AI、群发、知识提炼等功能停止。
-- 保留期结束后调度任务删除数据：解散 IM 群、删除对象存储里的文件、删除各租户表的行，留下删除记录
-  （各表行数与 SHA-256 摘要）。订阅、账单、用量汇总和平台运营的审计记录保留。
+- 保留期结束后调度任务删除数据：解散 IM 群、删除对象存储和阿里云 OSS（企业资料）里的文件、
+  删除各租户表的行，留下删除记录（各表行数与 SHA-256 摘要）。订阅、账单、用量汇总和平台运营的
+  审计记录保留。
 """
 
 import hashlib
@@ -31,6 +32,7 @@ from app.modules.iam.principal import Principal
 from app.modules.lifecycle.export import request_export, tenant_tables
 from app.modules.lifecycle.models import ExportStatus, TenantDeletion, TenantExport
 from app.modules.lifecycle.schemas import ClosureRequest, ClosureStatus
+from app.modules.materials.models import Material
 from app.modules.tenancy.models import Tenant, TenantStatus
 
 logger = logging.getLogger(__name__)
@@ -201,6 +203,24 @@ def deletion_digest(tenant: Tenant, purged_at: datetime, counts: dict[str, Any])
     return hashlib.sha256(canonical.encode()).hexdigest()
 
 
+async def _purge_materials(ctx: AppContext, tenant_id: uuid.UUID) -> tuple[int, int]:
+    """企业资料（§36）：取消没有完成的分片上传，删除 OSS 上这个企业的目录（{前缀}{企业 ID}/）。
+    失败时中止，下次重试。"""
+    if not ctx.oss.enabled:
+        return 0, 0
+    async with ctx.db.platform_sessionmaker() as session:
+        uploads = (
+            await session.execute(
+                select(Material.object_key, Material.upload_id).where(
+                    Material.tenant_id == tenant_id, Material.upload_id.is_not(None)
+                )
+            )
+        ).all()
+    for key, upload_id in uploads:
+        await ctx.oss.abort_multipart(key, str(upload_id))
+    return await ctx.oss.delete_prefix(ctx.oss.key(f"{tenant_id}/"))
+
+
 async def purge_tenant(
     ctx: AppContext,
     tenant_id: uuid.UUID,
@@ -240,6 +260,7 @@ async def purge_tenant(
             failed += 1
             logger.warning("failed to dismiss IM group %s", group_id, exc_info=True)
     objects, object_bytes = await ctx.storage.delete_prefix(f"{code}/")
+    oss_objects, oss_bytes = await _purge_materials(ctx, tenant_id)
 
     purged_at = now or utcnow()
     async with ctx.db.platform_sessionmaker() as session:
@@ -252,6 +273,8 @@ async def purge_tenant(
             "rows": sum(tables.values()),
             "objects": objects,
             "object_bytes": object_bytes,
+            "oss_objects": oss_objects,
+            "oss_bytes": oss_bytes,
             "im_groups": dismissed,
             "im_groups_failed": failed,
         }

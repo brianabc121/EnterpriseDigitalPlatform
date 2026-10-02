@@ -94,6 +94,13 @@ export const PERMISSION_MODULES: readonly PermissionModuleConfig[] = [
     permissions: ['contract:use', 'contract:manage'],
   },
   {
+    key: 'materials',
+    title: '资料',
+    icon: 'material',
+    pages: ['materials'],
+    permissions: ['material:use', 'material:manage'],
+  },
+  {
     key: 'production',
     title: '加工与仓库',
     icon: 'warehouse',
