@@ -1,5 +1,6 @@
 """实时消费进程：消费事件流（消息归入会话、路由分配等），处理 AI 接待的待回复会话，判断客户的
-意图（设计文档 §32），以及判断每次提交的表单要不要更新表单知识（设计文档 §25.18）。
+意图（设计文档 §32），判断每次提交的表单要不要更新表单知识（设计文档 §25.18），以及执行排队的
+AI 唤醒（数据巡检和知识库整理，设计文档 §33）。
 
 用法：uv run python -m app.worker。可以运行多个实例：每个事件分区同一时刻只由一个实例消费；
 AI 待回复会话按行领取（SKIP LOCKED），多个实例不会重复回复。
@@ -18,6 +19,7 @@ from app.modules.ai import intent
 from app.modules.ai.responder import run_due
 from app.modules.formkb import learn as form_learning
 from app.modules.sessions.handlers import event_handlers
+from app.modules.wake import runner as wake
 from app.observability import logs, metrics, tracing
 
 logger = logging.getLogger("app.worker")
@@ -25,6 +27,7 @@ logger = logging.getLogger("app.worker")
 AI_POLL_SECONDS = 0.5
 INTENT_POLL_SECONDS = 0.5
 FORM_KB_POLL_SECONDS = 1.0
+WAKE_POLL_SECONDS = 5.0
 
 
 async def ai_loop(ctx: AppContext, stop: asyncio.Event) -> None:
@@ -64,6 +67,18 @@ async def form_kb_loop(ctx: AppContext, stop: asyncio.Event) -> None:
             await wait_or_stop(stop, FORM_KB_POLL_SECONDS)
 
 
+async def wake_loop(ctx: AppContext, stop: asyncio.Event) -> None:
+    """AI 唤醒：每 5 秒领取排队的唤醒（按行领取，多个实例不会重复执行）。"""
+    while not stop.is_set():
+        handled = 0
+        try:
+            handled = await wake.run_due(ctx)
+        except Exception:
+            logger.exception("AI wake-up failed")
+        if not handled:
+            await wait_or_stop(stop, WAKE_POLL_SECONDS)
+
+
 async def run(ctx: AppContext, stop: asyncio.Event) -> None:
     await ctx.bus.ensure_groups()
     consumer = f"{socket.gethostname()}-{os.getpid()}"
@@ -74,6 +89,7 @@ async def run(ctx: AppContext, stop: asyncio.Event) -> None:
         ai_loop(ctx, stop),
         intent_loop(ctx, stop),
         form_kb_loop(ctx, stop),
+        wake_loop(ctx, stop),
     )
 
 

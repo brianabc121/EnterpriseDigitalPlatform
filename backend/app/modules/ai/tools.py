@@ -209,6 +209,7 @@ class ToolBox:
                 visibilities=self.visibilities,
                 limit=3,
                 space_ids=self.space_ids,
+                customer_facing=self.visibilities == ("public",),
             )
         known = {p.item_id for p in self.passages}
         lines = []

@@ -34,6 +34,9 @@ class KbItemCreate(BaseModel):
         max_length=50,
         description="推送给哪些技能组（知识动态、必读确认），为空表示全员",
     )
+    policy: bool = Field(
+        default=False, description="规章制度：AI 唤醒整理知识库时作为依据（§33.7.1）"
+    )
 
     @model_validator(mode="after")
     def _check(self) -> "KbItemCreate":
@@ -56,6 +59,7 @@ class KbItemUpdate(BaseModel):
     category_id: UUID | None = Field(default=None, description="传 null 表示不归入分类")
     owner_id: UUID | None = Field(default=None, description="传 null 表示不设负责人")
     audience_group_ids: list[UUID] | None = Field(default=None, max_length=50)
+    policy: bool | None = Field(default=None, description="规章制度")
 
 
 class KbItemOut(BaseModel):
@@ -85,6 +89,7 @@ class KbItemOut(BaseModel):
     owner_id: UUID | None
     audience_group_ids: list[UUID]
     source_url: str | None = Field(description="导入的文件名或抓取的页面地址")
+    policy: bool = Field(description="规章制度（知识库整理的依据）")
     archived_at: datetime | None
     created_at: datetime
     updated_at: datetime
@@ -195,20 +200,32 @@ class KbEvidenceLine(BaseModel):
 
 
 class KbEvidence(BaseModel):
-    """一段证据对话（提炼时已脱敏）。来自侧边栏问答或内部群聊（§27.4）时没有会话。"""
+    """建议的依据。从聊天提炼的是一段证据对话（已脱敏，来自侧边栏问答或内部群聊（§27.4）时没有会话）；
+    知识库整理（§33.7）的是规章制度的原文（kind=policy），或者重复的另一条知识（kind=duplicate）。"""
 
+    kind: str | None = Field(
+        default=None, description="为空是证据对话；policy 制度原文；duplicate 重复的另一条知识"
+    )
     session_id: UUID | None = None
     group_name: str | None = Field(default=None, description="来自 AI 助理记录的群聊时的群名")
     seen_at: datetime
     question: str | None = None
-    lines: list[KbEvidenceLine]
+    lines: list[KbEvidenceLine] = Field(default_factory=list)
+    policy_item_id: UUID | None = Field(default=None, description="依据的规章制度")
+    policy_title: str | None = None
+    excerpt: str | None = Field(default=None, description="依据的制度原文")
+    reason: str | None = Field(default=None, description="为什么提出这条建议（哪里不一致）")
+    item_id: UUID | None = Field(default=None, description="重复的另一条知识")
+    title: str | None = None
+    answer: str | None = Field(default=None, description="重复的另一条知识的答案")
+    same_answer: bool | None = Field(default=None, description="两条重复知识的答案是否相同")
 
 
 class KbCandidateOut(BaseModel):
     id: UUID
     kind: str = Field(
         description="new 新问题、similar 相似问法、conflict 答案冲突、gap 知识缺口、phrase 优秀话术"
-        "（question 为标题，answer 为话术）"
+        "（question 为标题，answer 为话术）、duplicate 重复的知识（target 是保留的一条）"
     )
     status: str = Field(description="pending、approved、merged、rejected")
     question: str
@@ -231,7 +248,8 @@ class KbCandidateOut(BaseModel):
     model: str | None
     prompt_version: str | None
     source: str = Field(
-        default="session", description="来源：session 会话、sidebar 侧边栏、zone 专区、group 群聊"
+        default="session",
+        description="来源：session 会话、sidebar 侧边栏、zone 专区、group 群聊、policy 制度对齐",
     )
 
 
@@ -385,6 +403,7 @@ class _ImportTarget(BaseModel):
     space_id: UUID | None = Field(default=None, description="放入哪个知识空间")
     category_id: UUID | None = Field(default=None, description="放入哪个分类")
     visibility: Visibility | None = Field(default=None, description="可见范围，默认对客")
+    policy: bool = Field(default=False, description="标为规章制度（文档和网页；问答表不适用）")
 
 
 class KbUploadImport(_ImportTarget):

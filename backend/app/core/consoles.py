@@ -43,6 +43,7 @@ class ConsoleMenu(StrEnum):
     CUSTOMERS = "customers"
     KNOWLEDGE = "knowledge"
     AI = "ai"
+    WAKE = "wake"  # AI 唤醒：数据巡检和知识库整理（设计文档 §33）
     ASSISTANT = "assistant"  # AI 公司助理（设计文档 §27.3）
     STAFF = "staff"
     REPORTS = "reports"
@@ -117,6 +118,7 @@ MENU_RULES: dict[ConsoleMenu, tuple[Permission, str | None]] = {
     ConsoleMenu.CUSTOMERS: (Permission.CUSTOMER_READ, None),
     ConsoleMenu.KNOWLEDGE: (Permission.KB_READ, None),
     ConsoleMenu.AI: (Permission.SETTINGS_MANAGE, None),
+    ConsoleMenu.WAKE: (Permission.SETTINGS_MANAGE, "ai"),
     ConsoleMenu.ASSISTANT: (Permission.ASSISTANT_USE, "ai"),
     ConsoleMenu.STAFF: (Permission.STAFF_READ, None),
     ConsoleMenu.REPORTS: (Permission.REPORT_VIEW, None),

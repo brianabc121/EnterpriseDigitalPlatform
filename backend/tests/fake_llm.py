@@ -23,6 +23,10 @@
     "大家 / 团队"→ team_overview，"商品 / 库存"→ search_products，其他 → search_knowledge），
     拿到工具结果后把结果复述给员工；tool_plan 里有安排时优先按安排调用。
   - 群聊知识提炼：带问号的一句话后面紧跟别人的回答就是一个问答，没有人回答的记为缺口。
+  - 巡检简报：复述待处理的问题数和最要紧的第一个问题。
+  - 知识与制度核对：知识答案里的"数字 + 单位"（天、小时、元、%……）在制度里同一单位是别的数字时
+    判为冲突，按制度的数字改写答案；一致时 consistent。
+  - 制度转问答："标题：内容"或者带数字规定的句子写成问答（最多 2 条）。
 - /v1/rerank：问题词项被文档覆盖的比例作为相关度。
 - /v1/systemone：模拟 TypeSafe 的判断模型（Jev，设计文档 §32）。按"客户最新的消息"里的关键词回答：
   下单意向（"我要""下单""地址是" → 准备下单；"有货""发货""优惠""怎么买" → 意向明确；"多少钱""规格"
@@ -57,6 +61,8 @@ from app.modules.ai.prompts import (
     TASK_EXTRACT,
     TASK_GROUP_EXTRACT,
     TASK_INTENT,
+    TASK_KB_ALIGN,
+    TASK_KB_GAP,
     TASK_ORDER_EXTRACT,
     TASK_PHRASE,
     TASK_REPLY,
@@ -65,6 +71,7 @@ from app.modules.ai.prompts import (
     TASK_SUGGEST,
     TASK_SUMMARY,
     TASK_TODO_EXTRACT,
+    TASK_WAKE_BRIEF,
 )
 from app.modules.kb.text import terms
 
@@ -619,6 +626,67 @@ def _intent_llm(system: str, state: str) -> str:
     return json.dumps(data, ensure_ascii=False)
 
 
+def _wake_brief(report: str) -> str:
+    lines = [line.strip() for line in report.splitlines() if line.strip()]
+    total = next((line for line in lines if line.startswith("待处理的问题：")), "")
+    first = next((line for line in lines if line.startswith("1. ")), "")
+    if not first:
+        return "今天没有发现需要处理的问题。"
+    count = total.removeprefix("待处理的问题：").split("（")[0]
+    return f"今天{count}问题待处理。最要紧的是{first[3:]}，建议负责人今天处理完。"
+
+
+_AMOUNT = re.compile(r"(\d+(?:\.\d+)?)\s*(个工作日|工作日|小时|天|日|元|%)")
+
+
+def _kb_align(user: str) -> str:
+    knowledge, _, policies = user.partition("【现行制度】")
+    knowledge = knowledge.removeprefix("【知识】").strip()
+    answer = knowledge.split("答案：", 1)[1].strip() if "答案：" in knowledge else knowledge
+    mine = _AMOUNT.findall(answer)
+    for sentence in re.split(r"[。；\n]", policies):
+        for number, unit in _AMOUNT.findall(sentence):
+            for k_number, k_unit in mine:
+                if unit != k_unit or number == k_number:
+                    continue
+                fixed = re.sub(
+                    rf"{re.escape(k_number)}\s*{re.escape(k_unit)}",
+                    f"{number} {unit}",
+                    answer,
+                    count=1,
+                )
+                return json.dumps(
+                    {
+                        "verdict": "conflict",
+                        "reason": f"知识里是 {k_number} {k_unit}，制度规定 {number} {unit}",
+                        "clause": sentence.strip()[:100],
+                        "answer": fixed,
+                    },
+                    ensure_ascii=False,
+                )
+    return json.dumps(
+        {"verdict": "consistent", "reason": "", "clause": "", "answer": ""}, ensure_ascii=False
+    )
+
+
+def _kb_gap(section: str) -> str:
+    pairs = []
+    for sentence in re.split(r"[。；\n]", section):
+        sentence = sentence.strip()
+        if not sentence or not _AMOUNT.search(sentence):
+            continue
+        if "：" in sentence:
+            subject, rule = sentence.split("：", 1)
+            question = f"{subject.strip('# ')}是怎么规定的？"
+        else:
+            subject, rule = sentence[:12], sentence
+            question = f"关于{subject}有什么规定？"
+        pairs.append({"question": question, "answer": rule.strip() + "。"})
+        if len(pairs) >= 2:
+            break
+    return json.dumps({"qa_pairs": pairs}, ensure_ascii=False)
+
+
 def rerank_score(query: str, document: str) -> float:
     wanted = set(terms(query))
     if not wanted:
@@ -697,6 +765,12 @@ class FakeLLM:
             content = _assistant_reply(messages, last_user)
         elif task == TASK_INTENT:
             content = "这不是 JSON" if self.mode == "bad_json" else _intent_llm(system, last_user)
+        elif task == TASK_WAKE_BRIEF:
+            content = _wake_brief(last_user)
+        elif task == TASK_KB_ALIGN:
+            content = "这不是 JSON" if self.mode == "bad_json" else _kb_align(last_user)
+        elif task == TASK_KB_GAP:
+            content = "这不是 JSON" if self.mode == "bad_json" else _kb_gap(last_user)
         elif task == TASK_SUGGEST:
             answers = [*_products(system), *_answers(system)] or ["您好，我帮您确认一下，请稍等。"]
             content = json.dumps({"suggestions": answers[:3]}, ensure_ascii=False)

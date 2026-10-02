@@ -57,6 +57,8 @@ SCENES = {
     "assistant": "AI 公司助理",
     "group_extract": "群聊知识提炼",
     "intent": "意图判断",
+    "wake_brief": "巡检简报",
+    "kb_align": "知识库整理",
 }
 # 判断模型（TypeSafe）只能用于这些场景。
 JUDGE_SCENES = frozenset({"intent"})

@@ -26,7 +26,9 @@
 - 建好本月和之后 3 个月的消息分区（每小时，见 app/db/partitions.py）；
 - 收取到期的邮箱的新邮件（每 10 秒检查，每个邮箱按设置的间隔收取，见 app/modules/mail/inbox.py）。
 - 个人待办：到期和逾期提醒（每分钟）、每个工作日上班后的今日汇总（每 5 分钟检查）；
-- AI 助理记录的群聊：提炼知识候选（每小时，见 app/modules/assistant/extraction.py）。
+- AI 助理记录的群聊：提炼知识候选（每小时，见 app/modules/assistant/extraction.py）；
+- AI 唤醒：按每个企业的设置登记到期的数据巡检和知识库整理（每分钟），删除 90 天前的唤醒记录
+  （每小时），见 app/modules/wake/runner.py。
 
 每个任务的执行次数、耗时和最近一次成功的时间计入 Prometheus 指标，每次执行是一个 span。
 
@@ -82,6 +84,7 @@ from app.modules.todos.extract import run_pending as run_todo_extraction
 from app.modules.todos.notify import run_digest as run_todo_digest
 from app.modules.todos.notify import run_timers as run_todo_timers
 from app.modules.usage.service import run_usage_rollup
+from app.modules.wake import runner as wake
 from app.modules.wecom.contacts import poll_transfers
 from app.modules.wecom.kf import sync_all as kf_sync_all
 from app.modules.wecom.marketing import poll_broadcasts
@@ -148,6 +151,8 @@ JOBS = (
     Job("partitions", 3600, ensure_partitions),
     Job("form-kb-purge", 3600, purge_form_learning),
     Job("mail-poll", 10, poll_mailboxes),
+    Job("wake-dispatch", 60, wake.dispatch),
+    Job("wake-purge", 3600, wake.purge),
 )
 
 

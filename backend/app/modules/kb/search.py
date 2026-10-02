@@ -12,7 +12,18 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import ColumnElement, Select, and_, cast, func, literal, or_, select, text
+from sqlalchemy import (
+    ColumnElement,
+    Select,
+    and_,
+    cast,
+    exists,
+    func,
+    literal,
+    or_,
+    select,
+    text,
+)
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.types import Float, Text
@@ -21,8 +32,18 @@ from app.context import AppContext
 from app.db.types import vector_literal
 from app.integrations.llm import LLMUnavailable
 from app.modules.ai import gateway
-from app.modules.kb.models import ItemKind, ItemStatus, KbChunk, KbItem
+from app.modules.kb.models import (
+    CandidateKind,
+    CandidateSource,
+    CandidateStatus,
+    ItemKind,
+    ItemStatus,
+    KbCandidate,
+    KbChunk,
+    KbItem,
+)
 from app.modules.kb.text import terms
+from app.modules.security.models import TenantSetting
 
 logger = logging.getLogger(__name__)
 
@@ -54,7 +75,13 @@ class Hit:
 
 
 def _visible(
-    visibilities: tuple[str, ...], now: datetime, space_ids: list[uuid.UUID] | None = None
+    visibilities: tuple[str, ...],
+    now: datetime,
+    space_ids: list[uuid.UUID] | None = None,
+    *,
+    policy: bool | None = None,
+    kinds: tuple[str, ...] | None = None,
+    hold_conflicts: bool = False,
 ) -> ColumnElement[bool]:
     conditions = [
         KbItem.status == ItemStatus.PUBLISHED,
@@ -64,7 +91,28 @@ def _visible(
     ]
     if space_ids:
         conditions.append(KbItem.space_id.in_(space_ids))
+    if policy is not None:
+        conditions.append(KbItem.policy.is_(policy))
+    if kinds:
+        conditions.append(KbItem.kind.in_(kinds))
+    if hold_conflicts:
+        # 和现行制度冲突、还没处理的知识暂停用于回复客户（设计文档 §33.7.3）。
+        conditions.append(
+            ~exists().where(
+                KbCandidate.tenant_id == KbItem.tenant_id,
+                KbCandidate.target_item_id == KbItem.id,
+                KbCandidate.status == CandidateStatus.PENDING,
+                KbCandidate.kind == CandidateKind.CONFLICT,
+                KbCandidate.source == CandidateSource.POLICY,
+            )
+        )
     return and_(*conditions)
+
+
+async def holds_conflicts(session: AsyncSession, tenant_id: uuid.UUID) -> bool:
+    """租户开启了"与制度冲突的知识先暂停用于回复客户"（AI 唤醒的设置，§33.8）。"""
+    row = await session.get(TenantSetting, tenant_id)
+    return bool(((row.wake if row is not None else None) or {}).get("kb_hold_conflicts"))
 
 
 def _joined(columns: list[Any]) -> Select[Any]:
@@ -86,10 +134,18 @@ async def search(
     space_ids: list[uuid.UUID] | None = None,
     vector: list[float] | None = None,
     rerank: bool = True,
+    policy: bool | None = None,
+    kinds: tuple[str, ...] | None = None,
+    customer_facing: bool = False,
 ) -> list[Hit]:
-    """vector 为问题的向量（调用方已经算好时传入，省一次调用）；rerank=False 时不重排。"""
+    """vector 为问题的向量（调用方已经算好时传入，省一次调用）；rerank=False 时不重排。
+    policy 只检索（True）或者不检索（False）规章制度；kinds 限定知识的类型；customer_facing 是
+    回复客户的检索（开启了暂停冲突的知识时排除它们）。"""
     now = now or datetime.now(UTC)
-    visible = _visible(visibilities, now, space_ids)
+    hold = customer_facing and await holds_conflicts(session, tenant_id)
+    visible = _visible(
+        visibilities, now, space_ids, policy=policy, kinds=kinds, hold_conflicts=hold
+    )
     chunks: dict[uuid.UUID, tuple[uuid.UUID, str, str]] = {}
     dense: dict[uuid.UUID, float] = {}
     lexical: dict[uuid.UUID, float] = {}
