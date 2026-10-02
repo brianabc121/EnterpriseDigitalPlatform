@@ -17,6 +17,7 @@ REASON_LABELS = {
     "order_limit": "今天 AI 下单已达上限",
     "price_probe": "识别到套价，已用固定话术答复",
     "reply_blocked": "回复出现内部价格信息，已拦截",
+    "purchase_intent": "客户有明确的购买意向",
 }
 
 

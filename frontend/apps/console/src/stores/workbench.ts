@@ -79,6 +79,10 @@ export const useWorkbenchStore = defineStore('workbench', () => {
   const replyWindow = ref<Schemas['ReplyWindowOut'] | null>(null)
   /** 坐席助手的实时提醒（按会话），打开会话时从接口加载，之后由信令追加。 */
   const alerts = ref<Record<string, CopilotAlert[]>>({})
+  /** 意图判断（按会话，§32）：打开会话时加载，判断有更新时（信令或列表刷新）重新加载。 */
+  const intents = ref<Record<string, Schemas['SessionIntentOut'] | null>>({})
+  /** 意图卡片上点了"生成订单"：右栏切到订单并打开 AI 预填（计数变化时触发）。 */
+  const orderPick = ref(0)
   const messages = ref<Record<string, WorkbenchMessage[]>>({})
   const hasMore = ref<Record<string, boolean>>({})
   const unread = ref<Record<string, number>>({})
@@ -160,6 +164,11 @@ export const useWorkbenchStore = defineStore('workbench', () => {
     await Promise.all([loadSessions(), loadIncoming()])
     if (active.value) {
       await loadHistory(active.value.room_id, undefined, false).catch(() => undefined)
+      // 收不到信令的人（查看别人的会话）：列表里的判断时间变了就重新加载。
+      const judgedAt = active.value.intent_at
+      if (judgedAt && judgedAt !== intents.value[active.value.id]?.judged_at) {
+        await loadIntent(active.value.id)
+      }
     }
   }
 
@@ -185,6 +194,7 @@ export const useWorkbenchStore = defineStore('workbench', () => {
     active.value = null
     messages.value = {}
     unread.value = {}
+    intents.value = {}
     agent.value = null
     emailReloads.forEach((pending) => clearTimeout(pending))
     emailReloads.clear()
@@ -330,6 +340,7 @@ export const useWorkbenchStore = defineStore('workbench', () => {
       refreshReplyWindow(),
       refreshActive(),
       loadAlerts(session.id),
+      loadIntent(session.id),
       markRead(session),
     ])
   }
@@ -346,6 +357,43 @@ export const useWorkbenchStore = defineStore('workbench', () => {
         .filter((a) => !a.staff_id || a.staff_id === me)
         .map((a) => ({ id: a.id, kind: a.kind, text: a.text, createdAt: a.created_at })),
     }
+  }
+
+  async function loadIntent(sessionId: string): Promise<void> {
+    const { data, error: err } = await api.GET('/api/v1/sessions/{session_id}/intent', {
+      params: { path: { session_id: sessionId } },
+    })
+    if (err) return
+    intents.value = { ...intents.value, [sessionId]: data ?? null }
+  }
+
+  /** 意图判断有更新（信令）：更新列表里的标签，正在看的会话重新加载判断。 */
+  function onIntent(signal: ImSignal): void {
+    const sessionId = String(signal.data.session_id ?? '')
+    if (!sessionId) return
+    const patch: Partial<Session> = {
+      purchase_stage: typeof signal.data.stage === 'number' ? signal.data.stage : null,
+      purchase_probability:
+        typeof signal.data.purchase_probability === 'number'
+          ? signal.data.purchase_probability
+          : null,
+      real_intent: typeof signal.data.real_intent === 'string' ? signal.data.real_intent : null,
+      intent_at: typeof signal.data.judged_at === 'string' ? signal.data.judged_at : null,
+    }
+    const update = (list: Session[]): Session[] =>
+      list.map((s) => (s.id === sessionId ? { ...s, ...patch } : s))
+    sessions.value = update(sessions.value)
+    watching.value = update(watching.value)
+    queued.value = update(queued.value)
+    ongoing.value = update(ongoing.value)
+    if (active.value?.id === sessionId) {
+      active.value = { ...active.value, ...patch }
+      void loadIntent(sessionId)
+    }
+  }
+
+  function requestOrderPrefill(): void {
+    orderPick.value += 1
   }
 
   function addAlert(signal: ImSignal): void {
@@ -602,6 +650,10 @@ export const useWorkbenchStore = defineStore('workbench', () => {
       addAlert(signal)
       return
     }
+    if (signal.type === 'intent.updated') {
+      onIntent(signal)
+      return
+    }
     if (signal.type === 'session.assigned' && !signal.data.transfer_id) {
       ElNotification({ title: '新会话', message: '有新的客户分配给您', type: 'info' })
     }
@@ -639,6 +691,10 @@ export const useWorkbenchStore = defineStore('workbench', () => {
     replyWindow,
     refreshReplyWindow,
     alerts,
+    intents,
+    loadIntent,
+    orderPick,
+    requestOrderPrefill,
     activeMessages,
     hasMore,
     unread,

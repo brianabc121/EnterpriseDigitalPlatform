@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.context import AppContext
 from app.modules.ai import answer_cache
 from app.modules.ai.models import AiSettings
-from app.modules.ai.schemas import AiSettingsOut, AiSettingsUpdate
+from app.modules.ai.schemas import AiSettingsOut, AiSettingsUpdate, CustomIntent
 from app.modules.billing.entitlements import ai_replies_this_month, entitlements
 
 DEFAULTS = {
@@ -27,7 +27,13 @@ DEFAULTS = {
     "answer_cache": True,
     "tools_enabled": False,
     "segment_replies": True,
+    "intent_enabled": True,
+    "intent_in_reply": True,
+    "intent_handoff_stage": None,
+    "custom_intents": [],
 }
+# 传 null 有意义的设置（其余的 null 表示不修改）。
+NULLABLE = ("persona", "intent_handoff_stage")
 
 UNAVAILABLE = {
     "not_configured": "平台还没有配置大模型",
@@ -51,7 +57,7 @@ async def update(
         row = AiSettings(tenant_id=tenant_id, **DEFAULTS)
         session.add(row)
     for field, value in payload.model_dump(exclude_unset=True).items():
-        if value is None and field != "persona":
+        if value is None and field not in NULLABLE:
             continue
         setattr(row, field, value)
     # 名称、语气等变了，之前缓存的回答不再适用。
@@ -98,6 +104,7 @@ async def settings_out(
     quota, used = await quota_status(
         session, settings.tenant_id, ZoneInfo(ctx.settings.usage_timezone), now
     )
+    judge = await ctx.llms.judge(settings.tenant_id)
     return AiSettingsOut(
         enabled=settings.enabled,
         bot_name=settings.bot_name,
@@ -113,6 +120,16 @@ async def settings_out(
         answer_cache=settings.answer_cache,
         tools_enabled=settings.tools_enabled,
         segment_replies=settings.segment_replies,
+        intent_enabled=settings.intent_enabled,
+        intent_in_reply=settings.intent_in_reply,
+        intent_handoff_stage=settings.intent_handoff_stage,
+        custom_intents=[
+            CustomIntent.model_validate(item)
+            for item in settings.custom_intents or []
+            if isinstance(item, dict) and item.get("name")
+        ],
+        intent_source="none" if judge is None else "judge" if judge.kind == "judge" else "llm",
+        intent_model=judge.label if judge is not None else None,
         tools_supported=await ctx.llms.tools_supported(settings.tenant_id),
         llm_configured=await ctx.llms.chat_enabled(settings.tenant_id),
         embeddings_configured=await ctx.llms.embed_enabled(),

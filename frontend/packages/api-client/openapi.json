@@ -382,6 +382,17 @@
             "title": "Id",
             "type": "string"
           },
+          "intent": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/IntentJudgmentOut"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "试一试：这个问题的意图判断（没有配置判断时为空）"
+          },
           "knowledge": {
             "items": {
               "$ref": "#/components/schemas/KnowledgeRef"
@@ -491,6 +502,17 @@
             "description": "未通过的护栏：empty、too_long、promise、sensitive、bad_output；价格保护：price_probe（套价）、price_internal_term（内部价格口径）、price_cost_amount（成本价金额）",
             "title": "Guard"
           },
+          "intent": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/IntentJudgmentOut"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "试一试：这个问题的意图判断（没有配置判断时为空）"
+          },
           "knowledge": {
             "items": {
               "$ref": "#/components/schemas/KnowledgeRef"
@@ -560,6 +582,14 @@
             "title": "Bot Name",
             "type": "string"
           },
+          "custom_intents": {
+            "description": "自定义的真实意图类别（最多 10 个）",
+            "items": {
+              "$ref": "#/components/schemas/CustomIntent"
+            },
+            "title": "Custom Intents",
+            "type": "array"
+          },
           "embeddings_configured": {
             "description": "平台是否配置了向量模型（语义检索）",
             "title": "Embeddings Configured",
@@ -587,6 +617,50 @@
             "description": "软信号得分达到这个值时转人工（默认 0.6）",
             "title": "Handoff Threshold",
             "type": "number"
+          },
+          "intent_enabled": {
+            "description": "判断客户的下单意向和真实意图（坐席工作台显示，§32）",
+            "title": "Intent Enabled",
+            "type": "boolean"
+          },
+          "intent_handoff_stage": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "高意向客户转人工：3 意向明确时、4 准备下单时，为空不转",
+            "title": "Intent Handoff Stage"
+          },
+          "intent_in_reply": {
+            "description": "AI 回复参考意图判断：回复要求、要人工时转人工、情绪信号、分配意图",
+            "title": "Intent In Reply",
+            "type": "boolean"
+          },
+          "intent_model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "判断用的供应商和模型",
+            "title": "Intent Model"
+          },
+          "intent_source": {
+            "description": "平台的意图判断：judge 判断模型、llm 大模型的轻量模型、none 没有配置",
+            "enum": [
+              "judge",
+              "llm",
+              "none"
+            ],
+            "title": "Intent Source",
+            "type": "string"
           },
           "llm_configured": {
             "description": "平台是否配置了大模型",
@@ -675,6 +749,12 @@
           "answer_cache",
           "tools_enabled",
           "segment_replies",
+          "intent_enabled",
+          "intent_in_reply",
+          "intent_handoff_stage",
+          "custom_intents",
+          "intent_source",
+          "intent_model",
           "tools_supported",
           "llm_configured",
           "embeddings_configured",
@@ -720,6 +800,21 @@
               }
             ],
             "title": "Bot Name"
+          },
+          "custom_intents": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/CustomIntent"
+                },
+                "maxItems": 10,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Custom Intents"
           },
           "enabled": {
             "anyOf": [
@@ -772,6 +867,44 @@
               }
             ],
             "title": "Handoff Threshold"
+          },
+          "intent_enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Intent Enabled"
+          },
+          "intent_handoff_stage": {
+            "anyOf": [
+              {
+                "enum": [
+                  3,
+                  4
+                ],
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "3 意向明确时、4 准备下单时转人工；传 null 表示不转",
+            "title": "Intent Handoff Stage"
+          },
+          "intent_in_reply": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Intent In Reply"
           },
           "max_turns": {
             "anyOf": [
@@ -4380,6 +4513,30 @@
           "score"
         ],
         "title": "CsatRequest",
+        "type": "object"
+      },
+      "CustomIntent": {
+        "description": "租户自定义的\"真实意图\"类别（设计文档 §32.7），加进判断的选项。",
+        "properties": {
+          "description": {
+            "default": "",
+            "description": "说明，帮助模型判断",
+            "maxLength": 60,
+            "title": "Description",
+            "type": "string"
+          },
+          "name": {
+            "description": "名称，如 定制尺寸",
+            "maxLength": 16,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "CustomIntent",
         "type": "object"
       },
       "CustomerCreate": {
@@ -9958,6 +10115,254 @@
         "title": "InstallOut",
         "type": "object"
       },
+      "IntentHistoryPoint": {
+        "properties": {
+          "at": {
+            "format": "date-time",
+            "title": "At",
+            "type": "string"
+          },
+          "intent_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Intent Label"
+          },
+          "purchase_probability": {
+            "title": "Purchase Probability",
+            "type": "number"
+          },
+          "stage": {
+            "title": "Stage",
+            "type": "integer"
+          },
+          "stage_label": {
+            "title": "Stage Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "at",
+          "stage",
+          "stage_label",
+          "purchase_probability",
+          "intent_label"
+        ],
+        "title": "IntentHistoryPoint",
+        "type": "object"
+      },
+      "IntentJudgmentOut": {
+        "description": "一次意图判断（设计文档 §32.3）。",
+        "properties": {
+          "concerns": {
+            "description": "客户在意的（价格、质量效果……），最多两个",
+            "items": {
+              "$ref": "#/components/schemas/IntentOption"
+            },
+            "title": "Concerns",
+            "type": "array"
+          },
+          "distribution": {
+            "description": "5 级各自的概率",
+            "items": {
+              "type": "number"
+            },
+            "title": "Distribution",
+            "type": "array"
+          },
+          "emotion": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "情绪刻度：0 平静、1 有些着急、2 生气激动",
+            "title": "Emotion"
+          },
+          "emotion_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Emotion Label"
+          },
+          "has_purchase_intent": {
+            "description": "有下单意向（概率不低于 50%）",
+            "title": "Has Purchase Intent",
+            "type": "boolean"
+          },
+          "human_probability": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "客户在要求人工的概率",
+            "title": "Human Probability"
+          },
+          "intent": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "真实意图的编码",
+            "title": "Intent"
+          },
+          "intent_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Intent Label"
+          },
+          "intent_probability": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Intent Probability"
+          },
+          "intents": {
+            "description": "可能的意图（概率最高的前 3 个）",
+            "items": {
+              "$ref": "#/components/schemas/IntentOption"
+            },
+            "title": "Intents",
+            "type": "array"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "purchase_probability": {
+            "description": "有下单意向的概率（意向明确与准备下单之和）",
+            "title": "Purchase Probability",
+            "type": "number"
+          },
+          "route": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "分配意图（路由策略的意图名称）",
+            "title": "Route"
+          },
+          "score": {
+            "description": "下单意向按概率加权的位置（0–4）",
+            "title": "Score",
+            "type": "number"
+          },
+          "source": {
+            "description": "judge 判断模型、llm 大模型的轻量模型",
+            "enum": [
+              "judge",
+              "llm"
+            ],
+            "title": "Source",
+            "type": "string"
+          },
+          "stage": {
+            "description": "下单意向：0 没有、1 随便了解、2 有兴趣、3 意向明确、4 准备下单",
+            "maximum": 4.0,
+            "minimum": 0.0,
+            "title": "Stage",
+            "type": "integer"
+          },
+          "stage_label": {
+            "title": "Stage Label",
+            "type": "string"
+          },
+          "stage_probability": {
+            "description": "这一阶段的概率",
+            "title": "Stage Probability",
+            "type": "number"
+          }
+        },
+        "required": [
+          "stage",
+          "stage_label",
+          "stage_probability",
+          "purchase_probability",
+          "has_purchase_intent",
+          "score",
+          "distribution",
+          "intent",
+          "intent_label",
+          "intent_probability",
+          "intents",
+          "concerns",
+          "emotion",
+          "emotion_label",
+          "human_probability",
+          "route",
+          "source",
+          "model"
+        ],
+        "title": "IntentJudgmentOut",
+        "type": "object"
+      },
+      "IntentOption": {
+        "properties": {
+          "code": {
+            "description": "编码：内置的如 price，自定义的是 x:名称",
+            "title": "Code",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "probability": {
+            "title": "Probability",
+            "type": "number"
+          }
+        },
+        "required": [
+          "code",
+          "label",
+          "probability"
+        ],
+        "title": "IntentOption",
+        "type": "object"
+      },
       "IntentRoute": {
         "description": "按意图分配：AI 识别出这个意图，或客户的话里出现关键词时，分配到这个技能组。",
         "properties": {
@@ -13997,6 +14402,16 @@
           "prices": {
             "$ref": "#/components/schemas/LlmPrices"
           },
+          "protocol": {
+            "default": "openai",
+            "description": "openai：OpenAI 兼容（对话、向量、重排序）；typesafe：判断模型 Jev（设计文档 §32），chat_model 填判断模型的名称，只能用于意图判断，创建后不能修改",
+            "enum": [
+              "openai",
+              "typesafe"
+            ],
+            "title": "Protocol",
+            "type": "string"
+          },
           "rerank_model": {
             "default": "",
             "description": "重排序模型（/rerank）",
@@ -14100,6 +14515,14 @@
           "prices": {
             "$ref": "#/components/schemas/LlmPrices"
           },
+          "protocol": {
+            "enum": [
+              "openai",
+              "typesafe"
+            ],
+            "title": "Protocol",
+            "type": "string"
+          },
           "rerank_model": {
             "title": "Rerank Model",
             "type": "string"
@@ -14122,6 +14545,7 @@
         "required": [
           "id",
           "name",
+          "protocol",
           "base_url",
           "api_key_set",
           "api_key_hint",
@@ -27132,6 +27556,19 @@
             "description": "识别出的意图（按意图分配）",
             "title": "Intent"
           },
+          "intent_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "最近一次意图判断的时间",
+            "title": "Intent At"
+          },
           "last_agent_message_at": {
             "anyOf": [
               {
@@ -27185,6 +27622,30 @@
             "title": "Priority",
             "type": "integer"
           },
+          "purchase_probability": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "有下单意向的概率",
+            "title": "Purchase Probability"
+          },
+          "purchase_stage": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "意图判断（§32）：下单意向 0 没有、1 随便了解、2 有兴趣、3 意向明确、4 准备下单",
+            "title": "Purchase Stage"
+          },
           "queued_at": {
             "anyOf": [
               {
@@ -27196,6 +27657,18 @@
               }
             ],
             "title": "Queued At"
+          },
+          "real_intent": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "真实意图（名称）",
+            "title": "Real Intent"
           },
           "room_id": {
             "format": "uuid",
@@ -27305,6 +27778,256 @@
           "created_at"
         ],
         "title": "SessionEventOut",
+        "type": "object"
+      },
+      "SessionIntentOut": {
+        "description": "会话最新的意图判断与这次会话的变化。",
+        "properties": {
+          "concerns": {
+            "description": "客户在意的（价格、质量效果……），最多两个",
+            "items": {
+              "$ref": "#/components/schemas/IntentOption"
+            },
+            "title": "Concerns",
+            "type": "array"
+          },
+          "distribution": {
+            "description": "5 级各自的概率",
+            "items": {
+              "type": "number"
+            },
+            "title": "Distribution",
+            "type": "array"
+          },
+          "emotion": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "情绪刻度：0 平静、1 有些着急、2 生气激动",
+            "title": "Emotion"
+          },
+          "emotion_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Emotion Label"
+          },
+          "has_purchase_intent": {
+            "description": "有下单意向（概率不低于 50%）",
+            "title": "Has Purchase Intent",
+            "type": "boolean"
+          },
+          "history": {
+            "description": "最近 20 次判断，按时间先后",
+            "items": {
+              "$ref": "#/components/schemas/IntentHistoryPoint"
+            },
+            "title": "History",
+            "type": "array"
+          },
+          "human_probability": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "客户在要求人工的概率",
+            "title": "Human Probability"
+          },
+          "intent": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "真实意图的编码",
+            "title": "Intent"
+          },
+          "intent_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Intent Label"
+          },
+          "intent_probability": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Intent Probability"
+          },
+          "intents": {
+            "description": "可能的意图（概率最高的前 3 个）",
+            "items": {
+              "$ref": "#/components/schemas/IntentOption"
+            },
+            "title": "Intents",
+            "type": "array"
+          },
+          "judged_at": {
+            "format": "date-time",
+            "title": "Judged At",
+            "type": "string"
+          },
+          "message_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "判断覆盖到的最后一条客户消息",
+            "title": "Message Id"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "peak_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Peak At"
+          },
+          "peak_stage": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "这次会话到过的最高阶段",
+            "title": "Peak Stage"
+          },
+          "pending": {
+            "description": "有新的客户消息正在等待判断",
+            "title": "Pending",
+            "type": "boolean"
+          },
+          "purchase_probability": {
+            "description": "有下单意向的概率（意向明确与准备下单之和）",
+            "title": "Purchase Probability",
+            "type": "number"
+          },
+          "route": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "分配意图（路由策略的意图名称）",
+            "title": "Route"
+          },
+          "score": {
+            "description": "下单意向按概率加权的位置（0–4）",
+            "title": "Score",
+            "type": "number"
+          },
+          "session_id": {
+            "format": "uuid",
+            "title": "Session Id",
+            "type": "string"
+          },
+          "source": {
+            "description": "judge 判断模型、llm 大模型的轻量模型",
+            "enum": [
+              "judge",
+              "llm"
+            ],
+            "title": "Source",
+            "type": "string"
+          },
+          "stage": {
+            "description": "下单意向：0 没有、1 随便了解、2 有兴趣、3 意向明确、4 准备下单",
+            "maximum": 4.0,
+            "minimum": 0.0,
+            "title": "Stage",
+            "type": "integer"
+          },
+          "stage_label": {
+            "title": "Stage Label",
+            "type": "string"
+          },
+          "stage_probability": {
+            "description": "这一阶段的概率",
+            "title": "Stage Probability",
+            "type": "number"
+          }
+        },
+        "required": [
+          "stage",
+          "stage_label",
+          "stage_probability",
+          "purchase_probability",
+          "has_purchase_intent",
+          "score",
+          "distribution",
+          "intent",
+          "intent_label",
+          "intent_probability",
+          "intents",
+          "concerns",
+          "emotion",
+          "emotion_label",
+          "human_probability",
+          "route",
+          "source",
+          "model",
+          "session_id",
+          "message_id",
+          "judged_at",
+          "peak_stage",
+          "peak_at",
+          "pending",
+          "history"
+        ],
+        "title": "SessionIntentOut",
         "type": "object"
       },
       "SessionOut": {
@@ -27490,6 +28213,19 @@
             "description": "识别出的意图（按意图分配）",
             "title": "Intent"
           },
+          "intent_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "最近一次意图判断的时间",
+            "title": "Intent At"
+          },
           "last_agent_message_at": {
             "anyOf": [
               {
@@ -27543,6 +28279,30 @@
             "title": "Priority",
             "type": "integer"
           },
+          "purchase_probability": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "有下单意向的概率",
+            "title": "Purchase Probability"
+          },
+          "purchase_stage": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "意图判断（§32）：下单意向 0 没有、1 随便了解、2 有兴趣、3 意向明确、4 准备下单",
+            "title": "Purchase Stage"
+          },
           "queued_at": {
             "anyOf": [
               {
@@ -27554,6 +28314,18 @@
               }
             ],
             "title": "Queued At"
+          },
+          "real_intent": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "真实意图（名称）",
+            "title": "Real Intent"
           },
           "room_id": {
             "format": "uuid",
@@ -67869,6 +68641,113 @@
         "summary": "Supervisor Handoff",
         "tags": [
           "sessions"
+        ]
+      }
+    },
+    "/api/v1/sessions/{session_id}/intent": {
+      "get": {
+        "description": "意图判断（设计文档 §32.5）：下单意向、真实意图、在意什么、情绪和这次会话的变化。\n还没有判断过时为空。",
+        "operationId": "session_intent_api_v1_sessions__session_id__intent_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/SessionIntentOut"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "title": "Response Session Intent Api V1 Sessions  Session Id  Intent Get"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Session Intent",
+        "tags": [
+          "ai"
         ]
       }
     },

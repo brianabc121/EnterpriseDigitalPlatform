@@ -123,6 +123,9 @@ function onChanged(): void {
   void load()
 }
 
+// 工作台意图卡片上的"生成订单"打开 AI 预填。
+defineExpose({ pick })
+
 watch(() => props.customerId, load)
 onMounted(() => {
   void load()

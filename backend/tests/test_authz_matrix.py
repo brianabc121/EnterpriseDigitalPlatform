@@ -62,6 +62,7 @@ MATRIX: list[tuple[str, str, dict[str, Any] | None]] = [
     ("GET", "/api/v1/sessions/{session_id}/ai-decisions", None),
     ("POST", "/api/v1/sessions/{session_id}/suggestions", None),
     ("GET", "/api/v1/sessions/{session_id}/alerts", None),
+    ("GET", "/api/v1/sessions/{session_id}/intent", None),
     ("GET", "/api/v1/sessions/{session_id}/summary", None),
     ("POST", "/api/v1/sessions/{session_id}/summary", None),
     ("POST", "/api/v1/sessions/{session_id}/summary/confirm", {"summary": "越权确认"}),

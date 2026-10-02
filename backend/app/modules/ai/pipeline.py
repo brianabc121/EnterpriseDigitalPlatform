@@ -7,6 +7,9 @@
 
 线上接待（responder.py）、管理后台的"试一试"和评测共用这一套逻辑。流水线不发消息，只返回判定
 结果；调用大模型的记账由 gateway 完成。工具里只有登记线索和留言会写库（试一试时不写）。
+
+有意图判断（设计文档 §32.6）时：判断模型认为客户在要求人工时转人工；设置了"高意向客户转人工"且到了
+那个阶段时转人工（排队中不转）；系统提示里加上【客户意图判断】；"生气激动"计入负面情绪的软信号。
 """
 
 import json
@@ -19,6 +22,7 @@ from typing import Any
 from app.context import AppContext
 from app.integrations.llm import ChatResult, LLMUnavailable
 from app.modules.ai import answer_cache, decision, gateway, pii, price_guard, prompts, reasons
+from app.modules.ai.intent import HUMAN_THRESHOLD, NEGATIVE_EMOTION, Judgment, prompt_block
 from app.modules.ai.models import AiSettings
 from app.modules.ai.prompts import Passage, Turn
 from app.modules.ai.tools import ToolBox, specs
@@ -67,6 +71,10 @@ class Context:
     message_ids: list[uuid.UUID] = field(default_factory=list)
     # 之前连续几次没找到客户要的商品。
     product_misses: int = 0
+    # 意图判断（设计文档 §32.6）；为空表示没有判断或不参考。
+    intent: Judgment | None = None
+    # 排队中（策略允许排队期间 AI 继续回答）：不再因为高意向转人工。
+    queued: bool = False
 
 
 @dataclass
@@ -253,6 +261,29 @@ async def evaluate(
     )
     if trigger:
         return Outcome(action="handoff", reason=trigger, repeats=context.repeats)
+    judged = context.intent
+    if judged is not None and (judged.human or 0) >= HUMAN_THRESHOLD:
+        # 关键词没有列出的说法，如"能不能让你们的人跟我说"。
+        return Outcome(
+            action="handoff",
+            reason="customer_request",
+            signals={"intent_human": round(judged.human or 0, 2)},
+            repeats=context.repeats,
+        )
+    stage = settings.intent_handoff_stage
+    if judged is not None and stage and not context.queued and judged.reached(stage):
+        return Outcome(
+            action="handoff",
+            reason="purchase_intent",
+            signals={
+                "intent_stage": judged.stage,
+                "intent_purchase": round(judged.purchase_probability, 2),
+            },
+            repeats=context.repeats,
+        )
+    negative_hint = (
+        judged is not None and judged.emotion is not None and judged.emotion >= NEGATIVE_EMOTION
+    )
 
     # 套价（设计文档 §25.2）：固定话术答复，不交给模型自由发挥。
     orders = await order_ai.config(ctx, tenant_id)
@@ -322,6 +353,7 @@ async def evaluate(
                 repeats=context.repeats,
                 turns=context.turns + 1,
                 max_turns=max_turns,
+                negative_hint=negative_hint,
             )
             values = {**found.active(), **found.details, **extra}
             values["cache"] = round(cached.similarity, 4)
@@ -381,6 +413,7 @@ async def evaluate(
                 if orders is not None
                 else None
             ),
+            judgment=prompt_block(judged) if judged is not None else None,
         )
     )
     try:
@@ -548,6 +581,7 @@ async def evaluate(
         repeats=context.repeats,
         turns=context.turns + (0 if collecting else 1),
         max_turns=max_turns,
+        negative_hint=negative_hint,
     )
     signal_values = {**found.active(), **found.details, **extra}
     if found.score >= handoff_threshold:

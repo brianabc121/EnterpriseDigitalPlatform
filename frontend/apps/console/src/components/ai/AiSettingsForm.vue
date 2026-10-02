@@ -5,7 +5,9 @@ import { computed, onMounted, reactive, ref } from 'vue'
 
 import { api } from '../../api'
 
-/** AI 接待设置：启用、名称与语气、转人工的阈值和关键词；显示平台配置状态和本月额度。 */
+/**
+ * AI 接待设置：启用、名称与语气、转人工的阈值和关键词、意图判断（§32）；显示平台配置状态和本月额度。
+ */
 const settings = ref<Schemas['AiSettingsOut'] | null>(null)
 const saving = ref(false)
 const form = reactive({
@@ -23,6 +25,19 @@ const form = reactive({
   answer_cache: true,
   tools_enabled: false,
   segment_replies: true,
+  intent_enabled: true,
+  intent_in_reply: true,
+  /** 0 表示不转。 */
+  intent_handoff_stage: 0 as 0 | 3 | 4,
+  custom_intents: [] as { name: string; description: string }[],
+})
+
+/** 平台的意图判断：判断模型，或用大模型判断。 */
+const intentSource = computed(() => {
+  const s = settings.value
+  if (!s || s.intent_source === 'none') return ''
+  const model = s.intent_model ? `（${s.intent_model}）` : ''
+  return s.intent_source === 'judge' ? `判断模型${model}` : `大模型${model}，按大模型计费`
 })
 
 const quotaUsage = computed(() => {
@@ -48,6 +63,15 @@ function fill(data: Schemas['AiSettingsOut']): void {
     answer_cache: data.answer_cache,
     tools_enabled: data.tools_enabled,
     segment_replies: data.segment_replies,
+    intent_enabled: data.intent_enabled,
+    intent_in_reply: data.intent_in_reply,
+    intent_handoff_stage: data.intent_handoff_stage === 3 || data.intent_handoff_stage === 4
+      ? data.intent_handoff_stage
+      : 0,
+    custom_intents: data.custom_intents.map((item) => ({
+      name: item.name,
+      description: item.description ?? '',
+    })),
   })
 }
 
@@ -65,9 +89,18 @@ async function save(): Promise<void> {
     ElMessage.warning('请填写智能客服的名称')
     return
   }
+  const customIntents = form.custom_intents
+    .map((item) => ({ name: item.name.trim(), description: item.description.trim() }))
+    .filter((item) => item.name)
   saving.value = true
   const { data, error } = await api.PUT('/api/v1/ai/settings', {
-    body: { ...form, bot_name: form.bot_name.trim(), persona: form.persona.trim() || null },
+    body: {
+      ...form,
+      bot_name: form.bot_name.trim(),
+      persona: form.persona.trim() || null,
+      intent_handoff_stage: form.intent_handoff_stage || null,
+      custom_intents: customIntents,
+    },
   })
   saving.value = false
   if (!data) {
@@ -195,6 +228,75 @@ onMounted(load)
         <el-switch v-model="form.segment_replies" data-testid="ai-segments" />
         <span class="help">网页渠道里较长的回答分成几条发送，发送前访客会看到"正在输入"</span>
       </el-form-item>
+      <el-divider content-position="left">意图判断</el-divider>
+      <el-form-item label="判断客户意图">
+        <el-switch v-model="form.intent_enabled" data-testid="ai-intent-enabled" />
+        <span class="help">
+          按客户的消息判断有没有下单意向（5 级）、真实意图、在意什么和情绪，在坐席工作台显示。
+          <template v-if="intentSource">当前用{{ intentSource }}。</template>
+          <span v-else class="warn" data-testid="ai-intent-unconfigured">
+            平台还没有配置判断模型，暂时不能判断，请联系平台运营。
+          </span>
+        </span>
+      </el-form-item>
+      <el-form-item label="AI 回复参考">
+        <el-switch
+          v-model="form.intent_in_reply"
+          :disabled="!form.intent_enabled"
+          data-testid="ai-intent-reply"
+        />
+        <span class="help">
+          AI 接待回复时按客户的意向和在意的点调整回答重点；客户换种说法要人工时也能认出来并转人工
+        </span>
+      </el-form-item>
+      <el-form-item label="高意向客户转人工">
+        <el-select
+          v-model="form.intent_handoff_stage"
+          :disabled="!form.intent_enabled"
+          class="short"
+          data-testid="ai-intent-handoff"
+        >
+          <el-option :value="0" label="不转" />
+          <el-option :value="3" label="意向明确时" />
+          <el-option :value="4" label="准备下单时" />
+        </el-select>
+        <span class="help">到了这个阶段就转给人工客服跟进成交，交接摘要里写明意向</span>
+      </el-form-item>
+      <el-form-item label="自定义意图">
+        <div class="customs" data-testid="ai-custom-intents">
+          <div v-for="(item, index) in form.custom_intents" :key="index" class="custom">
+            <el-input
+              v-model="item.name"
+              maxlength="16"
+              placeholder="名称，如：定制尺寸"
+              class="custom-name"
+              data-testid="ai-custom-intent-name"
+            />
+            <el-input
+              v-model="item.description"
+              maxlength="60"
+              placeholder="说明，帮助判断，如：客户想按自己的尺寸定做"
+              class="custom-description"
+              data-testid="ai-custom-intent-description"
+            />
+            <el-button link type="danger" @click="form.custom_intents.splice(index, 1)">
+              删除
+            </el-button>
+          </div>
+          <el-button
+            size="small"
+            :disabled="form.custom_intents.length >= 10"
+            data-testid="ai-custom-intent-add"
+            @click="form.custom_intents.push({ name: '', description: '' })"
+          >
+            添加意图
+          </el-button>
+        </div>
+        <span class="help">
+          内置：了解商品、询价比价、购买下单、库存发货、查订单、改订单、售后、投诉、发票手续、合作代理、
+          要人工、闲聊其他；可以再加 10 个本行业的
+        </span>
+      </el-form-item>
       <el-divider content-position="left">知识沉淀</el-divider>
       <el-form-item label="自动提炼">
         <el-switch v-model="form.extraction_enabled" data-testid="ai-extraction" />
@@ -266,6 +368,33 @@ onMounted(load)
 .form :deep(.el-form-item__content) {
   flex-wrap: wrap;
   row-gap: 4px;
+}
+
+.warn {
+  color: var(--el-color-warning);
+}
+
+.customs {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  width: 100%;
+}
+
+.custom {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+}
+
+.custom-name {
+  width: 160px;
+}
+
+.custom-description {
+  flex: 1;
+  min-width: 0;
 }
 
 .quota {

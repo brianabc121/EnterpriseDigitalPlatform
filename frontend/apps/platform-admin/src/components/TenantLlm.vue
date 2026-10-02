@@ -28,7 +28,8 @@ async function load(): Promise<void> {
   current.value = info.data
   selected.value = info.data.provider_id ?? ''
   concurrency.value = info.data.concurrency ?? null
-  providers.value = list.data?.items ?? []
+  // 判断模型（Jev）只用于意图判断，不能指定给租户。
+  providers.value = (list.data?.items ?? []).filter((p) => p.protocol !== 'typesafe')
 }
 
 async function save(): Promise<void> {

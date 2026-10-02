@@ -14,6 +14,7 @@ from opentelemetry.trace import Span, SpanKind, StatusCode
 
 from app.context import AppContext
 from app.integrations.llm import ChatResult, LLMUnavailable
+from app.integrations.typesafe import DecideResult, JudgeClient, Question
 from app.modules.ai import limiter
 from app.modules.ai.models import LlmCall
 from app.observability import metrics, tracing
@@ -119,6 +120,52 @@ async def chat(
             session_id=session_id,
             cost=round(result.cost, 4),
             prompt_version=prompt_version,
+        )
+    return result
+
+
+async def decide(
+    ctx: AppContext,
+    tenant_id: uuid.UUID,
+    client: JudgeClient,
+    state: str,
+    questions: dict[str, Question],
+    *,
+    scene: str = "intent",
+    session_id: uuid.UUID | None = None,
+) -> DecideResult:
+    """判断模型（设计文档 §32）：一次请求回答多个问题。和大模型一样占并发名额、记账。"""
+    endpoint = client.endpoint
+    with _span("decide", scene) as span:
+        try:
+            async with limiter.slot(ctx, tenant_id):
+                result = await client.decide(state, questions)
+        except LLMUnavailable as exc:
+            await _record(
+                ctx,
+                tenant_id,
+                span,
+                scene=scene,
+                provider=endpoint.provider if endpoint else "none",
+                model=(endpoint.model if endpoint else "") or "none",
+                status=_status(exc),
+                error=str(exc)[:500],
+                session_id=session_id,
+            )
+            raise
+        await _record(
+            ctx,
+            tenant_id,
+            span,
+            scene=scene,
+            provider=result.provider,
+            model=result.model,
+            prompt_tokens=result.input_tokens,
+            completion_tokens=result.output_tokens,
+            latency_ms=result.latency_ms,
+            status="ok",
+            session_id=session_id,
+            cost=round(result.cost, 4),
         )
     return result
 

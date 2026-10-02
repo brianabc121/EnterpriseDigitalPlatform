@@ -2,7 +2,8 @@
 
 每个会话分三步，避免在调用大模型时占着数据库事务：
 1. 读取：会话仍在 AI 接待中，取出还没回复的客户消息（合并成一个问题）和最近的对话；
-2. 判定：前置规则、检索、生成、护栏、转人工决策（pipeline.evaluate），需要转人工时生成交接摘要；
+2. 判定：意图判断（设计文档 §32.6，已有覆盖最新消息的结果就用它）、前置规则、检索、生成、护栏、
+   转人工决策（pipeline.evaluate），需要转人工时生成交接摘要；
 3. 写入：再次确认会话状态，记录判定、更新计数，经发件箱以机器人身份回复；需要时转入人工排队。
 
 领取时把 due_at 推后两分钟作为租约：进程中途退出，租约到期后会重新处理。处理期间客户又发了消息时
@@ -17,7 +18,7 @@ from datetime import UTC, datetime, timedelta
 from sqlalchemy import select, update
 
 from app.context import AppContext
-from app.modules.ai import pipeline
+from app.modules.ai import intent, pipeline
 from app.modules.ai import service as ai_service
 from app.modules.ai.models import AiDecision, AiSessionState, DecisionAction
 from app.modules.ai.prompts import Turn
@@ -191,6 +192,7 @@ async def respond(
             guard_failures=state.guard_failures,
             message_ids=[m.id for m in pending],
             product_misses=state.product_misses,
+            queued=queued,
         )
         account = await session.get(ChannelAccount, chat.channel_account_id)
         channel = channel_ai(account)
@@ -210,6 +212,15 @@ async def respond(
     if unavailable:
         outcome = pipeline.Outcome(action=DecisionAction.HANDOFF, reason=unavailable)
     else:
+        context.intent = await intent.for_reply(
+            ctx,
+            tenant_id,
+            session_id,
+            settings,
+            history=context.history,
+            latest=pending,
+            routes=intents,
+        )
         outcome = await pipeline.evaluate(
             ctx,
             tenant_id,
@@ -243,11 +254,17 @@ async def respond(
             _release(state, lease)
             await session.commit()
             return
+        judged = context.intent
         if outcome.intent:
             chat.intent = outcome.intent
+        elif judged is not None and judged.route:
+            # 回复模型没有给出意图（或没有调用它，如关键词转人工）：用判断出的分配意图。
+            chat.intent = judged.route
         signals = dict(outcome.signals)
         if outcome.guard:
             signals["guard"] = outcome.guard
+        if judged is not None:
+            signals["intent"] = judged.signals()
         session.add(
             AiDecision(
                 tenant_id=tenant_id,

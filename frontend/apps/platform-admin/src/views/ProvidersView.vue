@@ -1,11 +1,16 @@
 <script setup lang="ts">
 import { errorMessage, type Schemas } from '@edp/api-client'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 
 import { api } from '../api'
 
 type Provider = Schemas['LlmProviderOut']
+type Protocol = Provider['protocol']
+
+/** 判断模型（TypeSafe Jev，设计文档 §32）只能用于"意图判断"场景。 */
+const JUDGE_SCENES = ['intent']
+const JUDGE_DEFAULTS = { baseUrl: 'https://api.typesafe.ai/v1', chatModel: 'jev-latest', priceInput: 0.03 }
 
 const providers = ref<Provider[]>([])
 const routes = ref<Schemas['LlmRoutesOut'] | null>(null)
@@ -18,6 +23,7 @@ const results = reactive<Record<string, string>>({})
 
 function emptyForm() {
   return {
+    protocol: 'openai' as Protocol,
     name: '',
     baseUrl: '',
     apiKey: '',
@@ -38,6 +44,35 @@ function emptyForm() {
   }
 }
 const form = reactive(emptyForm())
+const isJudge = computed(() => form.protocol === 'typesafe')
+
+/**
+ * 新建时选判断模型：填上官方接口地址、模型名和价格（输入每千 tokens 约 0.03 分，输出不计费），清掉它没有的
+ * 轻量、向量、重排序模型；切回 OpenAI 兼容时去掉没改过的这些默认值。
+ */
+function changeProtocol(value: string | number | boolean | undefined): void {
+  if (value !== 'openai' && value !== 'typesafe') return
+  form.protocol = value
+  if (value === 'openai') {
+    if (form.baseUrl === JUDGE_DEFAULTS.baseUrl) form.baseUrl = ''
+    if (form.chatModel === JUDGE_DEFAULTS.chatModel) form.chatModel = ''
+    if (form.priceInput === JUDGE_DEFAULTS.priceInput) form.priceInput = 0
+    return
+  }
+  if (!form.baseUrl) form.baseUrl = JUDGE_DEFAULTS.baseUrl
+  if (!form.chatModel) form.chatModel = JUDGE_DEFAULTS.chatModel
+  if (!form.priceInput) form.priceInput = JUDGE_DEFAULTS.priceInput
+  form.priceOutput = 0
+  form.fastModel = ''
+  form.embedModel = ''
+  form.rerankModel = ''
+  form.isDefault = false
+}
+
+/** 按场景路由的可选供应商：判断模型只出现在"意图判断"里。 */
+function routeOptions(scene: string): Provider[] {
+  return providers.value.filter((p) => p.protocol !== 'typesafe' || JUDGE_SCENES.includes(scene))
+}
 
 async function load(): Promise<void> {
   loading.value = true
@@ -66,6 +101,7 @@ function openCreate(): void {
 function openEdit(p: Provider): void {
   editing.value = p
   Object.assign(form, {
+    protocol: p.protocol,
     name: p.name,
     baseUrl: p.base_url,
     apiKey: '',
@@ -108,12 +144,15 @@ async function save(): Promise<void> {
     is_default: form.isDefault,
     enabled: form.enabled,
   }
+  // 接口类型创建后不能修改。
   const result = editing.value
     ? await api.PATCH('/platform/v1/llm-providers/{provider_id}', {
         params: { path: { provider_id: editing.value.id } },
         body: { ...body, api_key: form.apiKey ? form.apiKey : undefined },
       })
-    : await api.POST('/platform/v1/llm-providers', { body: { ...body, api_key: form.apiKey } })
+    : await api.POST('/platform/v1/llm-providers', {
+        body: { ...body, protocol: form.protocol, api_key: form.apiKey },
+      })
   saving.value = false
   if (!result.data) {
     ElMessage.error(errorMessage(result.error))
@@ -133,7 +172,10 @@ async function test(p: Provider): Promise<void> {
     results[p.id] = errorMessage(error)
     return
   }
-  const chat = data.chat.ok ? `对话正常（${data.chat.latency_ms} ms）` : `对话失败：${data.chat.error}`
+  const kind = p.protocol === 'typesafe' ? '判断' : '对话'
+  const chat = data.chat.ok
+    ? `${kind}正常（${data.chat.latency_ms} ms${data.chat.model ? `，${data.chat.model}` : ''}）`
+    : `${kind}失败：${data.chat.error}`
   const embed = data.embed
     ? data.embed.ok
       ? `，向量正常（${data.embed.latency_ms} ms）`
@@ -191,13 +233,23 @@ onMounted(load)
         <template #default="{ row }">
           <strong>{{ row.name }}</strong>
           <el-tag disable-transitions v-if="row.is_default" size="small" type="success" class="tag">默认</el-tag>
+          <el-tag
+            v-if="row.protocol === 'typesafe'"
+            disable-transitions
+            size="small"
+            type="warning"
+            class="tag"
+            data-testid="provider-judge-tag"
+            >判断模型</el-tag
+          >
           <el-tag disable-transitions v-if="!row.enabled" size="small" type="info" class="tag">停用</el-tag>
           <div class="sub">{{ row.base_url }}</div>
         </template>
       </el-table-column>
       <el-table-column label="模型" min-width="200">
         <template #default="{ row }">
-          <div class="sub">对话：{{ row.chat_model }}</div>
+          <div v-if="row.protocol === 'typesafe'" class="sub">判断：{{ row.chat_model }}（只用于意图判断）</div>
+          <div v-else class="sub">对话：{{ row.chat_model }}</div>
           <div v-if="row.fast_model" class="sub">轻量：{{ row.fast_model }}</div>
           <div v-if="row.embed_model" class="sub">向量：{{ row.embed_model }}（{{ row.embed_dim }} 维）</div>
           <div v-if="row.rerank_model" class="sub">重排序：{{ row.rerank_model }}</div>
@@ -232,11 +284,19 @@ onMounted(load)
     </el-table>
 
     <h3>按场景路由</h3>
-    <p class="sub">没有指定的场景用默认供应商；给租户单独指定了供应商时以租户的为准。</p>
+    <p class="sub">
+      没有指定的场景用默认供应商；给租户单独指定了供应商时以租户的为准。意图判断可以选判断模型（Jev），也可以选
+      OpenAI 兼容的供应商（用它的轻量模型）；没有指定时用环境变量配置的判断模型，都没有时不判断。
+    </p>
     <el-form v-if="routes" label-width="150px" class="routes">
       <el-form-item v-for="(label, scene) in routes.scenes" :key="scene" :label="label">
-        <el-select v-model="routeForm[scene]" placeholder="默认供应商" clearable>
-          <el-option v-for="p in providers" :key="p.id" :label="p.name" :value="p.id" />
+        <el-select
+          v-model="routeForm[scene]"
+          :placeholder="scene === 'intent' ? '环境变量的判断模型（没有时不判断）' : '默认供应商'"
+          clearable
+          :data-testid="`route-${scene}`"
+        >
+          <el-option v-for="p in routeOptions(String(scene))" :key="p.id" :label="p.name" :value="p.id" />
         </el-select>
       </el-form-item>
       <el-form-item>
@@ -246,9 +306,30 @@ onMounted(load)
 
     <el-dialog v-model="dialogOpen" :title="editing ? `编辑 · ${editing.name}` : '添加供应商'" width="600px">
       <el-form label-width="120px">
+        <el-form-item label="接口类型">
+          <el-radio-group
+            :model-value="form.protocol"
+            :disabled="!!editing"
+            data-testid="provider-protocol"
+            @update:model-value="changeProtocol"
+          >
+            <el-radio-button value="openai" data-testid="provider-protocol-openai">OpenAI 兼容</el-radio-button>
+            <el-radio-button value="typesafe" data-testid="provider-protocol-typesafe">判断模型（Jev）</el-radio-button>
+          </el-radio-group>
+          <div class="sub hint">
+            <template v-if="isJudge">
+              TypeSafe 的判断模型只回答事先定义的问题、给出概率，按输入计费；只能用于"意图判断"，创建后不能改类型。
+            </template>
+            <template v-else>对话、向量、重排序（DeepSeek、通义千问、智谱、豆包、Kimi、自部署 vLLM 等）。</template>
+          </div>
+        </el-form-item>
         <el-form-item label="名称" required><el-input v-model="form.name" data-testid="provider-name" /></el-form-item>
         <el-form-item label="接口地址" required>
-          <el-input v-model="form.baseUrl" placeholder="https://api.deepseek.com/v1" data-testid="provider-url" />
+          <el-input
+            v-model="form.baseUrl"
+            :placeholder="isJudge ? JUDGE_DEFAULTS.baseUrl : 'https://api.deepseek.com/v1'"
+            data-testid="provider-url"
+          />
         </el-form-item>
         <el-form-item label="API Key">
           <el-input
@@ -259,9 +340,14 @@ onMounted(load)
             data-testid="provider-key"
           />
         </el-form-item>
-        <el-form-item label="对话模型" required>
-          <el-input v-model="form.chatModel" data-testid="provider-chat-model" />
+        <el-form-item :label="isJudge ? '判断模型' : '对话模型'" required>
+          <el-input
+            v-model="form.chatModel"
+            :placeholder="isJudge ? 'jev-latest，建议固定版本如 jev-1.13.0' : ''"
+            data-testid="provider-chat-model"
+          />
         </el-form-item>
+        <template v-if="!isJudge">
         <el-form-item label="轻量模型"><el-input v-model="form.fastModel" placeholder="摘要、分类等，可不填" /></el-form-item>
         <el-form-item label="向量模型">
           <el-input v-model="form.embedModel" placeholder="默认供应商的向量模型用于知识库检索，可不填" />
@@ -282,6 +368,7 @@ onMounted(load)
           <el-input-number v-model="form.contextTokens" :min="0" :step="1000" />
           <span class="sub gap">tokens，0 表示未知</span>
         </el-form-item>
+        </template>
         <el-form-item label="价格（分/千 tokens）">
           输入
           <el-input-number
@@ -302,7 +389,7 @@ onMounted(load)
             data-testid="provider-price-output"
           />
         </el-form-item>
-        <el-form-item label="设为默认"><el-switch v-model="form.isDefault" /></el-form-item>
+        <el-form-item v-if="!isJudge" label="设为默认"><el-switch v-model="form.isDefault" /></el-form-item>
         <el-form-item label="启用"><el-switch v-model="form.enabled" /></el-form-item>
       </el-form>
       <template #footer>
@@ -352,5 +439,10 @@ h3 {
 .sub {
   font-size: 12px;
   color: var(--el-text-color-secondary);
+}
+
+.hint {
+  width: 100%;
+  line-height: 1.5;
 }
 </style>

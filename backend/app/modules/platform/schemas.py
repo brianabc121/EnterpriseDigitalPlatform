@@ -56,8 +56,17 @@ class LlmCapabilities(BaseModel):
 BaseUrl = Annotated[str, Field(min_length=8, max_length=500, pattern=r"^https?://\S+$")]
 
 
+LlmProtocol = Literal["openai", "typesafe"]
+
+
 class LlmProviderCreate(BaseModel):
     name: str = Field(min_length=1, max_length=64)
+    protocol: LlmProtocol = Field(
+        default="openai",
+        description="openai：OpenAI 兼容（对话、向量、重排序）；"
+        "typesafe：判断模型 Jev（设计文档 §32），chat_model 填判断模型的名称，"
+        "只能用于意图判断，创建后不能修改",
+    )
     base_url: BaseUrl = Field(examples=["https://api.deepseek.com/v1"])
     api_key: str = Field(default="", max_length=500)
     chat_model: str = Field(min_length=1, max_length=128)
@@ -91,6 +100,7 @@ class LlmProviderUpdate(BaseModel):
 class LlmProviderOut(BaseModel):
     id: UUID
     name: str
+    protocol: LlmProtocol
     base_url: str
     api_key_set: bool
     api_key_hint: str | None = Field(description="密钥末 4 位")

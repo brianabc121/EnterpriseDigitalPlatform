@@ -50,6 +50,7 @@ export const ALERT_KIND: Record<string, string> = {
   sensitive_info: '敏感信息',
   promise: '承诺用语',
   price_probe: '多次套价',
+  purchase_ready: '准备下单',
 }
 
 /** 转人工原因（AI 接待转人工、访客点"转人工"，或 AI 优先却不能接待时）。 */
@@ -68,6 +69,7 @@ export const HANDOFF_REASON: Record<string, string> = {
   not_configured: 'AI 接待未配置',
   supervisor: '主管转人工',
   product_not_found: '没有找到客户要的商品',
+  purchase_intent: '客户有明确的购买意向',
 }
 
 export const ASSIGN_VIA: Record<string, string> = {

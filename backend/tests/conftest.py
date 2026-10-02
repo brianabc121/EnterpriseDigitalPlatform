@@ -152,6 +152,7 @@ def settings(database_urls: DatabaseUrls) -> Settings:
         openim_api_url="http://openim",
         openim_secret=FAKE_OPENIM_SECRET,
         ai_debounce_seconds=0,
+        intent_debounce_seconds=0,
         # 打印任务只由测试里显式调用 delivery.deliver_due 发送，结果可以确定。
         print_immediate=False,
     )

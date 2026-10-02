@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { Schemas } from '@edp/api-client'
 import { ElMessage } from 'element-plus'
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import KbSearchPanel from '../components/knowledge/KbSearchPanel.vue'
@@ -11,6 +11,7 @@ import MyTodos from '../components/todos/MyTodos.vue'
 import ChatPanel from '../components/workbench/ChatPanel.vue'
 import CustomerPanel from '../components/workbench/CustomerPanel.vue'
 import IncomingTransfer from '../components/workbench/IncomingTransfer.vue'
+import { stageTag } from '../intent'
 import { useAuthStore } from '../stores/auth'
 import { STATUS_LABEL, useWorkbenchStore, type AgentStatus } from '../stores/workbench'
 
@@ -42,6 +43,18 @@ const status = computed({
   set: (value: AgentStatus) => void changeStatus(value),
 })
 const inChat = computed(() => !!wb.active && route.query.session === wb.active.id)
+const customerOrders = ref<InstanceType<typeof CustomerOrders> | null>(null)
+
+// 意图卡片上点了"生成订单"：打开订单抽屉里的 AI 预填。
+watch(
+  () => wb.orderPick,
+  async () => {
+    if (!auth.can('order:read') || auth.me?.features?.orders === false) return
+    drawer.value = 'orders'
+    await nextTick()
+    await customerOrders.value?.pick()
+  },
+)
 
 async function changeStatus(value: AgentStatus): Promise<void> {
   try {
@@ -131,7 +144,18 @@ onMounted(async () => {
             <span class="muted">{{ time(s) }}</span>
           </div>
           <div class="row">
-            <span class="muted">{{ SESSION_LABEL[s.status] ?? s.status }}</span>
+            <span class="muted">
+              {{ SESSION_LABEL[s.status] ?? s.status }}
+              <el-tag
+                v-if="stageTag(s.purchase_stage)"
+                size="small"
+                :type="stageTag(s.purchase_stage)!.type"
+                effect="dark"
+                data-testid="mobile-purchase-tag"
+              >
+                {{ stageTag(s.purchase_stage)!.label }}
+              </el-tag>
+            </span>
             <el-badge v-if="wb.unread[s.id]" :value="wb.unread[s.id]" />
           </div>
         </div>
@@ -200,6 +224,7 @@ onMounted(async () => {
       />
       <CustomerOrders
         v-if="drawer === 'orders' && wb.active"
+        ref="customerOrders"
         :key="wb.active.id"
         :customer-id="wb.active.customer_id"
         :customer-name="wb.active.customer_display_name"

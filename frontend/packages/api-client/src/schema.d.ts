@@ -4857,6 +4857,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/sessions/{session_id}/intent": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Session Intent
+         * @description 意图判断（设计文档 §32.5）：下单意向、真实意图、在意什么、情绪和这次会话的变化。
+         *     还没有判断过时为空。
+         */
+        get: operations["session_intent_api_v1_sessions__session_id__intent_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/sessions/{session_id}/messages": {
         parameters: {
             query?: never;
@@ -8321,6 +8342,8 @@ export interface components {
              * Format: uuid
              */
             id: string;
+            /** @description 试一试：这个问题的意图判断（没有配置判断时为空） */
+            intent?: components["schemas"]["IntentJudgmentOut"] | null;
             /** Knowledge */
             knowledge: components["schemas"]["KnowledgeRef"][];
             /** Question */
@@ -8371,6 +8394,8 @@ export interface components {
              * @description 未通过的护栏：empty、too_long、promise、sensitive、bad_output；价格保护：price_probe（套价）、price_internal_term（内部价格口径）、price_cost_amount（成本价金额）
              */
             guard: string | null;
+            /** @description 试一试：这个问题的意图判断（没有配置判断时为空） */
+            intent?: components["schemas"]["IntentJudgmentOut"] | null;
             /** Knowledge */
             knowledge: components["schemas"]["KnowledgeRef"][];
             /**
@@ -8405,6 +8430,11 @@ export interface components {
             /** Bot Name */
             bot_name: string;
             /**
+             * Custom Intents
+             * @description 自定义的真实意图类别（最多 10 个）
+             */
+            custom_intents: components["schemas"]["CustomIntent"][];
+            /**
              * Embeddings Configured
              * @description 平台是否配置了向量模型（语义检索）
              */
@@ -8429,6 +8459,32 @@ export interface components {
              * @description 软信号得分达到这个值时转人工（默认 0.6）
              */
             handoff_threshold: number;
+            /**
+             * Intent Enabled
+             * @description 判断客户的下单意向和真实意图（坐席工作台显示，§32）
+             */
+            intent_enabled: boolean;
+            /**
+             * Intent Handoff Stage
+             * @description 高意向客户转人工：3 意向明确时、4 准备下单时，为空不转
+             */
+            intent_handoff_stage: number | null;
+            /**
+             * Intent In Reply
+             * @description AI 回复参考意图判断：回复要求、要人工时转人工、情绪信号、分配意图
+             */
+            intent_in_reply: boolean;
+            /**
+             * Intent Model
+             * @description 判断用的供应商和模型
+             */
+            intent_model: string | null;
+            /**
+             * Intent Source
+             * @description 平台的意图判断：judge 判断模型、llm 大模型的轻量模型、none 没有配置
+             * @enum {string}
+             */
+            intent_source: "judge" | "llm" | "none";
             /**
              * Llm Configured
              * @description 平台是否配置了大模型
@@ -8490,6 +8546,8 @@ export interface components {
             auto_merge_similar?: boolean | null;
             /** Bot Name */
             bot_name?: string | null;
+            /** Custom Intents */
+            custom_intents?: components["schemas"]["CustomIntent"][] | null;
             /** Enabled */
             enabled?: boolean | null;
             /** Extraction Enabled */
@@ -8498,6 +8556,15 @@ export interface components {
             handoff_keywords?: string[] | null;
             /** Handoff Threshold */
             handoff_threshold?: number | null;
+            /** Intent Enabled */
+            intent_enabled?: boolean | null;
+            /**
+             * Intent Handoff Stage
+             * @description 3 意向明确时、4 准备下单时转人工；传 null 表示不转
+             */
+            intent_handoff_stage?: (3 | 4) | null;
+            /** Intent In Reply */
+            intent_in_reply?: boolean | null;
             /** Max Turns */
             max_turns?: number | null;
             /** Persona */
@@ -9887,6 +9954,23 @@ export interface components {
              * Format: uuid
              */
             session_id: string;
+        };
+        /**
+         * CustomIntent
+         * @description 租户自定义的"真实意图"类别（设计文档 §32.7），加进判断的选项。
+         */
+        CustomIntent: {
+            /**
+             * Description
+             * @description 说明，帮助模型判断
+             * @default
+             */
+            description: string;
+            /**
+             * Name
+             * @description 名称，如 定制尺寸
+             */
+            name: string;
         };
         /** CustomerCreate */
         CustomerCreate: {
@@ -12140,6 +12224,116 @@ export interface components {
              */
             url: string;
         };
+        /** IntentHistoryPoint */
+        IntentHistoryPoint: {
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+            /** Intent Label */
+            intent_label: string | null;
+            /** Purchase Probability */
+            purchase_probability: number;
+            /** Stage */
+            stage: number;
+            /** Stage Label */
+            stage_label: string;
+        };
+        /**
+         * IntentJudgmentOut
+         * @description 一次意图判断（设计文档 §32.3）。
+         */
+        IntentJudgmentOut: {
+            /**
+             * Concerns
+             * @description 客户在意的（价格、质量效果……），最多两个
+             */
+            concerns: components["schemas"]["IntentOption"][];
+            /**
+             * Distribution
+             * @description 5 级各自的概率
+             */
+            distribution: number[];
+            /**
+             * Emotion
+             * @description 情绪刻度：0 平静、1 有些着急、2 生气激动
+             */
+            emotion: number | null;
+            /** Emotion Label */
+            emotion_label: string | null;
+            /**
+             * Has Purchase Intent
+             * @description 有下单意向（概率不低于 50%）
+             */
+            has_purchase_intent: boolean;
+            /**
+             * Human Probability
+             * @description 客户在要求人工的概率
+             */
+            human_probability: number | null;
+            /**
+             * Intent
+             * @description 真实意图的编码
+             */
+            intent: string | null;
+            /** Intent Label */
+            intent_label: string | null;
+            /** Intent Probability */
+            intent_probability: number | null;
+            /**
+             * Intents
+             * @description 可能的意图（概率最高的前 3 个）
+             */
+            intents: components["schemas"]["IntentOption"][];
+            /** Model */
+            model: string | null;
+            /**
+             * Purchase Probability
+             * @description 有下单意向的概率（意向明确与准备下单之和）
+             */
+            purchase_probability: number;
+            /**
+             * Route
+             * @description 分配意图（路由策略的意图名称）
+             */
+            route: string | null;
+            /**
+             * Score
+             * @description 下单意向按概率加权的位置（0–4）
+             */
+            score: number;
+            /**
+             * Source
+             * @description judge 判断模型、llm 大模型的轻量模型
+             * @enum {string}
+             */
+            source: "judge" | "llm";
+            /**
+             * Stage
+             * @description 下单意向：0 没有、1 随便了解、2 有兴趣、3 意向明确、4 准备下单
+             */
+            stage: number;
+            /** Stage Label */
+            stage_label: string;
+            /**
+             * Stage Probability
+             * @description 这一阶段的概率
+             */
+            stage_probability: number;
+        };
+        /** IntentOption */
+        IntentOption: {
+            /**
+             * Code
+             * @description 编码：内置的如 price，自定义的是 x:名称
+             */
+            code: string;
+            /** Label */
+            label: string;
+            /** Probability */
+            probability: number;
+        };
         /**
          * IntentRoute
          * @description 按意图分配：AI 识别出这个意图，或客户的话里出现关键词时，分配到这个技能组。
@@ -13840,6 +14034,13 @@ export interface components {
             name: string;
             prices?: components["schemas"]["LlmPrices"];
             /**
+             * Protocol
+             * @description openai：OpenAI 兼容（对话、向量、重排序）；typesafe：判断模型 Jev（设计文档 §32），chat_model 填判断模型的名称，只能用于意图判断，创建后不能修改
+             * @default openai
+             * @enum {string}
+             */
+            protocol: "openai" | "typesafe";
+            /**
              * Rerank Model
              * @description 重排序模型（/rerank）
              * @default
@@ -13893,6 +14094,11 @@ export interface components {
             /** Name */
             name: string;
             prices: components["schemas"]["LlmPrices"];
+            /**
+             * Protocol
+             * @enum {string}
+             */
+            protocol: "openai" | "typesafe";
             /** Rerank Model */
             rerank_model: string;
             /** Send Dimensions */
@@ -19005,6 +19211,11 @@ export interface components {
              * @description 识别出的意图（按意图分配）
              */
             intent?: string | null;
+            /**
+             * Intent At
+             * @description 最近一次意图判断的时间
+             */
+            intent_at?: string | null;
             /** Last Agent Message At */
             last_agent_message_at: string | null;
             /** Last Customer Message At */
@@ -19021,8 +19232,23 @@ export interface components {
             overflowed_at?: string | null;
             /** Priority */
             priority: number;
+            /**
+             * Purchase Probability
+             * @description 有下单意向的概率
+             */
+            purchase_probability?: number | null;
+            /**
+             * Purchase Stage
+             * @description 意图判断（§32）：下单意向 0 没有、1 随便了解、2 有兴趣、3 意向明确、4 准备下单
+             */
+            purchase_stage?: number | null;
             /** Queued At */
             queued_at: string | null;
+            /**
+             * Real Intent
+             * @description 真实意图（名称）
+             */
+            real_intent?: string | null;
             /**
              * Room Id
              * Format: uuid
@@ -19065,6 +19291,120 @@ export interface components {
             };
             /** Type */
             type: string;
+        };
+        /**
+         * SessionIntentOut
+         * @description 会话最新的意图判断与这次会话的变化。
+         */
+        SessionIntentOut: {
+            /**
+             * Concerns
+             * @description 客户在意的（价格、质量效果……），最多两个
+             */
+            concerns: components["schemas"]["IntentOption"][];
+            /**
+             * Distribution
+             * @description 5 级各自的概率
+             */
+            distribution: number[];
+            /**
+             * Emotion
+             * @description 情绪刻度：0 平静、1 有些着急、2 生气激动
+             */
+            emotion: number | null;
+            /** Emotion Label */
+            emotion_label: string | null;
+            /**
+             * Has Purchase Intent
+             * @description 有下单意向（概率不低于 50%）
+             */
+            has_purchase_intent: boolean;
+            /**
+             * History
+             * @description 最近 20 次判断，按时间先后
+             */
+            history: components["schemas"]["IntentHistoryPoint"][];
+            /**
+             * Human Probability
+             * @description 客户在要求人工的概率
+             */
+            human_probability: number | null;
+            /**
+             * Intent
+             * @description 真实意图的编码
+             */
+            intent: string | null;
+            /** Intent Label */
+            intent_label: string | null;
+            /** Intent Probability */
+            intent_probability: number | null;
+            /**
+             * Intents
+             * @description 可能的意图（概率最高的前 3 个）
+             */
+            intents: components["schemas"]["IntentOption"][];
+            /**
+             * Judged At
+             * Format: date-time
+             */
+            judged_at: string;
+            /**
+             * Message Id
+             * @description 判断覆盖到的最后一条客户消息
+             */
+            message_id: string | null;
+            /** Model */
+            model: string | null;
+            /** Peak At */
+            peak_at: string | null;
+            /**
+             * Peak Stage
+             * @description 这次会话到过的最高阶段
+             */
+            peak_stage: number | null;
+            /**
+             * Pending
+             * @description 有新的客户消息正在等待判断
+             */
+            pending: boolean;
+            /**
+             * Purchase Probability
+             * @description 有下单意向的概率（意向明确与准备下单之和）
+             */
+            purchase_probability: number;
+            /**
+             * Route
+             * @description 分配意图（路由策略的意图名称）
+             */
+            route: string | null;
+            /**
+             * Score
+             * @description 下单意向按概率加权的位置（0–4）
+             */
+            score: number;
+            /**
+             * Session Id
+             * Format: uuid
+             */
+            session_id: string;
+            /**
+             * Source
+             * @description judge 判断模型、llm 大模型的轻量模型
+             * @enum {string}
+             */
+            source: "judge" | "llm";
+            /**
+             * Stage
+             * @description 下单意向：0 没有、1 随便了解、2 有兴趣、3 意向明确、4 准备下单
+             */
+            stage: number;
+            /** Stage Label */
+            stage_label: string;
+            /**
+             * Stage Probability
+             * @description 这一阶段的概率
+             */
+            stage_probability: number;
         };
         /** SessionOut */
         SessionOut: {
@@ -19136,6 +19476,11 @@ export interface components {
              * @description 识别出的意图（按意图分配）
              */
             intent?: string | null;
+            /**
+             * Intent At
+             * @description 最近一次意图判断的时间
+             */
+            intent_at?: string | null;
             /** Last Agent Message At */
             last_agent_message_at: string | null;
             /** Last Customer Message At */
@@ -19152,8 +19497,23 @@ export interface components {
             overflowed_at?: string | null;
             /** Priority */
             priority: number;
+            /**
+             * Purchase Probability
+             * @description 有下单意向的概率
+             */
+            purchase_probability?: number | null;
+            /**
+             * Purchase Stage
+             * @description 意图判断（§32）：下单意向 0 没有、1 随便了解、2 有兴趣、3 意向明确、4 准备下单
+             */
+            purchase_stage?: number | null;
             /** Queued At */
             queued_at: string | null;
+            /**
+             * Real Intent
+             * @description 真实意图（名称）
+             */
+            real_intent?: string | null;
             /**
              * Room Id
              * Format: uuid
@@ -45556,6 +45916,82 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SessionDetail"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    session_intent_api_v1_sessions__session_id__intent_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionIntentOut"] | null;
                 };
             };
             /** @description Bad Request */

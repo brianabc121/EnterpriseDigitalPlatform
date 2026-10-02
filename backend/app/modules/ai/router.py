@@ -11,9 +11,10 @@ from app.core.deps import client_ip, get_context
 from app.core.errors import ERROR_RESPONSES, NotFound
 from app.core.permissions import Permission
 from app.core.urls import check_outbound_url
-from app.modules.ai import assist, evaluation, pipeline, summaries
+from app.integrations.llm import LLMUnavailable
+from app.modules.ai import assist, evaluation, intent, pipeline, summaries
 from app.modules.ai import service as ai_service
-from app.modules.ai.models import AiDecision, AiEvalRun, AiSettings, CopilotAlert
+from app.modules.ai.models import AiDecision, AiEvalRun, AiSettings, CopilotAlert, SessionIntent
 from app.modules.ai.schemas import (
     AiDecisionList,
     AiDecisionOut,
@@ -30,6 +31,7 @@ from app.modules.ai.schemas import (
     KnowledgeRef,
     OwnLlmOut,
     OwnLlmUpdate,
+    SessionIntentOut,
     SessionSummaryOut,
     SuggestionList,
     SummaryConfirm,
@@ -92,15 +94,35 @@ async def test_reply(
     if not await has_feature(session, principal.tenant_id, "ai"):
         return _outcome(pipeline.Outcome(action="handoff", reason="plan"))
     company = await session.scalar(select(Tenant.name).where(Tenant.id == principal.tenant_id))
+    # 意图判断（设计文档 §32.6）：同时显示这个问题的判断，AI 回复参考它时一并用上。
+    judgment = None
+    target = await ctx.llms.judge(principal.tenant_id) if settings.intent_enabled else None
+    if target is not None:
+        try:
+            judgment = await intent.judge(
+                ctx,
+                principal.tenant_id,
+                target,
+                intent.build_state([], [payload.question]),
+                custom=settings.custom_intents,
+                routes=[],
+            )
+        except LLMUnavailable:
+            judgment = None
     outcome = await pipeline.evaluate(
         ctx,
         principal.tenant_id,
         settings,
-        pipeline.Context(question=payload.question),
+        pipeline.Context(
+            question=payload.question,
+            intent=judgment if settings.intent_in_reply else None,
+        ),
         company=company or "",
         scene="test",
     )
-    return _outcome(outcome)
+    result = _outcome(outcome)
+    result.intent = intent.judgment_out(judgment) if judgment is not None else None
+    return result
 
 
 @router.get("/sessions/{session_id}/ai-decisions", response_model=AiDecisionList)
@@ -134,6 +156,17 @@ async def session_decisions(
             for d in rows.all()
         ]
     )
+
+
+@router.get("/sessions/{session_id}/intent", response_model=SessionIntentOut | None)
+async def session_intent(
+    session_id: UUID, session: TenantDb, principal: CanServe
+) -> SessionIntentOut | None:
+    """意图判断（设计文档 §32.5）：下单意向、真实意图、在意什么、情绪和这次会话的变化。
+    还没有判断过时为空。"""
+    await visible_session(session, principal, session_id)
+    row = await session.get(SessionIntent, session_id)
+    return intent.session_out(row) if row is not None else None
 
 
 @router.post("/sessions/{session_id}/suggestions", response_model=SuggestionList)

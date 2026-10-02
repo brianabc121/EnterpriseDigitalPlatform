@@ -111,6 +111,15 @@ class Settings(BaseSettings):
     llm_queue_seconds: float = 10.0
     # 客户连续发消息时，等这么久没有新消息再合并回复。
     ai_debounce_seconds: float = 2.0
+    # 判断模型（TypeSafe Jev，设计文档 §32）：运营后台没有把"意图判断"路由到供应商时使用；
+    # judge_base_url 为空时不用。价格为每千 tokens 多少分（Jev 输入约 0.03 分，输出不计费）。
+    judge_base_url: str = ""
+    judge_api_key: SecretStr = SecretStr("")
+    judge_model: str = "jev-latest"
+    judge_price_input: float = 0.0
+    judge_timeout_seconds: float = 5.0
+    # 意图判断：客户连续发消息时等这么久再判断（比 AI 回复短，AI 回复时通常已经有结果）。
+    intent_debounce_seconds: float = 1.0
     # 知识导入：上传文件的大小上限，抓取帮助中心时每个网页的超时与大小上限、最多抓取的页数。
     kb_import_max_bytes: int = 20 * 1024 * 1024
     kb_crawl_timeout_seconds: float = 10.0
