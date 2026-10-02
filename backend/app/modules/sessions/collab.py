@@ -30,9 +30,9 @@ from app.modules.conversation.models import (
     SessionWatcher,
     WatcherRole,
 )
-from app.modules.iam.models import Role, Staff, StaffRole, StaffStatus
+from app.modules.iam.models import Staff, StaffStatus
 from app.modules.iam.principal import Principal
-from app.modules.iam.service import role_permissions
+from app.modules.iam.service import staff_permissions
 from app.modules.routing.assign import PolicyResolver
 from app.modules.sessions import engine
 from app.modules.sessions.engine import ActorType, Signal, record_event
@@ -216,14 +216,8 @@ async def monitor(
 
 
 async def _can_serve(session: AsyncSession, staff_id: UUID) -> bool:
-    roles = (
-        await session.scalars(
-            select(Role)
-            .join(StaffRole, StaffRole.role_id == Role.id)
-            .where(StaffRole.staff_id == staff_id)
-        )
-    ).all()
-    return any(Permission.WORKBENCH_USE in role_permissions(role) for role in roles)
+    staff = await session.get(Staff, staff_id)
+    return staff is not None and Permission.WORKBENCH_USE in await staff_permissions(session, staff)
 
 
 async def invite_assist(

@@ -2,6 +2,7 @@ import type { Permission } from '@edp/api-client'
 import {
   createRouter,
   createWebHistory,
+  START_LOCATION,
   type RouteComponent,
   type RouteRecordRaw,
 } from 'vue-router'
@@ -111,7 +112,7 @@ const routes: RouteRecordRaw[] = [
 
 export const router = createRouter({ history: createWebHistory(), routes })
 
-router.beforeEach(async (to) => {
+router.beforeEach(async (to, from) => {
   const auth = useAuthStore()
   await auth.restore()
   if (to.meta.public) {
@@ -119,8 +120,12 @@ router.beforeEach(async (to) => {
     return to.name === 'login' && auth.isAuthenticated ? auth.home : true
   }
   if (!auth.isAuthenticated) return { name: 'login', query: { redirect: to.fullPath } }
-  // 首页不在岗位的菜单里时（例如工人）打开第一个菜单（§25.15）。
-  if (to.name === 'dashboard' && auth.home !== '/') return auth.home
+  // 首页不在菜单里时（例如工人）打开第一个菜单（§25.15）。按员工设置了登录后打开的页面时（§31），
+  // 刚打开控制台或刚登录时进入那个页面，之后点"首页"照常打开首页。
+  const landing = from === START_LOCATION || from.meta.public === true
+  if (to.name === 'dashboard' && auth.home !== '/' && (!auth.dashboardShown || landing)) {
+    return auth.home
+  }
   if (to.meta.permission && !auth.can(to.meta.permission)) return { name: 'forbidden' }
   // 企业微信手机端打开工作台时进入手机版。
   if (to.name === 'workbench' && inWecom() && isMobile()) {

@@ -44,6 +44,9 @@ class ConsoleOut(BaseModel):
     menus: list[ConsoleMenu] = Field(
         description="显示的菜单（还要有相应的权限和套餐功能；菜单名与控制台 menu.ts 一致）"
     )
+    home: ConsoleMenu | None = Field(
+        description="登录后打开的页面（按员工设置的，§31）；没有设置或看不到时为空，打开第一个菜单"
+    )
 
 
 class MeResponse(BaseModel):
@@ -126,6 +129,28 @@ class RoleList(BaseModel):
     items: list[RoleOut]
 
 
+class StaffAccess(BaseModel):
+    """按员工设置的页面和权限（设计文档 §31）。"""
+
+    menus: list[ConsoleMenu] = Field(
+        min_length=1, description="看到的页面（菜单名）；还要有相应的权限和套餐功能才会显示"
+    )
+    home_menu: ConsoleMenu | None = Field(
+        default=None, description="登录后打开的页面，必须是勾选的页面之一；不填时打开第一个"
+    )
+    permissions: list[Permission] = Field(
+        description="能用的功能权限（勾选后的完整列表）：保存时和角色比较，记下多给的和去掉的；"
+        "多给的不能超出自己拥有的权限"
+    )
+
+
+class StaffAccessOut(BaseModel):
+    menus: list[ConsoleMenu] = Field(description="看到的页面")
+    home_menu: ConsoleMenu | None = Field(description="登录后打开的页面；为空时打开第一个")
+    extra_permissions: list[Permission] = Field(description="比角色多给的权限")
+    revoked_permissions: list[Permission] = Field(description="从角色的权限里去掉的")
+
+
 class StaffOut(BaseModel):
     id: UUID
     username: str
@@ -133,6 +158,10 @@ class StaffOut(BaseModel):
     status: str
     roles: list[str]
     created_at: datetime
+    access: StaffAccessOut | None = Field(description="按员工设置的页面和权限（§31）；按角色时为空")
+    permissions: list[Permission] = Field(
+        description="有效权限：角色的权限 + 多给的 − 去掉的（不含仓管另外获得的确认权限）"
+    )
 
 
 class StaffList(BaseModel):
@@ -144,6 +173,9 @@ class StaffCreate(BaseModel):
     display_name: str = Field(min_length=1, max_length=64)
     password: str = Field(min_length=8, max_length=128)
     role_codes: list[str] = Field(min_length=1)
+    access: StaffAccess | None = Field(
+        default=None, description="按员工设置的页面和权限；不填表示按角色（§31）"
+    )
 
 
 class StaffUpdate(BaseModel):
@@ -152,6 +184,23 @@ class StaffUpdate(BaseModel):
     status: Literal["active", "disabled"] | None = Field(
         default=None,
         description="停用后立即退出登录、下线，接待中的会话退回队列；名下客户需要另行交接",
+    )
+    access: StaffAccess | None = Field(
+        default=None,
+        description="按员工设置的页面和权限（§31）；传 null 表示恢复按角色，不传表示不修改",
+    )
+
+
+class StaffAccessDefaults(BaseModel):
+    """这些角色给的页面和权限：新建、编辑员工时"自定义"的起点（§31）。"""
+
+    profiles: list[ConsoleProfile] = Field(description="岗位（首页的内容按岗位）")
+    menus: list[ConsoleMenu] = Field(
+        description="按角色看到的页面（岗位的菜单，去掉没有权限的和套餐里关闭的）"
+    )
+    permissions: list[Permission] = Field(description="角色的权限（并集）")
+    adjustable: bool = Field(
+        description="可以单独调整；有租户管理员角色时不能（看到全部页面、拥有全部权限）"
     )
 
 

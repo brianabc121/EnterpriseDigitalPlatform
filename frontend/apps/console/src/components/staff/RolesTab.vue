@@ -6,6 +6,7 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { api } from '../../api'
 import { CONSOLE_PROFILES, PROFILE_LABEL } from '../../menu'
 import { useAuthStore } from '../../stores/auth'
+import PermissionPicker from './PermissionPicker.vue'
 
 /**
  * 角色：系统角色和自定义角色。自定义角色可以选择岗位（§25.15，决定员工看到的菜单和首页），不选时
@@ -21,13 +22,6 @@ const catalog = ref<Schemas['PermissionInfo'][]>([])
 const loading = ref(false)
 
 const names = computed(() => new Map(catalog.value.map((p) => [p.code, p.name])))
-const groups = computed(() => {
-  const byGroup = new Map<string, Schemas['PermissionInfo'][]>()
-  for (const item of catalog.value) {
-    byGroup.set(item.group, [...(byGroup.get(item.group) ?? []), item])
-  }
-  return [...byGroup.entries()]
-})
 
 const dialogOpen = ref(false)
 const saving = ref(false)
@@ -193,50 +187,61 @@ defineExpose({ load })
     <el-dialog
       v-model="dialogOpen"
       :title="editing ? '编辑角色' : '新建角色'"
-      width="640px"
+      width="min(860px, 96vw)"
+      top="5vh"
+      class="scroll-dialog"
       data-testid="role-dialog"
     >
-      <el-form label-width="72px" @submit.prevent="save">
-        <el-form-item label="代码" required>
-          <el-input
-            v-model="form.code"
-            :disabled="!!editing"
-            placeholder="小写字母开头，如 quality"
-          />
-        </el-form-item>
-        <el-form-item label="名称" required>
-          <el-input v-model="form.name" maxlength="64" />
-        </el-form-item>
-        <el-form-item label="岗位">
-          <el-select v-model="form.console" class="console" data-testid="role-console">
-            <el-option label="按权限自动判断" value="" />
-            <el-option v-for="[value, label] in CONSOLE_PROFILES" :key="value" :label="label" :value="value" />
-          </el-select>
-          <el-button
-            v-if="form.console"
-            link
-            type="primary"
-            class="fill"
-            data-testid="role-fill-defaults"
-            @click="fillDefaults"
-            >填入这个岗位的默认权限</el-button
-          >
-          <div class="hint console-hint">决定员工看到的菜单和首页；每个岗位的菜单在“设置 → 控制台”里调整。</div>
-        </el-form-item>
-        <el-form-item label="权限" required>
-          <el-checkbox-group v-model="form.permissions" class="perms">
-            <div v-for="[group, items] in groups" :key="group" class="group">
-              <div class="group-name">{{ group }}</div>
-              <el-checkbox
-                v-for="item in items"
-                :key="item.code"
-                :value="item.code"
-                :disabled="!grantable(item.code)"
+      <el-form label-position="top" @submit.prevent="save">
+        <div class="fields">
+          <el-form-item label="代码" required>
+            <el-input
+              v-model="form.code"
+              :disabled="!!editing"
+              placeholder="小写字母开头，如 quality"
+            />
+          </el-form-item>
+          <el-form-item label="名称" required>
+            <el-input v-model="form.name" maxlength="64" />
+          </el-form-item>
+          <el-form-item label="岗位">
+            <div class="console-row">
+              <el-select
+                v-model="form.console"
+                placeholder="按权限自动判断"
+                class="console"
+                data-testid="role-console"
               >
-                {{ item.name }}
-              </el-checkbox>
+                <el-option label="按权限自动判断" value="" />
+                <el-option
+                  v-for="[value, label] in CONSOLE_PROFILES"
+                  :key="value"
+                  :label="label"
+                  :value="value"
+                />
+              </el-select>
+              <el-button
+                v-if="form.console"
+                link
+                type="primary"
+                data-testid="role-fill-defaults"
+                @click="fillDefaults"
+                >填入默认权限</el-button
+              >
             </div>
-          </el-checkbox-group>
+          </el-form-item>
+        </div>
+        <p class="hint console-hint">
+          岗位决定员工看到的菜单和首页；每个岗位的菜单在"设置 → 控制台"里调整。
+        </p>
+        <el-form-item label="权限" required>
+          <PermissionPicker
+            :permissions="form.permissions"
+            :catalog="catalog"
+            :can-grant="grantable"
+            expanded
+            @change="form.permissions = $event.permissions"
+          />
         </el-form-item>
       </el-form>
       <template #footer>
@@ -264,28 +269,25 @@ defineExpose({ load })
   margin: 2px 4px 2px 0;
 }
 
-.perms {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
 .console {
-  width: 200px;
+  width: 160px;
 }
 
-.fill {
-  margin-left: 8px;
+.fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  column-gap: 16px;
+}
+
+.console-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
 }
 
 .console-hint {
-  width: 100%;
+  margin: -8px 0 12px;
   line-height: 1.5;
-}
-
-.group-name {
-  font-weight: 500;
-  color: var(--el-text-color-regular);
-  line-height: 24px;
 }
 </style>

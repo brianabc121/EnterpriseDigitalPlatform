@@ -3926,6 +3926,17 @@
       "ConsoleOut": {
         "description": "按岗位的控制台（设计文档 §25.15）。",
         "properties": {
+          "home": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ConsoleMenu"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "登录后打开的页面（按员工设置的，§31）；没有设置或看不到时为空，打开第一个菜单"
+          },
           "menus": {
             "description": "显示的菜单（还要有相应的权限和套餐功能；菜单名与控制台 menu.ts 一致）",
             "items": {
@@ -3945,7 +3956,8 @@
         },
         "required": [
           "profiles",
-          "menus"
+          "menus",
+          "home"
         ],
         "title": "ConsoleOut",
         "type": "object"
@@ -28579,8 +28591,147 @@
         "title": "SsoUrlOut",
         "type": "object"
       },
+      "StaffAccess": {
+        "description": "按员工设置的页面和权限（设计文档 §31）。",
+        "properties": {
+          "home_menu": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ConsoleMenu"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "登录后打开的页面，必须是勾选的页面之一；不填时打开第一个"
+          },
+          "menus": {
+            "description": "看到的页面（菜单名）；还要有相应的权限和套餐功能才会显示",
+            "items": {
+              "$ref": "#/components/schemas/ConsoleMenu"
+            },
+            "minItems": 1,
+            "title": "Menus",
+            "type": "array"
+          },
+          "permissions": {
+            "description": "能用的功能权限（勾选后的完整列表）：保存时和角色比较，记下多给的和去掉的；多给的不能超出自己拥有的权限",
+            "items": {
+              "$ref": "#/components/schemas/Permission"
+            },
+            "title": "Permissions",
+            "type": "array"
+          }
+        },
+        "required": [
+          "menus",
+          "permissions"
+        ],
+        "title": "StaffAccess",
+        "type": "object"
+      },
+      "StaffAccessDefaults": {
+        "description": "这些角色给的页面和权限：新建、编辑员工时\"自定义\"的起点（§31）。",
+        "properties": {
+          "adjustable": {
+            "description": "可以单独调整；有租户管理员角色时不能（看到全部页面、拥有全部权限）",
+            "title": "Adjustable",
+            "type": "boolean"
+          },
+          "menus": {
+            "description": "按角色看到的页面（岗位的菜单，去掉没有权限的和套餐里关闭的）",
+            "items": {
+              "$ref": "#/components/schemas/ConsoleMenu"
+            },
+            "title": "Menus",
+            "type": "array"
+          },
+          "permissions": {
+            "description": "角色的权限（并集）",
+            "items": {
+              "$ref": "#/components/schemas/Permission"
+            },
+            "title": "Permissions",
+            "type": "array"
+          },
+          "profiles": {
+            "description": "岗位（首页的内容按岗位）",
+            "items": {
+              "$ref": "#/components/schemas/ConsoleProfile"
+            },
+            "title": "Profiles",
+            "type": "array"
+          }
+        },
+        "required": [
+          "profiles",
+          "menus",
+          "permissions",
+          "adjustable"
+        ],
+        "title": "StaffAccessDefaults",
+        "type": "object"
+      },
+      "StaffAccessOut": {
+        "properties": {
+          "extra_permissions": {
+            "description": "比角色多给的权限",
+            "items": {
+              "$ref": "#/components/schemas/Permission"
+            },
+            "title": "Extra Permissions",
+            "type": "array"
+          },
+          "home_menu": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ConsoleMenu"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "登录后打开的页面；为空时打开第一个"
+          },
+          "menus": {
+            "description": "看到的页面",
+            "items": {
+              "$ref": "#/components/schemas/ConsoleMenu"
+            },
+            "title": "Menus",
+            "type": "array"
+          },
+          "revoked_permissions": {
+            "description": "从角色的权限里去掉的",
+            "items": {
+              "$ref": "#/components/schemas/Permission"
+            },
+            "title": "Revoked Permissions",
+            "type": "array"
+          }
+        },
+        "required": [
+          "menus",
+          "home_menu",
+          "extra_permissions",
+          "revoked_permissions"
+        ],
+        "title": "StaffAccessOut",
+        "type": "object"
+      },
       "StaffCreate": {
         "properties": {
+          "access": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/StaffAccess"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "按员工设置的页面和权限；不填表示按角色（§31）"
+          },
           "display_name": {
             "maxLength": 64,
             "minLength": 1,
@@ -28687,6 +28838,17 @@
       },
       "StaffOut": {
         "properties": {
+          "access": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/StaffAccessOut"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "按员工设置的页面和权限（§31）；按角色时为空"
+          },
           "created_at": {
             "format": "date-time",
             "title": "Created At",
@@ -28700,6 +28862,14 @@
             "format": "uuid",
             "title": "Id",
             "type": "string"
+          },
+          "permissions": {
+            "description": "有效权限：角色的权限 + 多给的 − 去掉的（不含仓管另外获得的确认权限）",
+            "items": {
+              "$ref": "#/components/schemas/Permission"
+            },
+            "title": "Permissions",
+            "type": "array"
           },
           "roles": {
             "items": {
@@ -28723,13 +28893,26 @@
           "display_name",
           "status",
           "roles",
-          "created_at"
+          "created_at",
+          "access",
+          "permissions"
         ],
         "title": "StaffOut",
         "type": "object"
       },
       "StaffUpdate": {
         "properties": {
+          "access": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/StaffAccess"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "按员工设置的页面和权限（§31）；传 null 表示恢复按角色，不传表示不修改"
+          },
           "display_name": {
             "anyOf": [
               {
@@ -70545,6 +70728,108 @@
           }
         ],
         "summary": "Create Staff",
+        "tags": [
+          "iam"
+        ]
+      }
+    },
+    "/api/v1/staff/access-defaults": {
+      "get": {
+        "description": "这些角色给的页面和权限：新建、编辑员工时选\"自定义\"的起点（§31）。",
+        "operationId": "staff_access_defaults_api_v1_staff_access_defaults_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "role_codes",
+            "required": true,
+            "schema": {
+              "items": {
+                "type": "string"
+              },
+              "minItems": 1,
+              "title": "Role Codes",
+              "type": "array"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StaffAccessDefaults"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Staff Access Defaults",
         "tags": [
           "iam"
         ]

@@ -5321,6 +5321,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/staff/access-defaults": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Staff Access Defaults
+         * @description 这些角色给的页面和权限：新建、编辑员工时选"自定义"的起点（§31）。
+         */
+        get: operations["staff_access_defaults_api_v1_staff_access_defaults_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/staff/{staff_id}": {
         parameters: {
             query?: never;
@@ -9667,6 +9687,8 @@ export interface components {
          * @description 按岗位的控制台（设计文档 §25.15）。
          */
         ConsoleOut: {
+            /** @description 登录后打开的页面（按员工设置的，§31）；没有设置或看不到时为空，打开第一个菜单 */
+            home: components["schemas"]["ConsoleMenu"] | null;
             /**
              * Menus
              * @description 显示的菜单（还要有相应的权限和套餐功能；菜单名与控制台 menu.ts 一致）
@@ -19518,8 +19540,74 @@ export interface components {
             /** Url */
             url: string;
         };
+        /**
+         * StaffAccess
+         * @description 按员工设置的页面和权限（设计文档 §31）。
+         */
+        StaffAccess: {
+            /** @description 登录后打开的页面，必须是勾选的页面之一；不填时打开第一个 */
+            home_menu?: components["schemas"]["ConsoleMenu"] | null;
+            /**
+             * Menus
+             * @description 看到的页面（菜单名）；还要有相应的权限和套餐功能才会显示
+             */
+            menus: components["schemas"]["ConsoleMenu"][];
+            /**
+             * Permissions
+             * @description 能用的功能权限（勾选后的完整列表）：保存时和角色比较，记下多给的和去掉的；多给的不能超出自己拥有的权限
+             */
+            permissions: components["schemas"]["Permission"][];
+        };
+        /**
+         * StaffAccessDefaults
+         * @description 这些角色给的页面和权限：新建、编辑员工时"自定义"的起点（§31）。
+         */
+        StaffAccessDefaults: {
+            /**
+             * Adjustable
+             * @description 可以单独调整；有租户管理员角色时不能（看到全部页面、拥有全部权限）
+             */
+            adjustable: boolean;
+            /**
+             * Menus
+             * @description 按角色看到的页面（岗位的菜单，去掉没有权限的和套餐里关闭的）
+             */
+            menus: components["schemas"]["ConsoleMenu"][];
+            /**
+             * Permissions
+             * @description 角色的权限（并集）
+             */
+            permissions: components["schemas"]["Permission"][];
+            /**
+             * Profiles
+             * @description 岗位（首页的内容按岗位）
+             */
+            profiles: components["schemas"]["ConsoleProfile"][];
+        };
+        /** StaffAccessOut */
+        StaffAccessOut: {
+            /**
+             * Extra Permissions
+             * @description 比角色多给的权限
+             */
+            extra_permissions: components["schemas"]["Permission"][];
+            /** @description 登录后打开的页面；为空时打开第一个 */
+            home_menu: components["schemas"]["ConsoleMenu"] | null;
+            /**
+             * Menus
+             * @description 看到的页面
+             */
+            menus: components["schemas"]["ConsoleMenu"][];
+            /**
+             * Revoked Permissions
+             * @description 从角色的权限里去掉的
+             */
+            revoked_permissions: components["schemas"]["Permission"][];
+        };
         /** StaffCreate */
         StaffCreate: {
+            /** @description 按员工设置的页面和权限；不填表示按角色（§31） */
+            access?: components["schemas"]["StaffAccess"] | null;
             /** Display Name */
             display_name: string;
             /** Password */
@@ -19562,6 +19650,8 @@ export interface components {
         };
         /** StaffOut */
         StaffOut: {
+            /** @description 按员工设置的页面和权限（§31）；按角色时为空 */
+            access: components["schemas"]["StaffAccessOut"] | null;
             /**
              * Created At
              * Format: date-time
@@ -19574,6 +19664,11 @@ export interface components {
              * Format: uuid
              */
             id: string;
+            /**
+             * Permissions
+             * @description 有效权限：角色的权限 + 多给的 − 去掉的（不含仓管另外获得的确认权限）
+             */
+            permissions: components["schemas"]["Permission"][];
             /** Roles */
             roles: string[];
             /** Status */
@@ -19583,6 +19678,8 @@ export interface components {
         };
         /** StaffUpdate */
         StaffUpdate: {
+            /** @description 按员工设置的页面和权限（§31）；传 null 表示恢复按角色，不传表示不修改 */
+            access?: components["schemas"]["StaffAccess"] | null;
             /** Display Name */
             display_name?: string | null;
             /** Role Codes */
@@ -47688,6 +47785,82 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["StaffOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    staff_access_defaults_api_v1_staff_access_defaults_get: {
+        parameters: {
+            query: {
+                role_codes: string[];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffAccessDefaults"];
                 };
             };
             /** @description Bad Request */

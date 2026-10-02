@@ -13,7 +13,6 @@
 """
 
 import uuid
-from collections import defaultdict
 from collections.abc import Collection
 from dataclasses import dataclass
 from typing import Any
@@ -24,8 +23,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.permissions import Permission
 from app.modules.conversation.models import ChatSession
 from app.modules.customer.models import Customer
-from app.modules.iam.models import Role, Staff, StaffRole, StaffStatus
-from app.modules.iam.service import role_permissions
+from app.modules.iam.models import Staff, StaffStatus
+from app.modules.iam.service import active_staff_permissions
 from app.modules.routing.assign import PolicyResolver
 from app.modules.routing.models import SkillGroup, SkillGroupMember
 from app.modules.todos import events
@@ -169,15 +168,8 @@ async def group_members(session: AsyncSession, group_id: uuid.UUID) -> list[uuid
 
 
 async def staff_with(session: AsyncSession, permission: Permission) -> list[uuid.UUID]:
-    """有某项权限的启用状态的员工。"""
-    roles = {role.id: role_permissions(role) for role in await session.scalars(select(Role))}
-    granted: dict[uuid.UUID, set[str]] = defaultdict(set)
-    for staff_id, role_id in await session.execute(select(StaffRole.staff_id, StaffRole.role_id)):
-        granted[staff_id] |= roles.get(role_id, frozenset())
-    active = await session.scalars(
-        select(Staff.id).where(Staff.status == StaffStatus.ACTIVE).order_by(Staff.created_at)
-    )
-    return [s for s in active.all() if permission in granted[s]]
+    """有某项权限的启用状态的员工（按员工设置的权限也算，§31.4）。"""
+    return [s.id for s, granted in await active_staff_permissions(session) if permission in granted]
 
 
 async def supervisors(session: AsyncSession, todo: Todo) -> list[uuid.UUID]:

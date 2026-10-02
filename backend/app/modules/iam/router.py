@@ -2,8 +2,9 @@ from typing import Annotated
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
-from fastapi import APIRouter, Cookie, Depends, Request, Response, status
+from fastapi import APIRouter, Cookie, Depends, Query, Request, Response, status
 from pydantic import ValidationError
+from sqlalchemy import select
 
 from app.context import AppContext
 from app.core.config import Settings
@@ -24,9 +25,10 @@ from app.db.session import Database
 from app.modules.audit.service import record_audit
 from app.modules.billing.entitlements import entitlements
 from app.modules.billing.service import billing_notice
+from app.modules.iam import access, manage, service
 from app.modules.iam import console as consoles
-from app.modules.iam import manage, service
 from app.modules.iam.deps import CurrentPrincipal, TenantDb, require_permission
+from app.modules.iam.models import Role, Staff
 from app.modules.iam.principal import Principal
 from app.modules.iam.schemas import (
     ConsoleOut,
@@ -45,6 +47,7 @@ from app.modules.iam.schemas import (
     RoleList,
     RoleOut,
     RoleUpdate,
+    StaffAccessDefaults,
     StaffCreate,
     StaffList,
     StaffOut,
@@ -165,10 +168,20 @@ async def logout(
 async def me(principal: CurrentPrincipal, session: TenantDb, settings: SettingsDep) -> MeResponse:
     entitled = await entitlements(session, principal.tenant_id)
     sub, plan = entitled.subscription, entitled.plan
-    profiles = consoles.profiles_for(
-        await consoles.staff_roles(session, principal.staff_id), principal.permissions
-    )
+    roles = await service.roles_of(session, principal.staff_id)
+    staff = await session.get(Staff, principal.staff_id)
+    assert staff is not None
+    profiles = consoles.profiles_for(roles, principal.permissions)
     console_settings = await consoles.load_settings(session, principal.tenant_id)
+    # 按员工设置的页面和登录后打开的页面（§31）。
+    menus = consoles.menus_for(
+        profiles,
+        console_settings,
+        principal.permissions,
+        entitled.features,
+        access.own_menus(staff, roles),
+    )
+    home = access.home_menu(staff, roles)
     days_left, notice = billing_notice(sub, [], today(ZoneInfo(settings.usage_timezone)))
     return MeResponse(
         id=principal.staff_id,
@@ -191,12 +204,7 @@ async def me(principal: CurrentPrincipal, session: TenantDb, settings: SettingsD
         if sub is not None and plan is not None
         else None,
         billing_notice=notice if principal.has(Permission.SETTINGS_MANAGE) else None,
-        console=ConsoleOut(
-            profiles=profiles,
-            menus=consoles.menus_for(
-                profiles, console_settings, principal.permissions, entitled.features
-            ),
-        ),
+        console=ConsoleOut(profiles=profiles, menus=menus, home=home if home in menus else None),
     )
 
 
@@ -332,6 +340,34 @@ async def put_console(
 @router.get("/staff", response_model=StaffList)
 async def list_staff(session: TenantDb, _: CanReadStaff) -> StaffList:
     return StaffList(items=await service.list_staff(session))
+
+
+@router.get("/staff/access-defaults", response_model=StaffAccessDefaults)
+async def staff_access_defaults(
+    session: TenantDb,
+    principal: CanManageStaff,
+    role_codes: Annotated[list[str], Query(min_length=1)],
+) -> StaffAccessDefaults:
+    """这些角色给的页面和权限：新建、编辑员工时选"自定义"的起点（§31）。"""
+    requested = set(role_codes)
+    roles = list((await session.scalars(select(Role).where(Role.code.in_(requested)))).all())
+    missing = requested - {role.code for role in roles}
+    if missing:
+        raise Unprocessable(f"角色不存在：{'、'.join(sorted(missing))}")
+    granted = service.granted_by(roles)
+    profiles = consoles.profiles_for(roles, granted)
+    entitled = await entitlements(session, principal.tenant_id)
+    return StaffAccessDefaults(
+        profiles=profiles,
+        menus=consoles.menus_for(
+            profiles,
+            await consoles.load_settings(session, principal.tenant_id),
+            granted,
+            entitled.features,
+        ),
+        permissions=access.known(granted),
+        adjustable=access.adjustable(roles),
+    )
 
 
 @router.post("/staff", response_model=StaffOut, status_code=status.HTTP_201_CREATED)

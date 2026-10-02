@@ -1,0 +1,51 @@
+import {
+  Avatar,
+  Box,
+  ChatDotRound,
+  ChatLineRound,
+  Clock,
+  Connection,
+  DataLine,
+  Document,
+  Finished,
+  Goods,
+  HomeFilled,
+  MagicStick,
+  Money,
+  OfficeBuilding,
+  Promotion,
+  Reading,
+  Setting,
+  ShoppingCart,
+  Tickets,
+  TrendCharts,
+  User,
+} from '@element-plus/icons-vue'
+import type { Component } from 'vue'
+
+import type { MenuIcon } from './menu'
+
+/** 菜单图标（左侧菜单和分配权限时的业务模块共用）。 */
+export const MENU_ICONS: Record<MenuIcon, Component> = {
+  home: HomeFilled,
+  chat: ChatDotRound,
+  history: Clock,
+  ticket: Tickets,
+  task: Finished,
+  order: ShoppingCart,
+  goods: Goods,
+  money: Money,
+  production: Box,
+  warehouse: OfficeBuilding,
+  user: User,
+  reading: Reading,
+  ai: MagicStick,
+  assistant: ChatLineRound,
+  avatar: Avatar,
+  chart: DataLine,
+  profit: TrendCharts,
+  integration: Connection,
+  broadcast: Promotion,
+  audit: Document,
+  setting: Setting,
+}

@@ -6,6 +6,8 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { api, formatDateTime } from '../api'
 import HandoverDialog from '../components/customers/HandoverDialog.vue'
 import RolesTab from '../components/staff/RolesTab.vue'
+import StaffAccessEditor from '../components/staff/StaffAccessEditor.vue'
+import { accessBody, accessOf, accessSummary, emptyAccess, type AccessForm } from '../staffAccess'
 import { useAuthStore } from '../stores/auth'
 
 const auth = useAuthStore()
@@ -23,10 +25,14 @@ function openHandover(member: Schemas['StaffOut']): void {
   handoverOpen.value = true
 }
 const roleNames = computed(() => new Map(roles.value.map((r) => [r.code, r.name])))
+/** 权限点的名称和分组（"页面和权限"里按分组勾选，§31）。 */
+const catalog = ref<Schemas['PermissionInfo'][]>([])
+const permissionNames = computed(() => new Map(catalog.value.map((p) => [p.code, p.name])))
 
 const dialogVisible = ref(false)
 const saving = ref(false)
 const form = reactive({ username: '', displayName: '', password: '', roleCodes: ['agent'] })
+const createAccess = ref<AccessForm>(emptyAccess())
 
 const editOpen = ref(false)
 const editing = ref<Schemas['StaffOut'] | null>(null)
@@ -34,15 +40,17 @@ const editForm = reactive<{ displayName: string; roleCodes: string[] }>({
   displayName: '',
   roleCodes: [],
 })
+const editAccess = ref<AccessForm>(emptyAccess())
 
 const resetOpen = ref(false)
 const resetPassword = ref('')
 
 async function load(): Promise<void> {
   loading.value = true
-  const [staffResult, rolesResult] = await Promise.all([
+  const [staffResult, rolesResult, catalogResult] = await Promise.all([
     api.GET('/api/v1/staff'),
     api.GET('/api/v1/roles'),
+    api.GET('/api/v1/permissions'),
   ])
   loading.value = false
   if (!staffResult.data || !rolesResult.data) {
@@ -51,14 +59,26 @@ async function load(): Promise<void> {
   }
   staff.value = staffResult.data.items
   roles.value = rolesResult.data.items
+  if (catalogResult.data) catalog.value = catalogResult.data.items
 }
 
 function openCreate(): void {
   Object.assign(form, { username: '', displayName: '', password: '', roleCodes: ['agent'] })
+  createAccess.value = emptyAccess()
   dialogVisible.value = true
 }
 
+/** 自定义时至少要勾一个页面。 */
+function accessReady(access: AccessForm): boolean {
+  if (access.mode === 'custom' && access.menus.length === 0) {
+    ElMessage.warning('自定义时请至少勾选一个页面')
+    return false
+  }
+  return true
+}
+
 async function create(): Promise<void> {
+  if (!accessReady(createAccess.value)) return
   saving.value = true
   const { data, error } = await api.POST('/api/v1/staff', {
     body: {
@@ -66,6 +86,7 @@ async function create(): Promise<void> {
       display_name: form.displayName.trim(),
       password: form.password,
       role_codes: form.roleCodes,
+      access: accessBody(createAccess.value),
     },
   })
   saving.value = false
@@ -81,6 +102,7 @@ async function create(): Promise<void> {
 function openEdit(member: Schemas['StaffOut']): void {
   editing.value = member
   Object.assign(editForm, { displayName: member.display_name, roleCodes: [...member.roles] })
+  editAccess.value = accessOf(member)
   editOpen.value = true
 }
 
@@ -108,10 +130,15 @@ async function saveEdit(): Promise<void> {
     ElMessage.warning('请填写姓名并至少选择一个角色')
     return
   }
+  if (!accessReady(editAccess.value)) return
   saving.value = true
   const ok = await patch(
     editing.value,
-    { display_name: editForm.displayName.trim(), role_codes: editForm.roleCodes },
+    {
+      display_name: editForm.displayName.trim(),
+      role_codes: editForm.roleCodes,
+      access: accessBody(editAccess.value),
+    },
     '已保存',
   )
   saving.value = false
@@ -185,6 +212,20 @@ onMounted(load)
               <el-tag v-for="code in row.roles" :key="code" class="role" disable-transitions>
                 {{ roleNames.get(code) ?? code }}
               </el-tag>
+              <el-tooltip v-if="row.access" placement="top">
+                <template #content>
+                  <div v-for="line in accessSummary(row, permissionNames)" :key="line">
+                    {{ line }}
+                  </div>
+                </template>
+                <el-tag
+                  type="warning"
+                  class="role"
+                  disable-transitions
+                  :data-testid="`custom-access-${row.username}`"
+                  >自定义</el-tag
+                >
+              </el-tooltip>
             </template>
           </el-table-column>
           <el-table-column label="状态" width="100">
@@ -234,21 +275,45 @@ onMounted(load)
     </el-tabs>
     <HandoverDialog v-model="handoverOpen" :from="handoverFrom" :staff="staff" />
 
-    <el-dialog v-model="dialogVisible" title="新建员工" width="480px">
-      <el-form label-width="84px" @submit.prevent="create">
-        <el-form-item label="用户名" required>
-          <el-input v-model="form.username" placeholder="3-64 位字母、数字、._-" />
-        </el-form-item>
-        <el-form-item label="姓名" required>
-          <el-input v-model="form.displayName" />
-        </el-form-item>
-        <el-form-item label="初始密码" required>
-          <el-input v-model="form.password" type="password" show-password placeholder="至少 8 位" />
-        </el-form-item>
+    <el-dialog
+      v-model="dialogVisible"
+      title="新建员工"
+      width="min(860px, 96vw)"
+      top="5vh"
+      class="scroll-dialog"
+      data-testid="staff-create"
+    >
+      <el-form label-position="top" @submit.prevent="create">
+        <div class="fields">
+          <el-form-item label="用户名" required>
+            <el-input v-model="form.username" placeholder="3-64 位字母、数字、._-" />
+          </el-form-item>
+          <el-form-item label="姓名" required>
+            <el-input v-model="form.displayName" />
+          </el-form-item>
+          <el-form-item label="初始密码" required>
+            <el-input
+              v-model="form.password"
+              type="password"
+              show-password
+              placeholder="至少 8 位"
+            />
+          </el-form-item>
+        </div>
         <el-form-item label="角色" required>
-          <el-checkbox-group v-model="form.roleCodes">
-            <el-checkbox v-for="r in roles" :key="r.code" :value="r.code">{{ r.name }}</el-checkbox>
+          <el-checkbox-group v-model="form.roleCodes" class="roles">
+            <el-checkbox v-for="r in roles" :key="r.code" :value="r.code" border>
+              {{ r.name }}
+            </el-checkbox>
           </el-checkbox-group>
+        </el-form-item>
+        <el-form-item label="页面和权限">
+          <StaffAccessEditor
+            v-if="dialogVisible"
+            v-model="createAccess"
+            :role-codes="form.roleCodes"
+            :catalog="catalog"
+          />
         </el-form-item>
       </el-form>
       <template #footer>
@@ -257,18 +322,37 @@ onMounted(load)
       </template>
     </el-dialog>
 
-    <el-dialog v-model="editOpen" title="编辑员工" width="480px" data-testid="staff-edit">
-      <el-form label-width="84px" @submit.prevent="saveEdit">
-        <el-form-item label="用户名">
-          <span>{{ editing?.username }}</span>
-        </el-form-item>
-        <el-form-item label="姓名" required>
-          <el-input v-model="editForm.displayName" maxlength="64" />
-        </el-form-item>
+    <el-dialog
+      v-model="editOpen"
+      title="编辑员工"
+      width="min(860px, 96vw)"
+      top="5vh"
+      class="scroll-dialog"
+      data-testid="staff-edit"
+    >
+      <el-form label-position="top" @submit.prevent="saveEdit">
+        <div class="fields">
+          <el-form-item label="用户名">
+            <el-input :model-value="editing?.username" disabled />
+          </el-form-item>
+          <el-form-item label="姓名" required>
+            <el-input v-model="editForm.displayName" maxlength="64" />
+          </el-form-item>
+        </div>
         <el-form-item label="角色" required>
-          <el-checkbox-group v-model="editForm.roleCodes">
-            <el-checkbox v-for="r in roles" :key="r.code" :value="r.code">{{ r.name }}</el-checkbox>
+          <el-checkbox-group v-model="editForm.roleCodes" class="roles">
+            <el-checkbox v-for="r in roles" :key="r.code" :value="r.code" border>
+              {{ r.name }}
+            </el-checkbox>
           </el-checkbox-group>
+        </el-form-item>
+        <el-form-item label="页面和权限">
+          <StaffAccessEditor
+            v-if="editOpen"
+            v-model="editAccess"
+            :role-codes="editForm.roleCodes"
+            :catalog="catalog"
+          />
         </el-form-item>
       </el-form>
       <template #footer>
@@ -302,5 +386,22 @@ onMounted(load)
 .hint {
   margin: 0 0 12px;
   color: var(--el-text-color-secondary);
+}
+
+.fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  column-gap: 16px;
+}
+
+/* 勾选框组的字号是 0；带边框的角色勾选框之间留出间距。 */
+.roles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.roles .el-checkbox {
+  margin-right: 0;
 }
 </style>

@@ -1,7 +1,7 @@
 import type { ConsoleMenu, Permission } from '@edp/api-client'
 import { describe, expect, it } from 'vitest'
 
-import { MENU, firstAccessiblePath, safeRedirect, visibleMenus } from './menu'
+import { MENU, firstAccessiblePath, landingPath, safeRedirect, visibleMenus } from './menu'
 
 // 与后端 app/core/permissions.py 中的系统角色一致。
 const AGENT: Permission[] = [
@@ -159,6 +159,23 @@ describe('firstAccessiblePath', () => {
 
   it('falls back to the forbidden page without permissions', () => {
     expect(firstAccessiblePath(new Set())).toBe('/forbidden')
+  })
+})
+
+describe('landingPath (§31)', () => {
+  const agent = new Set<Permission>(['dashboard:view', 'order:read', 'customer:read'])
+
+  it('opens the page set for the staff member when it is shown', () => {
+    expect(landingPath(agent, {}, ['dashboard', 'orders', 'customers'], 'orders')).toBe('/orders')
+  })
+
+  it('falls back to the first menu when the page is hidden or not set', () => {
+    expect(landingPath(agent, {}, ['dashboard', 'customers'], 'orders')).toBe('/')
+    expect(landingPath(agent, { orders: false }, ['orders', 'customers'], 'orders')).toBe(
+      '/customers',
+    )
+    expect(landingPath(agent, {}, ['orders', 'customers'], null)).toBe('/orders')
+    expect(landingPath(new Set(), {}, ['orders'], 'orders')).toBe('/forbidden')
   })
 })
 

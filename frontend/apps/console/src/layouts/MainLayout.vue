@@ -1,35 +1,12 @@
 <script setup lang="ts">
-import {
-  ArrowDown,
-  Avatar,
-  Box,
-  ChatDotRound,
-  ChatLineRound,
-  Clock,
-  Connection,
-  DataLine,
-  Document,
-  Finished,
-  Goods,
-  HomeFilled,
-  MagicStick,
-  Money,
-  OfficeBuilding,
-  Promotion,
-  Reading,
-  Setting,
-  ShoppingCart,
-  Tickets,
-  TrendCharts,
-  User,
-} from '@element-plus/icons-vue'
-import { computed, onBeforeUnmount, onMounted, ref, type Component } from 'vue'
+import { ArrowDown } from '@element-plus/icons-vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import { api } from '../api'
 import PasswordDialog from '../components/account/PasswordDialog.vue'
 import NotificationBell from '../components/layout/NotificationBell.vue'
-import type { MenuIcon } from '../menu'
+import { MENU_ICONS as icons } from '../menuIcons'
 import { ORDERS_CHANGED } from '../orders'
 import { TASKS_CHANGED } from '../tasks'
 import { TODOS_CHANGED } from '../todos'
@@ -40,29 +17,6 @@ const auth = useAuthStore()
 const route = useRoute()
 const router = useRouter()
 
-const icons: Record<MenuIcon, Component> = {
-  home: HomeFilled,
-  chat: ChatDotRound,
-  history: Clock,
-  ticket: Tickets,
-  task: Finished,
-  order: ShoppingCart,
-  goods: Goods,
-  money: Money,
-  production: Box,
-  warehouse: OfficeBuilding,
-  user: User,
-  reading: Reading,
-  ai: MagicStick,
-  assistant: ChatLineRound,
-  avatar: Avatar,
-  chart: DataLine,
-  profit: TrendCharts,
-  integration: Connection,
-  broadcast: Promotion,
-  audit: Document,
-  setting: Setting,
-}
 // 按岗位显示的菜单（§25.15）；角标只给显示的菜单取数。
 const menus = computed(() => auth.menus)
 const shown = (name: string): boolean => menus.value.some((item) => item.name === name)

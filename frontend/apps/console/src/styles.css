@@ -31,3 +31,17 @@ body {
   justify-content: flex-end;
   margin-top: 16px;
 }
+
+/* 内容很长的对话框（员工、角色）：标题和底部按钮固定，中间滚动。 */
+.scroll-dialog {
+  display: flex;
+  flex-direction: column;
+  max-height: 90vh;
+  margin-bottom: 0;
+}
+
+.scroll-dialog .el-dialog__body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}

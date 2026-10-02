@@ -28,6 +28,12 @@ class Staff(IdMixin, TimestampMixin, TenantMixin, Base):
     status: Mapped[str] = mapped_column(String(16), server_default=StaffStatus.ACTIVE.value)
     # 绑定的企业微信成员（扫码登录、企业微信内免登、应用消息）。
     wecom_userid: Mapped[str | None] = mapped_column(String(64))
+    # 按员工设置的页面和权限（设计文档 §31）：比角色多给的、去掉的权限；自定义的页面（为空表示按
+    # 岗位）和登录后打开的页面。租户管理员不能单独调整。
+    extra_permissions: Mapped[list[str]] = mapped_column(server_default=text("'{}'"))
+    revoked_permissions: Mapped[list[str]] = mapped_column(server_default=text("'{}'"))
+    menus: Mapped[list[str] | None]
+    home_menu: Mapped[str | None] = mapped_column(String(16))
 
 
 class Role(IdMixin, TimestampMixin, TenantMixin, Base):

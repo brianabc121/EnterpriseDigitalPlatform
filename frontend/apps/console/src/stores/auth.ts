@@ -3,7 +3,7 @@ import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 
 import { api, apiBase, tokens, transport } from '../api'
-import { firstAccessiblePath, visibleMenus } from '../menu'
+import { landingPath, visibleMenus } from '../menu'
 
 export const useAuthStore = defineStore('auth', () => {
   const me = ref<Schemas['MeResponse'] | null>(null)
@@ -11,13 +11,23 @@ export const useAuthStore = defineStore('auth', () => {
 
   const permissions = computed(() => new Set<Permission>(me.value?.permissions ?? []))
   const isAuthenticated = computed(() => me.value !== null)
-  /** 按岗位显示的菜单（§25.15）和登录后打开的页面（第一个菜单）。 */
+  /**
+   * 按岗位显示的菜单（§25.15，按员工设置了页面时是员工自己的，§31）和登录后打开的页面（按员工设置
+   * 的，否则第一个菜单）。
+   */
   const menus = computed(() =>
     visibleMenus(permissions.value, me.value?.features ?? {}, me.value?.console.menus),
   )
   const home = computed(() =>
-    firstAccessiblePath(permissions.value, me.value?.features ?? {}, me.value?.console.menus),
+    landingPath(
+      permissions.value,
+      me.value?.features ?? {},
+      me.value?.console.menus,
+      me.value?.console.home,
+    ),
   )
+  /** 菜单里有"首页"。 */
+  const dashboardShown = computed(() => menus.value.some((item) => item.name === 'dashboard'))
   const profiles = computed(() => me.value?.console.profiles ?? [])
 
   function can(permission: Permission): boolean {
@@ -81,6 +91,7 @@ export const useAuthStore = defineStore('auth', () => {
     isAuthenticated,
     menus,
     home,
+    dashboardShown,
     profiles,
     can,
     fetchMe,

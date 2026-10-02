@@ -193,7 +193,22 @@ export function firstAccessiblePath(
   features: Readonly<Record<string, boolean>> = {},
   consoleMenus?: readonly ConsoleMenu[],
 ): string {
-  return visibleMenus(permissions, features, consoleMenus)[0]?.path ?? '/forbidden'
+  return landingPath(permissions, features, consoleMenus)
+}
+
+/**
+ * 登录后打开的页面（§31）：按员工设置的页面（/api/v1/me 的 console.home，还要看得到），否则第一个
+ * 显示的菜单。
+ */
+export function landingPath(
+  permissions: ReadonlySet<Permission>,
+  features: Readonly<Record<string, boolean>> = {},
+  consoleMenus?: readonly ConsoleMenu[],
+  home?: ConsoleMenu | null,
+): string {
+  const menus = visibleMenus(permissions, features, consoleMenus)
+  const chosen = home ? menus.find((item) => item.name === home) : undefined
+  return (chosen ?? menus[0])?.path ?? '/forbidden'
 }
 
 /** 登录后跳回原页面时只接受站内路径，避免被构造成跳转到外部地址。 */
