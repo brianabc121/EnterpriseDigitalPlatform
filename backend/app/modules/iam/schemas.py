@@ -27,6 +27,10 @@ class TenantBrief(BaseModel):
     id: UUID
     code: str
     name: str
+    timezone: str = Field(
+        default="Asia/Shanghai",
+        description="企业的时区（默认路由策略的工作时间）：报表的今天、本月按它算",
+    )
 
 
 class MePlan(BaseModel):

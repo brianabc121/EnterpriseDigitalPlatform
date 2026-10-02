@@ -66,6 +66,28 @@ function pad(n: number): string {
   return String(n).padStart(2, '0')
 }
 
+/**
+ * 企业时区的今天（年月日放在本地日期里，供 presetPeriod 等按本地日期计算）：浏览器的时区和企业的
+ * 不同时（例如在国外打开），本月、今天仍按企业的日历算。时区无效时用浏览器的今天。
+ */
+export function zonedToday(timeZone: string | undefined, now: Date = new Date()): Date {
+  if (timeZone) {
+    try {
+      const parts = new Intl.DateTimeFormat('en-US', {
+        timeZone,
+        year: 'numeric',
+        month: 'numeric',
+        day: 'numeric',
+      }).formatToParts(now)
+      const part = (type: string) => Number(parts.find((p) => p.type === type)?.value)
+      return new Date(part('year'), part('month') - 1, part('day'))
+    } catch {
+      // 无效的时区：按浏览器的日期。
+    }
+  }
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate())
+}
+
 /** 本地日期 → YYYY-MM-DD。 */
 export function isoDate(day: Date): string {
   return `${day.getFullYear()}-${pad(day.getMonth() + 1)}-${pad(day.getDate())}`

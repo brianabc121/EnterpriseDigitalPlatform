@@ -32698,6 +32698,12 @@
           "name": {
             "title": "Name",
             "type": "string"
+          },
+          "timezone": {
+            "default": "Asia/Shanghai",
+            "description": "企业的时区（默认路由策略的工作时间）：报表的今天、本月按它算",
+            "title": "Timezone",
+            "type": "string"
           }
         },
         "required": [

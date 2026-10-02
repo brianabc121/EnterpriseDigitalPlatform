@@ -2364,6 +2364,9 @@ WhatsApp、Telegram、钉钉、飞书作为助理和员工沟通的 IM，需要�
   `SET CONSTRAINTS edp_data_index IMMEDIATE` 让排队的更新立即执行，再恢复 `DEFERRED`（没有这个触发器时照常执行）。
 - **费用的单位**：大模型调用的费用（`llm_calls.cost`、唤醒记录和整理报告的 `llm_cost`）按供应商价格估算，单位是分，
   页面显示时换算成元。
+- **盈利报表的"今天"**（P19 的问题，完整验收时发现）：报表页面按浏览器的日期算"本月"的结束日，浏览器的时区和企业不同
+  时（CI 的浏览器是 UTC，北京时间 0–8 点之间）会漏掉当天确认的订单。`/api/v1/me` 返回企业的时区
+  （`tenant.timezone`，默认路由策略的工作时间），盈利报表的期间、登记收支的默认日期按企业时区的今天（`zonedToday`）。
 
 ### 35.2 验收
 
@@ -2384,6 +2387,7 @@ WhatsApp、Telegram、钉钉、飞书作为助理和员工沟通的 IM，需要�
   按制度更新、重复的合并并下线；没有脚本错误）全部通过，已加入 `e2e-full.yml`。`p0-acceptance`、
   `p11-transport-consoles-acceptance`（菜单多了"AI 唤醒"）、`p20-staff-access-acceptance`、`p4-knowledge-acceptance`、
   `g5-ai-knowledge`、`p3-ai-acceptance`、`p6-todos-acceptance` 在新界面上重新跑过；`p3-ai-acceptance` 输入相似问法时偶尔漏掉
-  一个，改为每个问法确认加上后再输入下一个。
+  一个，改为每个问法确认加上后再输入下一个。完整验收（`e2e-full.yml`）第一次在北京时间 0 点后运行，`p19-profit-acceptance`
+  因为上面"盈利报表的今天"的问题失败；在同一时段本地复现，修复后通过。
 - 未做（设计文档 §33.13）：企业用一句话描述要检查的事、由 AI 生成检查规则；让 AI 自由查询数据找问题；AI 直接修改知识；
   规章制度的审批发布流程、制度和法律法规的比对；短信、邮件通知和按员工设置的提醒方式、免打扰时间。

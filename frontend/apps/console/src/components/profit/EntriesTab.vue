@@ -8,12 +8,14 @@ import {
   isoDate,
   KIND_LABEL,
   yuan,
+  zonedToday,
   type CategoryOptions,
   type EntryKind,
   type EntryPage,
   type ProfitEntry,
   type ProfitPeriod,
 } from '../../profit'
+import { useAuthStore } from '../../stores/auth'
 import EntryDialog, { type EntryDraft } from './EntryDialog.vue'
 
 /**
@@ -91,7 +93,7 @@ function copy(entry: ProfitEntry): void {
     amount: entry.amount,
     note: entry.note,
     recurring: entry.recurring,
-    occurred_on: isoDate(new Date()),
+    occurred_on: isoDate(zonedToday(useAuthStore().me?.tenant.timezone)),
   }
   dialog.value = true
 }

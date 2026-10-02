@@ -55,6 +55,7 @@ from app.modules.iam.schemas import (
     TenantBrief,
     TokenResponse,
 )
+from app.modules.todos import sla
 
 REFRESH_COOKIE = "edp_refresh"
 REFRESH_COOKIE_PATH = "/api/v1/auth"
@@ -188,7 +189,10 @@ async def me(principal: CurrentPrincipal, session: TenantDb, settings: SettingsD
         username=principal.username,
         display_name=principal.display_name,
         tenant=TenantBrief(
-            id=principal.tenant_id, code=principal.tenant_code, name=principal.tenant_name
+            id=principal.tenant_id,
+            code=principal.tenant_code,
+            name=principal.tenant_name,
+            timezone=sla.tz_of(await sla.business_hours(session)).key,
         ),
         roles=list(principal.role_codes),
         # 自定义角色里可能残留已下线的权限点，只返回当前版本认识的。

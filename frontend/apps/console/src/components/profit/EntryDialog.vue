@@ -4,7 +4,15 @@ import { ElMessage } from 'element-plus'
 import { computed, reactive, ref, watch } from 'vue'
 
 import { api } from '../../api'
-import { isoDate, KIND_LABEL, type CategoryOptions, type EntryKind, type ProfitEntry } from '../../profit'
+import {
+  isoDate,
+  KIND_LABEL,
+  zonedToday,
+  type CategoryOptions,
+  type EntryKind,
+  type ProfitEntry,
+} from '../../profit'
+import { useAuthStore } from '../../stores/auth'
 
 /**
  * 登记、修改一笔费用（支出）或其他收入（设计文档 §30.4）。类别可以选常用的，也可以自己写；日期最晚
@@ -29,7 +37,8 @@ const props = defineProps<{
 }>()
 const emit = defineEmits<{ 'update:modelValue': [value: boolean]; saved: [entry: ProfitEntry] }>()
 
-const today = new Date()
+// 企业时区的今天：默认日期和能选的最晚日期（本月底）。
+const today = zonedToday(useAuthStore().me?.tenant.timezone)
 const maxDate = new Date(today.getFullYear(), today.getMonth() + 1, 0)
 const form = reactive({
   kind: 'expense' as EntryKind,

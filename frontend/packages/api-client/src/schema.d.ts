@@ -21448,6 +21448,12 @@ export interface components {
             id: string;
             /** Name */
             name: string;
+            /**
+             * Timezone
+             * @description 企业的时区（默认路由策略的工作时间）：报表的今天、本月按它算
+             * @default Asia/Shanghai
+             */
+            timezone: string;
         };
         /** TenantChannels */
         TenantChannels: {

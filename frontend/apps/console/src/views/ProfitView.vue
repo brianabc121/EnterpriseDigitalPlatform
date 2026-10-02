@@ -16,6 +16,7 @@ import {
   PRESETS,
   type PresetKey,
   type ProfitPeriod,
+  zonedToday,
 } from '../profit'
 import { useAuthStore } from '../stores/auth'
 
@@ -38,8 +39,11 @@ const version = ref(0)
 const exporting = ref(false)
 const canManage = computed(() => auth.can('profit:manage'))
 
+/** 企业时区的今天（§30：报表按企业的日历算本月、上月）。 */
+const tenantToday = (): Date => zonedToday(auth.me?.tenant.timezone)
+
 const period = computed<ProfitPeriod>(() => {
-  const today = new Date()
+  const today = tenantToday()
   if (preset.value === 'custom' && months.value) {
     return monthPeriod(months.value[0], months.value[1], today)
   }
@@ -58,7 +62,7 @@ function pickMonths(value: [string, string] | null): void {
 
 /** 本月以后的月份不能选。 */
 function futureMonth(day: Date): boolean {
-  const now = new Date()
+  const now = tenantToday()
   return day > new Date(now.getFullYear(), now.getMonth() + 1, 0)
 }
 

@@ -12,10 +12,32 @@ import {
   statementRows,
   yuan,
   yuanShort,
+  zonedToday,
   type Statement,
 } from './profit'
 
 const TODAY = new Date(2026, 9, 2) // 2026-10-02
+
+describe('zonedToday', () => {
+  it("uses the tenant's calendar, not the browser's", () => {
+    // 北京时间 10 月 3 日 0 点 30 分 = UTC 10 月 2 日 16 点 30 分。
+    const now = new Date(Date.UTC(2026, 9, 2, 16, 30))
+    const today = zonedToday('Asia/Shanghai', now)
+    expect([today.getFullYear(), today.getMonth() + 1, today.getDate()]).toEqual([2026, 10, 3])
+    const utc = zonedToday('UTC', now)
+    expect([utc.getFullYear(), utc.getMonth() + 1, utc.getDate()]).toEqual([2026, 10, 2])
+    expect(presetPeriod('month', zonedToday('Asia/Shanghai', new Date(Date.UTC(2026, 9, 31, 17))))).toMatchObject({
+      start: '2026-11-01',
+      end: '2026-11-01',
+    })
+  })
+
+  it("falls back to the browser's date for a missing or invalid zone", () => {
+    const now = new Date(2026, 9, 2, 10, 0)
+    expect(zonedToday(undefined, now).getDate()).toBe(2)
+    expect(zonedToday('Mars/Base', now).getDate()).toBe(2)
+  })
+})
 
 describe('presetPeriod', () => {
   it('runs this month, quarter and year up to today', () => {
