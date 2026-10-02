@@ -336,6 +336,11 @@ class OrderDetail(OrderOut):
     discount: Money
     deposit_amount: Money | None
     credit_approved_by_name: str | None
+    promise_date: date | None = Field(
+        default=None, description="客户承诺的付款日（应收账款的跟进，§28）"
+    )
+    followed_up_at: datetime | None = Field(default=None, description="最近一次应收跟进的时间")
+    follow_up_note: str | None = Field(default=None, description="最近一次应收跟进的备注")
     payment_hint: PaymentMethodValue | None = Field(description="客户在对话中提到的付款方式")
     receiver: dict[str, str] = Field(description="收货信息（掩码）")
     missing: list[str] = Field(description="提交或确认前还缺少的信息")

@@ -8,6 +8,7 @@ export type MenuIcon =
   | 'task'
   | 'order'
   | 'goods'
+  | 'money'
   | 'production'
   | 'warehouse'
   | 'user'
@@ -38,6 +39,7 @@ export const CONSOLE_PROFILES: [ConsoleProfile, string][] = [
   ['admin', '管理员'],
   ['supervisor', '主管'],
   ['agent', '客服'],
+  ['finance', '财务'],
   ['keeper', '仓管'],
   ['worker', '工人'],
   ['knowledge', '知识管理员'],
@@ -68,6 +70,15 @@ export const MENU: readonly MenuItem[] = [
     title: '订单',
     icon: 'order',
     permission: 'order:read',
+    feature: 'orders',
+  },
+  // 应收账款（§28）：财务岗位的页面，管理员默认也有（管理员就是默认的财务）。
+  {
+    name: 'receivables',
+    path: '/receivables',
+    title: '应收账款',
+    icon: 'money',
+    permission: 'finance:view',
     feature: 'orders',
   },
   {

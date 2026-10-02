@@ -15,9 +15,9 @@ from tests.test_orders import call
 from tests.test_warehouse import material
 
 ALL = [
-    "dashboard", "workbench", "sessions", "todos", "orders", "products", "production",
-    "warehouse", "tasks", "customers", "knowledge", "ai", "assistant", "staff", "reports",
-    "broadcasts", "wecom", "audit", "settings",
+    "dashboard", "workbench", "sessions", "todos", "orders", "receivables", "products",
+    "production", "warehouse", "tasks", "customers", "knowledge", "ai", "assistant", "staff",
+    "reports", "broadcasts", "wecom", "audit", "settings",
 ]  # fmt: skip
 
 

@@ -56,6 +56,7 @@ from app.modules.assistant.extraction import run_group_extraction
 from app.modules.billing.service import run_invoices, run_lifecycle
 from app.modules.conversation.outbox import dispatch_due
 from app.modules.conversation.reconcile import reconcile_all
+from app.modules.finance.jobs import run_overdue_reminders as run_finance_reminders
 from app.modules.formkb.learn import purge as purge_form_learning
 from app.modules.integration.delivery import purge_events as purge_webhook_events
 from app.modules.integration.delivery import run as run_webhooks
@@ -128,6 +129,7 @@ JOBS = (
     Job("session-summaries", 60, run_session_summaries),
     Job("todo-timers", 15, run_todo_timers),
     Job("todo-digest", 300, run_todo_digest),
+    Job("finance-overdue-remind", 1800, run_finance_reminders),
     Job("todo-extract", 60, run_todo_extraction),
     Job("task-timers", 60, run_task_timers),
     Job("task-digest", 300, run_task_digest),

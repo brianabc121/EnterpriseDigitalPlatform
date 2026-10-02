@@ -1734,6 +1734,186 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/finance/customers/{customer_id}/statement": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Customer Statement
+         * @description 客户对账单：期初未收、期间内的订单和收款、期末未收；默认本月。
+         */
+        get: operations["customer_statement_api_v1_finance_customers__customer_id__statement_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/finance/receivables": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Receivables
+         * @description 未收清的订单（按订单）：范围、账龄分段、收款方式、处理人、客户、关键字筛选；默认按到期日。
+         */
+        get: operations["list_receivables_api_v1_finance_receivables_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/finance/receivables/customers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Customers
+         * @description 按客户汇总：未收合计、逾期金额、订单数、最早到期日、最近收款和跟进。
+         */
+        get: operations["list_customers_api_v1_finance_receivables_customers_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/finance/receivables/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Export Receivables
+         * @description 导出当前筛选的应收明细（CSV，不含收货信息和联系方式）。每次导出记审计。
+         */
+        post: operations["export_receivables_api_v1_finance_receivables_export_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/finance/receivables/recent-payments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Recent Payments
+         * @description 最近登记的收款和退款（首页）。
+         */
+        get: operations["recent_payments_api_v1_finance_receivables_recent_payments_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/finance/receivables/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Receivable Summary
+         * @description 应收合计、逾期、今天到期、7 天内到期、本月已收、账龄分段（全公司）。
+         */
+        get: operations["receivable_summary_api_v1_finance_receivables_summary_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/finance/receivables/{order_id}/collect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Collect
+         * @description 生成一条"催收"待办，默认交给订单处理人；一个订单同时只有一条未完成的催收待办。
+         */
+        post: operations["collect_api_v1_finance_receivables__order_id__collect_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/finance/receivables/{order_id}/followup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Follow Up
+         * @description 记一次跟进：客户承诺的付款日和备注（写入订单动态）。
+         */
+        post: operations["follow_up_api_v1_finance_receivables__order_id__followup_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/finance/staff": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Staff Options
+         * @description 启用状态的员工：筛选处理人、指定催收人（财务没有查看员工的权限）。
+         */
+        get: operations["staff_options_api_v1_finance_staff_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/form-kb/entries": {
         parameters: {
             query?: never;
@@ -4067,6 +4247,26 @@ export interface paths {
          * @description 新建自定义角色（权限不能超出自己拥有的权限）。
          */
         post: operations["create_role_api_v1_roles_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/roles/profile-permissions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Profile Permissions
+         * @description 每个岗位的默认权限：新建自定义角色时选了岗位可以一键填入（设计文档 §28.5）。
+         */
+        get: operations["profile_permissions_api_v1_roles_profile_permissions_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -7948,6 +8148,13 @@ export interface components {
             /** Question */
             question: string;
         };
+        /** AmountCount */
+        AmountCount: {
+            /** Amount */
+            amount: string;
+            /** Count */
+            count: number;
+        };
         /** ApiKeyCreate */
         ApiKeyCreate: {
             /**
@@ -8671,6 +8878,20 @@ export interface components {
             /** Label */
             label: string;
         };
+        /** BucketOut */
+        BucketOut: {
+            /** Amount */
+            amount: string;
+            /**
+             * Bucket
+             * @enum {string}
+             */
+            bucket: "current" | "d1_30" | "d31_60" | "d61_90" | "d90_plus";
+            /** Count */
+            count: number;
+            /** Label */
+            label: string;
+        };
         /** CallbackUrls */
         CallbackUrls: {
             /**
@@ -8875,6 +9096,30 @@ export interface components {
              */
             scheduled_at: string | null;
         };
+        /** CollectIn */
+        CollectIn: {
+            /**
+             * Assignee Id
+             * @description 催收待办交给谁；不填时交给订单处理人（没有处理人时按催收类型的分派规则）
+             */
+            assignee_id?: string | null;
+        };
+        /** CollectionTodoOut */
+        CollectionTodoOut: {
+            /** Assignee Id */
+            assignee_id: string | null;
+            /** Assignee Name */
+            assignee_name: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** No */
+            no: string;
+            /** Status */
+            status: string;
+        };
         /** ColumnOut */
         ColumnOut: {
             /** Key */
@@ -8967,7 +9212,7 @@ export interface components {
          * @description 控制台的菜单，与前端 menu.ts 的菜单名一致（前端按 OpenAPI 的枚举检查）。
          * @enum {string}
          */
-        ConsoleMenu: "dashboard" | "workbench" | "sessions" | "todos" | "orders" | "products" | "production" | "warehouse" | "tasks" | "customers" | "knowledge" | "ai" | "assistant" | "staff" | "reports" | "broadcasts" | "wecom" | "audit" | "settings";
+        ConsoleMenu: "dashboard" | "workbench" | "sessions" | "todos" | "orders" | "receivables" | "products" | "production" | "warehouse" | "tasks" | "customers" | "knowledge" | "ai" | "assistant" | "staff" | "reports" | "broadcasts" | "wecom" | "audit" | "settings";
         /**
          * ConsoleOut
          * @description 按岗位的控制台（设计文档 §25.15）。
@@ -8988,7 +9233,7 @@ export interface components {
          * ConsoleProfile
          * @enum {string}
          */
-        ConsoleProfile: "admin" | "supervisor" | "agent" | "keeper" | "worker" | "knowledge";
+        ConsoleProfile: "admin" | "supervisor" | "agent" | "finance" | "keeper" | "worker" | "knowledge";
         /** ConsoleProfileMenus */
         ConsoleProfileMenus: {
             /**
@@ -9283,6 +9528,44 @@ export interface components {
             /** Total */
             total: number;
         };
+        /** CustomerReceivableOut */
+        CustomerReceivableOut: {
+            /** Company */
+            company: string | null;
+            /**
+             * Customer Id
+             * Format: uuid
+             */
+            customer_id: string;
+            /** Customer Name */
+            customer_name: string;
+            /** Earliest Due */
+            earliest_due: string | null;
+            /** Follow Up Note */
+            follow_up_note: string | null;
+            /** Followed Up At */
+            followed_up_at: string | null;
+            /** Last Paid At */
+            last_paid_at: string | null;
+            /** Max Overdue Days */
+            max_overdue_days: number;
+            /**
+             * Orders
+             * @description 未收清的订单数
+             */
+            orders: number;
+            /** Outstanding */
+            outstanding: string;
+            /** Overdue */
+            overdue: string;
+        };
+        /** CustomerReceivablePage */
+        CustomerReceivablePage: {
+            /** Items */
+            items: components["schemas"]["CustomerReceivableOut"][];
+            /** Total */
+            total: number;
+        };
         /**
          * CustomerSensitive
          * @description 手机号和邮箱明文（需要 customer:view_sensitive 权限，每次查看记审计）。
@@ -9292,6 +9575,61 @@ export interface components {
             email: string | null;
             /** Phone */
             phone: string | null;
+        };
+        /** CustomerStatement */
+        CustomerStatement: {
+            /**
+             * Closing
+             * @description 期末未收
+             */
+            closing: string;
+            /** Company */
+            company: string | null;
+            /**
+             * Customer Id
+             * Format: uuid
+             */
+            customer_id: string;
+            /** Customer Name */
+            customer_name: string;
+            /**
+             * Generated At
+             * Format: date-time
+             */
+            generated_at: string;
+            /** Generated By */
+            generated_by: string;
+            /** Lines */
+            lines: components["schemas"]["StatementLine"][];
+            /**
+             * Open Orders
+             * @description 目前未收清的订单
+             */
+            open_orders: components["schemas"]["ReceivableOut"][];
+            /**
+             * Opening
+             * @description 期初未收
+             */
+            opening: string;
+            /**
+             * Orders Amount
+             * @description 期间内确认的订单合计
+             */
+            orders_amount: string;
+            /**
+             * Period From
+             * Format: date
+             */
+            period_from: string;
+            /**
+             * Period To
+             * Format: date
+             */
+            period_to: string;
+            /** Received */
+            received: string;
+            /** Refunded */
+            refunded: string;
         };
         /** CustomerSummaryList */
         CustomerSummaryList: {
@@ -10218,6 +10556,19 @@ export interface components {
             tags: string[];
             /** Userid */
             userid: string;
+        };
+        /** FollowupIn */
+        FollowupIn: {
+            /**
+             * Note
+             * @default
+             */
+            note: string;
+            /**
+             * Promise Date
+             * @description 客户承诺的付款日；传 null 清除，不传表示不修改
+             */
+            promise_date?: string | null;
         };
         /** FormKbConfirm */
         FormKbConfirm: {
@@ -14431,6 +14782,16 @@ export interface components {
             /** External No */
             external_no: string | null;
             /**
+             * Follow Up Note
+             * @description 最近一次应收跟进的备注
+             */
+            follow_up_note?: string | null;
+            /**
+             * Followed Up At
+             * @description 最近一次应收跟进的时间
+             */
+            followed_up_at?: string | null;
+            /**
              * Id
              * Format: uuid
              */
@@ -14491,6 +14852,11 @@ export interface components {
              * @default true
              */
             production_required: boolean;
+            /**
+             * Promise Date
+             * @description 客户承诺的付款日（应收账款的跟进，§28）
+             */
+            promise_date?: string | null;
             /**
              * Receivable Overdue
              * @description 暂欠已过约定付款日期仍未收清
@@ -15535,7 +15901,7 @@ export interface components {
          * Permission
          * @enum {string}
          */
-        Permission: "dashboard:view" | "workbench:use" | "customer:read" | "customer:read_all" | "customer:create" | "customer:assign" | "customer:view_sensitive" | "customer:export" | "customer:manage" | "session:read_all" | "session:read_team" | "session:transfer" | "session:transfer_any" | "session:monitor" | "routing:manage" | "staff:read" | "staff:manage" | "quick_reply:manage" | "kb:read" | "kb:manage" | "kb:publish" | "form_kb:manage" | "report:view" | "settings:manage" | "broadcast:manage" | "tenant:manage" | "audit:read" | "todo:read" | "todo:handle" | "todo:assign" | "todo:config" | "todo:export" | "order:read" | "order:create" | "order:review" | "order:price" | "order:payment" | "order:credit" | "order:export" | "order:config" | "product:manage" | "product:view_cost" | "inventory:manage" | "warehouse:confirm" | "production:work" | "production:assign" | "integration:manage" | "task:use" | "task:assign" | "task:read_all" | "assistant:use";
+        Permission: "dashboard:view" | "workbench:use" | "customer:read" | "customer:read_all" | "customer:create" | "customer:assign" | "customer:view_sensitive" | "customer:export" | "customer:manage" | "session:read_all" | "session:read_team" | "session:transfer" | "session:transfer_any" | "session:monitor" | "routing:manage" | "staff:read" | "staff:manage" | "quick_reply:manage" | "kb:read" | "kb:manage" | "kb:publish" | "form_kb:manage" | "report:view" | "settings:manage" | "broadcast:manage" | "tenant:manage" | "audit:read" | "todo:read" | "todo:handle" | "todo:assign" | "todo:config" | "todo:export" | "order:read" | "order:create" | "order:review" | "order:price" | "order:payment" | "order:credit" | "order:export" | "order:config" | "product:manage" | "product:view_cost" | "inventory:manage" | "warehouse:confirm" | "production:work" | "production:assign" | "integration:manage" | "task:use" | "task:assign" | "task:read_all" | "assistant:use" | "finance:view" | "finance:manage";
         /** PermissionInfo */
         PermissionInfo: {
             code: components["schemas"]["Permission"];
@@ -16614,6 +16980,22 @@ export interface components {
             /** Total */
             total: number;
         };
+        /** ProfilePermissionList */
+        ProfilePermissionList: {
+            /** Items */
+            items: components["schemas"]["ProfilePermissions"][];
+        };
+        /** ProfilePermissions */
+        ProfilePermissions: {
+            /** Label */
+            label: string;
+            /**
+             * Permissions
+             * @description 这个岗位的默认权限（设计文档 §28.5）
+             */
+            permissions: components["schemas"]["Permission"][];
+            profile: components["schemas"]["ConsoleProfile"];
+        };
         /** PromptActivate */
         PromptActivate: {
             /**
@@ -16902,6 +17284,147 @@ export interface components {
             /** Reason */
             reason: string;
         };
+        /** ReceivableFilters */
+        ReceivableFilters: {
+            /** Assignee Id */
+            assignee_id?: string | null;
+            /** Bucket */
+            bucket?: ("current" | "d1_30" | "d31_60" | "d61_90" | "d90_plus") | null;
+            /** Customer Id */
+            customer_id?: string | null;
+            /** Payment Method */
+            payment_method?: ("online" | "cod" | "deposit" | "credit") | null;
+            /** Q */
+            q?: string | null;
+            /**
+             * View
+             * @default open
+             * @enum {string}
+             */
+            view: "open" | "overdue" | "due_today" | "due_soon" | "not_due" | "promised" | "promise_overdue";
+        };
+        /** ReceivableOut */
+        ReceivableOut: {
+            /**
+             * Age Days
+             * @description 账龄：确认到今天的天数
+             */
+            age_days: number;
+            /** Assignee Id */
+            assignee_id: string | null;
+            /** Assignee Name */
+            assignee_name: string | null;
+            /**
+             * Bucket
+             * @description 账龄分段（按逾期天数）
+             * @enum {string}
+             */
+            bucket: "current" | "d1_30" | "d31_60" | "d61_90" | "d90_plus";
+            /** @description 未完成的催收待办 */
+            collection_todo: components["schemas"]["CollectionTodoOut"] | null;
+            /** Confirmed At */
+            confirmed_at: string | null;
+            /** Customer Company */
+            customer_company: string | null;
+            /** Customer Id */
+            customer_id: string | null;
+            /** Customer Name */
+            customer_name: string | null;
+            /**
+             * Due Date
+             * @description 到期日（设计文档 §28.3）；为空表示还没到期（例如尾款等加工完成）
+             */
+            due_date: string | null;
+            /**
+             * Follow Up Note
+             * @description 最近一次跟进的备注
+             */
+            follow_up_note: string | null;
+            /**
+             * Followed Up At
+             * @description 最近一次跟进的时间
+             */
+            followed_up_at: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** No */
+            no: string;
+            /**
+             * Outstanding
+             * @description 未收金额
+             */
+            outstanding: string;
+            /**
+             * Overdue Days
+             * @description 逾期天数；没有逾期为 0
+             */
+            overdue_days: number;
+            /** Paid Amount */
+            paid_amount: string;
+            /** Payment Method */
+            payment_method: ("online" | "cod" | "deposit" | "credit") | null;
+            /**
+             * Payment Status
+             * @enum {string}
+             */
+            payment_status: "unpaid" | "deposit" | "partial" | "paid" | "refunded";
+            /**
+             * Promise Date
+             * @description 客户承诺的付款日
+             */
+            promise_date: string | null;
+            /**
+             * Promise Overdue
+             * @description 承诺付款日已过仍未收清
+             */
+            promise_overdue: boolean;
+            /** Refunded Amount */
+            refunded_amount: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "draft" | "pending_review" | "confirmed" | "fulfilling" | "shipped" | "completed" | "cancelled";
+            /**
+             * Summary
+             * @description 商品摘要
+             */
+            summary: string;
+            /** Total */
+            total: string;
+        };
+        /** ReceivablePage */
+        ReceivablePage: {
+            /** Items */
+            items: components["schemas"]["ReceivableOut"][];
+            /** Total */
+            total: number;
+        };
+        /** ReceivableSummary */
+        ReceivableSummary: {
+            /** Buckets */
+            buckets: components["schemas"]["BucketOut"][];
+            /** @description 7 天内到期（不含今天） */
+            due_soon: components["schemas"]["AmountCount"];
+            due_today: components["schemas"]["AmountCount"];
+            /** @description 全部未收清 */
+            open: components["schemas"]["AmountCount"];
+            overdue: components["schemas"]["AmountCount"];
+            /**
+             * Received This Month
+             * @description 本月登记的收款减退款
+             */
+            received_this_month: string;
+            /**
+             * Today
+             * Format: date
+             * @description 租户时区的今天
+             */
+            today: string;
+        };
         /**
          * ReceiverIn
          * @description 收货信息。修改时不传的项保持不变，空字符串表示清除。
@@ -16929,6 +17452,54 @@ export interface components {
             receiver: {
                 [key: string]: string;
             };
+        };
+        /** RecentPaymentList */
+        RecentPaymentList: {
+            /** Items */
+            items: components["schemas"]["RecentPaymentOut"][];
+        };
+        /** RecentPaymentOut */
+        RecentPaymentOut: {
+            /** Amount */
+            amount: string;
+            /**
+             * Channel
+             * @enum {string}
+             */
+            channel: "wechat" | "alipay" | "bank" | "cash" | "other";
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Customer Id */
+            customer_id: string | null;
+            /** Customer Name */
+            customer_name: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "payment" | "refund";
+            /**
+             * Order Id
+             * Format: uuid
+             */
+            order_id: string;
+            /** Order No */
+            order_no: string;
+            /**
+             * Paid At
+             * Format: date-time
+             */
+            paid_at: string;
+            /** Recorded By Name */
+            recorded_by_name: string | null;
         };
         /** RecordHistory */
         RecordHistory: {
@@ -18022,6 +18593,14 @@ export interface components {
             /** Name */
             name: string;
         };
+        /** StaffOptionList */
+        StaffOptionList: {
+            /**
+             * Items
+             * @description 启用状态的员工（筛选处理人、指定催收人）
+             */
+            items: components["schemas"]["StaffOption"][];
+        };
         /**
          * StaffOptions
          * @description 可以交办的对象：启用状态的员工。
@@ -18062,6 +18641,38 @@ export interface components {
              * @description 停用后立即退出登录、下线，接待中的会话退回队列；名下客户需要另行交接
              */
             status?: ("active" | "disabled") | null;
+        };
+        /** StatementLine */
+        StatementLine: {
+            /** Amount */
+            amount: string;
+            /**
+             * Balance
+             * @description 这一行之后的未收余额
+             */
+            balance: string;
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /**
+             * Description
+             * @description 订单：商品摘要；收款、退款：渠道和流水号
+             */
+            description: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "order" | "payment" | "refund";
+            /**
+             * Order Id
+             * Format: uuid
+             */
+            order_id: string;
+            /** Order No */
+            order_no: string;
         };
         /**
          * StockAdjustIn
@@ -29380,6 +29991,711 @@ export interface operations {
             };
         };
     };
+    customer_statement_api_v1_finance_customers__customer_id__statement_get: {
+        parameters: {
+            query?: {
+                from?: string | null;
+                to?: string | null;
+            };
+            header?: never;
+            path: {
+                customer_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomerStatement"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    list_receivables_api_v1_finance_receivables_get: {
+        parameters: {
+            query?: {
+                view?: "open" | "overdue" | "due_today" | "due_soon" | "not_due" | "promised" | "promise_overdue";
+                bucket?: ("current" | "d1_30" | "d31_60" | "d61_90" | "d90_plus") | null;
+                payment_method?: ("online" | "cod" | "deposit" | "credit") | null;
+                assignee_id?: string | null;
+                customer_id?: string | null;
+                q?: string | null;
+                sort?: "due" | "outstanding" | "age";
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReceivablePage"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    list_customers_api_v1_finance_receivables_customers_get: {
+        parameters: {
+            query?: {
+                q?: string | null;
+                overdue_only?: boolean;
+                sort?: "outstanding" | "overdue";
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomerReceivablePage"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    export_receivables_api_v1_finance_receivables_export_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReceivableFilters"];
+            };
+        };
+        responses: {
+            /** @description CSV 文件 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": unknown;
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    recent_payments_api_v1_finance_receivables_recent_payments_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecentPaymentList"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    receivable_summary_api_v1_finance_receivables_summary_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReceivableSummary"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    collect_api_v1_finance_receivables__order_id__collect_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                order_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["CollectIn"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReceivableOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    follow_up_api_v1_finance_receivables__order_id__followup_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                order_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FollowupIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReceivableOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    staff_options_api_v1_finance_staff_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffOptionList"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     list_entries_api_v1_form_kb_entries_get: {
         parameters: {
             query?: {
@@ -40261,6 +41577,80 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RoleOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    profile_permissions_api_v1_roles_profile_permissions_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfilePermissionList"];
                 };
             };
             /** @description Bad Request */

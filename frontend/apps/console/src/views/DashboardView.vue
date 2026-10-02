@@ -4,6 +4,7 @@ import { computed, onBeforeUnmount, onMounted, reactive } from 'vue'
 
 import { api } from '../api'
 import AgentHome from '../components/home/AgentHome.vue'
+import FinanceHome from '../components/home/FinanceHome.vue'
 import type { HomeData } from '../components/home/home'
 import KeeperHome from '../components/home/KeeperHome.vue'
 import KnowledgeHome from '../components/home/KnowledgeHome.vue'
@@ -22,13 +23,23 @@ const LIVE_MS = 15_000
 const COUNTS_MS = 60_000
 
 const auth = useAuthStore()
-const data = reactive<HomeData>({ live: null, todos: null, orders: null, warehouse: null })
+const data = reactive<HomeData>({
+  live: null,
+  todos: null,
+  orders: null,
+  warehouse: null,
+  receivables: null,
+})
 const profiles = computed(() => auth.profiles)
 const has = (profile: ConsoleProfile): boolean => profiles.value.includes(profile)
 const shown = (name: string): boolean => auth.menus.some((m) => m.name === name)
 const team = computed(() => has('admin') || has('supervisor'))
+// 财务的一块（§28.4）：财务岗位，以及默认担任财务的管理员。
+const finance = computed(() => shown('receivables') && (has('finance') || has('admin')))
 // 没有岗位的首页内容时（例如管理员给工人打开了首页）显示常用功能。
-const fallback = computed(() => !team.value && !has('agent') && !has('keeper') && !has('knowledge'))
+const fallback = computed(
+  () => !team.value && !has('agent') && !has('finance') && !has('keeper') && !has('knowledge'),
+)
 const modules = computed(() => auth.menus.filter((m) => m.name !== 'dashboard'))
 const roleText = computed(() => profiles.value.map((p) => PROFILE_LABEL[p]).join('、'))
 
@@ -42,14 +53,16 @@ async function loadLive(): Promise<void> {
 }
 
 async function loadCounts(): Promise<void> {
-  const [todos, orders, warehouse] = await Promise.all([
+  const [todos, orders, warehouse, receivables] = await Promise.all([
     shown('todos') ? api.GET('/api/v1/todos/counts') : null,
     shown('orders') && auth.can('order:review') ? api.GET('/api/v1/orders/counts') : null,
     shown('warehouse') && (team.value || has('keeper')) ? api.GET('/api/v1/warehouse/counts') : null,
+    finance.value ? api.GET('/api/v1/finance/receivables/summary') : null,
   ])
   data.todos = todos?.data ?? null
   data.orders = orders?.data ?? null
   data.warehouse = warehouse?.data ?? null
+  data.receivables = receivables?.data ?? null
 }
 
 function onChanged(): void {
@@ -89,6 +102,7 @@ onBeforeUnmount(() => {
 
     <TeamHome v-if="team" :data="data" />
     <AgentHome v-if="has('agent')" :data="data" />
+    <FinanceHome v-if="finance" :data="data" @changed="onChanged" />
     <KeeperHome v-if="has('keeper') && shown('warehouse')" :data="data" @changed="onChanged" />
     <KnowledgeHome v-if="has('knowledge') && shown('knowledge') && auth.can('kb:manage')" />
 

@@ -182,8 +182,8 @@ async function run(browser) {
   const menus = summary.menus
   const customers = summary.customers
   // 与后端 app/core/consoles.py 一致（§25.15）：管理员看全部菜单；客服只看接待相关的菜单。
-  const ALL_MENUS = ['首页', '工作台', '会话记录', '待办', '订单', '商品', '加工', '仓库', '客户', '知识库', 'AI 接待', '员工', '报表', '群发', '企业微信', '操作日志', '设置']
-  const AGENT_MENUS = ['首页', '工作台', '会话记录', '待办', '订单', '客户', '知识库']
+  const ALL_MENUS = ['首页', '工作台', '会话记录', '待办', '订单', '应收账款', '商品', '加工', '仓库', '个人待办', '客户', '知识库', 'AI 接待', 'AI 助理', '员工', '报表', '群发', '企业微信', '操作日志', '设置']
+  const AGENT_MENUS = ['首页', '工作台', '会话记录', '待办', '订单', '个人待办', '客户', '知识库', 'AI 助理']
   check(
     `管理员看到全部 ${ALL_MENUS.length} 个菜单`,
     JSON.stringify(menus['租户 A 管理员']) === JSON.stringify(ALL_MENUS),

@@ -2,13 +2,14 @@
 
 from enum import StrEnum
 
-from app.core.permissions import Permission
+from app.core.permissions import DEFAULT_ROLES, Permission
 
 
 class ConsoleProfile(StrEnum):
     ADMIN = "admin"
     SUPERVISOR = "supervisor"
     AGENT = "agent"
+    FINANCE = "finance"  # 财务（设计文档 §28.5）：默认由管理员担任，自定义角色可以选择
     KEEPER = "keeper"
     WORKER = "worker"
     KNOWLEDGE = "knowledge"
@@ -18,6 +19,7 @@ PROFILE_LABELS: dict[ConsoleProfile, str] = {
     ConsoleProfile.ADMIN: "管理员",
     ConsoleProfile.SUPERVISOR: "主管",
     ConsoleProfile.AGENT: "客服",
+    ConsoleProfile.FINANCE: "财务",
     ConsoleProfile.KEEPER: "仓管",
     ConsoleProfile.WORKER: "工人",
     ConsoleProfile.KNOWLEDGE: "知识管理员",
@@ -32,6 +34,7 @@ class ConsoleMenu(StrEnum):
     SESSIONS = "sessions"
     TODOS = "todos"
     ORDERS = "orders"
+    RECEIVABLES = "receivables"  # 应收账款（设计文档 §28）
     PRODUCTS = "products"
     PRODUCTION = "production"
     WAREHOUSE = "warehouse"
@@ -65,6 +68,14 @@ DEFAULT_MENUS: dict[ConsoleProfile, tuple[ConsoleMenu, ...]] = {
         M.KNOWLEDGE,
         M.ASSISTANT,
     ),
+    ConsoleProfile.FINANCE: (
+        M.DASHBOARD,
+        M.ORDERS,
+        M.RECEIVABLES,
+        M.TASKS,
+        M.CUSTOMERS,
+        M.ASSISTANT,
+    ),
     ConsoleProfile.KEEPER: (
         M.DASHBOARD,
         M.WAREHOUSE,
@@ -96,6 +107,7 @@ MENU_RULES: dict[ConsoleMenu, tuple[Permission, str | None]] = {
     ConsoleMenu.TODOS: (Permission.TODO_READ, None),
     ConsoleMenu.TASKS: (Permission.TASK_USE, None),
     ConsoleMenu.ORDERS: (Permission.ORDER_READ, "orders"),
+    ConsoleMenu.RECEIVABLES: (Permission.FINANCE_VIEW, "orders"),
     ConsoleMenu.PRODUCTS: (Permission.ORDER_READ, "orders"),
     ConsoleMenu.PRODUCTION: (Permission.PRODUCTION_WORK, "orders"),
     ConsoleMenu.WAREHOUSE: (Permission.INVENTORY_MANAGE, "orders"),
@@ -109,4 +121,27 @@ MENU_RULES: dict[ConsoleMenu, tuple[Permission, str | None]] = {
     ConsoleMenu.WECOM: (Permission.SETTINGS_MANAGE, None),
     ConsoleMenu.AUDIT: (Permission.AUDIT_READ, None),
     ConsoleMenu.SETTINGS: (Permission.SETTINGS_MANAGE, None),
+}
+
+
+# 每个岗位的默认权限（"员工 → 角色"里选了岗位后一键填入，设计文档 §28.5）：有同名系统角色的岗位就是
+# 该角色的权限；财务没有系统角色，单独列出。
+PROFILE_PERMISSIONS: dict[ConsoleProfile, frozenset[Permission]] = {
+    **{
+        SYSTEM_ROLE_PROFILES[spec.code]: spec.permissions
+        for spec in DEFAULT_ROLES
+        if spec.code in SYSTEM_ROLE_PROFILES
+    },
+    ConsoleProfile.FINANCE: frozenset(
+        {
+            Permission.DASHBOARD_VIEW,
+            Permission.FINANCE_VIEW,
+            Permission.FINANCE_MANAGE,
+            Permission.ORDER_READ,
+            Permission.ORDER_PAYMENT,
+            Permission.CUSTOMER_READ,
+            Permission.TASK_USE,
+            Permission.ASSISTANT_USE,
+        }
+    ),
 }

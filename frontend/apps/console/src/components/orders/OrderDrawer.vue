@@ -14,7 +14,6 @@ import {
   ORDER_STATUS_TAG,
   ordersChanged,
   PAYMENT_CHANNEL,
-  PAYMENT_CHANNELS,
   PAYMENT_METHOD,
   PAYMENT_STATUS,
   PAYMENT_STATUS_TAG,
@@ -31,6 +30,8 @@ import { TODO_STATUS } from '../../todos'
 import { briefText, STATUS_TAG } from '../../warehouse'
 import HistoryDrawer from '../history/HistoryDrawer.vue'
 import SessionDrawer from '../sessions/SessionDrawer.vue'
+import { todayIso } from '../../finance'
+import PaymentDialog from '../finance/PaymentDialog.vue'
 import OrderFormDialog from './OrderFormDialog.vue'
 
 /**
@@ -69,16 +70,7 @@ const confirm = reactive({
 })
 const ship = reactive({ open: false, company: '', trackingNo: '', notify: true })
 const cancel = reactive({ open: false, reason: '', notify: true })
-const payment = reactive({
-  open: false,
-  kind: 'payment' as 'payment' | 'refund',
-  amount: '',
-  channel: 'wechat' as Schemas['PaymentIn']['channel'],
-  paidAt: '',
-  referenceNo: '',
-  proofUrl: '',
-  note: '',
-})
+const payment = reactive({ open: false, kind: 'payment' as 'payment' | 'refund' })
 const assign = reactive({ open: false, mode: 'staff' as 'staff' | 'group', staffId: '', groupId: '' })
 const notice = reactive({ open: false, text: '' })
 const worker = reactive({ open: false, id: '', options: [] as Schemas['WorkerOption'][] })
@@ -103,6 +95,10 @@ const producing = computed(() => {
   return !!d && !['draft', 'pending_review'].includes(d.status)
 })
 const active = computed(() => ['confirmed', 'fulfilling'].includes(detail.value?.status ?? ''))
+const promiseOverdue = computed(() => {
+  const d = detail.value
+  return !!d?.promise_date && Number(d.outstanding) > 0 && d.promise_date < todayIso()
+})
 // 库存不足的商品（§25.12，只提示、不拦截）。
 const short = computed(() => shortLines(detail.value?.items ?? []))
 const handler = computed(() => {
@@ -268,43 +264,14 @@ async function submitCancel(): Promise<void> {
 }
 
 function openPayment(kind: 'payment' | 'refund'): void {
-  const d = detail.value
-  if (!d) return
-  const paid = Number(d.paid_amount) - Number(d.refunded_amount)
-  Object.assign(payment, {
-    open: true,
-    kind,
-    amount: kind === 'payment' ? d.outstanding : paid > 0 ? paid.toFixed(2) : '',
-    channel: 'wechat',
-    paidAt: '',
-    referenceNo: '',
-    proofUrl: '',
-    note: '',
-  })
+  if (!detail.value) return
+  Object.assign(payment, { open: true, kind })
 }
 
-async function submitPayment(): Promise<void> {
-  if (!(Number(payment.amount) > 0)) {
-    ElMessage.warning('请填写金额')
-    return
-  }
-  const ok = await run(
-    () =>
-      api.POST('/api/v1/orders/{order_id}/payments', {
-        ...path(),
-        body: {
-          kind: payment.kind,
-          amount: payment.amount,
-          channel: payment.channel,
-          paid_at: payment.paidAt || null,
-          reference_no: payment.referenceNo.trim() || null,
-          proof_url: payment.proofUrl.trim() || null,
-          note: payment.note.trim() || null,
-        },
-      }),
-    payment.kind === 'refund' ? '已登记退款' : '已登记收款',
-  )
-  if (ok) payment.open = false
+/** 登记收款、退款的对话框（和应收账款页共用）保存后：重新读取订单，通知外面刷新。 */
+async function onPaymentSaved(): Promise<void> {
+  await load()
+  emit('changed')
 }
 
 async function voidPayment(paymentId: string): Promise<void> {
@@ -576,6 +543,18 @@ async function onSaved(): Promise<void> {
               {{ money(Number(detail.paid_amount) - Number(detail.refunded_amount)) }} /
               <span data-testid="order-outstanding">{{ money(detail.outstanding) }}</span>
             </dd>
+            <template v-if="detail.promise_date || detail.followed_up_at">
+              <dt>应收跟进</dt>
+              <dd data-testid="order-followup">
+                <span v-if="detail.promise_date" :class="{ overdue: promiseOverdue }"
+                  >客户承诺 {{ detail.promise_date }} 付款</span
+                >
+                <span v-if="detail.follow_up_note" class="muted">{{ detail.follow_up_note }}</span>
+                <span v-if="detail.followed_up_at" class="muted"
+                  >（{{ formatDateTime(detail.followed_up_at) }}）</span
+                >
+              </dd>
+            </template>
           </dl>
           <el-table v-if="detail.payments.length" :data="detail.payments" size="small" data-testid="order-payments">
             <el-table-column label="类型" width="60">
@@ -915,45 +894,14 @@ async function onSaved(): Promise<void> {
       </template>
     </el-dialog>
 
-    <el-dialog
+    <PaymentDialog
       v-model="payment.open"
-      :title="payment.kind === 'refund' ? '登记退款' : '登记收款'"
-      width="460px"
-      append-to-body
-      data-testid="payment-dialog"
-    >
-      <el-form label-width="80px">
-        <el-form-item label="金额" required>
-          <el-input v-model="payment.amount" data-testid="payment-amount"><template #prefix>¥</template></el-input>
-        </el-form-item>
-        <el-form-item label="渠道" required>
-          <el-select v-model="payment.channel" data-testid="payment-channel">
-            <el-option v-for="[value, label] in PAYMENT_CHANNELS" :key="value" :label="label" :value="value" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="时间">
-          <el-date-picker
-            v-model="payment.paidAt"
-            type="datetime"
-            value-format="YYYY-MM-DDTHH:mm:ssZ"
-            placeholder="不填为现在"
-          />
-        </el-form-item>
-        <el-form-item label="流水号">
-          <el-input v-model="payment.referenceNo" maxlength="64" />
-        </el-form-item>
-        <el-form-item label="凭证链接">
-          <el-input v-model="payment.proofUrl" maxlength="1024" placeholder="https://" />
-        </el-form-item>
-        <el-form-item label="备注">
-          <el-input v-model="payment.note" maxlength="500" />
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="payment.open = false">取消</el-button>
-        <el-button type="primary" :loading="acting" data-testid="payment-submit" @click="submitPayment">登记</el-button>
-      </template>
-    </el-dialog>
+      :order-id="props.orderId"
+      :kind="payment.kind"
+      :outstanding="detail?.outstanding"
+      :paid="detail ? Number(detail.paid_amount) - Number(detail.refunded_amount) : 0"
+      @saved="onPaymentSaved"
+    />
 
     <el-dialog v-model="assign.open" title="转交订单" width="420px" append-to-body>
       <el-form label-width="64px">

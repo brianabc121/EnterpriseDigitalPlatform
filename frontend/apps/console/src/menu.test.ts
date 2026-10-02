@@ -53,6 +53,37 @@ describe('visibleMenus', () => {
     ])
   })
 
+  it('shows the finance position its receivables page', () => {
+    const FINANCE: Permission[] = [
+      'dashboard:view',
+      'finance:view',
+      'finance:manage',
+      'order:read',
+      'order:payment',
+      'customer:read',
+      'task:use',
+      'assistant:use',
+    ]
+    // 后端按岗位算好的菜单（没有"商品"）；没有岗位菜单时按权限显示。
+    const chosen: ConsoleMenu[] = ['dashboard', 'orders', 'receivables', 'tasks', 'customers', 'assistant']
+    expect(visibleMenus(new Set(FINANCE), {}, chosen).map((item) => item.name)).toEqual(chosen)
+    expect(names(FINANCE)).toEqual([
+      'dashboard',
+      'orders',
+      'receivables',
+      'products',
+      'tasks',
+      'customers',
+      'assistant',
+    ])
+    expect(visibleMenus(new Set(FINANCE), { orders: false }).map((item) => item.name)).toEqual([
+      'dashboard',
+      'tasks',
+      'customers',
+      'assistant',
+    ])
+  })
+
   it('shows knowledge managers only knowledge menus', () => {
     expect(names(KNOWLEDGE_MANAGER)).toEqual(['dashboard', 'tasks', 'knowledge', 'assistant'])
   })

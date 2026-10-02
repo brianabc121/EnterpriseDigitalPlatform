@@ -40,12 +40,15 @@ const TITLES = {
   sessions: '会话记录',
   todos: '待办',
   orders: '订单',
+  receivables: '应收账款',
   products: '商品',
   production: '加工',
   warehouse: '仓库',
+  tasks: '个人待办',
   customers: '客户',
   knowledge: '知识库',
   ai: 'AI 接待',
+  assistant: 'AI 助理',
   staff: '员工',
   reports: '报表',
   broadcasts: '群发',
@@ -320,8 +323,8 @@ async function agentSection(browser, ctx) {
   await shot(page, '2-agent-home')
   const menu = await menus(page)
   check(
-    '客服：菜单只有首页、工作台、会话记录、待办、订单、客户、知识库（没有"商品"）',
-    same(menu, ['首页', '工作台', '会话记录', '待办', '订单', '客户', '知识库']),
+    '客服：菜单只有首页、工作台、会话记录、待办、订单、个人待办、客户、知识库、AI 助理（没有"商品"）',
+    same(menu, ['首页', '工作台', '会话记录', '待办', '订单', '个人待办', '客户', '知识库', 'AI 助理']),
     menu,
   )
   const numbers = {
@@ -372,7 +375,7 @@ async function keeperSection(browser, ctx) {
   await rows.first().waitFor()
   await shot(page, '4-keeper-home')
   const menu = await menus(page)
-  check('仓管：菜单只有首页和仓库', same(menu, ['首页', '仓库']), menu)
+  check('仓管：菜单只有首页、仓库、个人待办、AI 助理', same(menu, ['首页', '仓库', '个人待办', 'AI 助理']), menu)
   const listed = await rows.evaluateAll((els) => els.map((el) => el.getAttribute('data-no')))
   const low = await tile(page, 'home-low-materials')
   check(
@@ -428,7 +431,7 @@ async function workerSection(browser) {
   await page.goto(`${CONSOLE}/`)
   await page.waitForURL(/\/production/)
   await shot(page, '7-worker')
-  check('工人：只有"加工"，登录后和打开首页地址都直接打开加工', same(menu, ['加工']), menu)
+  check('工人：只有"加工"（另有个人待办、AI 助理），登录后和打开首页地址都直接打开加工', same(menu, ['加工', '个人待办', 'AI 助理']), menu)
 }
 
 // 6. 知识管理员小凯：待审核和快到期的知识。
@@ -441,8 +444,8 @@ async function knowledgeSection(browser) {
   const expiring = await page.locator('[data-testid="home-kb-expiring-item"]').allInnerTexts()
   const review = await page.locator('[data-testid="home-kb-review"]').innerText()
   check(
-    '知识管理员：菜单只有首页和知识库；首页有待审核的知识和 7 天内到期的知识',
-    same(menu, ['首页', '知识库']) &&
+    '知识管理员：菜单只有首页、个人待办、知识库、AI 助理；首页有待审核的知识和 7 天内到期的知识',
+    same(menu, ['首页', '个人待办', '知识库', 'AI 助理']) &&
       expiring.length === 1 &&
       expiring[0].includes('国庆安装优惠') &&
       review.includes('没有待审核的知识'),
@@ -465,7 +468,7 @@ async function combinedSection(browser) {
   const profiles = await page.locator('[data-testid="home-profiles"]').innerText()
   check(
     '客服兼仓管：两个岗位的菜单合在一起，首页依次显示客服和仓管的内容',
-    same(menu, ['首页', '工作台', '会话记录', '待办', '订单', '仓库', '客户', '知识库']) &&
+    same(menu, ['首页', '工作台', '会话记录', '待办', '订单', '仓库', '个人待办', '客户', '知识库', 'AI 助理']) &&
       profiles.includes('客服、仓管'),
     { menu, profiles },
   )
@@ -485,7 +488,7 @@ async function consoleSettingsSection(admin, browser) {
   const added = await menus(mei)
   check(
     '管理员给客服勾选"商品"后，客服重新打开控制台看到"商品"',
-    same(added, ['首页', '工作台', '会话记录', '待办', '订单', '商品', '客户', '知识库']),
+    same(added, ['首页', '工作台', '会话记录', '待办', '订单', '商品', '个人待办', '客户', '知识库', 'AI 助理']),
     added,
   )
   await admin.locator('[data-testid="console-reset-agent"]').click()
@@ -527,7 +530,7 @@ async function customRoleSection(admin, browser, ctx) {
   const zhou = await consoleLogin(browser, 'zhou')
   await zhou.waitForURL(/\/production/)
   const menu = await menus(zhou)
-  check('把"拣货员"的岗位选成工人后，有这个角色的员工只看到"加工"', same(menu, ['加工']), menu)
+  check('把"拣货员"的岗位选成工人后，有这个角色的员工只看到"加工"（和每个岗位都有的个人待办、AI 助理）', same(menu, ['加工', '个人待办', 'AI 助理']), menu)
 }
 
 async function run(browser) {

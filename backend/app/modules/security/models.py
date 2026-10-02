@@ -44,6 +44,8 @@ class TenantSetting(Base):
     tasks: Mapped[dict[str, Any]] = mapped_column(server_default="{}")
     # AI 公司助理的设置（assistant/settings.py 的 AssistantSettings，设计文档 §27.3）。
     assistant: Mapped[dict[str, Any]] = mapped_column(server_default="{}")
+    # 应收账款（设计文档 §28.6）：每日逾期提醒的记录。
+    finance: Mapped[dict[str, Any]] = mapped_column(server_default="{}")
     updated_by: Mapped[uuid.UUID | None]
     updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
 

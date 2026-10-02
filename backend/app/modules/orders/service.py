@@ -78,8 +78,13 @@ def text_money(value: Decimal | None) -> str | None:
 
 def visible_to(principal: Principal) -> ColumnElement[bool]:
     """分派给自己的、自己新建的、自己能看到其客户的，以及所在技能组待认领的；主管另外能看到团队
-    成员的和所带技能组的；能分派工作的人能看到还没有处理人的；能看到全部客户的人能看到全部订单。"""
-    if principal.has(Permission.CUSTOMER_READ_ALL) or principal.has(Permission.SESSION_READ_ALL):
+    成员的和所带技能组的；能分派工作的人能看到还没有处理人的；能看到全部客户的人和财务（finance:view，
+    设计文档 §28.5）能看到全部订单。"""
+    if (
+        principal.has(Permission.CUSTOMER_READ_ALL)
+        or principal.has(Permission.SESSION_READ_ALL)
+        or principal.has(Permission.FINANCE_VIEW)
+    ):
         return true()
     me = principal.staff_id
     conditions: list[ColumnElement[bool]] = [

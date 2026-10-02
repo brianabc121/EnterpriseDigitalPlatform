@@ -219,6 +219,10 @@ class Order(IdMixin, TimestampMixin, TenantMixin, Base):
     created_by: Mapped[uuid.UUID | None]
     review_todo_id: Mapped[uuid.UUID | None]
     collection_todo_id: Mapped[uuid.UUID | None]
+    # 应收账款（设计文档 §28）：客户承诺的付款日和最近一次跟进（时间、备注），收清后保留。
+    promise_date: Mapped[date | None]
+    followed_up_at: Mapped[datetime | None]
+    follow_up_note: Mapped[str | None] = mapped_column(Text)
     # 加工（§25.11）：领取或被指派的工人；全部商品加工完成的时间；有缺货商品的时间（为空表示
     # 没有缺货）；提醒客服发货、处理缺货的待办。
     worker_id: Mapped[uuid.UUID | None]
