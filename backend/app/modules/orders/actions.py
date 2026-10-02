@@ -59,6 +59,7 @@ from app.modules.orders.schemas import (
 )
 from app.modules.orders.settings import OrderSettings
 from app.modules.products import stock
+from app.modules.prospects import service as prospects
 from app.modules.routing.models import SkillGroup
 from app.modules.todos import notify as todo_notify
 from app.modules.todos import sla
@@ -541,6 +542,9 @@ async def _transition(
         payload=payload,
         public=True,
     )
+    if status == OrderStatus.CONFIRMED:
+        # 意向客户（§35.4）：这个客户跟进中的意向记录变成"已成交"。
+        await prospects.order_confirmed(session, order)
     return items, payments
 
 

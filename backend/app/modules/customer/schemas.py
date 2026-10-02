@@ -23,6 +23,10 @@ class CustomerOut(BaseModel):
     email: str | None = Field(default=None, description="邮箱（掩码）")
     company: str | None = None
     created_at: datetime
+    prospect_status: str | None = Field(
+        default=None,
+        description="意向客户：suggested 待确认（AI 建议）、active 跟进中；不在名单里为空",
+    )
 
 
 class CustomerSensitive(BaseModel):
@@ -201,6 +205,9 @@ class PersonalData(BaseModel):
     messages: list[dict[str, Any]]
     todos: list[dict[str, Any]]
     orders: list[dict[str, Any]] = Field(default_factory=list, description="订单（收货信息为明文）")
+    prospects: list[dict[str, Any]] = Field(
+        default_factory=list, description="意向客户的记录和跟进记录"
+    )
     owner_history: list[dict[str, Any]]
     wecom_follows: list[dict[str, Any]]
 
