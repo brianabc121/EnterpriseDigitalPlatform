@@ -9,6 +9,7 @@ import httpx
 import pytest
 from fastapi import FastAPI
 
+from app import cli
 from app.core.config import Settings
 from app.modules.wake import checks, queue, runner
 from app.modules.wake import service as wake_service
@@ -438,3 +439,15 @@ async def test_dispatch_registers_each_slot_once_and_workers_claim_them(desk: De
     assert handled == len(rows)
     statuses = await desk.sql("SELECT status FROM wake_runs WHERE tenant_id = $1", desk.tenant_id)
     assert {r["status"] for r in statuses} == {"done"}
+
+
+async def test_cli_wake_run_skips_unchanged_checks(desk: Desk, settings: Settings) -> None:
+    """命令行立即唤醒：不加 --force 时和定时唤醒一样按增量更新索引跳过没有变化的检查项。"""
+    first = await cli.wake_run(settings, "acme", "daily", False)
+    assert first["status"] == "done" and first["stats"]["ran"] == len(checks.CHECKS)
+    again = await cli.wake_run(settings, "acme", "daily", False)
+    assert (again["stats"]["ran"], again["stats"]["skipped"]) == (0, len(checks.CHECKS))
+    forced = await cli.wake_run(settings, "acme", "hourly", True)
+    assert forced["stats"]["ran"] == len(HOURLY)
+    with pytest.raises(SystemExit):
+        await cli.wake_run(settings, "nope", "daily", False)

@@ -248,6 +248,35 @@ async def run_due(ctx: AppContext, *, now: datetime | None = None, limit: int = 
     return len(claimed)
 
 
+async def run_once(
+    ctx: AppContext, tenant_id: uuid.UUID, kind: str, trigger: str = RunTrigger.SCHEDULE
+) -> WakeRun:
+    """命令行：立即执行一次唤醒（直接领取，不经过队列，实时消费进程不会重复执行），返回执行完的
+    记录。trigger 为 manual 时和"立即唤醒"一样全部重新检查，否则按增量更新索引跳过没有变化的。"""
+    now = datetime.now(UTC)
+    run = WakeRun(
+        tenant_id=tenant_id,
+        kind=kind,
+        trigger=trigger,
+        slot=f"{trigger}:{uuid.uuid4().hex[:24]}",
+        status=RunStatus.RUNNING,
+        not_before=now,
+        lease_until=now + LEASE,
+        attempts=1,
+        started_at=now,
+        created_at=now,
+    )
+    async with ctx.db.tenant_session(tenant_id) as session:
+        session.add(run)
+        await session.commit()
+        run_id = run.id
+    await execute(ctx, run_id, tenant_id, kind, trigger)
+    async with ctx.db.tenant_session(tenant_id) as session:
+        done = await session.get(WakeRun, run_id)
+        assert done is not None
+        return done
+
+
 async def execute(
     ctx: AppContext,
     run_id: uuid.UUID,
