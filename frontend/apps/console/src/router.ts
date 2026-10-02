@@ -40,6 +40,7 @@ const VIEWS: Record<string, LazyView> = {
   assistant: () => import('./views/AssistantView.vue'),
   staff: () => import('./views/StaffView.vue'),
   reports: () => import('./views/ReportsView.vue'),
+  profit: () => import('./views/ProfitView.vue'),
   settings: () => import('./views/SettingsView.vue'),
   wecom: () => import('./views/WecomView.vue'),
   broadcasts: () => import('./views/BroadcastsView.vue'),

@@ -4255,6 +4255,174 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/profit/breakdown": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Breakdown
+         * @description 毛利分析：按商品、客户、处理人、来源、渠道、订单汇总收入、成本、毛利、毛利率。
+         */
+        get: operations["breakdown_api_v1_profit_breakdown_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/profit/categories": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Categories
+         * @description 登记收支时可选的类别：常用的在前，后面是本企业用过的。
+         */
+        get: operations["categories_api_v1_profit_categories_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/profit/entries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Entries
+         * @description 期间内的收支明细、合计、按类别小计，以及还没登记的每月固定收支。
+         */
+        get: operations["list_entries_api_v1_profit_entries_get"];
+        put?: never;
+        /**
+         * Create Entry
+         * @description 登记一笔费用（支出）或其他收入。
+         */
+        post: operations["create_entry_api_v1_profit_entries_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/profit/entries/copy-recurring": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Copy Recurring
+         * @description 把上个月标了"每月固定"、还没登记到这个月的收支，按原内容登记到这个月。
+         */
+        post: operations["copy_recurring_api_v1_profit_entries_copy_recurring_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/profit/entries/{profit_entry_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Update Entry
+         * @description 修改一笔收支（记审计：改了哪些、改前改后）。
+         */
+        put: operations["update_entry_api_v1_profit_entries__profit_entry_id__put"];
+        post?: never;
+        /**
+         * Delete Entry
+         * @description 删除一笔收支（记审计：删掉的内容）。
+         */
+        delete: operations["delete_entry_api_v1_profit_entries__profit_entry_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/profit/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Export Report
+         * @description 导出 Excel：利润表、每月、按商品、按客户、按处理人、订单明细、收支明细。记审计。
+         */
+        post: operations["export_report_api_v1_profit_export_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/profit/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Summary
+         * @description 利润表：本期、上期、去年同期；费用和其他收入按类别；回款、本期订单未收；成本缺失。
+         */
+        get: operations["summary_api_v1_profit_summary_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/profit/trend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Trend
+         * @description 截至 end 所在月的 12 个月：订单数、销售收入、成本、毛利、其他收入、费用、净利润。
+         */
+        get: operations["trend_api_v1_profit_trend_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/public/orders/{token}": {
         parameters: {
             query?: never;
@@ -8877,6 +9045,69 @@ export interface components {
              */
             sent: number;
         };
+        /** BreakdownRow */
+        BreakdownRow: {
+            /**
+             * Assignee Name
+             * @description 处理人（按订单）
+             */
+            assignee_name?: string | null;
+            /**
+             * Avg Price
+             * @description 平均售价（按商品）
+             */
+            avg_price?: string | null;
+            /**
+             * Confirmed On
+             * @description 确认日期（按订单）
+             */
+            confirmed_on?: string | null;
+            /** Cost */
+            cost: string;
+            /**
+             * Detail
+             * @description 补充说明：商品的代码型号规格、客户的公司、订单的客户
+             * @default
+             */
+            detail: string;
+            /** Gross Margin */
+            gross_margin: number | null;
+            /** Gross Profit */
+            gross_profit: string;
+            /** Key */
+            key: string;
+            /** Label */
+            label: string;
+            /**
+             * Missing Cost
+             * @description 没有成本价的商品行
+             */
+            missing_cost: number;
+            /**
+             * Order Id
+             * @description 订单（按订单）
+             */
+            order_id?: string | null;
+            /** Orders */
+            orders: number;
+            /**
+             * Quantity
+             * @description 销量（按商品）
+             */
+            quantity?: number | null;
+            /** Revenue */
+            revenue: string;
+            /**
+             * Share
+             * @description 占总毛利（%）；总毛利不大于 0 时为空
+             */
+            share: number | null;
+            /**
+             * Unit Cost
+             * @description 单位成本（按商品）
+             */
+            unit_cost?: string | null;
+        };
         /**
          * BroadcastAudience
          * @description 群发对象。发给客户时按客户、标签、归属坐席筛选（取交集，只含员工可见的客户）；
@@ -9087,10 +9318,46 @@ export interface components {
              */
             data: string;
         };
+        /** CategoryAmount */
+        CategoryAmount: {
+            /** Amount */
+            amount: string;
+            /** Category */
+            category: string;
+            /**
+             * Count
+             * @description 笔数
+             */
+            count: number;
+        };
         /** CategoryList */
         CategoryList: {
             /** Items */
             items: string[];
+        };
+        /** CategoryOptions */
+        CategoryOptions: {
+            /**
+             * Expense
+             * @description 常用的支出类别，后面是本企业用过的
+             */
+            expense: string[];
+            /** Income */
+            income: string[];
+        };
+        /** CategoryTotal */
+        CategoryTotal: {
+            /** Amount */
+            amount: string;
+            /** Category */
+            category: string;
+            /** Count */
+            count: number;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "expense" | "income";
         };
         /** CellChangeOut */
         CellChangeOut: {
@@ -9394,7 +9661,7 @@ export interface components {
          * @description 控制台的菜单，与前端 menu.ts 的菜单名一致（前端按 OpenAPI 的枚举检查）。
          * @enum {string}
          */
-        ConsoleMenu: "dashboard" | "workbench" | "sessions" | "todos" | "orders" | "receivables" | "products" | "production" | "warehouse" | "tasks" | "customers" | "knowledge" | "ai" | "assistant" | "staff" | "reports" | "broadcasts" | "wecom" | "audit" | "settings";
+        ConsoleMenu: "dashboard" | "workbench" | "sessions" | "todos" | "orders" | "receivables" | "products" | "production" | "warehouse" | "tasks" | "customers" | "knowledge" | "ai" | "assistant" | "staff" | "reports" | "profit" | "broadcasts" | "wecom" | "audit" | "settings";
         /**
          * ConsoleOut
          * @description 按岗位的控制台（设计文档 §25.15）。
@@ -9512,6 +9779,21 @@ export interface components {
             /** Text */
             text: string;
         };
+        /** CopyRecurringIn */
+        CopyRecurringIn: {
+            /**
+             * Month
+             * @description 登记到哪个月，例如 2026-10
+             */
+            month: string;
+        };
+        /** CopyRecurringResult */
+        CopyRecurringResult: {
+            /** Created */
+            created: number;
+            /** Items */
+            items: components["schemas"]["EntryOut"][];
+        };
         /** CorpOut */
         CorpOut: {
             /** Agent Id */
@@ -9534,6 +9816,40 @@ export interface components {
             corp_name: string;
             /** Status */
             status: string;
+        };
+        /**
+         * CostGap
+         * @description 成本缺失：没有成本价的商品行按 0 计算，毛利偏高。
+         */
+        CostGap: {
+            /** Lines */
+            lines: number;
+            /**
+             * Products
+             * @description 按涉及的收入排前 10
+             */
+            products: components["schemas"]["CostGapProduct"][];
+            /** Revenue */
+            revenue: string;
+        };
+        /** CostGapProduct */
+        CostGapProduct: {
+            /** Code */
+            code: string | null;
+            /** Lines */
+            lines: number;
+            /** Name */
+            name: string;
+            /**
+             * Product Id
+             * @description 没有对应到商品库的商品行为空
+             */
+            product_id: string | null;
+            /**
+             * Revenue
+             * @description 这些商品行的收入（优惠已分摊）
+             */
+            revenue: string;
         };
         /** CsatRequest */
         CsatRequest: {
@@ -10415,6 +10731,93 @@ export interface components {
              */
             unit: string;
         };
+        /** EntryIn */
+        EntryIn: {
+            /** Amount */
+            amount: number | string;
+            /** Category */
+            category: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "expense" | "income";
+            /**
+             * Note
+             * @default
+             */
+            note: string;
+            /**
+             * Occurred On
+             * Format: date
+             */
+            occurred_on: string;
+            /**
+             * Recurring
+             * @description 每月固定
+             * @default false
+             */
+            recurring: boolean;
+        };
+        /** EntryOut */
+        EntryOut: {
+            /** Amount */
+            amount: string;
+            /** Category */
+            category: string;
+            /** Copied From */
+            copied_from: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Created By Name */
+            created_by_name: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "expense" | "income";
+            /** Kind Label */
+            kind_label: string;
+            /** Note */
+            note: string;
+            /**
+             * Occurred On
+             * Format: date
+             */
+            occurred_on: string;
+            /** Recurring */
+            recurring: boolean;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Updated By Name */
+            updated_by_name: string | null;
+        };
+        /** EntryPage */
+        EntryPage: {
+            /** By Category */
+            by_category: components["schemas"]["CategoryTotal"][];
+            /** Expense Total */
+            expense_total: string;
+            /** Income Total */
+            income_total: string;
+            /** Items */
+            items: components["schemas"]["EntryOut"][];
+            /** @description 期间结束日所在的月（不晚于本月）还没登记的每月固定收支；没有时为空 */
+            recurring: components["schemas"]["RecurringPending"] | null;
+            /** Total */
+            total: number;
+        };
         /**
          * EntryTrace
          * @description 明细行是怎么录入的（§25.18 叫法的证据）：录入行选中商品时的输入、之前没找到的输入，或者
@@ -10646,6 +11049,24 @@ export interface components {
              * @description 短时有效的下载地址
              */
             url: string;
+        };
+        /** ExportIn */
+        ExportIn: {
+            /**
+             * End
+             * Format: date
+             */
+            end: string;
+            /**
+             * Shift
+             * @description 上期往前移几个月
+             */
+            shift?: number | null;
+            /**
+             * Start
+             * Format: date
+             */
+            start: string;
         };
         /**
          * ExtractRequest
@@ -14036,6 +14457,40 @@ export interface components {
              */
             secret: string;
         };
+        /** MonthRow */
+        MonthRow: {
+            /** Cost */
+            cost: string;
+            /**
+             * End
+             * Format: date
+             */
+            end: string;
+            /** Expenses */
+            expenses: string;
+            /** Gross Margin */
+            gross_margin: number | null;
+            /** Gross Profit */
+            gross_profit: string;
+            /**
+             * Month
+             * @description 月份，例如 2026-10
+             */
+            month: string;
+            /** Net Profit */
+            net_profit: string;
+            /** Orders */
+            orders: number;
+            /** Other Income */
+            other_income: string;
+            /** Revenue */
+            revenue: string;
+            /**
+             * Start
+             * Format: date
+             */
+            start: string;
+        };
         /** MyAgentState */
         MyAgentState: {
             /** Active Sessions */
@@ -16085,11 +16540,24 @@ export interface components {
              */
             reference_no?: string | null;
         };
+        /** PeriodOut */
+        PeriodOut: {
+            /**
+             * End
+             * Format: date
+             */
+            end: string;
+            /**
+             * Start
+             * Format: date
+             */
+            start: string;
+        };
         /**
          * Permission
          * @enum {string}
          */
-        Permission: "dashboard:view" | "workbench:use" | "customer:read" | "customer:read_all" | "customer:create" | "customer:assign" | "customer:view_sensitive" | "customer:export" | "customer:manage" | "session:read_all" | "session:read_team" | "session:transfer" | "session:transfer_any" | "session:monitor" | "routing:manage" | "staff:read" | "staff:manage" | "quick_reply:manage" | "kb:read" | "kb:manage" | "kb:publish" | "form_kb:manage" | "report:view" | "settings:manage" | "broadcast:manage" | "tenant:manage" | "audit:read" | "todo:read" | "todo:handle" | "todo:assign" | "todo:config" | "todo:export" | "order:read" | "order:create" | "order:review" | "order:price" | "order:payment" | "order:credit" | "order:export" | "order:config" | "product:manage" | "product:view_cost" | "inventory:manage" | "warehouse:confirm" | "production:work" | "production:assign" | "integration:manage" | "task:use" | "task:assign" | "task:read_all" | "assistant:use" | "finance:view" | "finance:manage" | "print:manage";
+        Permission: "dashboard:view" | "workbench:use" | "customer:read" | "customer:read_all" | "customer:create" | "customer:assign" | "customer:view_sensitive" | "customer:export" | "customer:manage" | "session:read_all" | "session:read_team" | "session:transfer" | "session:transfer_any" | "session:monitor" | "routing:manage" | "staff:read" | "staff:manage" | "quick_reply:manage" | "kb:read" | "kb:manage" | "kb:publish" | "form_kb:manage" | "report:view" | "settings:manage" | "broadcast:manage" | "tenant:manage" | "audit:read" | "todo:read" | "todo:handle" | "todo:assign" | "todo:config" | "todo:export" | "order:read" | "order:create" | "order:review" | "order:price" | "order:payment" | "order:credit" | "order:export" | "order:config" | "product:manage" | "product:view_cost" | "inventory:manage" | "warehouse:confirm" | "production:work" | "production:assign" | "integration:manage" | "task:use" | "task:assign" | "task:read_all" | "assistant:use" | "finance:view" | "finance:manage" | "print:manage" | "profit:view" | "profit:manage";
         /** PermissionInfo */
         PermissionInfo: {
             code: components["schemas"]["Permission"];
@@ -17412,6 +17880,54 @@ export interface components {
             permissions: components["schemas"]["Permission"][];
             profile: components["schemas"]["ConsoleProfile"];
         };
+        /** ProfitBreakdown */
+        ProfitBreakdown: {
+            /**
+             * By
+             * @enum {string}
+             */
+            by: "product" | "customer" | "assignee" | "source" | "channel" | "order";
+            /**
+             * Gross Profit
+             * @description 期间的总毛利
+             */
+            gross_profit: string;
+            /** Items */
+            items: components["schemas"]["BreakdownRow"][];
+            /**
+             * Total
+             * @description 行数
+             */
+            total: number;
+        };
+        /** ProfitSummary */
+        ProfitSummary: {
+            /**
+             * Collected
+             * @description 回款：期间内登记的收款减退款（不参与利润）
+             */
+            collected: string;
+            cost_gap: components["schemas"]["CostGap"];
+            current: components["schemas"]["Statement"];
+            /** @description 去年同期 */
+            last_year: components["schemas"]["Statement"];
+            /** @description 上期 */
+            previous: components["schemas"]["Statement"];
+            /** Timezone */
+            timezone: string;
+            /**
+             * Uncollected
+             * @description 本期订单未收：期间内确认的订单现在还没收的金额
+             */
+            uncollected: string;
+        };
+        /** ProfitTrend */
+        ProfitTrend: {
+            /** Months */
+            months: components["schemas"]["MonthRow"][];
+            /** Timezone */
+            timezone: string;
+        };
         /** PromptActivate */
         PromptActivate: {
             /**
@@ -17948,6 +18464,25 @@ export interface components {
              * @description 新的在前
              */
             versions: components["schemas"]["VersionOut"][];
+        };
+        /**
+         * RecurringPending
+         * @description 上个月标了"每月固定"、还没登记到这个月的收支。
+         */
+        RecurringPending: {
+            /** Categories */
+            categories: string[];
+            /** Count */
+            count: number;
+            /** Expense */
+            expense: string;
+            /** Income */
+            income: string;
+            /**
+             * Month
+             * @description 要登记到的月份，例如 2026-10
+             */
+            month: string;
         };
         /**
          * RejectReason
@@ -19057,6 +19592,59 @@ export interface components {
              * @description 停用后立即退出登录、下线，接待中的会话退回队列；名下客户需要另行交接
              */
             status?: ("active" | "disabled") | null;
+        };
+        /**
+         * Statement
+         * @description 一个期间的利润表（§30.3）。
+         */
+        Statement: {
+            /**
+             * Cost
+             * @description 销售成本：商品行数量 × 成本价，缺成本价的按 0
+             */
+            cost: string;
+            /** Expense By Category */
+            expense_by_category: components["schemas"]["CategoryAmount"][];
+            /**
+             * Expenses
+             * @description 费用：收支登记里的支出
+             */
+            expenses: string;
+            /**
+             * Gross Margin
+             * @description 毛利率（%）；没有收入时为空
+             */
+            gross_margin: number | null;
+            /** Gross Profit */
+            gross_profit: string;
+            /** Income By Category */
+            income_by_category: components["schemas"]["CategoryAmount"][];
+            /**
+             * Net Margin
+             * @description 净利率（%）；没有收入时为空
+             */
+            net_margin: number | null;
+            /**
+             * Net Profit
+             * @description 净利润 = 毛利 + 其他收入 − 费用
+             */
+            net_profit: string;
+            /**
+             * Orders
+             * @description 期间内确认的订单（不含已取消）
+             */
+            orders: number;
+            /**
+             * Other Income
+             * @description 其他收入：收支登记里的收入
+             */
+            other_income: string;
+            period: components["schemas"]["PeriodOut"];
+            /**
+             * Revenue
+             * @description 销售收入：订单合计
+             */
+            revenue: string;
         };
         /** StatementLine */
         StatementLine: {
@@ -41916,6 +42504,793 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["StockMovementPage"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    breakdown_api_v1_profit_breakdown_get: {
+        parameters: {
+            query?: {
+                by?: "product" | "customer" | "assignee" | "source" | "channel" | "order";
+                /** @description 开始日期（含），默认本月 1 日 */
+                start?: string | null;
+                /** @description 结束日期（含），默认今天 */
+                end?: string | null;
+                sort?: "profit" | "revenue" | "margin";
+                direction?: "desc" | "asc";
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfitBreakdown"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    categories_api_v1_profit_categories_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CategoryOptions"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    list_entries_api_v1_profit_entries_get: {
+        parameters: {
+            query?: {
+                /** @description 开始日期（含），默认本月 1 日 */
+                start?: string | null;
+                /** @description 结束日期（含），默认今天 */
+                end?: string | null;
+                kind?: ("expense" | "income") | null;
+                category?: string | null;
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntryPage"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    create_entry_api_v1_profit_entries_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EntryIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntryOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    copy_recurring_api_v1_profit_entries_copy_recurring_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CopyRecurringIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CopyRecurringResult"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    update_entry_api_v1_profit_entries__profit_entry_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                profit_entry_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EntryIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntryOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    delete_entry_api_v1_profit_entries__profit_entry_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                profit_entry_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    export_report_api_v1_profit_export_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExportIn"];
+            };
+        };
+        responses: {
+            /** @description 盈利报表 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": unknown;
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    summary_api_v1_profit_summary_get: {
+        parameters: {
+            query?: {
+                /** @description 开始日期（含），默认本月 1 日 */
+                start?: string | null;
+                /** @description 结束日期（含），默认今天 */
+                end?: string | null;
+                /** @description 上期往前移几个月；不传时按期间跨的月数 */
+                shift?: number | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfitSummary"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    trend_api_v1_profit_trend_get: {
+        parameters: {
+            query?: {
+                /** @description 结束日期（含），默认今天 */
+                end?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfitTrend"];
                 };
             };
             /** @description Bad Request */

@@ -2227,6 +2227,160 @@
         "title": "BotTestOut",
         "type": "object"
       },
+      "BreakdownRow": {
+        "properties": {
+          "assignee_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "处理人（按订单）",
+            "title": "Assignee Name"
+          },
+          "avg_price": {
+            "anyOf": [
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "平均售价（按商品）",
+            "title": "Avg Price"
+          },
+          "confirmed_on": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "确认日期（按订单）",
+            "title": "Confirmed On"
+          },
+          "cost": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Cost",
+            "type": "string"
+          },
+          "detail": {
+            "default": "",
+            "description": "补充说明：商品的代码型号规格、客户的公司、订单的客户",
+            "title": "Detail",
+            "type": "string"
+          },
+          "gross_margin": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gross Margin"
+          },
+          "gross_profit": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Gross Profit",
+            "type": "string"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "missing_cost": {
+            "description": "没有成本价的商品行",
+            "title": "Missing Cost",
+            "type": "integer"
+          },
+          "order_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "订单（按订单）",
+            "title": "Order Id"
+          },
+          "orders": {
+            "title": "Orders",
+            "type": "integer"
+          },
+          "quantity": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "销量（按商品）",
+            "title": "Quantity"
+          },
+          "revenue": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Revenue",
+            "type": "string"
+          },
+          "share": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "占总毛利（%）；总毛利不大于 0 时为空",
+            "title": "Share"
+          },
+          "unit_cost": {
+            "anyOf": [
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "单位成本（按商品）",
+            "title": "Unit Cost"
+          }
+        },
+        "required": [
+          "key",
+          "label",
+          "orders",
+          "revenue",
+          "cost",
+          "gross_profit",
+          "gross_margin",
+          "share",
+          "missing_cost"
+        ],
+        "title": "BreakdownRow",
+        "type": "object"
+      },
       "BroadcastAudience": {
         "description": "群发对象。发给客户时按客户、标签、归属坐席筛选（取交集，只含员工可见的客户）；\n发到客户群时按群或群主筛选。",
         "properties": {
@@ -2809,6 +2963,31 @@
         "title": "CallbackUrls",
         "type": "object"
       },
+      "CategoryAmount": {
+        "properties": {
+          "amount": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Amount",
+            "type": "string"
+          },
+          "category": {
+            "title": "Category",
+            "type": "string"
+          },
+          "count": {
+            "description": "笔数",
+            "title": "Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "category",
+          "amount",
+          "count"
+        ],
+        "title": "CategoryAmount",
+        "type": "object"
+      },
       "CategoryList": {
         "properties": {
           "items": {
@@ -2823,6 +3002,64 @@
           "items"
         ],
         "title": "CategoryList",
+        "type": "object"
+      },
+      "CategoryOptions": {
+        "properties": {
+          "expense": {
+            "description": "常用的支出类别，后面是本企业用过的",
+            "items": {
+              "type": "string"
+            },
+            "title": "Expense",
+            "type": "array"
+          },
+          "income": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Income",
+            "type": "array"
+          }
+        },
+        "required": [
+          "expense",
+          "income"
+        ],
+        "title": "CategoryOptions",
+        "type": "object"
+      },
+      "CategoryTotal": {
+        "properties": {
+          "amount": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Amount",
+            "type": "string"
+          },
+          "category": {
+            "title": "Category",
+            "type": "string"
+          },
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "kind": {
+            "enum": [
+              "expense",
+              "income"
+            ],
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "category",
+          "amount",
+          "count"
+        ],
+        "title": "CategoryTotal",
         "type": "object"
       },
       "CellChangeOut": {
@@ -3677,6 +3914,7 @@
           "assistant",
           "staff",
           "reports",
+          "profit",
           "broadcasts",
           "wecom",
           "audit",
@@ -3915,6 +4153,42 @@
         "title": "CopilotAlertOut",
         "type": "object"
       },
+      "CopyRecurringIn": {
+        "properties": {
+          "month": {
+            "description": "登记到哪个月，例如 2026-10",
+            "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
+            "title": "Month",
+            "type": "string"
+          }
+        },
+        "required": [
+          "month"
+        ],
+        "title": "CopyRecurringIn",
+        "type": "object"
+      },
+      "CopyRecurringResult": {
+        "properties": {
+          "created": {
+            "title": "Created",
+            "type": "integer"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/EntryOut"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "created",
+          "items"
+        ],
+        "title": "CopyRecurringResult",
+        "type": "object"
+      },
       "CorpOut": {
         "properties": {
           "agent_id": {
@@ -3980,6 +4254,86 @@
           "cancelled_at"
         ],
         "title": "CorpOut",
+        "type": "object"
+      },
+      "CostGap": {
+        "description": "成本缺失：没有成本价的商品行按 0 计算，毛利偏高。",
+        "properties": {
+          "lines": {
+            "title": "Lines",
+            "type": "integer"
+          },
+          "products": {
+            "description": "按涉及的收入排前 10",
+            "items": {
+              "$ref": "#/components/schemas/CostGapProduct"
+            },
+            "title": "Products",
+            "type": "array"
+          },
+          "revenue": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Revenue",
+            "type": "string"
+          }
+        },
+        "required": [
+          "lines",
+          "revenue",
+          "products"
+        ],
+        "title": "CostGap",
+        "type": "object"
+      },
+      "CostGapProduct": {
+        "properties": {
+          "code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Code"
+          },
+          "lines": {
+            "title": "Lines",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "product_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "没有对应到商品库的商品行为空",
+            "title": "Product Id"
+          },
+          "revenue": {
+            "description": "这些商品行的收入（优惠已分摊）",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Revenue",
+            "type": "string"
+          }
+        },
+        "required": [
+          "product_id",
+          "name",
+          "code",
+          "lines",
+          "revenue"
+        ],
+        "title": "CostGapProduct",
         "type": "object"
       },
       "CsatRequest": {
@@ -6160,6 +6514,219 @@
         "title": "DraftSource",
         "type": "object"
       },
+      "EntryIn": {
+        "properties": {
+          "amount": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "type": "number"
+              },
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,8}|(?=[\\d.]{1,11}0*$)\\d{0,8}\\.\\d{0,2}0*$)",
+                "type": "string"
+              }
+            ],
+            "title": "Amount"
+          },
+          "category": {
+            "maxLength": 20,
+            "minLength": 1,
+            "title": "Category",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "expense",
+              "income"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "note": {
+            "default": "",
+            "maxLength": 200,
+            "title": "Note",
+            "type": "string"
+          },
+          "occurred_on": {
+            "format": "date",
+            "title": "Occurred On",
+            "type": "string"
+          },
+          "recurring": {
+            "default": false,
+            "description": "每月固定",
+            "title": "Recurring",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "kind",
+          "category",
+          "amount",
+          "occurred_on"
+        ],
+        "title": "EntryIn",
+        "type": "object"
+      },
+      "EntryOut": {
+        "properties": {
+          "amount": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Amount",
+            "type": "string"
+          },
+          "category": {
+            "title": "Category",
+            "type": "string"
+          },
+          "copied_from": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Copied From"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "created_by_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created By Name"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "expense",
+              "income"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "kind_label": {
+            "title": "Kind Label",
+            "type": "string"
+          },
+          "note": {
+            "title": "Note",
+            "type": "string"
+          },
+          "occurred_on": {
+            "format": "date",
+            "title": "Occurred On",
+            "type": "string"
+          },
+          "recurring": {
+            "title": "Recurring",
+            "type": "boolean"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "updated_by_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated By Name"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "kind_label",
+          "category",
+          "amount",
+          "occurred_on",
+          "note",
+          "recurring",
+          "copied_from",
+          "created_by_name",
+          "updated_by_name",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "EntryOut",
+        "type": "object"
+      },
+      "EntryPage": {
+        "properties": {
+          "by_category": {
+            "items": {
+              "$ref": "#/components/schemas/CategoryTotal"
+            },
+            "title": "By Category",
+            "type": "array"
+          },
+          "expense_total": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Expense Total",
+            "type": "string"
+          },
+          "income_total": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Income Total",
+            "type": "string"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/EntryOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "recurring": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RecurringPending"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "期间结束日所在的月（不晚于本月）还没登记的每月固定收支；没有时为空"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "expense_total",
+          "income_total",
+          "by_category",
+          "recurring"
+        ],
+        "title": "EntryPage",
+        "type": "object"
+      },
       "EntryTrace": {
         "description": "明细行是怎么录入的（§25.18 叫法的证据）：录入行选中商品时的输入、之前没找到的输入，或者\n订单里客户的说法（对应到商品库）。只用于学习，不保存在单据上。",
         "properties": {
@@ -6691,6 +7258,40 @@
           "expires_in"
         ],
         "title": "ExportDownload",
+        "type": "object"
+      },
+      "ExportIn": {
+        "properties": {
+          "end": {
+            "format": "date",
+            "title": "End",
+            "type": "string"
+          },
+          "shift": {
+            "anyOf": [
+              {
+                "maximum": 24.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "上期往前移几个月",
+            "title": "Shift"
+          },
+          "start": {
+            "format": "date",
+            "title": "Start",
+            "type": "string"
+          }
+        },
+        "required": [
+          "start",
+          "end"
+        ],
+        "title": "ExportIn",
         "type": "object"
       },
       "ExtractRequest": {
@@ -14946,6 +15547,85 @@
         "title": "MfaSetupOut",
         "type": "object"
       },
+      "MonthRow": {
+        "properties": {
+          "cost": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Cost",
+            "type": "string"
+          },
+          "end": {
+            "format": "date",
+            "title": "End",
+            "type": "string"
+          },
+          "expenses": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Expenses",
+            "type": "string"
+          },
+          "gross_margin": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gross Margin"
+          },
+          "gross_profit": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Gross Profit",
+            "type": "string"
+          },
+          "month": {
+            "description": "月份，例如 2026-10",
+            "title": "Month",
+            "type": "string"
+          },
+          "net_profit": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Net Profit",
+            "type": "string"
+          },
+          "orders": {
+            "title": "Orders",
+            "type": "integer"
+          },
+          "other_income": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Other Income",
+            "type": "string"
+          },
+          "revenue": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Revenue",
+            "type": "string"
+          },
+          "start": {
+            "format": "date",
+            "title": "Start",
+            "type": "string"
+          }
+        },
+        "required": [
+          "month",
+          "start",
+          "end",
+          "orders",
+          "revenue",
+          "cost",
+          "gross_profit",
+          "gross_margin",
+          "other_income",
+          "expenses",
+          "net_profit"
+        ],
+        "title": "MonthRow",
+        "type": "object"
+      },
       "MyAgentState": {
         "properties": {
           "active_sessions": {
@@ -20626,6 +21306,26 @@
         "title": "PaymentIn",
         "type": "object"
       },
+      "PeriodOut": {
+        "properties": {
+          "end": {
+            "format": "date",
+            "title": "End",
+            "type": "string"
+          },
+          "start": {
+            "format": "date",
+            "title": "Start",
+            "type": "string"
+          }
+        },
+        "required": [
+          "start",
+          "end"
+        ],
+        "title": "PeriodOut",
+        "type": "object"
+      },
       "Permission": {
         "enum": [
           "dashboard:view",
@@ -20681,7 +21381,9 @@
           "assistant:use",
           "finance:view",
           "finance:manage",
-          "print:manage"
+          "print:manage",
+          "profit:view",
+          "profit:manage"
         ],
         "title": "Permission",
         "type": "string"
@@ -23762,6 +24464,114 @@
         "title": "ProfilePermissions",
         "type": "object"
       },
+      "ProfitBreakdown": {
+        "properties": {
+          "by": {
+            "enum": [
+              "product",
+              "customer",
+              "assignee",
+              "source",
+              "channel",
+              "order"
+            ],
+            "title": "By",
+            "type": "string"
+          },
+          "gross_profit": {
+            "description": "期间的总毛利",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Gross Profit",
+            "type": "string"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/BreakdownRow"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "total": {
+            "description": "行数",
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "by",
+          "total",
+          "gross_profit",
+          "items"
+        ],
+        "title": "ProfitBreakdown",
+        "type": "object"
+      },
+      "ProfitSummary": {
+        "properties": {
+          "collected": {
+            "description": "回款：期间内登记的收款减退款（不参与利润）",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Collected",
+            "type": "string"
+          },
+          "cost_gap": {
+            "$ref": "#/components/schemas/CostGap"
+          },
+          "current": {
+            "$ref": "#/components/schemas/Statement"
+          },
+          "last_year": {
+            "$ref": "#/components/schemas/Statement",
+            "description": "去年同期"
+          },
+          "previous": {
+            "$ref": "#/components/schemas/Statement",
+            "description": "上期"
+          },
+          "timezone": {
+            "title": "Timezone",
+            "type": "string"
+          },
+          "uncollected": {
+            "description": "本期订单未收：期间内确认的订单现在还没收的金额",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Uncollected",
+            "type": "string"
+          }
+        },
+        "required": [
+          "timezone",
+          "current",
+          "previous",
+          "last_year",
+          "collected",
+          "uncollected",
+          "cost_gap"
+        ],
+        "title": "ProfitSummary",
+        "type": "object"
+      },
+      "ProfitTrend": {
+        "properties": {
+          "months": {
+            "items": {
+              "$ref": "#/components/schemas/MonthRow"
+            },
+            "title": "Months",
+            "type": "array"
+          },
+          "timezone": {
+            "title": "Timezone",
+            "type": "string"
+          }
+        },
+        "required": [
+          "timezone",
+          "months"
+        ],
+        "title": "ProfitTrend",
+        "type": "object"
+      },
       "PromptActivate": {
         "properties": {
           "version": {
@@ -25066,6 +25876,46 @@
           "versions"
         ],
         "title": "RecordHistory",
+        "type": "object"
+      },
+      "RecurringPending": {
+        "description": "上个月标了\"每月固定\"、还没登记到这个月的收支。",
+        "properties": {
+          "categories": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Categories",
+            "type": "array"
+          },
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "expense": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Expense",
+            "type": "string"
+          },
+          "income": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Income",
+            "type": "string"
+          },
+          "month": {
+            "description": "要登记到的月份，例如 2026-10",
+            "title": "Month",
+            "type": "string"
+          }
+        },
+        "required": [
+          "month",
+          "count",
+          "expense",
+          "income",
+          "categories"
+        ],
+        "title": "RecurringPending",
         "type": "object"
       },
       "RejectReason": {
@@ -27926,6 +28776,108 @@
           }
         },
         "title": "StaffUpdate",
+        "type": "object"
+      },
+      "Statement": {
+        "description": "一个期间的利润表（§30.3）。",
+        "properties": {
+          "cost": {
+            "description": "销售成本：商品行数量 × 成本价，缺成本价的按 0",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Cost",
+            "type": "string"
+          },
+          "expense_by_category": {
+            "items": {
+              "$ref": "#/components/schemas/CategoryAmount"
+            },
+            "title": "Expense By Category",
+            "type": "array"
+          },
+          "expenses": {
+            "description": "费用：收支登记里的支出",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Expenses",
+            "type": "string"
+          },
+          "gross_margin": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "毛利率（%）；没有收入时为空",
+            "title": "Gross Margin"
+          },
+          "gross_profit": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Gross Profit",
+            "type": "string"
+          },
+          "income_by_category": {
+            "items": {
+              "$ref": "#/components/schemas/CategoryAmount"
+            },
+            "title": "Income By Category",
+            "type": "array"
+          },
+          "net_margin": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "净利率（%）；没有收入时为空",
+            "title": "Net Margin"
+          },
+          "net_profit": {
+            "description": "净利润 = 毛利 + 其他收入 − 费用",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Net Profit",
+            "type": "string"
+          },
+          "orders": {
+            "description": "期间内确认的订单（不含已取消）",
+            "title": "Orders",
+            "type": "integer"
+          },
+          "other_income": {
+            "description": "其他收入：收支登记里的收入",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Other Income",
+            "type": "string"
+          },
+          "period": {
+            "$ref": "#/components/schemas/PeriodOut"
+          },
+          "revenue": {
+            "description": "销售收入：订单合计",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Revenue",
+            "type": "string"
+          }
+        },
+        "required": [
+          "period",
+          "orders",
+          "revenue",
+          "cost",
+          "gross_profit",
+          "gross_margin",
+          "other_income",
+          "expenses",
+          "net_profit",
+          "net_margin",
+          "income_by_category",
+          "expense_by_category"
+        ],
+        "title": "Statement",
         "type": "object"
       },
       "StatementLine": {
@@ -62503,6 +63455,1216 @@
         "summary": "List Stock Movements",
         "tags": [
           "products"
+        ]
+      }
+    },
+    "/api/v1/profit/breakdown": {
+      "get": {
+        "description": "毛利分析：按商品、客户、处理人、来源、渠道、订单汇总收入、成本、毛利、毛利率。",
+        "operationId": "breakdown_api_v1_profit_breakdown_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "by",
+            "required": false,
+            "schema": {
+              "default": "product",
+              "enum": [
+                "product",
+                "customer",
+                "assignee",
+                "source",
+                "channel",
+                "order"
+              ],
+              "title": "By",
+              "type": "string"
+            }
+          },
+          {
+            "description": "开始日期（含），默认本月 1 日",
+            "in": "query",
+            "name": "start",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "开始日期（含），默认本月 1 日",
+              "title": "Start"
+            }
+          },
+          {
+            "description": "结束日期（含），默认今天",
+            "in": "query",
+            "name": "end",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "结束日期（含），默认今天",
+              "title": "End"
+            }
+          },
+          {
+            "in": "query",
+            "name": "sort",
+            "required": false,
+            "schema": {
+              "default": "profit",
+              "enum": [
+                "profit",
+                "revenue",
+                "margin"
+              ],
+              "title": "Sort",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "direction",
+            "required": false,
+            "schema": {
+              "default": "desc",
+              "enum": [
+                "desc",
+                "asc"
+              ],
+              "title": "Direction",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfitBreakdown"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Breakdown",
+        "tags": [
+          "profit"
+        ]
+      }
+    },
+    "/api/v1/profit/categories": {
+      "get": {
+        "description": "登记收支时可选的类别：常用的在前，后面是本企业用过的。",
+        "operationId": "categories_api_v1_profit_categories_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CategoryOptions"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Categories",
+        "tags": [
+          "profit"
+        ]
+      }
+    },
+    "/api/v1/profit/entries": {
+      "get": {
+        "description": "期间内的收支明细、合计、按类别小计，以及还没登记的每月固定收支。",
+        "operationId": "list_entries_api_v1_profit_entries_get",
+        "parameters": [
+          {
+            "description": "开始日期（含），默认本月 1 日",
+            "in": "query",
+            "name": "start",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "开始日期（含），默认本月 1 日",
+              "title": "Start"
+            }
+          },
+          {
+            "description": "结束日期（含），默认今天",
+            "in": "query",
+            "name": "end",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "结束日期（含），默认今天",
+              "title": "End"
+            }
+          },
+          {
+            "in": "query",
+            "name": "kind",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "expense",
+                    "income"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Kind"
+            }
+          },
+          {
+            "in": "query",
+            "name": "category",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 20,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Category"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EntryPage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Entries",
+        "tags": [
+          "profit"
+        ]
+      },
+      "post": {
+        "description": "登记一笔费用（支出）或其他收入。",
+        "operationId": "create_entry_api_v1_profit_entries_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EntryIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EntryOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Create Entry",
+        "tags": [
+          "profit"
+        ]
+      }
+    },
+    "/api/v1/profit/entries/copy-recurring": {
+      "post": {
+        "description": "把上个月标了\"每月固定\"、还没登记到这个月的收支，按原内容登记到这个月。",
+        "operationId": "copy_recurring_api_v1_profit_entries_copy_recurring_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CopyRecurringIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CopyRecurringResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Copy Recurring",
+        "tags": [
+          "profit"
+        ]
+      }
+    },
+    "/api/v1/profit/entries/{profit_entry_id}": {
+      "delete": {
+        "description": "删除一笔收支（记审计：删掉的内容）。",
+        "operationId": "delete_entry_api_v1_profit_entries__profit_entry_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "profit_entry_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Profit Entry Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Delete Entry",
+        "tags": [
+          "profit"
+        ]
+      },
+      "put": {
+        "description": "修改一笔收支（记审计：改了哪些、改前改后）。",
+        "operationId": "update_entry_api_v1_profit_entries__profit_entry_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "profit_entry_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Profit Entry Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EntryIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EntryOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Update Entry",
+        "tags": [
+          "profit"
+        ]
+      }
+    },
+    "/api/v1/profit/export": {
+      "post": {
+        "description": "导出 Excel：利润表、每月、按商品、按客户、按处理人、订单明细、收支明细。记审计。",
+        "operationId": "export_report_api_v1_profit_export_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExportIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {}
+            },
+            "description": "盈利报表"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Export Report",
+        "tags": [
+          "profit"
+        ]
+      }
+    },
+    "/api/v1/profit/summary": {
+      "get": {
+        "description": "利润表：本期、上期、去年同期；费用和其他收入按类别；回款、本期订单未收；成本缺失。",
+        "operationId": "summary_api_v1_profit_summary_get",
+        "parameters": [
+          {
+            "description": "开始日期（含），默认本月 1 日",
+            "in": "query",
+            "name": "start",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "开始日期（含），默认本月 1 日",
+              "title": "Start"
+            }
+          },
+          {
+            "description": "结束日期（含），默认今天",
+            "in": "query",
+            "name": "end",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "结束日期（含），默认今天",
+              "title": "End"
+            }
+          },
+          {
+            "description": "上期往前移几个月；不传时按期间跨的月数",
+            "in": "query",
+            "name": "shift",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 24,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "上期往前移几个月；不传时按期间跨的月数",
+              "title": "Shift"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfitSummary"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Summary",
+        "tags": [
+          "profit"
+        ]
+      }
+    },
+    "/api/v1/profit/trend": {
+      "get": {
+        "description": "截至 end 所在月的 12 个月：订单数、销售收入、成本、毛利、其他收入、费用、净利润。",
+        "operationId": "trend_api_v1_profit_trend_get",
+        "parameters": [
+          {
+            "description": "结束日期（含），默认今天",
+            "in": "query",
+            "name": "end",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "结束日期（含），默认今天",
+              "title": "End"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfitTrend"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Trend",
+        "tags": [
+          "profit"
         ]
       }
     },

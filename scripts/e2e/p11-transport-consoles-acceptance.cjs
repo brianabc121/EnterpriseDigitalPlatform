@@ -51,6 +51,7 @@ const TITLES = {
   assistant: 'AI 助理',
   staff: '员工',
   reports: '报表',
+  profit: '盈利报表',
   broadcasts: '群发',
   wecom: '企业微信',
   audit: '操作日志',

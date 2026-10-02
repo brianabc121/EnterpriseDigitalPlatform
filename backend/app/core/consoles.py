@@ -46,6 +46,7 @@ class ConsoleMenu(StrEnum):
     ASSISTANT = "assistant"  # AI 公司助理（设计文档 §27.3）
     STAFF = "staff"
     REPORTS = "reports"
+    PROFIT = "profit"  # 盈利报表（设计文档 §30）
     BROADCASTS = "broadcasts"
     WECOM = "wecom"
     AUDIT = "audit"
@@ -75,6 +76,8 @@ DEFAULT_MENUS: dict[ConsoleProfile, tuple[ConsoleMenu, ...]] = {
         M.TASKS,
         M.CUSTOMERS,
         M.ASSISTANT,
+        # 默认没有盈利报表的权限，管理员给了权限后直接显示（§30.5）。
+        M.PROFIT,
     ),
     ConsoleProfile.KEEPER: (
         M.DASHBOARD,
@@ -117,6 +120,7 @@ MENU_RULES: dict[ConsoleMenu, tuple[Permission, str | None]] = {
     ConsoleMenu.ASSISTANT: (Permission.ASSISTANT_USE, "ai"),
     ConsoleMenu.STAFF: (Permission.STAFF_READ, None),
     ConsoleMenu.REPORTS: (Permission.REPORT_VIEW, None),
+    ConsoleMenu.PROFIT: (Permission.PROFIT_VIEW, "orders"),
     ConsoleMenu.BROADCASTS: (Permission.BROADCAST_MANAGE, "broadcast"),
     ConsoleMenu.WECOM: (Permission.SETTINGS_MANAGE, None),
     ConsoleMenu.AUDIT: (Permission.AUDIT_READ, None),

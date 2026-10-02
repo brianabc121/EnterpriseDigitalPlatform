@@ -58,7 +58,7 @@ jobs:
           p6-integration-acceptance p7-production-acceptance p8-inventory-acceptance
           p9-warehouse-acceptance p10-entry-history-acceptance p11-transport-consoles-acceptance
           p12-suggest-acceptance p13-assisted-requisition-acceptance p14-form-knowledge-acceptance
-          p15-email-acceptance p17-receivables-acceptance p18-print-acceptance
+          p15-email-acceptance p17-receivables-acceptance p18-print-acceptance p19-profit-acceptance
       - if: always()
         uses: actions/upload-artifact@v4
         with:

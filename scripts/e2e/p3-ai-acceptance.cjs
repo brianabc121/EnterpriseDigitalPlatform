@@ -125,8 +125,9 @@ async function say(visitor, text) {
   await visitor.page.click('[data-testid="send-button"]')
 }
 
+// 按开头匹配菜单名："报表"不能点到"盈利报表"。
 const menu = (page, title) =>
-  page.locator('[data-testid="main-menu"] .el-menu-item', { hasText: title }).click()
+  page.locator('[data-testid="main-menu"] .el-menu-item', { hasText: new RegExp('^\\s*' + title) }).click()
 const tab = (page, title) => page.locator('.el-tabs__item:visible', { hasText: title }).click()
 const rowIn = (page, table, text) =>
   page.locator(`[data-testid="${table}"] .el-table__row`, { hasText: text }).first().waitFor()
