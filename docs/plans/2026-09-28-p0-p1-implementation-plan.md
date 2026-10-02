@@ -2117,8 +2117,8 @@ WhatsApp、Telegram、钉钉、飞书作为助理和员工沟通的 IM，需要�
 
 - 后端：新增 `tests/test_print.py`（3 个：排版与两家标记；接入打印机——密钥错和编号无效被厂商拒绝、飞鹅云、修改时密钥留空、
   测试打印与确认、状态检查、权限、审计；领取和开领料单自动打印、第 N 次、手工重打与 10 秒限制、指派打印、网络抖动重试、
-  配置错误放弃并通知、重新发送、停用后不打），`test_authz_matrix` 加入 7 个新接口；完整套件通过（见下）；ruff、mypy 通过，
-  OpenAPI 与生成的类型一致。
+  配置错误放弃并通知、重新发送、停用后不打），`test_authz_matrix` 加入 7 个新接口；完整套件 566 个测试通过、10 个跳过
+  （契约测试需要本地服务）；ruff、mypy 通过，OpenAPI 与生成的类型一致。迁移 `0031` 可以降级再升级。
 - 前端：控制台单元测试 24 个文件 158 个通过（新增 `printing.test.ts`），ESLint、类型检查和构建通过。
 - 浏览器验收 `p18-print-acceptance`（10 项）全部通过，已加入 `e2e-full.yml`；`p7-production-acceptance`、`p9-warehouse-acceptance`、`p13-assisted-requisition-acceptance` 重新跑过（加工卡片和单据抽屉的改动）。
 - 未做（设计文档 §29.11）：标签机、LOGO 和图片、入库单和订单客户联、语音播报、厂商回调、本地 USB / 蓝牙打印、按工人指定
