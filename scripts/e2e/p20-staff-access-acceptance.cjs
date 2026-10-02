@@ -421,9 +421,9 @@ async function roleSection(browser) {
   const titles = (await dialog.locator('[data-testid^="perm-module-"] .title').allInnerTexts()).map((t) => t.trim())
   const total = await dialog.locator('[data-testid="permission-picker"] .summary').innerText()
   check(
-    '角色对话框按业务模块分组：通用、接待、客户、待办、订单与商品、财务、合同、资料、加工与仓库、知识库、报表与日志、员工与设置，共 60 项',
+    '角色对话框按业务模块分组：通用、接待、客户、待办、订单与商品、财务、合同、资料、加工与仓库、知识库、报表与日志、员工与设置，共 61 项',
     same(titles, ['通用', '接待', '客户', '待办', '订单与商品', '财务', '合同', '资料', '加工与仓库', '知识库', '报表与日志', '员工与设置']) &&
-      total.includes('已选 0 / 60 项'),
+      total.includes('已选 0 / 61 项'),
     { titles, total },
   )
   const hint = await perm(dialog, 'customer:read').innerText()
@@ -437,8 +437,8 @@ async function roleSection(browser) {
   })
   const items = (await dialog.locator('.item .item-title').allInnerTexts()).map((t) => t.trim())
   check(
-    '搜索"导出"：只剩客户、待办、订单与商品、财务、员工与设置里和导出有关的 7 项',
-    same(found, ['客户', '待办', '订单与商品', '财务', '员工与设置']) && items.length === 7,
+    '搜索"导出"：只剩客户、待办、订单与商品、财务、员工与设置里和导出有关的 8 项',
+    same(found, ['客户', '待办', '订单与商品', '财务', '员工与设置']) && items.length === 8,
     { found, items },
   )
   await shot(admin, '9-role-search')
@@ -449,7 +449,7 @@ async function roleSection(browser) {
   await dialog.locator('[data-testid="perm-module-all-reports"]').click()
   const count = await module_(dialog, 'reports').locator('.count').innerText()
   const summary = await dialog.locator('[data-testid="permission-picker"] .summary').innerText()
-  check('模块全选：报表与日志 2/2，已选 2 项', count.trim() === '2/2' && summary.includes('已选 2 / 60 项'), { count, summary })
+  check('模块全选：报表与日志 2/2，已选 2 项', count.trim() === '2/2' && summary.includes('已选 2 / 61 项'), { count, summary })
   await dialog.locator('button', { hasText: '保存' }).click()
   const row = admin.locator('[data-testid="role-table"] .el-table__row', { hasText: '审计' })
   await row.waitFor()
