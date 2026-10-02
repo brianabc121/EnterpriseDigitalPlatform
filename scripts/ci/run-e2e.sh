@@ -13,6 +13,9 @@ set -a
 source "$ROOT/scripts/ci/e2e.env"
 set +a
 export NODE_PATH=${NODE_PATH:-$(npm root -g)}
+# Linux 上的 Chromium 按系统的 locale 编码下载文件的名称：POSIX 下中文文件名（例如导出的 Word 合同）会变成
+# "download"。没有设置时用 UTF-8（和 CI 的 Ubuntu、用户的电脑一样）。
+export LANG=${LANG:-C.UTF-8}
 # start-stack.sh 启动的 API、实时消费、调度进程的指标（g6-ops-observability 检查）。
 export METRICS_URLS=${METRICS_URLS-http://127.0.0.1:9464/metrics,http://127.0.0.1:9465/metrics,http://127.0.0.1:9466/metrics}
 : "${PLATFORM_PASSWORD:?PLATFORM_PASSWORD is required}"
