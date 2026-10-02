@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { Schemas } from '@edp/api-client'
 import { ElMessage } from 'element-plus'
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 
 import KbFeedPanel from '../components/knowledge/KbFeedPanel.vue'
 import KbSearchPanel from '../components/knowledge/KbSearchPanel.vue'
@@ -10,6 +10,7 @@ import CustomerPanel from '../components/workbench/CustomerPanel.vue'
 import CustomerOrders from '../components/orders/CustomerOrders.vue'
 import CustomerTodos from '../components/todos/CustomerTodos.vue'
 import IncomingTransfer from '../components/workbench/IncomingTransfer.vue'
+import { stageTag } from '../intent'
 import { WATCHER_ROLE } from '../labels'
 import { useAuthStore } from '../stores/auth'
 import { STATUS_LABEL, useWorkbenchStore, type AgentStatus } from '../stores/workbench'
@@ -24,6 +25,18 @@ const sideTab = ref<'customer' | 'todos' | 'orders' | 'knowledge' | 'feed'>('cus
 const canOrders = computed(() => auth.can('order:read') && auth.me?.features?.orders !== false)
 /** 待确认的必读知识数（显示在"动态"页签上）。 */
 const unreadKnowledge = ref(0)
+const customerOrders = ref<InstanceType<typeof CustomerOrders> | null>(null)
+
+// 意图卡片上点了"生成订单"：右栏切到订单，打开 AI 预填（默认选中客户最近的几句话）。
+watch(
+  () => wb.orderPick,
+  async () => {
+    if (!canOrders.value) return
+    sideTab.value = 'orders'
+    await nextTick()
+    await customerOrders.value?.pick()
+  },
+)
 
 const IM_LABEL: Record<string, string> = {
   idle: '未连接',
@@ -186,6 +199,16 @@ onMounted(() => void wb.start())
               <el-tag v-if="s.intent" size="small" class="flag" data-testid="intent-tag">
                 {{ s.intent }}
               </el-tag>
+              <el-tag
+                v-if="stageTag(s.purchase_stage)"
+                size="small"
+                :type="stageTag(s.purchase_stage)!.type"
+                effect="dark"
+                class="flag"
+                data-testid="purchase-tag"
+              >
+                {{ stageTag(s.purchase_stage)!.label }}
+              </el-tag>
             </span>
             <el-badge v-if="wb.unread[s.id]" :value="wb.unread[s.id]" data-testid="unread" />
           </div>
@@ -240,6 +263,7 @@ onMounted(() => void wb.start())
       <template v-if="sideTab === 'orders'">
         <CustomerOrders
           v-if="wb.active"
+          ref="customerOrders"
           :key="wb.active.id"
           class="side-body todos"
           :customer-id="wb.active.customer_id"

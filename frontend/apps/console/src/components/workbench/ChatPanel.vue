@@ -10,6 +10,7 @@ import type { ReplyOrigin, WorkbenchMessage } from '../../workbench/messages'
 import MessageContent from '../chat/MessageContent.vue'
 import { IMAGE_TYPES, MAX_FILE_BYTES, MAX_IMAGE_BYTES } from '../../workbench/upload'
 import AssistDialog from './AssistDialog.vue'
+import IntentCard from './IntentCard.vue'
 import QuickReplies from './QuickReplies.vue'
 import SessionSummaryCard from './SessionSummaryCard.vue'
 import SessionTodos from './SessionTodos.vue'
@@ -459,6 +460,7 @@ function insert(text: string, origin: ReplyOrigin = 'quick_reply'): void {
         >
         <p v-if="session.ai_summary">{{ session.ai_summary }}</p>
       </div>
+      <IntentCard :key="session.id" :session-id="session.id" @order="wb.requestOrderPrefill()" />
       <div v-if="sessionAlerts.length" class="alerts" data-testid="copilot-alerts">
         <div
           v-for="a in sessionAlerts"

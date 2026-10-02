@@ -3,10 +3,14 @@ import type { Schemas } from '@edp/api-client'
 import { computed } from 'vue'
 
 import { activeSignals, GUARD_LABEL } from '../../ai'
+import { decisionIntent, intentLine } from '../../intent'
 import { HANDOFF_REASON } from '../../labels'
 import { percent } from '../../reports'
 
-/** 一次 AI 判定：回复或转人工、原因、依据的知识和各项信号（试一试与会话记录共用）。 */
+/**
+ * 一次 AI 判定：回复或转人工、原因、依据的知识、各项信号和用到的意图判断（§32；试一试与会话记录
+ * 共用）。
+ */
 const props = defineProps<{ outcome: Schemas['AiOutcome']; question?: string }>()
 
 const verdict = computed(() => {
@@ -28,6 +32,12 @@ const reason = computed(() => {
   return HANDOFF_REASON[r] ?? r
 })
 const signals = computed(() => activeSignals(props.outcome.signals))
+/** 试一试：这个问题的判断；会话记录：当时用到的判断（signals.intent）。 */
+const intentText = computed(() =>
+  props.outcome.intent
+    ? intentLine(props.outcome.intent)
+    : decisionIntent(props.outcome.signals as Record<string, unknown>),
+)
 const details = computed(() => {
   const s = props.outcome.signals as Record<string, unknown>
   const parts: string[] = []
@@ -56,6 +66,9 @@ const details = computed(() => {
         s
       }}</el-tag>
       <span v-if="details" class="muted">{{ details }}</span>
+    </div>
+    <div v-if="intentText" class="intent" data-testid="ai-intent">
+      <span class="muted">意图判断：</span>{{ intentText }}
     </div>
     <div v-if="outcome.knowledge.length" class="knowledge">
       <span class="muted">依据：</span>
@@ -107,6 +120,11 @@ const details = computed(() => {
   background: var(--el-color-success-light-9);
   white-space: pre-wrap;
   word-break: break-word;
+}
+
+.intent {
+  margin-top: 8px;
+  font-size: 12px;
 }
 
 .signals,

@@ -447,7 +447,7 @@ def prompt_block(judgment: Judgment) -> str:
     """AI 回复的系统提示里的【客户意图判断】（设计文档 §32.6）：只有固定的标签和回复要求。"""
     stage = judgment.stage
     lines = [
-        "【客户意图判断】（判断模型根据客户的话给出，仅供参考；和客户的话矛盾时以客户的话为准）",
+        "【客户意图判断】（根据客户的话自动判断，仅供参考；和客户的话矛盾时以客户的话为准）",
         f"下单意向：{STAGES[stage]}（有下单意向的把握 {percent(judgment.purchase_probability)}）",
     ]
     if judgment.intent:
@@ -760,6 +760,8 @@ async def store(
                     "stage": row.stage,
                     "purchase_probability": row.purchase_probability,
                     "intent": row.intent,
+                    "real_intent": intent_label(row.intent),
+                    "judged_at": now.isoformat(),
                 }
                 for staff_id in await _recipients(session, chat):
                     outbox.enqueue_signal(session, chat.room_id, staff_id, payload)
