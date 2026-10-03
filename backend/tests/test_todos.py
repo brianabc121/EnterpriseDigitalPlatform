@@ -15,7 +15,7 @@ from fastapi import FastAPI
 from app.core.config import Settings
 from app.modules.todos import extract, notify
 from tests.desk import Agent, Desk, Visitor
-from tests.factories import ADMIN_PASSWORD, STAFF_PASSWORD
+from tests.factories import ADMIN_PASSWORD, STAFF_PASSWORD, create_knowledge_role
 from tests.fake_llm import FakeLLM
 from tests.fake_openim import FakeOpenIM
 from tests.support import DatabaseUrls
@@ -802,7 +802,8 @@ async def test_types_admin_settings_and_visitor_progress(desk: Desk) -> None:
     assert others.json()["items"] == []
 
     # 没有待办权限的角色看不到待办。
-    km = await desk.agent("kmgr", roles=["knowledge_manager"], online=False)
+    knowledge = await create_knowledge_role(desk.client, desk.admin_token)
+    km = await desk.agent("kmgr", roles=[knowledge], online=False)
     assert (await desk.client.get("/api/v1/todos", headers=km.headers)).status_code == 403
 
 

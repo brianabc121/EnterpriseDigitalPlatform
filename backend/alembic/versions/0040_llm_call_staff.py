@@ -16,8 +16,9 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
-    # 在 feat/staff-mind-map-roles 分支上迁移过的数据库：那里的 0037–0039 是员工导图和财务、出纳角色（合并后改为
-    # 0042–0044），这个数据库的版本号虽然是 0039，却没有合同、意向客户、企业资料的表。先停下并说明怎样补上。
+    # 在 feat/staff-mind-map-roles 分支上迁移过的数据库：那里的 0037–0039 是员工导图和
+    # 财务、出纳角色（合并后改为 0042–0044），版本号虽然是 0039，却没有合同、意向客户、
+    # 企业资料的表。先停下并说明怎样补上。
     op.execute("""
         DO $$ BEGIN
           IF to_regclass('public.contracts') IS NULL THEN

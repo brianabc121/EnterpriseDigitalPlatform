@@ -120,6 +120,7 @@ DOMAIN_LABELS: dict[str, str] = {
     "skill_group_members": "技能组成员",
     "skill_groups": "技能组",
     "staff": "员工",
+    "staff_diagram_nodes": "员工导图卡片",
     "staff_notifications": "站内信",
     "staff_roles": "员工的角色",
     "staff_tasks": "个人待办",

@@ -6,7 +6,7 @@ from sqlalchemy import func, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.errors import Conflict, Unprocessable
+from app.core.errors import Conflict, NotFound, Unprocessable
 from app.core.ids import new_id
 from app.modules.audit.service import record_audit
 from app.modules.iam.models import Staff, StaffDiagramNode
@@ -32,17 +32,21 @@ async def create_node(
 ) -> StaffDiagramNodeOut:
     if payload.parent_id is not None:
         source_node_id = await session.scalar(
-            select(StaffDiagramNode.id).where(
+            select(StaffDiagramNode.id)
+            .where(
                 StaffDiagramNode.id == payload.parent_id,
                 StaffDiagramNode.tenant_id == principal.tenant_id,
-            ).with_for_update()
+            )
+            .with_for_update()
         )
         staff = (
             await session.scalar(
-                select(Staff.id).where(
+                select(Staff.id)
+                .where(
                     Staff.id == payload.parent_id,
                     Staff.tenant_id == principal.tenant_id,
-                ).with_for_update()
+                )
+                .with_for_update()
             )
             if source_node_id is None
             else None
@@ -109,33 +113,46 @@ async def delete_card(
     from app.modules.iam.service import roles_of
 
     await session.scalars(
-        select(Staff.id).where(Staff.tenant_id == principal.tenant_id)
-        .order_by(Staff.id).with_for_update()
+        select(Staff.id)
+        .where(Staff.tenant_id == principal.tenant_id)
+        .order_by(Staff.id)
+        .with_for_update()
     )
     await session.scalars(
-        select(StaffDiagramNode.id).where(StaffDiagramNode.tenant_id == principal.tenant_id)
-        .order_by(StaffDiagramNode.id).with_for_update()
+        select(StaffDiagramNode.id)
+        .where(StaffDiagramNode.tenant_id == principal.tenant_id)
+        .order_by(StaffDiagramNode.id)
+        .with_for_update()
     )
     node = await session.scalar(
-        select(StaffDiagramNode).where(
+        select(StaffDiagramNode)
+        .where(
             StaffDiagramNode.id == card_id,
             StaffDiagramNode.tenant_id == principal.tenant_id,
-        ).with_for_update()
+        )
+        .with_for_update()
     )
-    if node is None and await session.scalar(
-        select(Staff.id).where(Staff.id == card_id, Staff.tenant_id == principal.tenant_id)
-    ) is None:
-        raise Unprocessable("卡片不存在或不属于当前企业，企业卡片不能删除")
+    if (
+        node is None
+        and await session.scalar(
+            select(Staff.id).where(Staff.id == card_id, Staff.tenant_id == principal.tenant_id)
+        )
+        is None
+    ):
+        raise NotFound("卡片不存在或不属于当前企业，企业卡片不能删除")
     staff_id = node.staff_id if node else card_id
     staff = None
     if node is None or staff_id is not None:
         staff = await session.scalar(
-            select(Staff).where(
-                Staff.id == staff_id, Staff.tenant_id == principal.tenant_id,
-            ).with_for_update()
+            select(Staff)
+            .where(
+                Staff.id == staff_id,
+                Staff.tenant_id == principal.tenant_id,
+            )
+            .with_for_update()
         )
         if staff is None:
-            raise Unprocessable("卡片不存在或不属于当前企业，企业卡片不能删除")
+            raise NotFound("卡片不存在或不属于当前企业，企业卡片不能删除")
         if staff.id == principal.staff_id:
             raise Conflict("不能删除自己的账号")
         # 锁住当前企业所有员工，使并发删除管理员仍至少保留一人。
@@ -147,30 +164,39 @@ async def delete_card(
         ):
             raise Conflict("至少保留一名启用的企业管理员")
     elif node is None:
-        raise Unprocessable("卡片不存在，企业卡片不能删除")
+        raise NotFound("卡片不存在或不属于当前企业，企业卡片不能删除")
     parent_id = node.parent_id if node else staff.diagram_parent_id if staff else None
     sources = [card_id]
     if staff is not None:
         sources.append(staff.id)
     try:
         await session.execute(
-            update(StaffDiagramNode).where(
+            update(StaffDiagramNode)
+            .where(
                 StaffDiagramNode.tenant_id == principal.tenant_id,
                 StaffDiagramNode.parent_id.in_(sources),
-            ).values(parent_id=parent_id)
+            )
+            .values(parent_id=parent_id)
         )
         if staff is not None:
             await session.execute(
-                update(Staff).where(
+                update(Staff)
+                .where(
                     Staff.tenant_id == principal.tenant_id,
                     Staff.diagram_parent_id == staff.id,
-                ).values(diagram_parent_id=staff.diagram_parent_id)
+                )
+                .values(diagram_parent_id=staff.diagram_parent_id)
             )
         record_audit(
-            session, action="staff.diagram.delete", actor_type="staff",
-            actor_id=principal.staff_id, tenant_id=principal.tenant_id,
-            resource_type="staff_diagram_node", resource_id=str(card_id),
-            detail={"staff_id": str(staff.id) if staff else None}, ip=ip,
+            session,
+            action="staff.diagram.delete",
+            actor_type="staff",
+            actor_id=principal.staff_id,
+            tenant_id=principal.tenant_id,
+            resource_type="staff_diagram_node",
+            resource_id=str(card_id),
+            detail={"staff_id": str(staff.id) if staff else None},
+            ip=ip,
         )
         if node is not None:
             await session.delete(node)

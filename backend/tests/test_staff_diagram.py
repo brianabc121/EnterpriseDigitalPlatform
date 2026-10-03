@@ -8,7 +8,7 @@ from pydantic import ValidationError
 from sqlalchemy import Column, MetaData, Table, Uuid, create_engine
 from sqlalchemy.orm import Session
 
-from app.core.errors import Conflict, Unprocessable
+from app.core.errors import Conflict, NotFound, Unprocessable
 from app.modules.iam import diagram
 from app.modules.iam.schemas import StaffCreate, StaffDiagramNodeCreate
 from app.modules.iam.service import create_staff
@@ -151,12 +151,14 @@ class DraftPersistenceTests(unittest.IsolatedAsyncioTestCase):
                         ip=None,
                     )
                 self.assertEqual(await diagram.list_nodes(session, foreign.tenant_id), [])
-                with self.assertRaises(Unprocessable):
+                with self.assertRaises(NotFound):
                     await diagram.delete_card(session, foreign, child.id, ip=None)
                 await diagram.delete_card(session, principal, child.id, ip=None)
                 child = await diagram.create_node(
-                    session, principal,
-                    StaffDiagramNodeCreate(parent_id=root.id, direction="down"), ip=None,
+                    session,
+                    principal,
+                    StaffDiagramNodeCreate(parent_id=root.id, direction="down"),
+                    ip=None,
                 )
                 await diagram.delete_card(session, principal, root.id, ip=None)
                 remaining = await diagram.list_nodes(session, tenant)

@@ -22,6 +22,7 @@ from app.integrations.oss import OssClient, OssConfig
 from app.modules.kb.importer import run_imports
 from app.modules.materials import jobs
 from tests.desk import Agent, Desk
+from tests.factories import create_knowledge_role
 from tests.fake_clamd import EICAR, FakeClamd
 from tests.fake_openim import FakeOpenIM
 from tests.fake_oss import FakeOSS
@@ -556,9 +557,8 @@ async def test_material_menu_and_unconfigured_storage(
 
 @pytest.fixture
 async def agent_and_knowledge(desk: Desk) -> tuple[Agent, Agent]:
-    return await desk.agent("amy"), await desk.agent(
-        "kate", roles=["knowledge_manager"], online=False
-    )
+    knowledge = await create_knowledge_role(desk.client, desk.admin_token)
+    return await desk.agent("amy"), await desk.agent("kate", roles=[knowledge], online=False)
 
 
 async def test_listing_with_another_tenants_folder_is_not_found(desk: Desk) -> None:

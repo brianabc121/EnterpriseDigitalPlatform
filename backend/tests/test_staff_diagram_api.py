@@ -110,13 +110,22 @@ async def test_failed_conversion_leaves_draft_and_readonly_cannot_add(desk: Desk
 async def test_delete_employee_card_keeps_children_and_revokes_account(desk: Desk):
     path = "/api/v1/staff/diagram/nodes"
     draft = (await desk.client.post(path, headers=desk.admin, json={"direction": "right"})).json()
-    child = (await desk.client.post(
-        path, headers=desk.admin, json={"parent_id": draft["id"], "direction": "down"}
-    )).json()
-    created = await desk.client.post("/api/v1/staff", headers=desk.admin, json={
-        "username": "delete-card-account", "display_name": "待删除员工",
-        "password": STAFF_PASSWORD, "role_codes": ["agent"], "diagram_node_id": draft["id"],
-    })
+    child = (
+        await desk.client.post(
+            path, headers=desk.admin, json={"parent_id": draft["id"], "direction": "down"}
+        )
+    ).json()
+    created = await desk.client.post(
+        "/api/v1/staff",
+        headers=desk.admin,
+        json={
+            "username": "delete-card-account",
+            "display_name": "待删除员工",
+            "password": STAFF_PASSWORD,
+            "role_codes": ["agent"],
+            "diagram_node_id": draft["id"],
+        },
+    )
     assert created.status_code == 201, created.text
     deleted = await desk.client.delete(f"{path}/{draft['id']}", headers=desk.admin)
     assert deleted.status_code == 204, deleted.text

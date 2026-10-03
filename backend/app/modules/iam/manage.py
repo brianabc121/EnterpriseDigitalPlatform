@@ -299,10 +299,14 @@ def role_out(role: Role, members: int) -> RoleOut:
         id=role.id,
         code=role.code,
         name={
-            "tenant_admin": "企业所有者", "agent": "客服", "worker": "工厂工人",
-            "finance": "财务", "cashier": "出纳"
+            "tenant_admin": "企业所有者",
+            "agent": "客服",
+            "worker": "工厂工人",
+            "finance": "财务",
+            "cashier": "出纳",
         }.get(role.code, role.name)
-        if role.is_system else role.name,
+        if role.is_system
+        else role.name,
         permissions=sorted(role_permissions(role)),
         is_system=role.is_system,
         members=members,

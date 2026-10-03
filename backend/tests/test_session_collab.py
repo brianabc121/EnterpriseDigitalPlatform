@@ -8,6 +8,7 @@ from fastapi import FastAPI
 
 from app.core.config import Settings
 from tests.desk import Agent, Desk, Visitor
+from tests.factories import create_knowledge_role
 from tests.fake_openim import FakeOpenIM
 from tests.support import DatabaseUrls
 from tests.test_ai_reception import ANSWER, bot_texts, enable_ai
@@ -210,7 +211,8 @@ async def test_monitor_and_assist(desk: Desk) -> None:
         json={"client_msg_id": uuid.uuid4().hex, "text": "我是 Bob，帮您查一下"},
     )
     assert sent.status_code == 200, sent.text
-    manager = await desk.agent("kate", roles=["knowledge_manager"], online=False)
+    knowledge = await create_knowledge_role(desk.client, desk.admin_token)
+    manager = await desk.agent("kate", roles=[knowledge], online=False)
     no_workbench = await desk.client.post(
         f"/api/v1/sessions/{chat['id']}/assists",
         headers=alice.headers,

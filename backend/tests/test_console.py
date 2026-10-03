@@ -9,6 +9,7 @@ from fastapi import FastAPI
 
 from app.core.config import Settings
 from tests.desk import Desk
+from tests.factories import create_knowledge_role
 from tests.fake_openim import FakeOpenIM
 from tests.support import DatabaseUrls
 from tests.test_orders import call
@@ -71,7 +72,8 @@ async def test_each_role_has_its_own_console(desk: Desk) -> None:
             "broadcasts",
         ],
     }  # fmt: skip
-    kate = await desk.agent("kate", roles=["knowledge_manager"], online=False)
+    knowledge = await create_knowledge_role(desk.client, desk.admin_token)
+    kate = await desk.agent("kate", roles=[knowledge], online=False)
     assert await console(desk, kate.headers) == {
         "profiles": ["knowledge"],
         "menus": ["dashboard", "materials", "tasks", "knowledge", "assistant"],

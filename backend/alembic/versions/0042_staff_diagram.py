@@ -1,8 +1,8 @@
 """Staff mind map: diagram branch of each staff card (does not change permissions)
 
-在 feat/staff-mind-map-roles 分支上原来编号 0037；main 已经用 0037–0041（合同、意向客户、企业资料、token 计费、
-重置密码），合并时改为 0042–0044。在那个分支上迁移过的数据库，按 0040 的提示先 `alembic stamp 0036` 再升级：
-0042–0044 可以重复执行，已有的列、表和角色会跳过。
+在 feat/staff-mind-map-roles 分支上原来编号 0037；main 已经用 0037–0041（合同、意向客户、
+企业资料、token 计费、重置密码），合并时改为 0042–0044。在那个分支上迁移过的数据库，按 0040
+的提示先 `alembic stamp 0036` 再升级：0042–0044 可以重复执行，已有的列、表和角色会跳过。
 
 Revision ID: 0042
 Revises: 0041

@@ -59,6 +59,17 @@ def upgrade() -> None:
           END IF;
         END $$
     """)
+    # 增量更新索引（§33.9）：分支上的迁移没有加，重复执行时跳过已经加过的。
+    op.execute("""
+        DO $$ BEGIN
+          IF NOT EXISTS (
+            SELECT 1 FROM pg_trigger
+            WHERE tgrelid = 'staff_diagram_nodes'::regclass AND tgname = 'edp_stamp_change'
+          ) THEN
+            PERFORM edp_track_changes('staff_diagram_nodes'::regclass);
+          END IF;
+        END $$
+    """)
 
 
 def downgrade() -> None:

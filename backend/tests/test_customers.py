@@ -4,7 +4,14 @@ import httpx
 import pytest
 from fastapi import FastAPI
 
-from tests.factories import STAFF_PASSWORD, bearer, create_staff, login, provision
+from tests.factories import (
+    STAFF_PASSWORD,
+    bearer,
+    create_knowledge_role,
+    create_staff,
+    login,
+    provision,
+)
 
 CUSTOMERS = "/api/v1/customers"
 
@@ -99,7 +106,8 @@ async def test_pagination_reports_total(client: httpx.AsyncClient, acme: Acme) -
 async def test_role_without_customer_permission_is_forbidden(
     client: httpx.AsyncClient, acme: Acme
 ) -> None:
-    await create_staff(client, acme.admin, "kate", roles=["knowledge_manager"])
+    knowledge = await create_knowledge_role(client, acme.admin)
+    await create_staff(client, acme.admin, "kate", roles=[knowledge])
     kate = await login(client, "acme", "kate", STAFF_PASSWORD)
 
     assert (await client.get(CUSTOMERS, headers=bearer(kate))).status_code == 403
