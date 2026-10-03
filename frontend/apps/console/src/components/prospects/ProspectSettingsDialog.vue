@@ -10,11 +10,17 @@ import { AI_MODES, STAGES, type ProspectSettings } from '../../prospects'
 const open = defineModel<boolean>({ required: true })
 const emit = defineEmits<{ saved: [settings: ProspectSettings] }>()
 
-const form = reactive<ProspectSettings>({ ai_mode: 'auto', min_stage: 2, follow_days: 3 })
+const form = reactive<ProspectSettings>({
+  ai_mode: 'auto',
+  min_stage: 2,
+  follow_days: 3,
+  assignment: 'owner',
+  amount_visibility: 'all',
+})
 const saving = ref(false)
 
 async function load(): Promise<void> {
-  const { data, error } = await api.GET('/api/v1/prospects/settings')
+  const { data, error } = await api.GET('/api/v1/opportunities/settings')
   if (!data) {
     ElMessage.error(errorMessage(error))
     return
@@ -24,7 +30,7 @@ async function load(): Promise<void> {
 
 async function save(): Promise<void> {
   saving.value = true
-  const { data, error } = await api.PUT('/api/v1/prospects/settings', { body: { ...form } })
+  const { data, error } = await api.PUT('/api/v1/opportunities/settings', { body: { ...form } })
   saving.value = false
   if (!data) {
     ElMessage.error(errorMessage(error))

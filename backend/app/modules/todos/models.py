@@ -191,6 +191,8 @@ class Todo(IdMixin, TimestampMixin, TenantMixin, Base):
     customer_id: Mapped[uuid.UUID | None]
     session_id: Mapped[uuid.UUID | None]
     order_id: Mapped[uuid.UUID | None]
+    # 关联的商机（设计文档 §40.7）。
+    opportunity_id: Mapped[uuid.UUID | None]
     source: Mapped[str] = mapped_column(String(12))
     confidence: Mapped[float | None] = mapped_column(Double)
     evidence_message_ids: Mapped[list[uuid.UUID]] = mapped_column(server_default="{}")

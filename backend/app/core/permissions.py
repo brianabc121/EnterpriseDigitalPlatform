@@ -66,6 +66,11 @@ class Permission(StrEnum):
     MATERIAL_USE = "material:use"  # 企业资料：查看、上传、分享，修改自己上传的（设计文档 §36.5）
     MATERIAL_MANAGE = "material:manage"  # 企业资料：文件夹，修改和删除全部资料，停用别人的分享
     TOKEN_VIEW = "token:view"  # Token 计费：企业 AI 用掉的 tokens 和费用、近 7 天的明细（§37.6）
+    OPPORTUNITY_READ = "opportunity:read"  # 商机：自己负责的和能看到的客户的（设计文档 §40.11）
+    OPPORTUNITY_READ_ALL = "opportunity:read_all"  # 商机：全部
+    OPPORTUNITY_MANAGE = "opportunity:manage"  # 商机：新建、修改、跟进、换阶段、赢单 / 输单
+    OPPORTUNITY_ASSIGN = "opportunity:assign"  # 商机：把负责人改成别人，商机设置和阶段
+    OPPORTUNITY_EXPORT = "opportunity:export"  # 商机：导出
 
 
 ALL_PERMISSIONS = frozenset(Permission)
@@ -88,6 +93,11 @@ PERMISSION_INFO: dict[Permission, tuple[str, str]] = {
     Permission.CUSTOMER_EXPORT: ("导出客户名单", "客户"),
     Permission.CUSTOMER_MANAGE: ("合并客户、处理个人信息请求", "客户"),
     Permission.BROADCAST_MANAGE: ("企业微信群发", "客户"),
+    Permission.OPPORTUNITY_READ: ("查看商机（自己负责的和能看到的客户的）", "商机"),
+    Permission.OPPORTUNITY_READ_ALL: ("查看全部商机", "商机"),
+    Permission.OPPORTUNITY_MANAGE: ("新建、修改、跟进商机，换阶段，赢单和输单", "商机"),
+    Permission.OPPORTUNITY_ASSIGN: ("把商机的负责人改成别人，商机设置和阶段", "商机"),
+    Permission.OPPORTUNITY_EXPORT: ("导出商机", "商机"),
     Permission.TODO_READ: ("查看待办", "待办"),
     Permission.TODO_HANDLE: ("处理自己的待办、确认 AI 生成的待办", "待办"),
     Permission.TODO_ASSIGN: ("分派和改派待办", "待办"),
@@ -165,6 +175,8 @@ DEFAULT_ROLES: tuple[RoleSpec, ...] = (
                 Permission.WORKBENCH_USE,
                 Permission.CUSTOMER_READ,
                 Permission.CUSTOMER_CREATE,
+                Permission.OPPORTUNITY_READ,
+                Permission.OPPORTUNITY_MANAGE,
                 Permission.KB_READ,
                 Permission.SESSION_TRANSFER,
                 Permission.TODO_READ,
@@ -189,6 +201,11 @@ DEFAULT_ROLES: tuple[RoleSpec, ...] = (
                 Permission.WORKBENCH_USE,
                 Permission.CUSTOMER_READ,
                 Permission.CUSTOMER_CREATE,
+                Permission.OPPORTUNITY_READ,
+                Permission.OPPORTUNITY_READ_ALL,
+                Permission.OPPORTUNITY_MANAGE,
+                Permission.OPPORTUNITY_ASSIGN,
+                Permission.OPPORTUNITY_EXPORT,
                 Permission.KB_READ,
                 Permission.REPORT_VIEW,
                 Permission.SESSION_READ_TEAM,
@@ -232,6 +249,8 @@ DEFAULT_ROLES: tuple[RoleSpec, ...] = (
                 Permission.ORDER_READ,
                 Permission.ORDER_PAYMENT,
                 Permission.CUSTOMER_READ,
+                Permission.OPPORTUNITY_READ,
+                Permission.OPPORTUNITY_READ_ALL,
                 Permission.PROFIT_VIEW,
                 Permission.PROFIT_MANAGE,
                 Permission.TOKEN_VIEW,

@@ -194,16 +194,30 @@ MATRIX: list[tuple[str, str, dict[str, Any] | None]] = [
     ("POST", "/api/v1/contracts/{contract_id}/save-as-template", {"name": "越权另存"}),
     ("GET", "/api/v1/contracts/{contract_id}/docx", None),
     ("GET", "/api/v1/contracts/{contract_id}/scan", None),
-    ("GET", "/api/v1/prospects/customer/{customer_id}", None),
-    ("GET", "/api/v1/prospects/{prospect_id}", None),
-    ("PATCH", "/api/v1/prospects/{prospect_id}", {"level": "low"}),
-    ("POST", "/api/v1/prospects/{prospect_id}/followups", {"content": "越权跟进"}),
-    ("POST", "/api/v1/prospects/{prospect_id}/won", None),
-    ("POST", "/api/v1/prospects/{prospect_id}/lost", {"reason": "越权放弃"}),
-    ("POST", "/api/v1/prospects/{prospect_id}/reopen", None),
-    ("POST", "/api/v1/prospects/{prospect_id}/accept", None),
-    ("POST", "/api/v1/prospects/{prospect_id}/dismiss", None),
-    ("POST", "/api/v1/prospects/{prospect_id}/message", None),
+    ("GET", "/api/v1/opportunities/customer/{customer_id}", None),
+    ("GET", "/api/v1/opportunities/{opportunity_id}", None),
+    ("PATCH", "/api/v1/opportunities/{opportunity_id}", {"level": "low"}),
+    ("POST", "/api/v1/opportunities/{opportunity_id}/followups", {"content": "越权跟进"}),
+    ("POST", "/api/v1/opportunities/{opportunity_id}/won", None),
+    (
+        "POST",
+        "/api/v1/opportunities/{opportunity_id}/lost",
+        {"reason_code": "other", "reason": "越权放弃"},
+    ),
+    ("POST", "/api/v1/opportunities/{opportunity_id}/reopen", None),
+    ("POST", "/api/v1/opportunities/{opportunity_id}/accept", None),
+    ("POST", "/api/v1/opportunities/{opportunity_id}/dismiss", None),
+    ("POST", "/api/v1/opportunities/{opportunity_id}/message", None),
+    ("GET", "/api/v1/opportunities/{opportunity_id}/activities", None),
+    (
+        "POST",
+        "/api/v1/opportunities/{opportunity_id}/activities",
+        {"kind": "note", "content": "越权备注"},
+    ),
+    ("POST", "/api/v1/opportunities/{opportunity_id}/stage", {"stage_id": "{stage_id}"}),
+    ("POST", "/api/v1/opportunities/{opportunity_id}/assign", {"owner_id": None}),
+    ("PATCH", "/api/v1/opportunities/stages/{stage_id}", {"name": "越权改阶段"}),
+    ("DELETE", "/api/v1/opportunities/stages/{stage_id}", None),
     ("PATCH", "/api/v1/materials/folders/{material_folder_id}", {"name": "越权修改"}),
     ("DELETE", "/api/v1/materials/folders/{material_folder_id}", None),
     ("DELETE", "/api/v1/materials/shares/{material_share_id}", None),
@@ -495,8 +509,8 @@ async def build(desk: Desk) -> Tenant:
         desk.tenant_id,
         f"{desk.code}/_contracts/x/签字版.pdf",
     )
-    # 坐席客户的意向记录（直接写库，流程见 test_prospects.py）。
-    prospect = await prospect_of(desk, chat["customer_id"])
+    # 坐席客户的商机（直接写库，流程见 test_opportunities.py）。
+    opportunity = await opportunity_of(desk, chat["customer_id"])
     material_ids = await materials(desk)
     # 员工导图里的待完善卡片。
     card = await desk.client.post(
@@ -508,7 +522,8 @@ async def build(desk: Desk) -> Tenant:
     await desk.flush()
     ids = {
         "card_id": card.json()["id"],
-        "prospect_id": prospect,
+        "opportunity_id": opportunity,
+        "stage_id": await stage_of(desk, "quoted"),
         **material_ids,
         "contract_category_id": str(contract_category["id"]),
         "contract_template_id": str(contract_template["id"]),
@@ -575,23 +590,35 @@ async def materials(desk: Desk) -> dict[str, str]:
     }
 
 
-async def prospect_of(desk: Desk, customer_id: uuid.UUID) -> str:
-    """客户跟进中的意向记录，带一条跟进记录。"""
-    [prospect] = await desk.sql(
-        "INSERT INTO customer_prospects (id, tenant_id, customer_id, interest, next_follow_at)"
-        " VALUES ($1, $2, $3, '智能门锁', current_date + 3) RETURNING id",
+async def opportunity_of(desk: Desk, customer_id: uuid.UUID) -> str:
+    """客户跟进中的商机，带一条跟进记录。"""
+    [opportunity] = await desk.sql(
+        "INSERT INTO opportunities"
+        " (id, tenant_id, customer_id, interest, name, next_follow_at, stage_id)"
+        " VALUES ($1, $2, $3, '智能门锁', '智能门锁', current_date + 3,"
+        " (SELECT id FROM pipeline_stages WHERE tenant_id = $2 AND code = 'new')) RETURNING id",
         uuid.uuid4(),
         desk.tenant_id,
         customer_id,
     )
     await desk.sql(
-        "INSERT INTO prospect_followups (id, tenant_id, prospect_id, method, content)"
+        "INSERT INTO opportunity_activities (id, tenant_id, opportunity_id, method, content)"
         " VALUES ($1, $2, $3, 'phone', '电话沟通')",
         uuid.uuid4(),
         desk.tenant_id,
-        prospect["id"],
+        opportunity["id"],
     )
-    return str(prospect["id"])
+    return str(opportunity["id"])
+
+
+async def stage_of(desk: Desk, code: str) -> str:
+    """企业的默认阶段（开通时写入）。"""
+    [stage] = await desk.sql(
+        "SELECT id FROM pipeline_stages WHERE tenant_id = $1 AND code = $2",
+        desk.tenant_id,
+        code,
+    )
+    return str(stage["id"])
 
 
 async def orders(desk: Desk, chat: Any) -> dict[str, str]:
@@ -951,8 +978,8 @@ async def snapshot(desk: Desk) -> list[Any]:
         "contract_categories": "id, name, parent_id, sort",
         "contract_templates": "id, name, status, body, used_count",
         "contracts": "id, status, title, owner_id, body, void_reason",
-        "customer_prospects": "id, status, level, follower_id, next_follow_at, follow_count",
-        "prospect_followups": "id, prospect_id, content",
+        "opportunities": "id, status, level, owner_id, next_follow_at, follow_count",
+        "opportunity_activities": "id, opportunity_id, content",
         "material_folders": "id, name, parent_id, sort",
         "materials": "id, name, description, folder_id, status, tags, size, excerpt",
         "material_shares": "id, material_id, expires_at, disabled_at",
@@ -1346,7 +1373,9 @@ async def test_agents_only_reach_their_own_sessions_and_customers(
         "material_share_id": acme.ids["material_share_id"],
         "contract_template_id": acme.ids["contract_template_id"],
         "contract_id": acme.ids["contract_id"],
-        "prospect_id": await prospect_of(desk, chat["customer_id"]),
+        "opportunity_id": await opportunity_of(desk, chat["customer_id"]),
+        # 阶段只有能分配商机的员工才能改。
+        "stage_id": await stage_of(desk, "quoted"),
         "message_id": await email(desk, chat),
         # Dave 自己的个人待办和 IM 绑定；机器人和群只有管理员能管理。
         **await dave_assistant(desk, acme.other_agent.staff_id, acme.ids["bot_id"]),

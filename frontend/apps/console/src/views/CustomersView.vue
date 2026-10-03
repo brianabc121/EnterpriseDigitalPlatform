@@ -83,7 +83,7 @@ const historyOpen = ref(false)
 const historyOf = ref<Schemas['CustomerOut'] | null>(null)
 
 function tagOf(customer: Schemas['CustomerOut']): ReturnType<typeof prospectTag> {
-  return prospectTag(customer.prospect_status)
+  return prospectTag(customer.opportunity_status)
 }
 
 function showHistory(customer: Schemas['CustomerOut']): void {

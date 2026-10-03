@@ -36,11 +36,11 @@ from app.modules.finance import service as finance
 from app.modules.iam.models import Staff, StaffStatus
 from app.modules.kb.models import CandidateKind, CandidateSource, CandidateStatus, KbCandidate
 from app.modules.mail.models import MailAccount, MailStatus
+from app.modules.opportunities.models import Opportunity, OpportunityStatus
 from app.modules.orders.models import Order, OrderItem, OrderStatus, WorkStatus
 from app.modules.print.models import Printer, PrinterStatus
 from app.modules.products import stock
 from app.modules.products.models import Product, ProductKind, ProductStatus
-from app.modules.prospects.models import CustomerProspect, ProspectStatus
 from app.modules.todos import assign
 from app.modules.todos.models import ACTIVE, Todo, TodoStatus
 from app.modules.wake.models import Severity
@@ -934,39 +934,39 @@ async def prospect_due(scope: Scope) -> list[Hit]:
     以后）自动消除。过了日期的是警告，过了 3 天以上的是严重。"""
     today = scope.today
     active = and_(
-        CustomerProspect.status == ProspectStatus.ACTIVE,
-        CustomerProspect.next_follow_at.is_not(None),
+        Opportunity.status == OpportunityStatus.ACTIVE,
+        Opportunity.next_follow_at.is_not(None),
     )
     rows = (
         await scope.session.execute(
             select(
-                CustomerProspect.follower_id,
-                CustomerProspect.next_follow_at,
+                Opportunity.owner_id,
+                Opportunity.next_follow_at,
                 Customer.display_name,
             )
-            .join(Customer, Customer.id == CustomerProspect.customer_id)
-            .where(active, CustomerProspect.next_follow_at <= today)
-            .order_by(CustomerProspect.next_follow_at, Customer.display_name)
+            .join(Customer, Customer.id == Opportunity.customer_id)
+            .where(active, Opportunity.next_follow_at <= today)
+            .order_by(Opportunity.next_follow_at, Customer.display_name)
         )
     ).all()
     # 日期变了：今天该跟进的变成逾期，逾期的变严重，新的一批到了日期。
     upcoming = await scope.earliest(
-        CustomerProspect.next_follow_at, active, CustomerProspect.next_follow_at > today
+        Opportunity.next_follow_at, active, Opportunity.next_follow_at > today
     )
     if rows:
         scope.due(scope.midnight(today + timedelta(days=1)))
     elif upcoming is not None:
         scope.due(scope.midnight(upcoming))
     groups: dict[uuid.UUID | None, list[tuple[date, str]]] = {}
-    for follower_id, next_at, name in rows:
+    for owner_id, next_at, name in rows:
         assert next_at is not None
-        groups.setdefault(follower_id, []).append((next_at, name))
+        groups.setdefault(owner_id, []).append((next_at, name))
     names = await scope.names()
     hits = []
-    for follower_id, items in list(groups.items())[:MAX_HITS]:
+    for owner_id, items in list(groups.items())[:MAX_HITS]:
         overdue = [d for d, _ in items if d < today]
         late = [d for d in overdue if today - d > CRITICAL_LATE]
-        who = names.get(follower_id, "员工") if follower_id else None
+        who = names.get(owner_id, "员工") if owner_id else None
         detail = "、".join(n for _, n in items[:3])
         detail += f"等 {len(items)} 位。" if len(items) > 3 else "。"
         if overdue:
@@ -975,20 +975,20 @@ async def prospect_due(scope: Scope) -> list[Hit]:
         link = f"/customers?tab=prospects&view={view}"
         hits.append(
             Hit(
-                key=f"staff:{follower_id}" if follower_id else "unassigned",
+                key=f"staff:{owner_id}" if owner_id else "unassigned",
                 title=(
-                    f"{who} 有 {len(items)} 位意向客户该跟进了"
+                    f"{who} 有 {len(items)} 条商机该跟进了"
                     if who
-                    else f"有 {len(items)} 位意向客户该跟进了，还没有跟进人"
+                    else f"有 {len(items)} 条商机该跟进了，还没有负责人"
                 ),
                 detail=detail,
                 severity=(
                     Severity.CRITICAL if late else Severity.WARNING if overdue else Severity.INFO
                 ),
-                assignees=await scope.people(follower_id, permission=Permission.CUSTOMER_ASSIGN),
-                link=link + (f"&follower={follower_id}" if follower_id else ""),
-                entity_type="staff" if follower_id else None,
-                entity_id=follower_id,
+                assignees=await scope.people(owner_id, permission=Permission.CUSTOMER_ASSIGN),
+                link=link + (f"&owner={owner_id}" if owner_id else ""),
+                entity_type="staff" if owner_id else None,
+                entity_id=owner_id,
                 data={"due": len(items), "overdue": len(overdue)},
             )
         )
@@ -1224,10 +1224,10 @@ CHECKS: tuple[Check, ...] = (
     Check(
         "prospect_due",
         Category.CUSTOMER,
-        "意向客户该跟进了",
-        "跟进中的意向客户到了下次跟进日期还没跟进，按跟进人合并提醒",
+        "商机该跟进了",
+        "跟进中的商机到了下次跟进日期还没跟进，按负责人合并提醒",
         prospect_due,
-        domains=("customer_prospects", "customers"),
+        domains=("opportunities", "customers"),
     ),
     Check(
         "orders_drop",

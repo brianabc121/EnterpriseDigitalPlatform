@@ -29,7 +29,7 @@ import ProspectSettingsDialog from './ProspectSettingsDialog.vue'
 
 /**
  * "客户"页面的"意向客户"页签（设计文档 §35.5）：顶部数字（跟进中、今天该跟进、已逾期、待确认、本月成交），
- * 按状态、等级、来源、跟进人筛选和按客户搜索，点一行打开意向详情。AI 唤醒的提醒链接带 view、follower，
+ * 按状态、等级、来源、跟进人筛选和按客户搜索，点一行打开意向详情。AI 唤醒的提醒链接带 view、owner，
  * 站内的链接可以带 id 直接打开一条。
  */
 const PAGE_SIZE = 20
@@ -44,7 +44,7 @@ const filters = reactive({
   view: 'active' as ProspectView,
   level: '' as ProspectLevel | '',
   source: '' as ProspectSource | '',
-  follower: '',
+  owner: '',
   q: '',
 })
 const staff = ref<Schemas['StaffOut'][]>([])
@@ -53,21 +53,21 @@ const createOpen = ref(false)
 const settingsOpen = ref(false)
 const canEditSettings = ref(false)
 
-const canPickFollower = computed(() => auth.can('customer:assign') && auth.can('staff:read'))
+const canPickOwner = computed(() => auth.can('customer:assign') && auth.can('staff:read'))
 const today = computed(() => isoDate(new Date()))
 const items = computed<ProspectSummary[]>(() => page.value?.items ?? [])
 const counts = computed(() => page.value?.counts ?? {})
-const followerIsMe = computed(() => !!filters.follower && filters.follower === auth.me?.id)
+const ownerIsMe = computed(() => !!filters.owner && filters.owner === auth.me?.id)
 
 async function load(): Promise<void> {
   loading.value = true
-  const { data, error } = await api.GET('/api/v1/prospects', {
+  const { data, error } = await api.GET('/api/v1/opportunities', {
     params: {
       query: {
         view: filters.view,
         level: filters.level || undefined,
         source: filters.source || undefined,
-        follower_id: filters.follower || undefined,
+        owner_id: filters.owner || undefined,
         q: filters.q.trim() || undefined,
         limit: PAGE_SIZE,
         offset: (current.value - 1) * PAGE_SIZE,
@@ -94,21 +94,21 @@ function pickView(view: ProspectView): void {
 
 async function loadMeta(): Promise<void> {
   const [settings, list] = await Promise.all([
-    api.GET('/api/v1/prospects/settings'),
-    canPickFollower.value ? api.GET('/api/v1/staff') : Promise.resolve(null),
+    api.GET('/api/v1/opportunities/settings'),
+    canPickOwner.value ? api.GET('/api/v1/staff') : Promise.resolve(null),
   ])
   canEditSettings.value = settings.data?.can_edit ?? false
   staff.value = list?.data?.items.filter((s) => s.status === 'active') ?? []
 }
 
-/** 链接里的 view、follower、id（例如 AI 唤醒的提醒）。 */
+/** 链接里的 view、owner、id（例如 AI 唤醒的提醒）。 */
 function applyQuery(): void {
-  const { view, follower, id } = route.query
+  const { view, owner, id } = route.query
   if (isView(view)) filters.view = view
-  if (typeof follower === 'string') filters.follower = follower
+  if (typeof owner === 'string') filters.owner = owner
   if (typeof id === 'string') openId.value = id
-  if (view || follower || id) {
-    void router.replace({ query: { ...route.query, view: undefined, follower: undefined, id: undefined } })
+  if (view || owner || id) {
+    void router.replace({ query: { ...route.query, view: undefined, owner: undefined, id: undefined } })
   }
 }
 
@@ -122,9 +122,9 @@ function changed(): void {
 }
 
 watch(
-  () => [route.query.view, route.query.follower, route.query.id],
+  () => [route.query.view, route.query.owner, route.query.id],
   () => {
-    if (route.query.view || route.query.follower || route.query.id) {
+    if (route.query.view || route.query.owner || route.query.id) {
       applyQuery()
       search()
     }
@@ -206,25 +206,25 @@ onMounted(async () => {
         <el-option label="员工转入" value="staff" />
       </el-select>
       <el-select
-        v-if="canPickFollower"
-        v-model="filters.follower"
+        v-if="canPickOwner"
+        v-model="filters.owner"
         clearable
         filterable
         placeholder="跟进人"
         size="small"
         class="filter"
-        data-testid="prospect-filter-follower"
+        data-testid="prospect-filter-owner"
         @change="search"
       >
         <el-option v-for="s in staff" :key="s.id" :label="s.display_name" :value="s.id" />
       </el-select>
       <el-tag
-        v-else-if="filters.follower"
+        v-else-if="filters.owner"
         closable
         data-testid="prospect-filter-mine"
-        @close="(filters.follower = ''), search()"
+        @close="(filters.owner = ''), search()"
       >
-        {{ followerIsMe ? '只看我跟进的' : '只看一位跟进人的' }}
+        {{ ownerIsMe ? '只看我跟进的' : '只看一位跟进人的' }}
       </el-tag>
       <el-input
         v-model="filters.q"
@@ -269,7 +269,7 @@ onMounted(async () => {
         <template #default="{ row }">{{ SOURCE_LABEL[row.source as ProspectSource] }}</template>
       </el-table-column>
       <el-table-column label="跟进人" width="96">
-        <template #default="{ row }">{{ row.follower_name ?? '—' }}</template>
+        <template #default="{ row }">{{ row.owner_name ?? '—' }}</template>
       </el-table-column>
       <el-table-column label="最近跟进" width="150">
         <template #default="{ row }">

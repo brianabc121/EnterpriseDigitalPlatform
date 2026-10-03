@@ -52,6 +52,11 @@ export const PERMISSION_MODULES: readonly PermissionModuleConfig[] = [
       'customer:export',
       'customer:manage',
       'broadcast:manage',
+      'opportunity:read',
+      'opportunity:read_all',
+      'opportunity:manage',
+      'opportunity:assign',
+      'opportunity:export',
     ],
   },
   {

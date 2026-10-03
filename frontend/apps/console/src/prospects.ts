@@ -4,17 +4,17 @@ import type { Schemas } from '@edp/api-client'
  * 意向客户（设计文档 §35）：状态、等级、来源、跟进方式、列表页签、下次跟进日期的说明，以及客户列表里的
  * "意向"标签。
  */
-export type Prospect = Schemas['ProspectOut']
-export type ProspectSummary = Schemas['ProspectSummary']
-export type ProspectPage = Schemas['ProspectPage']
-export type ProspectFollowup = Schemas['ProspectFollowupOut']
+export type Prospect = Schemas['OpportunityOut']
+export type ProspectSummary = Schemas['OpportunitySummary']
+export type ProspectPage = Schemas['OpportunityPage']
+export type ProspectFollowup = Schemas['OpportunityActivityOut']
 export type ProspectStatus = Prospect['status']
 export type ProspectLevel = Prospect['level']
 export type ProspectSource = Prospect['source']
 export type FollowMethod = ProspectFollowup['method']
 export type ProspectView = 'active' | 'today' | 'overdue' | 'suggested' | 'won' | 'lost' | 'all'
-export type ProspectSettings = Schemas['ProspectSettings']
-export type CustomerProspectInfo = Schemas['CustomerProspectInfo']
+export type ProspectSettings = Schemas['OpportunitySettings']
+export type CustomerProspectInfo = Schemas['CustomerOpportunityInfo']
 type TagType = 'primary' | 'success' | 'warning' | 'danger' | 'info'
 
 export const STATUS_LABEL: Record<ProspectStatus, string> = {

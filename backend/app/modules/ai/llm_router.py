@@ -60,6 +60,7 @@ SCENES = {
     "wake_brief": "巡检简报",
     "kb_align": "知识库整理",
     "contract": "合同起草",
+    "opportunity": "商机",
     "prospect": "意向客户",
 }
 # 判断模型（TypeSafe）只能用于这些场景。

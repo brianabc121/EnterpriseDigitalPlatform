@@ -41,6 +41,7 @@ from app.modules.mail.router import router as mail_router
 from app.modules.materials.router import router as materials_router
 from app.modules.materials.shares import public_router as material_public_router
 from app.modules.notifications.router import router as notifications_router
+from app.modules.opportunities.router import router as opportunities_router
 from app.modules.orders.production_router import router as production_router
 from app.modules.orders.public import router as order_public_router
 from app.modules.orders.router import router as orders_router
@@ -48,7 +49,6 @@ from app.modules.platform.router import router as platform_ops_router
 from app.modules.print.router import router as print_router
 from app.modules.products.router import router as products_router
 from app.modules.profit.router import router as profit_router
-from app.modules.prospects.router import router as prospects_router
 from app.modules.quickreply.router import router as quick_reply_router
 from app.modules.reports.router import router as reports_router
 from app.modules.routing.router import router as routing_router
@@ -175,7 +175,9 @@ def create_app(
     app.include_router(mail_router)
     app.include_router(wake_router)
     app.include_router(contracts_router)
-    app.include_router(prospects_router)
+    app.include_router(opportunities_router, prefix="/api/v1/opportunities")
+    # 过渡期的别名（设计文档 §40.13）：控制台改用新接口后删除。
+    app.include_router(opportunities_router, prefix="/api/v1/prospects", include_in_schema=False)
     app.include_router(materials_router)
     app.include_router(reports_router)
     app.include_router(usage_router)

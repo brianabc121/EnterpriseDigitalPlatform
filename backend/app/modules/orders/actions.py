@@ -31,6 +31,7 @@ from app.modules.formkb.models import Event as FormKbEvent
 from app.modules.formkb.models import Form as FormKbForm
 from app.modules.iam.models import Staff, StaffStatus
 from app.modules.iam.principal import Principal
+from app.modules.opportunities import service as opportunities
 from app.modules.orders import service
 from app.modules.orders import settings as order_settings
 from app.modules.orders.models import (
@@ -59,7 +60,6 @@ from app.modules.orders.schemas import (
 )
 from app.modules.orders.settings import OrderSettings
 from app.modules.products import stock
-from app.modules.prospects import service as prospects
 from app.modules.routing.models import SkillGroup
 from app.modules.todos import notify as todo_notify
 from app.modules.todos import sla
@@ -544,7 +544,7 @@ async def _transition(
     )
     if status == OrderStatus.CONFIRMED:
         # 意向客户（§35.4）：这个客户跟进中的意向记录变成"已成交"。
-        await prospects.order_confirmed(session, order)
+        await opportunities.order_confirmed(session, order)
     return items, payments
 
 

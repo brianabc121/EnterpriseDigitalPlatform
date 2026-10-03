@@ -21,7 +21,7 @@ from app.modules.customer.schemas import (
 )
 from app.modules.iam.models import Staff, StaffStatus
 from app.modules.iam.principal import Principal
-from app.modules.prospects.models import OPEN_STATUSES, CustomerProspect
+from app.modules.opportunities.models import OPEN_STATUSES, Opportunity, PipelineStage
 from app.modules.routing.scope import team_members
 from app.modules.security.keys import TenantKeyring
 
@@ -82,7 +82,7 @@ async def _to_out(
     keys: TenantKeyring,
     customer: Customer,
     owner_name: str | None,
-    prospect_status: str | None = None,
+    opportunity: tuple[str, str] | None = None,
 ) -> CustomerOut:
     phone, email = await sensitive.masked(keys, customer)
     return CustomerOut(
@@ -96,21 +96,26 @@ async def _to_out(
         email=email,
         company=customer.company,
         created_at=customer.created_at,
-        prospect_status=prospect_status,
+        opportunity_status=opportunity[0] if opportunity else None,
+        opportunity_stage=opportunity[1] if opportunity else None,
     )
 
 
-async def prospect_statuses(session: AsyncSession, customer_ids: list[UUID]) -> dict[UUID, str]:
-    """客户的"意向"标签：待确认或跟进中的意向记录（设计文档 §35.5）。"""
+async def opportunity_statuses(
+    session: AsyncSession, customer_ids: list[UUID]
+) -> dict[UUID, tuple[str, str]]:
+    """客户的"商机"标签：待确认或跟进中的商机的状态和阶段名称（设计文档 §40.8）。"""
     if not customer_ids:
         return {}
     rows = await session.execute(
-        select(CustomerProspect.customer_id, CustomerProspect.status).where(
-            CustomerProspect.customer_id.in_(customer_ids),
-            CustomerProspect.status.in_(OPEN_STATUSES),
+        select(Opportunity.customer_id, Opportunity.status, PipelineStage.name)
+        .join(PipelineStage, PipelineStage.id == Opportunity.stage_id)
+        .where(
+            Opportunity.customer_id.in_(customer_ids),
+            Opportunity.status.in_(OPEN_STATUSES),
         )
     )
-    return {customer_id: status for customer_id, status in rows}
+    return {customer_id: (status, stage) for customer_id, status, stage in rows}
 
 
 async def search_condition(keys: TenantKeyring, tenant_id: UUID, q: str) -> ColumnElement[bool]:
@@ -151,9 +156,9 @@ async def list_customers(
             .offset(offset)
         )
     ).all()
-    prospects = await prospect_statuses(session, [c.id for c, _ in rows])
+    opportunities = await opportunity_statuses(session, [c.id for c, _ in rows])
     return CustomerPage(
-        items=[await _to_out(keys, c, name, prospects.get(c.id)) for c, name in rows],
+        items=[await _to_out(keys, c, name, opportunities.get(c.id)) for c, name in rows],
         total=total or 0,
     )
 
@@ -205,9 +210,9 @@ async def get_customer_detail(
         .where(CustomerIdentity.customer_id == customer_id)
         .order_by(CustomerIdentity.created_at)
     )
-    prospects = await prospect_statuses(session, [customer.id])
+    opportunities = await opportunity_statuses(session, [customer.id])
     return CustomerDetail(
-        **(await _to_out(keys, customer, owner_name, prospects.get(customer.id))).model_dump(),
+        **(await _to_out(keys, customer, owner_name, opportunities.get(customer.id))).model_dump(),
         notes=customer.notes,
         identities=[
             CustomerIdentityOut(

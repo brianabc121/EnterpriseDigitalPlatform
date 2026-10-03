@@ -25,6 +25,7 @@ from app.modules.customer import sensitive
 from app.modules.customer.models import Customer
 from app.modules.integration import outbox as webhook_outbox
 from app.modules.integration.schemas import OpenOrderCreate, OpenPaymentIn, OpenStatusUpdate
+from app.modules.opportunities import service as opportunities
 from app.modules.orders import service
 from app.modules.orders import settings as order_settings
 from app.modules.orders.actions import _after, _notice, _values, render
@@ -41,7 +42,6 @@ from app.modules.orders.schemas import OrderNotice
 from app.modules.orders.settings import OrderSettings
 from app.modules.products import stock
 from app.modules.products.models import Product
-from app.modules.prospects import service as prospects
 from app.modules.todos import sla
 from app.modules.todos.models import ActorType
 from app.modules.warehouse import documents
@@ -285,7 +285,7 @@ async def _create(
         order.credit_approved_at = now if credit else None
         order.submitted_at = order.confirmed_at = now
         # 意向客户（§35.4）：企业系统同步过来的已确认订单也算成交。
-        await prospects.order_confirmed(session, order)
+        await opportunities.order_confirmed(session, order)
         webhook_outbox.order_event(session, order, "api_created", actor_type=API)
         service.event(
             session,
