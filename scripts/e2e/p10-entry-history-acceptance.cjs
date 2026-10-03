@@ -211,14 +211,19 @@ async function pick(page, select, text) {
   await option.click()
 }
 
-// 普通下拉：点开后点选（页面还在加载时偶尔没有展开，没展开就再点一次）。
+// 普通下拉：点开后点选。页面还在加载时偶尔没有展开，或者展开后又被重新渲染收起（选项先"不稳定"再"不可见"），
+// 这时重新点开再选，最多三次。
 async function choose(page, select, text) {
   const option = page.locator('.el-select-dropdown__item:visible', { hasText: text }).first()
-  for (let attempt = 0; attempt < 3; attempt += 1) {
-    await select.click()
-    if (await option.waitFor({ timeout: 5000 }).then(() => true, () => false)) break
+  for (let attempt = 0; ; attempt += 1) {
+    if (!(await option.isVisible())) await select.click()
+    try {
+      await option.click({ timeout: 5000 })
+      return
+    } catch (error) {
+      if (attempt >= 2) throw error
+    }
   }
-  await option.click()
 }
 
 async function confirmBox(page, button) {
