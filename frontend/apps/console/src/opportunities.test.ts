@@ -8,8 +8,10 @@ import {
   amountText,
   closeText,
   columnOpen,
+  daysText,
   dropAction,
   dueText,
+  funnelRows,
   isMode,
   isView,
   isoDate,
@@ -222,5 +224,28 @@ describe('board and steps', () => {
     expect(
       activityText({ kind: 'stage', title: '换到「已沟通」', content: null, properties: { days: 0 } }),
     ).toBe('换到「已沟通」')
+  })
+})
+
+describe('sales report', () => {
+  it('formats average days', () => {
+    expect(daysText(3)).toBe('3 天')
+    expect(daysText(3.5)).toBe('3.5 天')
+    expect(daysText(null)).toBe('—')
+  })
+
+  it('lays out the funnel against the first stage', () => {
+    expect(
+      funnelRows([
+        { code: 'new', name: '新线索', count: 10, rate: null },
+        { code: 'contacted', name: '已沟通', count: 5, rate: 0.5 },
+        { code: 'won', name: '赢单', count: 0, rate: 0 },
+      ]),
+    ).toEqual([
+      { code: 'new', name: '新线索', count: 10, width: '100%', rateText: '' },
+      { code: 'contacted', name: '已沟通', count: 5, width: '50%', rateText: '50%' },
+      { code: 'won', name: '赢单', count: 0, width: '2%', rateText: '0%' },
+    ])
+    expect(funnelRows([])).toEqual([])
   })
 })

@@ -358,3 +358,23 @@ export function activityText(item: Pick<Activity, 'kind' | 'title' | 'content' |
   const days = item.properties?.['days']
   return typeof days === 'number' && days > 0 ? `${base}（在上一阶段 ${days} 天）` : base
 }
+
+/** 平均成交周期等天数："3.5 天"；没有时 "—"。 */
+export function daysText(days: number | null | undefined): string {
+  if (days === null || days === undefined) return '—'
+  return `${Number.isInteger(days) ? days : days.toFixed(1)} 天`
+}
+
+/** 销售漏斗的每一行（§40.9）：条的宽度按第一个阶段的数量，转化率是相对上一个阶段的。 */
+export function funnelRows(
+  funnel: readonly Schemas['FunnelStage'][],
+): { code: string; name: string; count: number; width: string; rateText: string }[] {
+  const max = Math.max(1, ...funnel.map((s) => s.count))
+  return funnel.map((stage) => ({
+    code: stage.code,
+    name: stage.name,
+    count: stage.count,
+    width: `${Math.max(2, (stage.count / max) * 100)}%`,
+    rateText: stage.rate === null || stage.rate === undefined ? '' : `${Math.round(stage.rate * 100)}%`,
+  }))
+}

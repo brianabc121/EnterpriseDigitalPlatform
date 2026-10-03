@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import type { Schemas } from '@edp/api-client'
+import { errorMessage, type Schemas } from '@edp/api-client'
+import { ElMessage } from 'element-plus'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import { api } from '../api'
+import { downloadBlob } from '../download'
 import OpportunityBoard from '../components/opportunities/OpportunityBoard.vue'
 import OpportunityCreateDialog from '../components/opportunities/OpportunityCreateDialog.vue'
 import OpportunityDrawer from '../components/opportunities/OpportunityDrawer.vue'
@@ -52,6 +54,8 @@ const settingsOpen = ref(false)
 
 const canCreate = computed(() => auth.can('opportunity:manage'))
 const canPickOwner = computed(() => auth.can('opportunity:read_all') && auth.can('staff:read'))
+const canExport = computed(() => auth.can('opportunity:export'))
+const exporting = ref(false)
 const today = computed(() => isoDate(new Date()))
 const months = computed(() => monthOptions(today.value))
 const ownerIsMe = computed(() => !!filters.owner && filters.owner === auth.me?.id)
@@ -95,6 +99,29 @@ function applyQuery(): void {
   if (view || owner || id) {
     void router.replace({ query: { ...route.query, view: undefined, owner: undefined, id: undefined } })
   }
+}
+
+/** 导出查看范围内、符合当前视图和筛选条件的商机（CSV，`opportunity:export`）。 */
+async function exportCsv(): Promise<void> {
+  exporting.value = true
+  const { data, error } = await api.GET('/api/v1/opportunities/export', {
+    params: {
+      query: {
+        view: filters.view,
+        stage_id: filters.stage || undefined,
+        owner_id: filters.owner || undefined,
+        q: filters.q.trim() || undefined,
+      },
+    },
+    parseAs: 'blob',
+  })
+  exporting.value = false
+  if (!data) {
+    ElMessage.error(errorMessage(error))
+    return
+  }
+  downloadBlob(data as Blob, `opportunities-${today.value.replace(/-/g, '')}.csv`)
+  ElMessage.success('已导出')
 }
 
 function onLoaded(data: OpportunityPage | Board): void {
@@ -145,6 +172,7 @@ onMounted(async () => {
         <el-button v-if="canCreate" type="primary" data-testid="opp-create-open" @click="createOpen = true">
           新建商机
         </el-button>
+        <el-button v-if="canExport" :loading="exporting" data-testid="opp-export" @click="exportCsv">导出</el-button>
         <el-button v-if="canEditSettings" data-testid="opp-settings-open" @click="settingsOpen = true">
           商机设置
         </el-button>

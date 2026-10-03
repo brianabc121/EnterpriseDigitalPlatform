@@ -16,6 +16,7 @@ import {
   type Stage,
 } from '../../opportunities'
 import { useAuthStore } from '../../stores/auth'
+import { isMobile } from '../../wecom'
 import LostDialog from './LostDialog.vue'
 import OpportunityCard from './OpportunityCard.vue'
 import WonDialog from './WonDialog.vue'
@@ -28,6 +29,8 @@ const props = defineProps<{ filters: BoardFilters; today: string; refreshKey: nu
 const emit = defineEmits<{ open: [id: string]; changed: []; loaded: [board: OpportunityBoard] }>()
 
 const auth = useAuthStore()
+// 手机上不拖（§40.8），用卡片菜单里的"移到…"。
+const touch = isMobile()
 const board = ref<OpportunityBoard | null>(null)
 const loading = ref(false)
 const expanded = ref(new Set<string>())
@@ -171,6 +174,7 @@ onMounted(load)
           :amount-visible="board?.amount_visible ?? false"
           :stages="stages"
           :can-move="canManage && item.status === 'active'"
+          :can-drag="!touch"
           @open="(id) => emit('open', id)"
           @move="moveTo"
           @dragstart="onDragStart"

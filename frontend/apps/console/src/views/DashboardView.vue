@@ -31,6 +31,7 @@ const data = reactive<HomeData>({
   orders: null,
   warehouse: null,
   receivables: null,
+  opportunities: null,
 })
 const profiles = computed(() => auth.profiles)
 const has = (profile: ConsoleProfile): boolean => profiles.value.includes(profile)
@@ -55,16 +56,19 @@ async function loadLive(): Promise<void> {
 }
 
 async function loadCounts(): Promise<void> {
-  const [todos, orders, warehouse, receivables] = await Promise.all([
+  const [todos, orders, warehouse, receivables, opportunities] = await Promise.all([
     shown('todos') ? api.GET('/api/v1/todos/counts') : null,
     shown('orders') && auth.can('order:review') ? api.GET('/api/v1/orders/counts') : null,
     shown('warehouse') && (team.value || has('keeper')) ? api.GET('/api/v1/warehouse/counts') : null,
     finance.value ? api.GET('/api/v1/finance/receivables/summary') : null,
+    // 商机的四个数字（§40.8）：主管和企业所有者看全部，客服看自己负责的（接口按可见范围算）。
+    shown('opportunities') ? api.GET('/api/v1/opportunities/stats') : null,
   ])
   data.todos = todos?.data ?? null
   data.orders = orders?.data ?? null
   data.warehouse = warehouse?.data ?? null
   data.receivables = receivables?.data ?? null
+  data.opportunities = opportunities?.data ?? null
 }
 
 function onChanged(): void {

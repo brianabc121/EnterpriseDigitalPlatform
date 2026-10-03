@@ -20,6 +20,7 @@ const props = defineProps<{
   amountVisible: boolean
   stages: Stage[]
   canMove: boolean
+  canDrag: boolean
 }>()
 const emit = defineEmits<{
   open: [id: string]
@@ -39,8 +40,8 @@ function onCommand(stageId: string): void {
 <template>
   <div
     class="card"
-    :class="{ stale: item.stale, suggested: item.status === 'suggested', draggable: canMove }"
-    :draggable="canMove"
+    :class="{ stale: item.stale, suggested: item.status === 'suggested', draggable: canMove && canDrag }"
+    :draggable="canMove && canDrag"
     :data-testid="`opp-card-${item.id}`"
     @click="emit('open', item.id)"
     @dragstart="(event: DragEvent) => emit('dragstart', item, event)"

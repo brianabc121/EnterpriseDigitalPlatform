@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 
 import { formatDuration } from '../../labels'
+import { amountText } from '../../opportunities'
 import { useAuthStore } from '../../stores/auth'
 import StatTile from '../charts/StatTile.vue'
 import type { HomeData } from './home'
@@ -18,6 +19,11 @@ const reviewsOrders = computed(() => auth.can('order:review') && props.data.orde
 const pendingDocuments = computed(() => {
   const w = props.data.warehouse
   return w ? w.pending_requisitions + w.pending_receipts : 0
+})
+const opportunities = computed(() => props.data.opportunities)
+const wonHint = computed(() => {
+  const amount = amountText(opportunities.value?.won_amount_this_month)
+  return amount ? `金额 ${amount}` : undefined
 })
 const documentsTab = computed(() =>
   props.data.warehouse && !props.data.warehouse.pending_requisitions && props.data.warehouse.pending_receipts
@@ -94,6 +100,41 @@ const documentsTab = computed(() =>
           tone="warning"
           :to="{ path: '/warehouse', query: { tab: documentsTab } }"
           testid="home-documents-pending"
+        />
+      </div>
+    </HomeSection>
+
+    <HomeSection v-if="opportunities" title="商机" testid="home-team-opportunities">
+      <div class="tiles">
+        <LinkTile
+          label="进行中的商机"
+          :value="opportunities.active"
+          :hint="`我负责的 ${opportunities.mine}，待确认 ${opportunities.suggested}`"
+          :to="{ path: '/opportunities' }"
+          testid="home-opps-active"
+        />
+        <LinkTile
+          label="本周要跟进"
+          :value="opportunities.week"
+          tone="warning"
+          :hint="`今天 ${opportunities.today}，已逾期 ${opportunities.overdue}`"
+          :to="{ path: '/opportunities', query: { view: 'week' } }"
+          testid="home-opps-week"
+        />
+        <LinkTile
+          label="停滞"
+          :value="opportunities.stale"
+          tone="danger"
+          hint="超过阶段的停滞天数没有动态"
+          :to="{ path: '/opportunities', query: { view: 'stale' } }"
+          testid="home-opps-stale"
+        />
+        <LinkTile
+          label="本月赢单"
+          :value="opportunities.won_this_month"
+          :hint="wonHint"
+          :to="{ path: '/opportunities', query: { view: 'won', mode: 'list' } }"
+          testid="home-opps-won"
         />
       </div>
     </HomeSection>

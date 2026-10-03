@@ -14,6 +14,7 @@
 // 5. AI 唤醒的每日巡检提醒"管理员 有 1 条商机该跟进了"，提醒的链接打开今天该跟进的看板。
 // 6. 输单（选原因、写说明）和重新跟进（回到已沟通）。
 // 7. 小艾有"商机"菜单，只看到自己负责的商机（客户不归她也能看到），没有商机设置。
+// 8. 管理员首页的商机数字（进行中、本周要跟进、停滞、本月赢单金额）、报表的"销售"页签、导出 CSV。
 //
 // 前置：与 p22-wake-acceptance.cjs 相同（后端、实时消费进程、调度进程接到模拟大模型 :8900），另需访客
 // Widget（:5175）。运行：NODE_PATH=$(npm root -g) PLATFORM_PASSWORD=<密码> node scripts/e2e/p24-prospect-acceptance.cjs
@@ -651,6 +652,60 @@ async function agentScope(alice) {
   await alice.screenshot({ path: `${SHOTS}/p24-12-agent.png`, fullPage: true })
 }
 
+// ---- 8. 首页数字、报表"销售"页签、导出 ----
+
+async function homeReportExport(admin) {
+  await admin.goto(`${CONSOLE}/`)
+  const section = admin.locator('[data-testid="home-team-opportunities"]')
+  await section.waitFor()
+  const active = await text(section.locator('[data-testid="home-opps-active"] .value'))
+  const won = await text(section.locator('[data-testid="home-opps-won"]'))
+  check(
+    'the home page shows the opportunity numbers: 2 in progress, 1 won this month with the amount',
+    active === '2' && won.includes('1') && won.includes('¥2,598'),
+    { active, won },
+  )
+  await section.locator('[data-testid="home-opps-active"]').click()
+  await admin.waitForURL(/\/opportunities/)
+  await admin.waitForSelector('[data-testid="opp-board"]')
+  check('the home tile opens the opportunities board', true)
+  await admin.screenshot({ path: `${SHOTS}/p24-13-home.png` })
+
+  await admin.goto(`${CONSOLE}/reports`)
+  await admin.locator('[data-testid="report-tabs"] .el-tabs__item', { hasText: '销售' }).click()
+  const report = admin.locator('[data-testid="sales-report"]')
+  await report.locator('[data-testid="sales-tile-created"]').waitFor()
+  const created = await text(report.locator('[data-testid="sales-tile-created"] .value'))
+  const funnelNew = await text(report.locator('[data-testid="sales-funnel-new"]'))
+  const sources = await report.locator('[data-testid="sales-by-source"] .el-table__row').allInnerTexts()
+  const owners = await report.locator('[data-testid="sales-by-owner"] .el-table__row').allInnerTexts()
+  check(
+    'the sales report counts 3 new opportunities, the funnel, 2 from AI and 1 from staff, and the owners',
+    created === '3' &&
+      funnelNew.includes('3') &&
+      sources.some((r) => r.includes('AI') && r.includes('2')) &&
+      sources.some((r) => r.includes('员工') && r.includes('1')) &&
+      owners.length === 2,
+    { created, funnelNew, sources, owners },
+  )
+  await settle(admin)
+  await admin.screenshot({ path: `${SHOTS}/p24-14-sales-report.png`, fullPage: true })
+
+  await opportunities(admin, 'all')
+  const [download] = await Promise.all([admin.waitForEvent('download'), admin.click('[data-testid="opp-export"]')])
+  const csv = fs.readFileSync(await download.path(), 'utf-8')
+  const lines = csv.split('\n').filter(Boolean)
+  check(
+    'exporting downloads a CSV with the header and the three opportunities',
+    download.suggestedFilename().startsWith('opportunities-') &&
+      lines.length === 4 &&
+      lines[0].includes('客户') &&
+      csv.includes('王先生') &&
+      csv.includes('已沟通'),
+    { name: download.suggestedFilename(), lines: lines.length, head: lines[0] },
+  )
+}
+
 async function cleanup() {
   if (state.providerId && state.ops) {
     await fetch(`${API}/platform/v1/llm-providers/${state.providerId}`, {
@@ -677,6 +732,7 @@ async function cleanup() {
     await wakeReminder(admin)
     await loseAndReopen(admin)
     await agentScope(alice)
+    await homeReportExport(admin)
   } catch (error) {
     summary.checks.push(`FAIL exception -> ${error.stack || error}`)
   } finally {
