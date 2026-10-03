@@ -73,11 +73,19 @@ async function main() {
     const rootText = await root.innerText()
     const rootId = await root.getAttribute('data-testid')
     const company = (await root.locator('[data-testid="root-company"] strong').innerText()).trim()
+    // 卡片的操作都在右上角的"编辑"图标里（§39.8）：最顶部的卡片里没有"停用"。
+    const owner = rootId.replace('staff-node-', '')
+    await page.getByTestId(`card-menu-${owner}`).click()
+    const actions = page.getByTestId(`card-actions-${owner}`)
+    await actions.waitFor()
+    const items = await actions.locator('.el-dropdown-menu__item').allInnerTexts()
+    await page.getByTestId('staff-tree').click({ position: { x: 5, y: 5 } })
+    await actions.waitFor({ state: 'hidden' })
     check(
       'the top card is the enterprise owner under the enterprise name, without 停用',
       rootText.includes('企业所有者') && rootId !== 'staff-node-company' && company.length > 0 &&
-        (await root.locator('[data-testid^="toggle-"]').count()) === 0,
-      { rootId, company, rootText },
+        items.length > 0 && !items.some((text) => text.includes('停用')),
+      { rootId, company, rootText, items },
     )
     for (const direction of ['left', 'right', 'down']) {
       const username = `diagram-${direction}-${RUN}`

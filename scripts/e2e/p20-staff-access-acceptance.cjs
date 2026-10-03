@@ -303,8 +303,11 @@ async function staffSection(browser) {
 
 // 5–6. 编辑：保留自定义，改回按角色；租户管理员不能自定义。
 async function editSection(browser, admin) {
-  const row = admin.getByTestId('staff-node-xiao')
-  await row.locator('button', { hasText: '编辑' }).click()
+  // 员工卡片的操作都在右上角的"编辑"图标里（设计文档 §39.8）。先把鼠标移开，前面打开的"自定义"提示会盖住它。
+  await admin.mouse.move(0, 0)
+  await admin.locator('.el-popper:visible', { hasText: '页面：' }).waitFor({ state: 'hidden' }).catch(() => undefined)
+  await admin.getByTestId('card-menu-xiao').click()
+  await admin.getByTestId('edit-xiao').click()
   const dialog = admin.locator('[data-testid="staff-edit"]')
   await dialog.locator('[data-testid="permission-picker"]').waitFor()
   await expandAll(dialog)

@@ -142,11 +142,19 @@ async function prepareTenant() {
   return { adminToken: admin.access_token, channelKey: channels.items[0].public_key }
 }
 
+// 员工卡片的操作都在右上角的"编辑"图标里（设计文档 §39.8）。
+async function cardAction(page, username, key) {
+  await page.locator(`[data-testid="card-menu-${username}"]`).click()
+  const item = page.locator(`[data-testid="${key}-${username}"]`)
+  await item.waitFor()
+  await item.click()
+}
+
 async function staffSection(page) {
   await menu(page, '员工')
   const row = page.getByTestId('staff-node-xiaowang')
   await row.waitFor()
-  await row.locator('button', { hasText: '编辑' }).click()
+  await cardAction(page, 'xiaowang', 'edit')
   const dialog = page.locator('.el-dialog:visible')
   await dialog.locator('.el-form-item', { hasText: '姓名' }).locator('input').fill('王小明')
   await dialog.locator('.el-checkbox', { hasText: '主管' }).click()
@@ -155,18 +163,18 @@ async function staffSection(page) {
   const rowText = await row.innerText()
   check('编辑员工的姓名和角色', rowText.includes('王小明') && rowText.includes('客服'), rowText)
 
-  await page.locator('[data-testid="toggle-xiaowang"]').click()
+  await cardAction(page, 'xiaowang', 'toggle')
   await confirmBox(page, '停用')
   await row.locator('.el-tag', { hasText: '停用' }).waitFor()
   const blocked = await staffLogin('xiaowang', AGENT_PASSWORD)
   check('停用后员工无法登录', blocked.status === 403, blocked.status)
   await shot(page, '1-staff-disabled')
-  await page.locator('[data-testid="toggle-xiaowang"]').click()
+  await cardAction(page, 'xiaowang', 'toggle')
   await row.locator('.el-tag', { hasText: '启用' }).waitFor()
   check('重新启用后可以登录', (await staffLogin('xiaowang', AGENT_PASSWORD)).status === 200)
 
   // 重置窗口（§38.4）：手动设置新密码，不要求下次登录修改（这里只检查能用新密码登录）。
-  await row.locator('button', { hasText: '重置密码' }).click()
+  await cardAction(page, 'xiaowang', 'reset')
   const reset = page.locator('[data-testid="staff-reset"]')
   await reset.locator('.el-radio', { hasText: '手动设置' }).click()
   await reset.locator('[data-testid="reset-password-input"]').fill(RESET_PASSWORD)
