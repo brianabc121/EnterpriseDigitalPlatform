@@ -38,6 +38,7 @@ const VIEWS: Record<string, LazyView> = {
   warehouse: () => import('./views/WarehouseView.vue'),
   tasks: () => import('./views/TasksView.vue'),
   customers: () => import('./views/CustomersView.vue'),
+  opportunities: () => import('./views/OpportunitiesView.vue'),
   knowledge: () => import('./views/KnowledgeView.vue'),
   ai: () => import('./views/AiView.vue'),
   wake: () => import('./views/WakeView.vue'),

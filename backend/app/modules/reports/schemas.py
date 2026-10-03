@@ -185,3 +185,63 @@ class OrderReport(BaseModel):
     payments: OrderPayments
     security: OrderSecurity
     now: OrderNow
+
+
+# ---- 销售（设计文档 §40.9）----
+
+
+class FunnelStage(BaseModel):
+    code: str
+    name: str
+    count: int = Field(description="期间内新建的商机里到过这个阶段（或更靠后）的")
+    rate: float | None = Field(description="相对上一个阶段的转化率；第一个阶段为空")
+
+
+class SalesAmount(BaseModel):
+    """进行中的商机的预计金额（不限期间）。金额设置为只有管理者可见而自己不能看时为空。"""
+
+    open_count: int
+    by_stage: list[Bucket]
+    weighted: Decimal | None = Field(description="Σ 预计金额 × 成交概率")
+    this_month: Decimal | None = Field(description="本月预计成交的金额合计")
+    next_month: Decimal | None
+
+
+class SalesWin(BaseModel):
+    closed: int = Field(description="期间内关闭（赢单或输单）的")
+    won: int
+    lost: int
+    win_rate: float | None
+    avg_days: float | None = Field(description="赢单的平均成交周期（转入到赢单的天数）")
+    avg_amount: Decimal | None = Field(description="赢单的平均预计金额")
+
+
+class OwnerSales(BaseModel):
+    staff_id: UUID | None
+    name: str
+    created: int = Field(description="期间内新建的")
+    active: int = Field(description="现在进行中的")
+    won: int = Field(description="期间内赢单的")
+    lost: int
+    won_amount: Decimal | None
+    avg_days: float | None
+
+
+class SourceSales(BaseModel):
+    key: str
+    label: str
+    count: int = Field(description="期间内新建的")
+    won: int
+    win_rate: float | None = Field(description="赢单 / 新建")
+
+
+class SalesReport(BaseModel):
+    start: date
+    end: date
+    amount_visible: bool
+    funnel: list[FunnelStage]
+    amount: SalesAmount
+    win: SalesWin
+    lost_reasons: list[Bucket]
+    by_owner: list[OwnerSales]
+    by_source: list[SourceSales]

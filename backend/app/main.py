@@ -176,8 +176,6 @@ def create_app(
     app.include_router(wake_router)
     app.include_router(contracts_router)
     app.include_router(opportunities_router, prefix="/api/v1/opportunities")
-    # 过渡期的别名（设计文档 §40.13）：控制台改用新接口后删除。
-    app.include_router(opportunities_router, prefix="/api/v1/prospects", include_in_schema=False)
     app.include_router(materials_router)
     app.include_router(reports_router)
     app.include_router(usage_router)

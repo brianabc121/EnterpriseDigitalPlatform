@@ -7,16 +7,19 @@ from sqlalchemy import inspect, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
+from app.modules.contracts.models import Contract
 from app.modules.customer.models import Customer
 from app.modules.iam.models import Staff
 from app.modules.integration.schemas import (
     OpenCustomerRef,
+    OpenOpportunity,
     OpenOrder,
     OpenOrderItem,
     OpenPayment,
     OpenReceiver,
     OpenTodo,
 )
+from app.modules.opportunities.models import Opportunity, PipelineStage
 from app.modules.orders import service
 from app.modules.orders.models import Order
 from app.modules.security.keys import TenantKeyring
@@ -139,3 +142,58 @@ async def find_order(session: AsyncSession, ref: str, *, lock: bool = False) -> 
     if lock:
         statement = statement.with_for_update()
     return await session.scalar(statement)
+
+
+async def opportunity_out(session: AsyncSession, opportunity: Opportunity) -> OpenOpportunity:
+    """商机的推送内容和开放接口的返回（设计文档 §40.13）。"""
+    stage = await session.get(PipelineStage, opportunity.stage_id)
+    customer = await session.get(Customer, opportunity.customer_id)
+    owner = (
+        (
+            await session.execute(
+                select(Staff.username, Staff.display_name).where(Staff.id == opportunity.owner_id)
+            )
+        ).first()
+        if opportunity.owner_id is not None
+        else None
+    )
+    order_no = (
+        await session.scalar(select(Order.no).where(Order.id == opportunity.order_id))
+        if opportunity.order_id is not None
+        else None
+    )
+    contract_no = (
+        await session.scalar(select(Contract.no).where(Contract.id == opportunity.contract_id))
+        if opportunity.contract_id is not None
+        else None
+    )
+    return OpenOpportunity(
+        id=opportunity.id,
+        customer_id=opportunity.customer_id,
+        customer_name=customer.display_name if customer else "",
+        name=opportunity.name,
+        status=opportunity.status,
+        stage=stage.code if stage else "",
+        stage_name=stage.name if stage else "",
+        level=opportunity.level,
+        source=opportunity.source,
+        interest=opportunity.interest,
+        concerns=opportunity.concerns,
+        amount=opportunity.amount,
+        probability=(
+            opportunity.probability
+            if opportunity.probability is not None
+            else (stage.probability if stage else 0)
+        ),
+        expected_close_at=opportunity.expected_close_at,
+        next_follow_at=opportunity.next_follow_at,
+        owner_username=owner[0] if owner else None,
+        owner_name=owner[1] if owner else None,
+        order_no=order_no,
+        contract_no=contract_no,
+        lost_reason_code=opportunity.lost_reason_code,
+        lost_reason=opportunity.lost_reason,
+        created_at=opportunity.created_at,
+        updated_at=opportunity.updated_at,
+        closed_at=opportunity.closed_at,
+    )

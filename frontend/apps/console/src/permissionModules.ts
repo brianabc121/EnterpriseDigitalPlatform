@@ -42,7 +42,7 @@ export const PERMISSION_MODULES: readonly PermissionModuleConfig[] = [
     key: 'customers',
     title: '客户',
     icon: 'user',
-    pages: ['customers', 'broadcasts'],
+    pages: ['customers', 'opportunities', 'broadcasts'],
     permissions: [
       'customer:read',
       'customer:create',

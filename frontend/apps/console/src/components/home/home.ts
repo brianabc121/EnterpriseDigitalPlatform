@@ -7,4 +7,5 @@ export interface HomeData {
   orders: Schemas['OrderCounts'] | null
   warehouse: Schemas['WarehouseCounts'] | null
   receivables: Schemas['ReceivableSummary'] | null
+  opportunities: Schemas['OpportunityStats'] | null
 }

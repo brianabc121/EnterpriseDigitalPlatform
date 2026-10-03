@@ -12,6 +12,8 @@ export const SCOPES: [Scope, string][] = [
   ['orders:read', '查询订单（含收货信息）'],
   ['orders:write', '创建订单，回传状态、物流和收款'],
   ['todos:write', '创建待办'],
+  ['opportunities:read', '查询商机'],
+  ['opportunities:write', '创建线索，修改商机'],
 ]
 
 export const SCOPE: Record<string, string> = Object.fromEntries(SCOPES)
@@ -24,6 +26,11 @@ export const EVENTS: [EventName, string][] = [
   ['order.cancelled', '订单取消'],
   ['order.payment', '收款、退款'],
   ['todo.done', '待办完成'],
+  ['opportunity.created', '商机转入'],
+  ['opportunity.stage_changed', '商机换阶段'],
+  ['opportunity.won', '商机赢单'],
+  ['opportunity.lost', '商机输单'],
+  ['opportunity.assigned', '商机换负责人'],
 ]
 
 export const EVENT: Record<string, string> = { ...Object.fromEntries(EVENTS), ping: '测试推送' }

@@ -42,6 +42,7 @@ from app.modules.integration.models import (
     WebhookEvent,
     WebhookEventType,
 )
+from app.modules.opportunities.models import Opportunity
 from app.modules.orders.models import Order
 from app.modules.todos.models import Todo
 
@@ -90,7 +91,7 @@ def _json(value: Any) -> str:
 
 
 async def _body(ctx: AppContext, session: AsyncSession, event: WebhookEvent) -> str | None:
-    """推送内容：事件信息加上订单或待办当前的完整内容（资源已被删除时为空）。"""
+    """推送内容：事件信息加上订单、待办或商机当前的完整内容（资源已被删除时为空）。"""
     data: dict[str, Any] = dict(event.data or {})
     if event.resource_type == "order":
         order = await session.get(Order, event.resource_id)
@@ -103,6 +104,13 @@ async def _body(ctx: AppContext, session: AsyncSession, event: WebhookEvent) -> 
         if todo is None:
             return None
         data["todo"] = (await payloads.todo_out(session, todo)).model_dump(mode="json")
+    elif event.resource_type == "opportunity":
+        opportunity = await session.get(Opportunity, event.resource_id)
+        if opportunity is None:
+            return None
+        data["opportunity"] = (await payloads.opportunity_out(session, opportunity)).model_dump(
+            mode="json"
+        )
     return _json(
         {
             "id": str(event.id),

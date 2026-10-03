@@ -14,6 +14,7 @@ export type MenuIcon =
   | 'production'
   | 'warehouse'
   | 'user'
+  | 'opportunity'
   | 'reading'
   | 'ai'
   | 'wake'
@@ -134,6 +135,14 @@ export const MENU: readonly MenuItem[] = [
     title: '客户',
     icon: 'user',
     permission: 'customer:read',
+  },
+  // 商机（§40）：从线索到成交的看板和列表，放在"客户"旁边；客服、主管、财务岗位默认都有。
+  {
+    name: 'opportunities',
+    path: '/opportunities',
+    title: '商机',
+    icon: 'opportunity',
+    permission: 'opportunity:read',
   },
   {
     name: 'knowledge',

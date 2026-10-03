@@ -36,7 +36,13 @@ from app.modules.finance import service as finance
 from app.modules.iam.models import Staff, StaffStatus
 from app.modules.kb.models import CandidateKind, CandidateSource, CandidateStatus, KbCandidate
 from app.modules.mail.models import MailAccount, MailStatus
-from app.modules.opportunities.models import Opportunity, OpportunityStatus
+from app.modules.opportunities.models import (
+    SOURCE_LABELS,
+    Opportunity,
+    OpportunityStatus,
+    PipelineStage,
+    StageKind,
+)
 from app.modules.orders.models import Order, OrderItem, OrderStatus, WorkStatus
 from app.modules.print.models import Printer, PrinterStatus
 from app.modules.products import stock
@@ -972,7 +978,7 @@ async def prospect_due(scope: Scope) -> list[Hit]:
         if overdue:
             detail += f"其中 {len(overdue)} 位已经过了下次跟进日期（最早 {min(overdue):%m-%d}）。"
         view = "overdue" if overdue else "today"
-        link = f"/customers?tab=prospects&view={view}"
+        link = f"/opportunities?view={view}"
         hits.append(
             Hit(
                 key=f"staff:{owner_id}" if owner_id else "unassigned",
@@ -990,6 +996,184 @@ async def prospect_due(scope: Scope) -> list[Hit]:
                 entity_type="staff" if owner_id else None,
                 entity_id=owner_id,
                 data={"due": len(items), "overdue": len(overdue)},
+            )
+        )
+    return hits
+
+
+def _opportunity_link(opportunity_id: uuid.UUID) -> str:
+    return f"/opportunities?id={opportunity_id}"
+
+
+async def opportunity_stale(scope: Scope) -> list[Hit]:
+    """跟进中的商机在当前阶段超过阶段的停滞天数、期间没有任何动态（§40.7）：警告，超过 2 倍严重；
+    交给负责人和能分配商机的员工。有新动态或者换了阶段自动消除。"""
+    now = scope.now
+    last = func.greatest(
+        Opportunity.stage_entered_at,
+        func.coalesce(Opportunity.last_activity_at, Opportunity.stage_entered_at),
+    )
+    limit = func.make_interval(0, 0, 0, PipelineStage.stale_days)
+    active = and_(
+        Opportunity.status == OpportunityStatus.ACTIVE, PipelineStage.stale_days.is_not(None)
+    )
+    rows = (
+        await scope.session.execute(
+            select(
+                Opportunity.id,
+                Opportunity.name,
+                Opportunity.owner_id,
+                PipelineStage.name,
+                PipelineStage.stale_days,
+                last,
+                Customer.display_name,
+            )
+            .join(PipelineStage, PipelineStage.id == Opportunity.stage_id)
+            .join(Customer, Customer.id == Opportunity.customer_id)
+            .where(active, last < now - limit)
+            .order_by(last)
+        )
+    ).all()
+    # 还没停滞的：最早到停滞天数的时刻再检查。
+    scope.due(
+        await scope.session.scalar(
+            select(func.min(last + limit))
+            .select_from(Opportunity)
+            .join(PipelineStage, PipelineStage.id == Opportunity.stage_id)
+            .where(active, last >= now - limit)
+        )
+    )
+    names = await scope.names()
+    hits = []
+    for opportunity_id, name, owner_id, stage_name, stale_days, since, customer in rows[:MAX_HITS]:
+        days = max((now - since).days, 0)
+        who = names.get(owner_id) if owner_id else None
+        hits.append(
+            Hit(
+                key=f"opportunity:{opportunity_id}",
+                title=f"{customer} 的商机在「{stage_name}」停了 {days} 天",
+                detail=(
+                    f"{name}：{scope.local(since)} 以后没有新的动态（这个阶段的停滞天数是"
+                    f" {stale_days} 天）" + (f"，负责人 {who}。" if who else "，还没有负责人。")
+                ),
+                severity=Severity.CRITICAL if days >= stale_days * 2 else Severity.WARNING,
+                assignees=await scope.people(owner_id, also=Permission.OPPORTUNITY_ASSIGN),
+                link=_opportunity_link(opportunity_id),
+                entity_type="opportunity",
+                entity_id=opportunity_id,
+                data={"days": days, "stale_days": stale_days, "stage": stage_name},
+            )
+        )
+    return hits
+
+
+async def opportunity_closing_overdue(scope: Scope) -> list[Hit]:
+    """预计成交日过了还在跟进中（§40.7）：提醒负责人更新日期或者赢单 / 输单。改了日期、关闭后
+    自动消除。"""
+    today = scope.today
+    active = and_(
+        Opportunity.status == OpportunityStatus.ACTIVE, Opportunity.expected_close_at.is_not(None)
+    )
+    rows = (
+        await scope.session.execute(
+            select(
+                Opportunity.id,
+                Opportunity.name,
+                Opportunity.owner_id,
+                Opportunity.expected_close_at,
+                Customer.display_name,
+            )
+            .join(Customer, Customer.id == Opportunity.customer_id)
+            .where(active, Opportunity.expected_close_at < today)
+            .order_by(Opportunity.expected_close_at)
+        )
+    ).all()
+    upcoming = await scope.earliest(
+        Opportunity.expected_close_at, active, Opportunity.expected_close_at >= today
+    )
+    if upcoming is not None:
+        scope.due(scope.midnight(upcoming + timedelta(days=1)))
+    hits = []
+    for opportunity_id, name, owner_id, expected, customer in rows[:MAX_HITS]:
+        assert expected is not None
+        late = (today - expected).days
+        hits.append(
+            Hit(
+                key=f"opportunity:{opportunity_id}",
+                title=f"{customer} 的商机预计成交日已过 {late} 天",
+                detail=(
+                    f"{name}：预计 {expected:%m-%d} 成交，现在还在跟进中。请更新预计成交日，"
+                    "或者赢单 / 输单。"
+                ),
+                severity=Severity.WARNING,
+                assignees=await scope.people(owner_id, permission=Permission.OPPORTUNITY_ASSIGN),
+                link=_opportunity_link(opportunity_id),
+                entity_type="opportunity",
+                entity_id=opportunity_id,
+                data={"expected_close_at": str(expected), "days": late},
+            )
+        )
+    return hits
+
+
+async def opportunity_unattended(scope: Scope) -> list[Hit]:
+    """新线索超过设定的小时数没人跟（§40.7）：还在第一个进行中的阶段、没有记过跟进；交给负责人和
+    能分配商机的员工。记跟进或者换阶段后自动消除。"""
+    hours = scope.params.get("hours", 24)
+    since = scope.now - timedelta(hours=hours)
+    first = (
+        select(func.min(PipelineStage.position))
+        .where(PipelineStage.kind == StageKind.OPEN)
+        .scalar_subquery()
+    )
+    fresh = and_(
+        Opportunity.status == OpportunityStatus.ACTIVE,
+        Opportunity.follow_count == 0,
+        PipelineStage.position == first,
+    )
+    rows = (
+        await scope.session.execute(
+            select(
+                Opportunity.id,
+                Opportunity.name,
+                Opportunity.owner_id,
+                Opportunity.opened_at,
+                Opportunity.source,
+                Customer.display_name,
+            )
+            .join(PipelineStage, PipelineStage.id == Opportunity.stage_id)
+            .join(Customer, Customer.id == Opportunity.customer_id)
+            .where(fresh, Opportunity.opened_at <= since)
+            .order_by(Opportunity.opened_at)
+        )
+    ).all()
+    upcoming = await scope.session.scalar(
+        select(func.min(Opportunity.opened_at))
+        .select_from(Opportunity)
+        .join(PipelineStage, PipelineStage.id == Opportunity.stage_id)
+        .where(fresh, Opportunity.opened_at > since)
+    )
+    if upcoming is not None:
+        scope.due(upcoming + timedelta(hours=hours))
+    names = await scope.names()
+    hits = []
+    for opportunity_id, name, owner_id, opened_at, source, customer in rows[:MAX_HITS]:
+        waited = int((scope.now - opened_at).total_seconds() // 3600)
+        who = names.get(owner_id) if owner_id else None
+        hits.append(
+            Hit(
+                key=f"opportunity:{opportunity_id}",
+                title=f"{customer} 的新线索 {waited} 小时没人跟进",
+                detail=(
+                    f"{name}：{scope.local(opened_at)} {SOURCE_LABELS.get(source, source)}，"
+                    "还没有记过跟进" + (f"，负责人 {who}。" if who else "，还没有负责人。")
+                ),
+                severity=Severity.WARNING,
+                assignees=await scope.people(owner_id, also=Permission.OPPORTUNITY_ASSIGN),
+                link=_opportunity_link(opportunity_id),
+                entity_type="opportunity",
+                entity_id=opportunity_id,
+                data={"hours": waited, "source": source},
             )
         )
     return hits
@@ -1228,6 +1412,32 @@ CHECKS: tuple[Check, ...] = (
         "跟进中的商机到了下次跟进日期还没跟进，按负责人合并提醒",
         prospect_due,
         domains=("opportunities", "customers"),
+    ),
+    Check(
+        "opportunity_stale",
+        Category.CUSTOMER,
+        "商机停滞",
+        "跟进中的商机在当前阶段超过阶段的停滞天数，期间没有任何动态",
+        opportunity_stale,
+        domains=("opportunities", "pipeline_stages", "customers"),
+    ),
+    Check(
+        "opportunity_closing_overdue",
+        Category.CUSTOMER,
+        "预计成交日已过",
+        "预计成交日过了还在跟进中",
+        opportunity_closing_overdue,
+        domains=("opportunities", "customers"),
+    ),
+    Check(
+        "opportunity_unattended",
+        Category.CUSTOMER,
+        "新线索没人跟",
+        "新线索超过设定的小时数还没有记过跟进",
+        opportunity_unattended,
+        hourly=True,
+        params=(Param("hours", "超过", "小时", 24, 1, 168),),
+        domains=("opportunities", "pipeline_stages", "customers"),
     ),
     Check(
         "orders_drop",

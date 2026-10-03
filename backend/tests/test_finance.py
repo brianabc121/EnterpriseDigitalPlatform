@@ -396,6 +396,7 @@ async def test_the_finance_position_is_the_admin_by_default_or_a_custom_role(des
             "receivables",
             "tasks",
             "customers",
+            "opportunities",
             "assistant",
             "profit",
             "tokens",

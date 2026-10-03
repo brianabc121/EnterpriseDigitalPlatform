@@ -31,6 +31,7 @@ from app.modules.customer.models import Customer
 from app.modules.customer.service import visible_to as customer_visible_to
 from app.modules.iam.principal import Principal
 from app.modules.kb.text import terms
+from app.modules.opportunities import service as opportunities
 from app.modules.routing.assign import PolicyResolver
 from app.modules.routing.models import SkillGroupMember
 from app.modules.routing.scope import led_groups, team_members
@@ -86,6 +87,8 @@ class Draft:
     customer_id: uuid.UUID | None = None
     session_id: uuid.UUID | None = None
     order_id: uuid.UUID | None = None
+    # 关联的商机（设计文档 §40.7）；不填时挂到客户进行中的商机上（系统生成的订单待办除外）。
+    opportunity_id: uuid.UUID | None = None
     channel_account_id: uuid.UUID | None = None
     # 规则里 channel_group 的技能组（排队超时的留言用会话所在的技能组）。
     group_hint: uuid.UUID | None = None
@@ -142,6 +145,9 @@ async def create(
     if draft.customer_id is not None and await _vip(session, draft.customer_id):
         priority = raise_priority(priority)
     pending = draft.source in AI_SOURCES
+    opportunity_id = draft.opportunity_id
+    if opportunity_id is None and not type_.system:
+        opportunity_id = await opportunities.open_opportunity_id(session, draft.customer_id)
     todo = Todo(
         id=new_id(),
         tenant_id=tenant_id,
@@ -160,6 +166,7 @@ async def create(
         customer_id=draft.customer_id,
         session_id=draft.session_id,
         order_id=draft.order_id,
+        opportunity_id=opportunity_id,
         source=draft.source,
         confidence=draft.confidence,
         evidence_message_ids=list(dict.fromkeys(draft.evidence_message_ids)),
@@ -205,6 +212,13 @@ async def create(
             "skill_group_id": str(todo.skill_group_id) if todo.skill_group_id else None,
             "assigned_by_rule": target.by,
         },
+    )
+    # 商机的时间线（§40.7）。
+    await opportunities.todo_changed(
+        session,
+        todo,
+        "created",
+        staff_id=draft.created_by if draft.created_by_type == ActorType.STAFF else None,
     )
     return todo
 

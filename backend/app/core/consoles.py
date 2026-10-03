@@ -43,6 +43,7 @@ class ConsoleMenu(StrEnum):
     # 个人待办（设计文档 §27.2）：排在"加工"之后，工人登录后仍先打开"加工"。
     TASKS = "tasks"
     CUSTOMERS = "customers"
+    OPPORTUNITIES = "opportunities"  # 商机（设计文档 §40）
     KNOWLEDGE = "knowledge"
     AI = "ai"
     WAKE = "wake"  # AI 唤醒：数据巡检和知识库整理（设计文档 §33）
@@ -72,6 +73,7 @@ DEFAULT_MENUS: dict[ConsoleProfile, tuple[ConsoleMenu, ...]] = {
         M.CONTRACTS,
         M.MATERIALS,
         M.CUSTOMERS,
+        M.OPPORTUNITIES,
         M.KNOWLEDGE,
         M.ASSISTANT,
     ),
@@ -81,6 +83,7 @@ DEFAULT_MENUS: dict[ConsoleProfile, tuple[ConsoleMenu, ...]] = {
         M.RECEIVABLES,
         M.TASKS,
         M.CUSTOMERS,
+        M.OPPORTUNITIES,
         M.ASSISTANT,
         # 默认没有盈利报表的权限，管理员给了权限后直接显示（§30.5）。
         M.PROFIT,
@@ -125,6 +128,7 @@ MENU_RULES: dict[ConsoleMenu, tuple[Permission, str | None]] = {
     ConsoleMenu.PRODUCTION: (Permission.PRODUCTION_WORK, "orders"),
     ConsoleMenu.WAREHOUSE: (Permission.INVENTORY_MANAGE, "orders"),
     ConsoleMenu.CUSTOMERS: (Permission.CUSTOMER_READ, None),
+    ConsoleMenu.OPPORTUNITIES: (Permission.OPPORTUNITY_READ, None),
     ConsoleMenu.KNOWLEDGE: (Permission.KB_READ, None),
     ConsoleMenu.AI: (Permission.SETTINGS_MANAGE, None),
     ConsoleMenu.WAKE: (Permission.SETTINGS_MANAGE, "ai"),

@@ -3846,6 +3846,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/opportunities/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Export Opportunities
+         * @description 导出查看范围内、符合筛选条件的商机（CSV）。预计金额设置为只有管理者可见而自己不能看时，
+         *     金额列为空。
+         */
+        get: operations["export_opportunities_api_v1_opportunities_export_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/opportunities/settings": {
         parameters: {
             query?: never;
@@ -3935,7 +3956,7 @@ export interface paths {
         };
         /**
          * Stats
-         * @description 顶部数字。
+         * @description 顶部数字（首页的四个数字也从这里取：我负责的、本周要跟进、停滞、本月赢单金额）。
          */
         get: operations["stats_api_v1_opportunities_stats_get"];
         put?: never;
@@ -3963,7 +3984,7 @@ export interface paths {
         /**
          * Update Opportunity
          * @description 修改名称、等级、想要什么、顾虑、预计金额、预计成交日、概率、下次跟进日期、关联商品、
-         *     负责人（改成别人需要分配商机的权限）。
+         *     负责人（改成别人需要分配商机的权限，会提醒新负责人）。
          */
         patch: operations["update_opportunity_api_v1_opportunities__opportunity_id__patch"];
         trace?: never;
@@ -4023,7 +4044,7 @@ export interface paths {
         put?: never;
         /**
          * Assign
-         * @description 换负责人（改成别人需要分配商机的权限）。
+         * @description 换负责人（改成别人需要分配商机的权限，会提醒新负责人）。
          */
         post: operations["assign_api_v1_opportunities__opportunity_id__assign_post"];
         delete?: never;
@@ -4146,6 +4167,47 @@ export interface paths {
          * @description 换阶段（看板拖拽）：拖到赢单可以带订单或合同，拖到输单要选原因。
          */
         post: operations["move_stage_api_v1_opportunities__opportunity_id__stage_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/opportunities/{opportunity_id}/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Write Summary
+         * @description AI 小结（需要套餐包含 AI）：现在到哪一步、客户在意什么、建议下一步；同时记进时间线。
+         */
+        post: operations["write_summary_api_v1_opportunities__opportunity_id__summary_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/opportunities/{opportunity_id}/todos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Schedule Next
+         * @description 安排下一步：建一条关联这条商机的待办（默认"回电 / 回访"，处理人默认是负责人），可以同时改
+         *     下次跟进日期。
+         */
+        post: operations["schedule_next_api_v1_opportunities__opportunity_id__todos_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -5701,6 +5763,27 @@ export interface paths {
          * @description 首页实时数据：排队、接待中、坐席状态、今日会话与满意度，以及我的接待情况。
          */
         get: operations["realtime_api_v1_reports_realtime_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reports/sales": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Sales Report
+         * @description 销售：漏斗、进行中的预计金额、赢单率、输单原因、按负责人、按来源（数据范围按客户的可见范围，
+         *     默认最近 30 天）。
+         */
+        get: operations["sales_report_api_v1_reports_sales_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -8346,6 +8429,52 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/open/v1/opportunities": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Opportunities
+         * @description 按更新时间（从早到晚）增量同步商机；忽略了的 AI 建议不返回。
+         */
+        get: operations["list_opportunities_open_v1_opportunities_get"];
+        put?: never;
+        /**
+         * Create Opportunity
+         * @description 创建线索（官网表单、投放线索）：进第一个进行中的阶段，按商机设置分配负责人。同一客户已经有
+         *     待确认、跟进中的商机时返回已有的（200）。
+         */
+        post: operations["create_opportunity_open_v1_opportunities_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/open/v1/opportunities/{opportunity_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Opportunity */
+        get: operations["get_opportunity_open_v1_opportunities__opportunity_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update Opportunity
+         * @description 修改字段、换到进行中的阶段、赢单（可带平台订单号）或输单（原因分类代码）。
+         */
+        patch: operations["update_opportunity_open_v1_opportunities__opportunity_id__patch"];
+        trace?: never;
+    };
     "/open/v1/orders": {
         parameters: {
             query?: never;
@@ -10030,7 +10159,7 @@ export interface components {
              * Scopes
              * @description 权限范围
              */
-            scopes: ("products:write" | "orders:read" | "orders:write" | "todos:write")[];
+            scopes: ("products:write" | "orders:read" | "orders:write" | "todos:write" | "opportunities:read" | "opportunities:write")[];
         };
         /** ApiKeyCreated */
         ApiKeyCreated: {
@@ -11291,7 +11420,7 @@ export interface components {
          * @description 控制台的菜单，与前端 menu.ts 的菜单名一致（前端按 OpenAPI 的枚举检查）。
          * @enum {string}
          */
-        ConsoleMenu: "dashboard" | "workbench" | "sessions" | "todos" | "orders" | "receivables" | "contracts" | "materials" | "products" | "production" | "warehouse" | "tasks" | "customers" | "knowledge" | "ai" | "wake" | "assistant" | "staff" | "reports" | "profit" | "tokens" | "broadcasts" | "wecom" | "audit" | "settings";
+        ConsoleMenu: "dashboard" | "workbench" | "sessions" | "todos" | "orders" | "receivables" | "contracts" | "materials" | "products" | "production" | "warehouse" | "tasks" | "customers" | "opportunities" | "knowledge" | "ai" | "wake" | "assistant" | "staff" | "reports" | "profit" | "tokens" | "broadcasts" | "wecom" | "audit" | "settings";
         /**
          * ConsoleOut
          * @description 按岗位的控制台（设计文档 §25.15）。
@@ -14081,6 +14210,23 @@ export interface components {
             pending: number;
             /** Review */
             review: number;
+        };
+        /** FunnelStage */
+        FunnelStage: {
+            /** Code */
+            code: string;
+            /**
+             * Count
+             * @description 期间内新建的商机里到过这个阶段（或更靠后）的
+             */
+            count: number;
+            /** Name */
+            name: string;
+            /**
+             * Rate
+             * @description 相对上一个阶段的转化率；第一个阶段为空
+             */
+            rate: number | null;
         };
         /** GroupChatOut */
         GroupChatOut: {
@@ -17721,6 +17867,43 @@ export interface components {
             /** Items */
             items: components["schemas"]["MyBindingOut"][];
         };
+        /**
+         * NextStep
+         * @description 安排下一步（§40.7）：建一条关联这条商机的待办。
+         */
+        NextStep: {
+            /**
+             * Assignee Id
+             * @description 处理人；不填时是负责人
+             */
+            assignee_id?: string | null;
+            /**
+             * Detail
+             * @default
+             */
+            detail: string;
+            /**
+             * Due At
+             * @description 截止时间；不填时按类型的时限
+             */
+            due_at?: string | null;
+            /**
+             * Next Follow At
+             * @description 同时改商机的下次跟进日期
+             */
+            next_follow_at?: string | null;
+            /**
+             * Title
+             * @description 不填时按类型和商机名称
+             */
+            title?: string | null;
+            /**
+             * Type Code
+             * @description 待办类型的代码，默认回电 / 回访
+             * @default callback
+             */
+            type_code: string;
+        };
         /** NoteRequest */
         NoteRequest: {
             /** Note */
@@ -17831,6 +18014,153 @@ export interface components {
              * @description 不传时按建议零售价
              */
             unit_price?: number | string | null;
+        };
+        /** OpenOpportunity */
+        OpenOpportunity: {
+            /** Amount */
+            amount: string | null;
+            /** Closed At */
+            closed_at: string | null;
+            /** Concerns */
+            concerns: string | null;
+            /** Contract No */
+            contract_no: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Customer Id
+             * Format: uuid
+             */
+            customer_id: string;
+            /** Customer Name */
+            customer_name: string;
+            /** Expected Close At */
+            expected_close_at: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Interest */
+            interest: string | null;
+            /** Level */
+            level: string;
+            /** Lost Reason */
+            lost_reason: string | null;
+            /** Lost Reason Code */
+            lost_reason_code: string | null;
+            /** Name */
+            name: string;
+            /** Next Follow At */
+            next_follow_at: string | null;
+            /** Order No */
+            order_no: string | null;
+            /** Owner Name */
+            owner_name: string | null;
+            /** Owner Username */
+            owner_username: string | null;
+            /** Probability */
+            probability: number;
+            /** Source */
+            source: string;
+            /**
+             * Stage
+             * @description 阶段代码
+             */
+            stage: string;
+            /** Stage Name */
+            stage_name: string;
+            /** Status */
+            status: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /**
+         * OpenOpportunityCreate
+         * @description 企业系统创建线索（官网表单、投放线索）：客户已有的用 customer_id，否则按手机号找到或者新建。
+         *     同一客户已经有待确认、跟进中的商机时返回已有的（200）。
+         */
+        OpenOpportunityCreate: {
+            /** Amount */
+            amount?: number | string | null;
+            /** Concerns */
+            concerns?: string | null;
+            /** @description 没有 customer_id 时：按手机号找到客户，找不到时新建 */
+            customer?: components["schemas"]["OpenCustomerIn"] | null;
+            /** Customer Id */
+            customer_id?: string | null;
+            /** Expected Close At */
+            expected_close_at?: string | null;
+            /**
+             * Interest
+             * @description 客户想要什么
+             */
+            interest?: string | null;
+            /**
+             * Level
+             * @default medium
+             * @enum {string}
+             */
+            level: "high" | "medium" | "low";
+            /**
+             * Name
+             * @description 不填时按想要什么或客户称呼
+             */
+            name?: string | null;
+            /**
+             * Owner Username
+             * @description 负责人的用户名；不填时按商机设置分配
+             */
+            owner_username?: string | null;
+        };
+        /** OpenOpportunityPage */
+        OpenOpportunityPage: {
+            /** Items */
+            items: components["schemas"]["OpenOpportunity"][];
+            /** Next Cursor */
+            next_cursor: string | null;
+        };
+        /**
+         * OpenOpportunityUpdate
+         * @description 修改商机：字段、换到进行中的阶段（阶段代码）、赢单（可带平台订单号）或输单（原因分类代码）。
+         */
+        OpenOpportunityUpdate: {
+            /** Amount */
+            amount?: number | string | null;
+            /** Concerns */
+            concerns?: string | null;
+            /** Expected Close At */
+            expected_close_at?: string | null;
+            /** Interest */
+            interest?: string | null;
+            /** Level */
+            level?: ("high" | "medium" | "low") | null;
+            /** Lost Reason */
+            lost_reason?: string | null;
+            /** Lost Reason Code */
+            lost_reason_code?: string | null;
+            /** Name */
+            name?: string | null;
+            /** Next Follow At */
+            next_follow_at?: string | null;
+            /**
+             * Order No
+             * @description 赢单关联的平台订单号
+             */
+            order_no?: string | null;
+            /**
+             * Stage
+             * @description 进行中的阶段的代码
+             */
+            stage?: string | null;
+            /** Status */
+            status?: ("won" | "lost") | null;
         };
         /**
          * OpenOrder
@@ -18450,6 +18780,37 @@ export interface components {
              */
             stage_id?: string | null;
         };
+        /**
+         * OpportunityDigest
+         * @description AI 小结（§40.7）：现在到哪一步、客户在意什么、建议下一步；同时记进时间线。
+         */
+        OpportunityDigest: {
+            /**
+             * Cares
+             * @description 客户在意什么
+             */
+            cares: string;
+            /**
+             * Generated At
+             * Format: date-time
+             */
+            generated_at: string;
+            /**
+             * Next
+             * @description 建议下一步
+             */
+            next: string;
+            /**
+             * Status
+             * @description 现在到哪一步
+             */
+            status: string;
+            /**
+             * Text
+             * @description 三句话连起来
+             */
+            text: string;
+        };
         /** OpportunityLost */
         OpportunityLost: {
             /** Reason */
@@ -18581,7 +18942,7 @@ export interface components {
              * Source
              * @enum {string}
              */
-            source: "ai" | "staff";
+            source: "ai" | "staff" | "api";
             /** Stage Code */
             stage_code: string;
             /**
@@ -18611,6 +18972,11 @@ export interface components {
              * @enum {string}
              */
             status: "suggested" | "active" | "won" | "lost" | "dismissed";
+            /**
+             * Todos
+             * @description 没完成的待办
+             */
+            todos?: components["schemas"]["TodoBrief"][];
             /**
              * Updated At
              * Format: date-time
@@ -18712,6 +19078,11 @@ export interface components {
             suggested: number;
             /** Today */
             today: number;
+            /**
+             * Week
+             * @description 本周（到周日）要跟进的，包括今天
+             */
+            week: number;
             /** Won Amount This Month */
             won_amount_this_month: string | null;
             /** Won This Month */
@@ -18811,7 +19182,7 @@ export interface components {
              * Source
              * @enum {string}
              */
-            source: "ai" | "staff";
+            source: "ai" | "staff" | "api";
             /** Stage Code */
             stage_code: string;
             /**
@@ -20254,6 +20625,34 @@ export interface components {
              * @description 在职继承同步状态：waiting、success、failed；为空表示没有同步
              */
             wecom_sync_status?: string | null;
+        };
+        /** OwnerSales */
+        OwnerSales: {
+            /**
+             * Active
+             * @description 现在进行中的
+             */
+            active: number;
+            /** Avg Days */
+            avg_days: number | null;
+            /**
+             * Created
+             * @description 期间内新建的
+             */
+            created: number;
+            /** Lost */
+            lost: number;
+            /** Name */
+            name: string;
+            /** Staff Id */
+            staff_id: string | null;
+            /**
+             * Won
+             * @description 期间内赢单的
+             */
+            won: number;
+            /** Won Amount */
+            won_amount: string | null;
         };
         /** PasswordChange */
         PasswordChange: {
@@ -22845,6 +23244,77 @@ export interface components {
              */
             kind: "daily" | "kb";
         };
+        /**
+         * SalesAmount
+         * @description 进行中的商机的预计金额（不限期间）。金额设置为只有管理者可见而自己不能看时为空。
+         */
+        SalesAmount: {
+            /** By Stage */
+            by_stage: components["schemas"]["Bucket"][];
+            /** Next Month */
+            next_month: string | null;
+            /** Open Count */
+            open_count: number;
+            /**
+             * This Month
+             * @description 本月预计成交的金额合计
+             */
+            this_month: string | null;
+            /**
+             * Weighted
+             * @description Σ 预计金额 × 成交概率
+             */
+            weighted: string | null;
+        };
+        /** SalesReport */
+        SalesReport: {
+            amount: components["schemas"]["SalesAmount"];
+            /** Amount Visible */
+            amount_visible: boolean;
+            /** By Owner */
+            by_owner: components["schemas"]["OwnerSales"][];
+            /** By Source */
+            by_source: components["schemas"]["SourceSales"][];
+            /**
+             * End
+             * Format: date
+             */
+            end: string;
+            /** Funnel */
+            funnel: components["schemas"]["FunnelStage"][];
+            /** Lost Reasons */
+            lost_reasons: components["schemas"]["Bucket"][];
+            /**
+             * Start
+             * Format: date
+             */
+            start: string;
+            win: components["schemas"]["SalesWin"];
+        };
+        /** SalesWin */
+        SalesWin: {
+            /**
+             * Avg Amount
+             * @description 赢单的平均预计金额
+             */
+            avg_amount: string | null;
+            /**
+             * Avg Days
+             * @description 赢单的平均成交周期（转入到赢单的天数）
+             */
+            avg_days: number | null;
+            /**
+             * Closed
+             * @description 期间内关闭（赢单或输单）的
+             */
+            closed: number;
+            /** Lost */
+            lost: number;
+            /** Win Rate */
+            win_rate: number | null;
+            /** Won */
+            won: number;
+        };
         /** SendMessageRequest */
         SendMessageRequest: {
             /** @description 图片或文件（type 为 image、file 时） */
@@ -23661,6 +24131,25 @@ export interface components {
              * @description 备用技能组；null 表示取消
              */
             overflow_group_id?: string | null;
+        };
+        /** SourceSales */
+        SourceSales: {
+            /**
+             * Count
+             * @description 期间内新建的
+             */
+            count: number;
+            /** Key */
+            key: string;
+            /** Label */
+            label: string;
+            /**
+             * Win Rate
+             * @description 赢单 / 新建
+             */
+            win_rate: number | null;
+            /** Won */
+            won: number;
         };
         /** SsoUrlOut */
         SsoUrlOut: {
@@ -25240,6 +25729,29 @@ export interface components {
             confirm: boolean;
             /** Handle */
             handle: boolean;
+        };
+        /**
+         * TodoBrief
+         * @description 商机上没完成的待办（安排的下一步）。
+         */
+        TodoBrief: {
+            /** Assignee Name */
+            assignee_name: string | null;
+            /** Due At */
+            due_at: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** No */
+            no: string;
+            /** Status */
+            status: string;
+            /** Title */
+            title: string;
+            /** Type Name */
+            type_name: string;
         };
         /** TodoCounts */
         TodoCounts: {
@@ -27217,7 +27729,7 @@ export interface components {
              * Events
              * @description 订阅的事件
              */
-            events: ("order.created" | "order.updated" | "order.confirmed" | "order.status_changed" | "order.cancelled" | "order.payment" | "todo.done")[];
+            events: ("order.created" | "order.updated" | "order.confirmed" | "order.status_changed" | "order.cancelled" | "order.payment" | "todo.done" | "opportunity.created" | "opportunity.stage_changed" | "opportunity.won" | "opportunity.lost" | "opportunity.assigned")[];
             /** Name */
             name: string;
             /**
@@ -45836,10 +46348,10 @@ export interface operations {
         parameters: {
             query?: {
                 /** @description 快捷视图 */
-                view?: "active" | "mine" | "today" | "overdue" | "closing" | "stale" | "suggested" | "won" | "lost" | "all";
+                view?: "active" | "mine" | "today" | "week" | "overdue" | "closing" | "stale" | "suggested" | "won" | "lost" | "all";
                 stage_id?: string | null;
                 level?: ("high" | "medium" | "low") | null;
-                source?: ("ai" | "staff") | null;
+                source?: ("ai" | "staff" | "api") | null;
                 owner_id?: string | null;
                 customer_id?: string | null;
                 amount_min?: number | string | null;
@@ -46006,7 +46518,7 @@ export interface operations {
         parameters: {
             query?: {
                 level?: ("high" | "medium" | "low") | null;
-                source?: ("ai" | "staff") | null;
+                source?: ("ai" | "staff" | "api") | null;
                 owner_id?: string | null;
                 q?: string | null;
                 /** @description 只看我负责的 */
@@ -46101,6 +46613,85 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CustomerOpportunityInfo"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    export_opportunities_api_v1_opportunities_export_get: {
+        parameters: {
+            query?: {
+                view?: "active" | "mine" | "today" | "week" | "overdue" | "closing" | "stale" | "suggested" | "won" | "lost" | "all";
+                stage_id?: string | null;
+                owner_id?: string | null;
+                q?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description CSV 文件 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": unknown;
                 };
             };
             /** @description Bad Request */
@@ -47642,6 +48233,162 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["StageMove"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OpportunityOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    write_summary_api_v1_opportunities__opportunity_id__summary_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                opportunity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OpportunityDigest"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    schedule_next_api_v1_opportunities__opportunity_id__todos_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                opportunity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NextStep"];
             };
         };
         responses: {
@@ -54737,6 +55484,87 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Realtime"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    sales_report_api_v1_reports_sales_get: {
+        parameters: {
+            query?: {
+                /** @description 开始日期（含），默认最近 7 天 */
+                start?: string | null;
+                /** @description 结束日期（含），默认今天 */
+                end?: string | null;
+                /** @description 划分日期的时区，默认 Asia/Shanghai */
+                tz?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SalesReport"];
                 };
             };
             /** @description Bad Request */
@@ -67217,6 +68045,321 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HealthStatus"];
+                };
+            };
+        };
+    };
+    list_opportunities_open_v1_opportunities_get: {
+        parameters: {
+            query?: {
+                /** @description 只返回这个时间之后有更新的商机（含） */
+                updated_since?: string | null;
+                status?: ("suggested" | "active" | "won" | "lost") | null;
+                /** @description 上一页的 next_cursor */
+                cursor?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OpenOpportunityPage"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    create_opportunity_open_v1_opportunities_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OpenOpportunityCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OpenOpportunity"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_opportunity_open_v1_opportunities__opportunity_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                opportunity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OpenOpportunity"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    update_opportunity_open_v1_opportunities__opportunity_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                opportunity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OpenOpportunityUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OpenOpportunity"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };

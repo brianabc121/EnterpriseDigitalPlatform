@@ -501,8 +501,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     opportunities = commands.add_parser(
         "opportunities-scan",
-        aliases=["prospects-scan"],
-        help="立即按最近结束的会话找一遍意向客户（成交、又来咨询、AI 转入）",
+        help="立即按最近结束的会话找一遍商机（成交、又来咨询、AI 转入）",
     )
     opportunities.add_argument("tenant", nargs="?", help="租户代码；不填时处理全部租户")
     openapi = commands.add_parser("export-openapi", help="导出 OpenAPI 描述（供前端生成类型）")
@@ -607,7 +606,7 @@ def main(argv: list[str] | None = None) -> int:
         result = asyncio.run(wake_run(get_settings(), args.tenant, args.kind, args.force))
         print(json.dumps(result, ensure_ascii=False))
         return 0 if result["status"] in ("done", "skipped") else 1
-    elif args.command in ("opportunities-scan", "prospects-scan"):
+    elif args.command == "opportunities-scan":
         print(json.dumps(asyncio.run(opportunities_scan(get_settings(), args.tenant))))
     elif args.command == "export-openapi":
         export_openapi(args.output)
