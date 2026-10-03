@@ -3,14 +3,16 @@
 //
 // 1. 准备：企业（企业所有者"张总"，开通企业时由平台创建）和每个可以分配的系统角色的员工——客服小艾、主管、财务、
 //    出纳、工厂工人、仓管，另有只能管理员工的"人事"和只能查看员工的"访客"（自定义角色）。
-// 2. 张总在"员工"页面（员工导图）：最顶部是张总（企业所有者）的卡片，上面写着企业名称；每张员工卡片的"重置密码"、"停用"、删除都能用，
-//    自己的卡片上是"修改密码"、没有删除；"交接客户"只在客服（小艾）的卡片上（§39.6）。为小艾自动
+// 2. 张总在"员工"页面（员工导图）：最顶部是张总（企业所有者）的卡片，上面写着企业名称；卡片的操作都在右上角的"编辑"
+//    图标里（§39.8），每张员工卡片的"编辑资料"、"重置密码"、"停用"和删除都能用，自己的卡片里是"编辑资料"、"修改密码"、
+//    没有删除；"交接客户"只在客服（小艾）的卡片里（§39.6）。为小艾自动
 //    生成新密码（只显示一次，可以复制），卡片上标"待改密码"；再为其他系统角色的员工逐个重置，用新密码都能登录、
 //    都要先设置新密码，旧密码不能登录；工人已经打开的页面立即回到登录页；手动为人事设置密码、不要求修改。
 //    财务名下有客户，她的卡片上也没有"交接客户"；小艾的交接窗口里只能选客服、主管和企业所有者（张总、主管老孙），
 //    交给主管老孙；接口不让交给出纳。卡片上写着"用户名：…"，左上角显示"企业所有者（张总）"（§39.7）。
-// 3. 人事登录：企业所有者的卡片上"编辑"、"重置密码"置灰并提示（只能由本人或平台管理），没有"停用"和删除；权限高于自己的员工
-//    （客服等）的"重置密码"、"停用"、删除都置灰并提示，访客的都能用；自己的卡片不能删除。
+// 3. 人事登录：企业所有者卡片的"编辑"菜单里"编辑资料"、"重置密码"置灰并写明原因（只能由本人或平台管理），没有"停用"，
+//    卡片没有删除；权限高于自己的员工（客服等）的"编辑资料"、"重置密码"、"停用"和删除都置灰并写明原因，访客的都能用；
+//    自己的卡片不能删除。
 // 4. 小艾用新密码登录后只能进入"设置新密码"页面（说明谁在什么时候重置的），其他页面和接口都不行；设置后进入控制台。
 // 5. 运营后台的租户详情"管理员账号"：张总标"拥有者"；填写原因后为张总重置密码，显示临时密码和登录信息。
 // 6. 张总之前的登录立即失效；张总用临时密码登录后看到"平台运维人员……重置了你的密码，原因：……"，设置新密码后
@@ -205,25 +207,44 @@ async function menu(page, title) {
   await page.locator('[data-testid="main-menu"]').getByText(title, { exact: true }).click()
 }
 
-/** 员工卡片上的管理按钮：重置密码、停用/启用、删除卡片。 */
-function manageButtons(page, username) {
-  return {
-    reset: page.locator(`[data-testid="reset-${username}"]`),
-    toggle: page.locator(`[data-testid="toggle-${username}"]`),
-    remove: page.locator(`[data-testid="staff-node-${username}"] [data-testid^="delete-card-"]`),
-  }
+/** 员工卡片右上角的删除按钮。 */
+function deleteButton(page, username) {
+  return page.locator(`[data-testid="staff-node-${username}"] [data-testid^="delete-card-"]`)
 }
 
-/** 这些按钮各自是否置灰。 */
-async function disabledButtons(page, username) {
-  const states = {}
-  for (const [name, button] of Object.entries(manageButtons(page, username))) states[name] = await button.isDisabled()
-  return states
+/**
+ * 员工卡片的操作都在右上角的"编辑"图标里（§39.8）。打开菜单，读出各项（edit、reset、password、toggle、handover）：
+ * 文字（置灰时带原因）和是否置灰；keepOpen 时不关菜单（截图用）。
+ */
+async function cardMenu(page, username, { keepOpen = false } = {}) {
+  await page.locator(`[data-testid="card-menu-${username}"]`).click()
+  const menu = page.locator(`[data-testid="card-actions-${username}"]`)
+  await menu.waitFor()
+  const items = {}
+  for (const item of await menu.locator('.el-dropdown-menu__item').all()) {
+    const key = (await item.getAttribute('data-testid')).replace(`-${username}`, '')
+    items[key] = { text: (await item.innerText()).trim(), disabled: (await item.getAttribute('aria-disabled')) === 'true' }
+  }
+  if (!keepOpen) await closeMenu(page, menu)
+  return items
+}
+
+async function closeMenu(page, menu) {
+  await page.locator('.page-header h2').click()
+  await menu.waitFor({ state: 'hidden' })
+}
+
+/** 在员工卡片的"编辑"菜单里点一项。 */
+async function cardAction(page, username, key) {
+  await page.locator(`[data-testid="card-menu-${username}"]`).click()
+  const item = page.locator(`[data-testid="${key}-${username}"]`)
+  await item.waitFor()
+  await item.click()
 }
 
 /** 在"员工"页面为一个员工重置密码，返回自动生成的密码（手动设置时为空）。 */
 async function resetInUi(page, username, { manual, mustChange = true } = {}) {
-  await page.locator(`[data-testid="reset-${username}"]`).click()
+  await cardAction(page, username, 'reset')
   const dialog = page.locator('[data-testid="staff-reset"]')
   await dialog.waitFor()
   if (manual) {
@@ -262,14 +283,13 @@ async function staffPage(browser) {
       (await page.locator('[data-testid^="staff-node-"]').count()) === others.length + 1,
     { company, rootText },
   )
-  // 交接客户（§39.6）：只在客服岗位的卡片上，企业所有者和其他岗位（名下没有客户时）没有。
-  const handover = {}
-  for (const username of ['admin', ...others]) {
-    handover[username] = await page.locator(`[data-testid="handover-${username}"]`).count()
-  }
+  // 卡片的操作都在右上角的"编辑"图标里（§39.8）。交接客户（§39.6）只在客服岗位的卡片上，企业所有者和其他岗位没有。
+  const menus = {}
+  for (const username of ['admin', ...others]) menus[username] = await cardMenu(page, username)
+  const handover = Object.fromEntries(Object.entries(menus).map(([username, items]) => [username, 'handover' in items]))
   check(
-    '交接客户 is only on the 客服 card (小艾), not on the owner or the other positions',
-    Object.entries(handover).every(([username, n]) => n === (username === 'alice' ? 1 : 0)),
+    '交接客户 is only in the menu of the 客服 card (小艾), not on the owner or the other positions',
+    Object.entries(handover).every(([username, has]) => has === (username === 'alice')),
     handover,
   )
   // 卡片上的用户名前面写着"用户名："；左上角"EDP 智能客服"下面是自己的"角色（姓名）"（§39.7）。
@@ -285,14 +305,21 @@ async function staffPage(browser) {
     { usernames, ownIdentity },
   )
   const states = {}
-  for (const username of others) states[username] = await disabledButtons(page, username)
+  for (const username of others) {
+    const items = menus[username]
+    states[username] = {
+      edit: items.edit?.disabled,
+      reset: items.reset?.disabled,
+      toggle: items.toggle?.disabled,
+      remove: await deleteButton(page, username).isDisabled(),
+    }
+  }
   check(
-    'every staff member of every role has enabled 重置密码, 停用 and delete; your own card on top has 修改密码 and no delete',
-    Object.values(states).every((s) => !s.reset && !s.toggle && !s.remove) &&
-      (await page.locator('[data-testid="password-admin"]').isVisible()) &&
-      (await page.locator('[data-testid="reset-admin"]').count()) === 0 &&
-      (await manageButtons(page, 'admin').remove.count()) === 0,
-    states,
+    'the edit menu of every staff member has 编辑资料, 重置密码 and 停用 enabled, and delete works; your own card on top has 编辑资料 and 修改密码 and no delete',
+    Object.values(states).every((s) => s.edit === false && s.reset === false && s.toggle === false && !s.remove) &&
+      JSON.stringify(Object.keys(menus.admin)) === JSON.stringify(['edit', 'password']) &&
+      (await deleteButton(page, 'admin').count()) === 0,
+    { states, admin: menus.admin },
   )
 
   // 小艾：自动生成，下次登录必须修改。
@@ -348,10 +375,12 @@ async function staffPage(browser) {
   await frameDiagram(page)
   await settle(page)
   await page.screenshot({ path: `${SHOTS}/p27-02-staff-list.png` })
-  // 客服小艾的卡片上有"交接客户"，旁边的主管、财务没有。
+  // 客服小艾卡片的"编辑"菜单：编辑资料、重置密码、停用、交接客户都在里面（旁边的主管、财务没有交接客户）。
   await frameDiagram(page, '[data-testid="staff-node-sam"]')
+  await cardMenu(page, 'alice', { keepOpen: true })
   await settle(page)
   await page.screenshot({ path: `${SHOTS}/p27-02b-handover-agent-only.png` })
+  await closeMenu(page, page.locator('[data-testid="card-actions-alice"]'))
 
   // 自己的密码不能在这里重置（接口也拒绝）。
   const own = await request(`${API}/api/v1/staff/${(await json(`${API}/api/v1/me`, { token: state.admin })).id}/password`, {
@@ -375,8 +404,8 @@ async function staffPage(browser) {
   }
   await page.reload()
   await page.locator('[data-testid="staff-node-admin"]').waitFor()
-  const fayButtons = await page.locator('[data-testid="handover-fay"]').count()
-  await page.locator('[data-testid="handover-alice"]').click()
+  const fayButtons = 'handover' in (await cardMenu(page, 'fay')) ? 1 : 0
+  await cardAction(page, 'alice', 'handover')
   const handoverDialog = page.locator('.el-dialog:visible', { hasText: '交接客户 · 小艾' })
   await handoverDialog.waitFor()
   await handoverDialog.locator('[data-testid="handover-receiver"]').click()
@@ -419,46 +448,52 @@ async function hrPage(browser) {
   await page.setViewportSize(STAFF_VIEWPORT)
   await menu(page, '员工')
   await page.locator('[data-testid="staff-node-hrm"]').waitFor()
-  const owner = manageButtons(page, 'admin')
-  const ownerCard = {
-    edit: await page.locator('[data-testid="edit-admin"]').isDisabled(),
-    reset: await owner.reset.isDisabled(),
-    toggleButtons: await owner.toggle.count(),
-    deleteButtons: await owner.remove.count(),
-  }
+  // 卡片的"编辑"菜单里，不能用的项置灰并直接写明原因（§39.8）。
+  const ownerMenu = await cardMenu(page, 'admin')
   check(
-    '人事 sees the owner card on top with 编辑 and 重置密码 greyed out, and no 停用 or delete',
-    ownerCard.edit && ownerCard.reset && ownerCard.toggleButtons === 0 && ownerCard.deleteButtons === 0,
-    ownerCard,
+    '人事 sees the owner card on top: 编辑资料 and 重置密码 greyed out with the reason, no 停用 and no delete',
+    ownerMenu.edit?.disabled &&
+      ownerMenu.reset?.disabled &&
+      ownerMenu.edit.text.includes('企业所有者的资料只能由本人修改') &&
+      ownerMenu.reset.text.includes('企业所有者的密码由本人修改，或由平台运维人员重置') &&
+      !('toggle' in ownerMenu) &&
+      (await deleteButton(page, 'admin').count()) === 0,
+    ownerMenu,
   )
   const states = {}
-  for (const username of ['alice', 'wang', 'vic']) states[username] = await disabledButtons(page, username)
-  const all = (s) => s.reset && s.toggle && s.remove
-  const none = (s) => !s.reset && !s.toggle && !s.remove
+  for (const username of ['alice', 'wang', 'vic']) {
+    const items = await cardMenu(page, username)
+    states[username] = {
+      edit: items.edit?.disabled,
+      reset: items.reset?.disabled,
+      toggle: items.toggle?.disabled,
+      remove: await deleteButton(page, username).isDisabled(),
+      reason: items.reset?.text,
+    }
+  }
+  const all = (s) => s.edit && s.reset && s.toggle && s.remove && s.reason.includes('权限高于你，请让管理员重置')
+  const none = (s) => s.edit === false && s.reset === false && s.toggle === false && !s.remove
   check(
-    '人事 cannot reset, disable or delete staff with more permissions (客服、工厂工人) but can for 访客',
+    '人事 cannot edit, reset, disable or delete staff with more permissions (客服、工厂工人), with the reason, but can for 访客',
     all(states.alice) && all(states.wang) && none(states.vic),
     states,
   )
-  check("人事's own card cannot be deleted", await manageButtons(page, 'hrm').remove.isDisabled())
+  check("人事's own card cannot be deleted", await deleteButton(page, 'hrm').isDisabled())
 
-  // 置灰的按钮外面那一层显示提示。直接把鼠标移过去（hover() 可能为了让按钮完整出现而横向滚动导图）；
-  // 先看工人卡片的删除，再回到最顶部看企业所有者的卡片（最后一个提示留在截图里）。
-  const tooltip = async (button, text) => {
-    const box = await button.locator('..').boundingBox()
-    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
-    return page
-      .locator('.el-popper:visible', { hasText: text })
-      .waitFor({ timeout: 5000 })
-      .then(() => true, () => false)
-  }
-  const workerDelete = manageButtons(page, 'wang').remove
+  // 置灰的删除按钮外面那一层显示提示。直接把鼠标移过去（hover() 可能为了让按钮完整出现而横向滚动导图）。
+  const workerDelete = deleteButton(page, 'wang')
   await workerDelete.scrollIntoViewIfNeeded()
-  const tips = { remove: await tooltip(workerDelete, '权限高于你，请让管理员删除') }
+  const box = await workerDelete.locator('..').boundingBox()
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
+  const tip = await page
+    .locator('.el-popper:visible', { hasText: '权限高于你，请让管理员删除' })
+    .waitFor({ timeout: 5000 })
+    .then(() => true, () => false)
+  check('the greyed-out delete button says why', tip)
+  // 截图：企业所有者卡片的"编辑"菜单打开着，置灰的两项写着原因。
   await frameDiagram(page)
-  tips.edit = await tooltip(page.locator('[data-testid="edit-admin"]'), '企业所有者的资料只能由本人修改')
-  tips.reset = await tooltip(owner.reset, '企业所有者的密码由本人修改，或由平台运维人员重置')
-  check('tooltips explain why (编辑、重置、删除)', Object.values(tips).every(Boolean), tips)
+  await page.mouse.move(0, 0)
+  await cardMenu(page, 'admin', { keepOpen: true })
   await settle(page)
   await page.screenshot({ path: `${SHOTS}/p27-03-hr-view.png` })
 }

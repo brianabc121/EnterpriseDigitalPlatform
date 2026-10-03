@@ -150,7 +150,8 @@ const directions: { key: DiagramDirection; label: string }[] = [
 .staff-node { cursor: default; }
 .staff-node:not(.company) { cursor: pointer; }
 .staff-node:focus-visible { outline: 2px solid var(--el-color-primary); outline-offset: 4px; }
-.staff-node:not(.company) :deep(.staff-name) { padding-right: 30px; }
+/* 员工卡片右上角的删除按钮占的位置：标题和"编辑"图标在它左边（§39.8）；最顶部的卡片没有删除按钮。 */
+.staff-node:not(.root) :deep(.staff-title) { padding-right: 30px; box-sizing: border-box; }
 .delete-wrap { position: absolute; top: 18px; right: 14px; display: flex; z-index: 3; }
 .delete-card { display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; padding: 5px; border: 0; border-radius: 6px; background: transparent; color: var(--el-color-danger); cursor: pointer; }
 .delete-card:not(:disabled):hover { background: var(--el-color-danger-light-9); }

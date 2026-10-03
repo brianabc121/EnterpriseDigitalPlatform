@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { errorMessage, type Schemas } from '@edp/api-client'
+import { Edit } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { computed, onMounted, reactive, ref } from 'vue'
 
@@ -11,7 +12,14 @@ import RolesTab from '../components/staff/RolesTab.vue'
 import StaffAccessEditor from '../components/staff/StaffAccessEditor.vue'
 import StaffTree from '../components/staff/StaffTree.vue'
 import { accessBody, accessOf, accessSummary, emptyAccess, type AccessForm } from '../staffAccess'
-import { assignableRoles, manageAccess, manageHint, receivesHandover, showsHandover } from '../staffManage'
+import {
+  assignableRoles,
+  cardActions,
+  manageAccess,
+  manageHint,
+  receivesHandover,
+  type CardActionKey,
+} from '../staffManage'
 import type { DiagramDirection } from '../staffDiagram'
 import { normalizeRoleName, roleTitle } from '../roleNames'
 import { useAuthStore } from '../stores/auth'
@@ -36,10 +44,24 @@ function openHandover(member: Schemas['StaffOut']): void {
 const roleNames = computed(() => new Map(roles.value.map((r) => [r.code, r.name])))
 /** 角色的岗位（§25.15）：只有客服岗位的员工卡片上有"交接客户"，接收人只能是客服、主管和企业所有者（§39.6）。 */
 const roleConsoles = computed(() => new Map<string, string>(roles.value.map((r) => [r.code, r.console])))
-function handover(member: Schemas['StaffOut']): boolean {
-  return canHandover.value && showsHandover(member, roleConsoles.value)
-}
 const receivers = computed(() => staff.value.filter((member) => receivesHandover(member, roleConsoles.value)))
+
+// 卡片上的操作都收在右上角的"编辑"图标里（§39.8）：不能用的置灰并写明原因。
+function actionsOf(member: Schemas['StaffOut']) {
+  return cardActions(
+    member,
+    { id: auth.me?.id ?? '', permissions: auth.permissions, canManage: canManage.value, canHandover: canHandover.value },
+    roleConsoles.value,
+  )
+}
+
+function runAction(member: Schemas['StaffOut'], key: CardActionKey): void {
+  if (key === 'edit') openEdit(member)
+  else if (key === 'password') passwordOpen.value = true
+  else if (key === 'reset') openReset(member)
+  else if (key === 'toggle') void toggleStatus(member)
+  else openHandover(member)
+}
 /** 分配角色时可以选的角色：企业所有者只能由平台创建，不显示（§39.5）。 */
 const assignable = computed(() => assignableRoles(roles.value))
 /** 权限点的名称和分组（"页面和权限"里按分组勾选，§31）。 */
@@ -67,9 +89,8 @@ const resetOpen = ref(false)
 const resetting = ref<Schemas['StaffOut'] | null>(null)
 const passwordOpen = ref(false)
 
-// 编辑、重置密码、停用/启用、删除卡片（§38.4、§39.1、§39.5）：权限高于自己的员工按钮置灰并提示，和后端的
-// 规则一致；自己的卡片不能停用（不显示）和删除（置灰）；企业所有者的卡片（最顶部）没有停用和删除，只有
-// 本人能编辑。
+// 编辑、重置密码、停用/启用、删除卡片（§38.4、§39.1、§39.5）：权限高于自己的员工置灰并提示，和后端的规则一致；
+// 自己的卡片不能停用（没有这一项）和删除（置灰）；企业所有者的卡片（最顶部）没有停用和删除，只有本人能编辑。
 function manageState(member: Schemas['StaffOut']) {
   return manageAccess(member, { id: auth.me?.id ?? '', permissions: auth.permissions })
 }
@@ -279,7 +300,30 @@ onMounted(load)
         <StaffTree v-loading="loading" :staff="staff" :company="auth.me?.tenant.name ?? '企业'" :can-manage="canManage" :focus-id="focusId" :diagram-nodes="diagramNodes" :adding="adding" :delete-hint="deleteHint" data-testid="staff-tree" @add-branch="openBranch" @edit-draft="openDraft" @edit-staff="openEdit" @delete-card="deleteCard">
           <template #default="{ member: row }">
             <div class="staff-heading">
-              <strong class="staff-name">{{ roleTitle(row.roles, (code) => roleNames.get(code)) }}（{{ row.display_name }}）</strong>
+              <div class="staff-title">
+                <strong class="staff-name">{{ roleTitle(row.roles, (code) => roleNames.get(code)) }}（{{ row.display_name }}）</strong>
+                <el-dropdown v-if="actionsOf(row).length" trigger="click" placement="bottom-end" @command="(key: CardActionKey) => runAction(row, key)">
+                  <button type="button" class="card-menu" :data-testid="`card-menu-${row.username}`" title="编辑" aria-label="编辑" @click.stop>
+                    <el-icon><Edit /></el-icon>
+                  </button>
+                  <template #dropdown>
+                    <el-dropdown-menu :data-testid="`card-actions-${row.username}`">
+                      <el-dropdown-item
+                        v-for="action in actionsOf(row)"
+                        :key="action.key"
+                        :command="action.key"
+                        :disabled="!!action.hint"
+                        :data-testid="`${action.key}-${row.username}`"
+                      >
+                        <span class="card-action">
+                          <span :class="{ danger: action.danger && !action.hint }">{{ action.label }}</span>
+                          <small v-if="action.hint" class="card-action-hint">{{ action.hint }}</small>
+                        </span>
+                      </el-dropdown-item>
+                    </el-dropdown-menu>
+                  </template>
+                </el-dropdown>
+              </div>
               <span class="staff-states">
                 <el-tag :type="row.status === 'active' ? 'success' : 'info'" size="small" disable-transitions>
                   {{ row.status === 'active' ? '启用' : '停用' }}
@@ -306,29 +350,6 @@ onMounted(load)
               </el-tooltip>
             </div>
             <div class="staff-created">创建于 {{ formatDateTime(row.created_at) }}</div>
-            <div v-if="canManage || handover(row)" class="staff-actions">
-              <template v-if="canManage">
-                <el-tooltip :disabled="manageState(row) !== 'owner'" :content="manageHint('owner', '编辑') ?? ''" placement="top">
-                  <span class="action">
-                    <el-button link type="primary" size="small" :disabled="manageState(row) === 'owner'" :data-testid="`edit-${row.username}`" @click.stop="openEdit(row)">编辑</el-button>
-                  </span>
-                </el-tooltip>
-                <el-button v-if="manageState(row) === 'self'" link type="primary" size="small" :data-testid="`password-${row.username}`" @click.stop="passwordOpen = true">修改密码</el-button>
-                <el-tooltip v-else :disabled="manageState(row) === 'ok'" :content="manageHint(manageState(row), '重置') ?? ''" placement="top">
-                  <span class="action">
-                    <el-button link type="primary" size="small" :disabled="manageState(row) !== 'ok'" :data-testid="`reset-${row.username}`" @click.stop="openReset(row)">重置密码</el-button>
-                  </span>
-                </el-tooltip>
-                <el-tooltip v-if="!row.is_owner && manageState(row) !== 'self'" :disabled="manageState(row) === 'ok'" :content="manageHint(manageState(row), row.status === 'active' ? '停用' : '启用') ?? ''" placement="top">
-                  <span class="action">
-                    <el-button link :type="row.status === 'active' ? 'danger' : 'primary'" size="small" :disabled="manageState(row) !== 'ok'" :data-testid="`toggle-${row.username}`" @click.stop="toggleStatus(row)">
-                      {{ row.status === 'active' ? '停用' : '启用' }}
-                    </el-button>
-                  </span>
-                </el-tooltip>
-              </template>
-              <el-button v-if="handover(row)" link type="primary" size="small" :data-testid="`handover-${row.username}`" @click.stop="openHandover(row)">交接客户</el-button>
-            </div>
           </template>
         </StaffTree>
       </el-tab-pane>
@@ -433,15 +454,20 @@ onMounted(load)
 
 <style scoped>
 .staff-heading { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; }
-.staff-name { font-size: 15px; line-height: 1.5; overflow-wrap: anywhere; }
+/* 标题和右上角的"编辑"图标（删除按钮在它右边，§39.8）。 */
+.staff-title { display: flex; align-items: flex-start; gap: 4px; width: 100%; }
+.staff-name { flex: 1; min-width: 0; font-size: 15px; line-height: 1.5; overflow-wrap: anywhere; }
+.card-menu { display: flex; flex-shrink: 0; align-items: center; justify-content: center; width: 28px; height: 28px; padding: 5px; border: 0; border-radius: 6px; background: transparent; color: var(--el-color-primary); font-size: 18px; cursor: pointer; }
+.card-menu:hover { background: var(--el-color-primary-light-9); }
+.card-menu:focus-visible { outline: 2px solid var(--el-color-primary); outline-offset: 2px; }
+.card-action { display: flex; flex-direction: column; line-height: 1.5; }
+.card-action .danger { color: var(--el-color-danger); }
+.card-action-hint { color: var(--el-text-color-placeholder); font-size: 12px; }
 .staff-username { color: var(--el-text-color-secondary); font-size: 13px; margin-top: 8px; overflow-wrap: anywhere; }
 .staff-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
 .staff-created { color: var(--el-text-color-secondary); font-size: 12px; margin-top: 12px; }
-.staff-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; border-top: 1px solid var(--el-border-color-lighter); padding-top: 12px; }
-.staff-actions .el-button { margin-left: 0; }
-/* 状态和"待改密码"并排；置灰的按钮外面套一层，悬停时才能显示提示。 */
+/* 状态和"待改密码"并排。 */
 .staff-states { display: inline-flex; flex-wrap: wrap; gap: 6px; }
-.action { display: inline-flex; }
 .owner-role { margin: 0; color: var(--el-text-color-regular); }
 
 .role + .role {

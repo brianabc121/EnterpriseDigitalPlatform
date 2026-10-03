@@ -57,3 +57,40 @@ export function receivesHandover(
     member.roles.some((code) => ['agent', 'supervisor'].includes(consoles.get(code) ?? ''))
   )
 }
+
+/** 员工卡片右上角"编辑"图标里的操作（§39.8）。 */
+export type CardActionKey = 'edit' | 'password' | 'reset' | 'toggle' | 'handover'
+
+export interface CardAction {
+  key: CardActionKey
+  label: string
+  /** 不能用时置灰，菜单里直接写原因。 */
+  hint: string | null
+  danger?: boolean
+}
+
+/**
+ * 员工卡片的操作都收在右上角的"编辑"图标里（§39.8）：编辑资料、修改密码（自己）或重置密码、停用/启用（企业所有者和
+ * 自己的卡片没有）、交接客户（客服岗位，§39.6）。权限高于自己的员工、企业所有者的卡片上置灰并写明原因（§39.1、§39.5）。
+ */
+export function cardActions(
+  member: { id: string; status: string; is_owner?: boolean; roles: readonly string[]; permissions: readonly string[] },
+  viewer: { id: string; permissions: ReadonlySet<string>; canManage: boolean; canHandover: boolean },
+  consoles: ReadonlyMap<string, string>,
+): CardAction[] {
+  const actions: CardAction[] = []
+  if (viewer.canManage) {
+    const access = manageAccess(member, viewer)
+    actions.push({ key: 'edit', label: '编辑资料', hint: access === 'self' ? null : manageHint(access, '编辑') })
+    if (access === 'self') actions.push({ key: 'password', label: '修改密码', hint: null })
+    else actions.push({ key: 'reset', label: '重置密码', hint: manageHint(access, '重置') })
+    if (!member.is_owner && access !== 'self') {
+      const verb = member.status === 'active' ? '停用' : '启用'
+      actions.push({ key: 'toggle', label: verb, hint: manageHint(access, verb), danger: member.status === 'active' })
+    }
+  }
+  if (viewer.canHandover && showsHandover(member, consoles)) {
+    actions.push({ key: 'handover', label: '交接客户', hint: null })
+  }
+  return actions
+}
