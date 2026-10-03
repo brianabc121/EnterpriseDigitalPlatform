@@ -20,7 +20,8 @@ const router = useRouter()
 
 // 按岗位显示的菜单（§25.15）；角标只给显示的菜单取数。
 const menus = computed(() => auth.menus)
-// 左上角"EDP 智能客服"旁边显示当前员工的"角色（姓名）"（§39.7），和员工卡片的标题一样。
+// 左上角"EDP 智能客服"下面显示当前员工的"角色（姓名）"，左对齐（§39.7），和员工卡片的标题一样；手机上侧边栏只有图标，
+// 放在顶栏最左边。
 const identity = computed(() => {
   const me = auth.me
   return me ? `${roleTitle(me.roles, (code) => me.role_names?.[code])}（${me.display_name}）` : ''
@@ -169,7 +170,10 @@ async function logout(): Promise<void> {
 <template>
   <el-container class="layout">
     <el-aside :width="narrow ? '64px' : '208px'" class="aside">
-      <div class="brand">{{ narrow ? 'EDP' : 'EDP 智能客服' }}</div>
+      <div class="brand">
+        <span class="brand-name" data-testid="console-brand">{{ narrow ? 'EDP' : 'EDP 智能客服' }}</span>
+        <span v-if="identity && !narrow" class="identity" data-testid="console-identity" :title="identity">{{ identity }}</span>
+      </div>
       <el-menu
         :default-active="route.path"
         :collapse="narrow"
@@ -235,7 +239,7 @@ async function logout(): Promise<void> {
     <el-container>
       <el-header class="header">
         <span class="left">
-          <span v-if="identity" class="identity" data-testid="console-identity">{{ identity }}</span>
+          <span v-if="identity && narrow" class="identity-chip" data-testid="console-identity">{{ identity }}</span>
           <span class="tenant">{{ auth.me?.tenant.name }}</span>
         </span>
         <span class="right">
@@ -310,14 +314,31 @@ async function logout(): Promise<void> {
 }
 
 .brand {
-  height: 56px;
-  line-height: 56px;
-  padding: 0 20px;
-  white-space: nowrap;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  height: 60px;
+  padding: 0 8px 0 20px;
   overflow: hidden;
+}
+
+.brand-name {
+  white-space: nowrap;
   font-weight: 600;
   font-size: 16px;
+  line-height: 22px;
   color: var(--el-color-primary);
+}
+
+/* "EDP 智能客服"下面的"角色（姓名）"，和它左对齐。 */
+.identity {
+  margin-top: 2px;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--el-text-color-regular);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .menu {
@@ -332,7 +353,7 @@ async function logout(): Promise<void> {
   border-bottom: 1px solid var(--el-border-color-light);
 }
 
-/* 左边是"角色（姓名）"和企业名称：放不下时先缩短企业名称。 */
+/* 左边是企业名称；手机上前面还有"角色（姓名）"，放不下时先缩短企业名称。 */
 .left {
   display: flex;
   flex: 1 1 auto;
@@ -342,7 +363,7 @@ async function logout(): Promise<void> {
   margin-right: 12px;
 }
 
-.identity {
+.identity-chip {
   flex: 0 0 auto;
   max-width: 100%;
   padding: 2px 10px;

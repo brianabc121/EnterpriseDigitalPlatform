@@ -11,7 +11,7 @@ import RolesTab from '../components/staff/RolesTab.vue'
 import StaffAccessEditor from '../components/staff/StaffAccessEditor.vue'
 import StaffTree from '../components/staff/StaffTree.vue'
 import { accessBody, accessOf, accessSummary, emptyAccess, type AccessForm } from '../staffAccess'
-import { assignableRoles, manageAccess, manageHint, showsHandover } from '../staffManage'
+import { assignableRoles, manageAccess, manageHint, receivesHandover, showsHandover } from '../staffManage'
 import type { DiagramDirection } from '../staffDiagram'
 import { normalizeRoleName, roleTitle } from '../roleNames'
 import { useAuthStore } from '../stores/auth'
@@ -34,11 +34,12 @@ function openHandover(member: Schemas['StaffOut']): void {
   handoverOpen.value = true
 }
 const roleNames = computed(() => new Map(roles.value.map((r) => [r.code, r.name])))
-/** 角色的岗位（§25.15）：只有客服岗位和名下还有客户的员工卡片上有"交接客户"（§39.6）。 */
+/** 角色的岗位（§25.15）：只有客服岗位的员工卡片上有"交接客户"，接收人只能是客服、主管和企业所有者（§39.6）。 */
 const roleConsoles = computed(() => new Map<string, string>(roles.value.map((r) => [r.code, r.console])))
 function handover(member: Schemas['StaffOut']): boolean {
   return canHandover.value && showsHandover(member, roleConsoles.value)
 }
+const receivers = computed(() => staff.value.filter((member) => receivesHandover(member, roleConsoles.value)))
 /** 分配角色时可以选的角色：企业所有者只能由平台创建，不显示（§39.5）。 */
 const assignable = computed(() => assignableRoles(roles.value))
 /** 权限点的名称和分组（"页面和权限"里按分组勾选，§31）。 */
@@ -335,7 +336,7 @@ onMounted(load)
         <RolesTab @changed="load" />
       </el-tab-pane>
     </el-tabs>
-    <HandoverDialog v-model="handoverOpen" :from="handoverFrom" :staff="staff" @done="load" />
+    <HandoverDialog v-model="handoverOpen" :from="handoverFrom" :staff="receivers" />
 
     <el-dialog
       v-model="dialogVisible"

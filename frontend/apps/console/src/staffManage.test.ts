@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { assignableRoles, manageAccess, manageHint, showsHandover } from './staffManage'
+import { assignableRoles, manageAccess, manageHint, receivesHandover, showsHandover } from './staffManage'
 
 const me = { id: 'me', permissions: new Set(['staff:read', 'staff:manage', 'customer:read']) }
 
@@ -60,19 +60,37 @@ describe('showsHandover', () => {
     ['presales', 'agent'],
   ])
 
-  it('shows 交接客户 on the cards of 客服 positions, including custom roles in that position', () => {
-    expect(showsHandover({ roles: ['agent'], customers: 0 }, consoles)).toBe(true)
+  it('shows 交接客户 only on the cards of 客服 positions, including custom roles in that position', () => {
+    expect(showsHandover({ roles: ['agent'] }, consoles)).toBe(true)
     expect(showsHandover({ roles: ['presales'] }, consoles)).toBe(true)
     expect(showsHandover({ roles: ['finance', 'agent'] }, consoles)).toBe(true)
-  })
-
-  it('leaves it off other positions and the owner', () => {
     for (const roles of [['tenant_admin'], ['supervisor'], ['finance'], [], ['unknown']]) {
-      expect(showsHandover({ roles, customers: 0 }, consoles)).toBe(false)
+      expect(showsHandover({ roles }, consoles)).toBe(false)
     }
   })
+})
 
-  it('keeps it while someone in another position still has customers', () => {
-    expect(showsHandover({ roles: ['finance'], customers: 3 }, consoles)).toBe(true)
+describe('receivesHandover', () => {
+  const consoles = new Map([
+    ['tenant_admin', 'admin'],
+    ['agent', 'agent'],
+    ['supervisor', 'supervisor'],
+    ['finance', 'finance'],
+    ['deputy', 'admin'],
+    ['hr', 'supervisor'],
+  ])
+  const desk = ['workbench:use', 'customer:read']
+
+  it('takes 客服, 主管 and the enterprise owner', () => {
+    expect(receivesHandover({ roles: ['agent'], permissions: desk }, consoles)).toBe(true)
+    expect(receivesHandover({ roles: ['supervisor'], permissions: desk }, consoles)).toBe(true)
+    expect(receivesHandover({ roles: ['tenant_admin'], permissions: [] }, consoles)).toBe(true)
+  })
+
+  it('leaves out other positions and roles that cannot serve customers', () => {
+    expect(receivesHandover({ roles: ['finance'], permissions: ['finance:view'] }, consoles)).toBe(false)
+    expect(receivesHandover({ roles: ['deputy'], permissions: desk }, consoles)).toBe(false)
+    // "人事"按权限判断岗位是主管，但没有工作台。
+    expect(receivesHandover({ roles: ['hr'], permissions: ['staff:read', 'staff:manage'] }, consoles)).toBe(false)
   })
 })

@@ -24,9 +24,8 @@ from app.modules.channels.models import ChannelAccount, ChannelType
 from app.modules.customer import ownership
 from app.modules.customer.models import Customer, CustomerIdentity
 from app.modules.customer.schemas import TransferResult, WecomTransferSummary
-from app.modules.iam.models import Staff, StaffStatus
+from app.modules.iam.models import Staff
 from app.modules.iam.principal import Principal
-from app.modules.routing.models import SkillGroupMember
 from app.modules.wecom.contacts import TransferItem, left_members, submit_transfers
 from app.modules.wecom.models import (
     GroupChatStatus,
@@ -170,27 +169,15 @@ async def hand_over_groups(
     to_owner_id: UUID | None,
     to_group_id: UUID | None,
 ) -> GroupTransferSummary:
-    """离职或调岗交接时的客户群继承：接手的员工（或技能组里绑定了企业微信的成员）轮流接任群主。"""
+    """离职或调岗交接时的客户群继承：接手的员工（或技能组里绑定了企业微信的成员）轮流接任群主；
+    和客户一样，只能是客服、主管和企业所有者（设计文档 §39.6）。"""
     handover = await session.scalar(select(Staff.wecom_userid).where(Staff.id == from_staff_id))
     if not handover:
         return GroupTransferSummary()
-    if to_owner_id is not None:
-        query = select(Staff.wecom_userid).where(Staff.id == to_owner_id)
-    else:
-        query = (
-            select(Staff.wecom_userid)
-            .join(
-                SkillGroupMember,
-                (SkillGroupMember.tenant_id == Staff.tenant_id)
-                & (SkillGroupMember.staff_id == Staff.id),
-            )
-            .where(
-                SkillGroupMember.skill_group_id == to_group_id,
-                Staff.id != from_staff_id,
-                Staff.status == StaffStatus.ACTIVE,
-            )
-            .order_by(Staff.id)
-        )
+    receivers = await ownership.handover_receivers(
+        session, from_staff_id, to_owner_id=to_owner_id, to_group_id=to_group_id
+    )
+    query = select(Staff.wecom_userid).where(Staff.id.in_(receivers)).order_by(Staff.id)
     takeovers = [u for u in (await session.scalars(query)).all() if u]
     await session.commit()
     return await transfer_groups(ctx, principal.tenant_id, principal.staff_id, handover, takeovers)

@@ -6,9 +6,8 @@ import { reactive, ref, watch } from 'vue'
 import { api } from '../../api'
 import { transferSummary } from '../../wecom'
 
+// staff：可以接手的员工（客服、主管和企业所有者，§39.6）。
 const props = defineProps<{ from: Schemas['StaffOut'] | null; staff: Schemas['StaffOut'][] }>()
-// 交接完成后（员工卡片上的名下客户数变了，§39.6）。
-const emit = defineEmits<{ done: [] }>()
 const visible = defineModel<boolean>({ required: true })
 
 const groups = ref<Schemas['SkillGroupOut'][]>([])
@@ -61,13 +60,12 @@ async function submit(): Promise<void> {
   }
   ElMessage.success(transferSummary(data.transferred, data.wecom).replace('已转移', '已交接'))
   visible.value = false
-  emit('done')
 }
 </script>
 
 <template>
   <el-dialog v-model="visible" :title="`交接客户 · ${from?.display_name ?? ''}`" width="460px">
-    <p class="summary">把该员工名下的全部客户转给一位同事，或平均分给一个技能组的成员。</p>
+    <p class="summary">把该员工名下的全部客户交给一位客服、主管或企业所有者，或平均分给一个技能组里的客服、主管和企业所有者。</p>
     <el-form label-width="84px" @submit.prevent="submit">
       <el-form-item label="接手方">
         <el-radio-group v-model="form.kind">
@@ -76,7 +74,13 @@ async function submit(): Promise<void> {
         </el-radio-group>
       </el-form-item>
       <el-form-item v-if="form.kind === 'staff'" label="员工">
-        <el-select v-model="form.ownerId" filterable placeholder="选择员工">
+        <el-select
+          v-model="form.ownerId"
+          filterable
+          placeholder="选择客服、主管或企业所有者"
+          no-data-text="没有可以接手的客服、主管或企业所有者"
+          data-testid="handover-receiver"
+        >
           <el-option
             v-for="s in staff.filter((s) => s.status === 'active' && s.id !== from?.id)"
             :key="s.id"
