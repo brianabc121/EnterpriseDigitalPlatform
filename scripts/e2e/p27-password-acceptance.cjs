@@ -3,10 +3,12 @@
 //
 // 1. 准备：企业（拥有者"张总"）和每个系统角色的员工——客服小艾、主管、财务、出纳、工厂工人、仓管、副管理员
 //    （企业所有者），另有只能管理员工的"人事"和只能查看员工的"访客"（自定义角色）。
-// 2. 张总在"员工"页面（员工导图的卡片）：每张员工卡片都有"重置密码"，自己的卡片上是"修改密码"；为小艾自动
+// 2. 张总在"员工"页面（员工导图的卡片）：每张员工卡片的"重置密码"、"停用"、删除都能用，自己的卡片上是"修改密码"、
+//    不能删除；为小艾自动
 //    生成新密码（只显示一次，可以复制），卡片上标"待改密码"；再为其他系统角色的员工逐个重置，用新密码都能登录、
 //    都要先设置新密码，旧密码不能登录；工人已经打开的页面立即回到登录页；手动为人事设置密码、不要求修改。
-// 3. 人事登录：权限高于自己的员工（管理员、坐席）按钮置灰并提示，只能重置访客。
+// 3. 人事登录：权限高于自己的员工（管理员、客服）的"重置密码"、"停用"、删除都置灰并提示，访客的都能用；自己的
+//    卡片不能删除。
 // 4. 小艾用新密码登录后只能进入"设置新密码"页面（说明谁在什么时候重置的），其他页面和接口都不行；设置后进入控制台。
 // 5. 运营后台的租户详情"管理员账号"：张总标"拥有者"、副管理员；填写原因后为张总重置密码，显示临时密码和登录信息。
 // 6. 张总之前的登录立即失效；副管理员收到站内信，操作日志里记着"平台运维"和原因；张总用临时密码登录后看到
@@ -202,6 +204,22 @@ async function menu(page, title) {
   await page.locator('[data-testid="main-menu"]').getByText(title, { exact: true }).click()
 }
 
+/** 员工卡片上的管理按钮：重置密码、停用/启用、删除卡片。 */
+function manageButtons(page, username) {
+  return {
+    reset: page.locator(`[data-testid="reset-${username}"]`),
+    toggle: page.locator(`[data-testid="toggle-${username}"]`),
+    remove: page.locator(`[data-testid="staff-node-${username}"] [data-testid^="delete-card-"]`),
+  }
+}
+
+/** 这些按钮各自是否置灰。 */
+async function disabledButtons(page, username) {
+  const states = {}
+  for (const [name, button] of Object.entries(manageButtons(page, username))) states[name] = await button.isDisabled()
+  return states
+}
+
 /** 在"员工"页面为一个员工重置密码，返回自动生成的密码（手动设置时为空）。 */
 async function resetInUi(page, username, { manual, mustChange = true } = {}) {
   await page.locator(`[data-testid="reset-${username}"]`).click()
@@ -232,16 +250,15 @@ async function staffPage(browser) {
   await menu(page, '员工')
   await page.locator('[data-testid="staff-node-admin"]').waitFor()
   const others = [...MEMBERS.map(([u]) => u), 'hrm', 'vic']
-  const enabled = []
-  for (const username of others) {
-    if (await page.locator(`[data-testid="reset-${username}"]`).isEnabled()) enabled.push(username)
-  }
+  const states = {}
+  for (const username of others) states[username] = await disabledButtons(page, username)
   check(
-    'every staff member of every role has an enabled 重置密码; your own row has 修改密码',
-    enabled.length === others.length &&
+    'every staff member of every role has enabled 重置密码, 停用 and delete; your own card has 修改密码 and cannot be deleted',
+    Object.values(states).every((s) => !s.reset && !s.toggle && !s.remove) &&
       (await page.locator('[data-testid="password-admin"]').isVisible()) &&
-      (await page.locator('[data-testid="reset-admin"]').count()) === 0,
-    { enabled },
+      (await page.locator('[data-testid="reset-admin"]').count()) === 0 &&
+      (await manageButtons(page, 'admin').remove.isDisabled()),
+    states,
   )
 
   // 小艾：自动生成，下次登录必须修改。
@@ -323,22 +340,34 @@ async function hrPage(browser) {
   await page.setViewportSize(STAFF_VIEWPORT)
   await menu(page, '员工')
   await page.locator('[data-testid="staff-node-hrm"]').waitFor()
-  const disabled = {}
-  for (const username of ['admin', 'root2', 'alice', 'vic']) {
-    disabled[username] = await page.locator(`[data-testid="reset-${username}"]`).isDisabled()
-  }
+  const states = {}
+  for (const username of ['admin', 'root2', 'alice', 'vic']) states[username] = await disabledButtons(page, username)
+  const all = (s) => s.reset && s.toggle && s.remove
+  const none = (s) => !s.reset && !s.toggle && !s.remove
   check(
-    '人事 cannot reset staff with more permissions (管理员、坐席) but can reset 访客',
-    disabled.admin && disabled.root2 && disabled.alice && !disabled.vic,
-    disabled,
+    '人事 cannot reset, disable or delete staff with more permissions (管理员、客服) but can for 访客',
+    all(states.admin) && all(states.root2) && all(states.alice) && none(states.vic),
+    states,
   )
+  check("人事's own card cannot be deleted", await manageButtons(page, 'hrm').remove.isDisabled())
+
+  // 置灰的按钮外面那一层显示提示。直接把鼠标移过去（hover() 可能为了让按钮完整出现而横向滚动导图）。
   await frameDiagram(page)
-  // 直接把鼠标移到按钮上（hover() 可能为了让按钮完整出现而横向滚动导图）。
-  const box = await page.locator('[data-testid="reset-admin"]').locator('..').boundingBox()
-  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
-  const tip = page.locator('.el-popper:visible', { hasText: '权限高于你，请让管理员重置' })
-  await tip.waitFor()
-  check('a tooltip explains why', await tip.isVisible())
+  const tooltip = async (button, text) => {
+    const box = await button.locator('..').boundingBox()
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
+    return page
+      .locator('.el-popper:visible', { hasText: text })
+      .waitFor({ timeout: 5000 })
+      .then(() => true, () => false)
+  }
+  const owner = manageButtons(page, 'admin')
+  const tips = {
+    remove: await tooltip(owner.remove, '权限高于你，请让管理员删除'),
+    reset: await tooltip(owner.reset, '权限高于你，请让管理员重置'),
+    toggle: await tooltip(owner.toggle, '权限高于你，请让管理员停用'),
+  }
+  check('tooltips explain why (重置、停用、删除)', Object.values(tips).every(Boolean), tips)
   await settle(page)
   await page.screenshot({ path: `${SHOTS}/p27-03-hr-view.png` })
 }

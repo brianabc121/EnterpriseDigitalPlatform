@@ -5,7 +5,7 @@ import { computed, nextTick, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import { layoutStaffDiagram, type DiagramDirection } from '../../staffDiagram'
 import { mergeDiagramCards } from '../../staffDiagramCards'
 
-const props = defineProps<{ staff: Schemas['StaffOut'][]; company: string; canManage: boolean; focusId?: string | null; diagramNodes?: Schemas['StaffDiagramNodeOut'][]; adding?: boolean }>()
+const props = defineProps<{ staff: Schemas['StaffOut'][]; company: string; canManage: boolean; focusId?: string | null; diagramNodes?: Schemas['StaffDiagramNodeOut'][]; adding?: boolean; deleteHint?: (member: Schemas['StaffOut']) => string | null }>()
 const emit = defineEmits<{ 'add-branch': [parentId: string | null, direction: DiagramDirection]; 'delete-card': [nodeId: string]; 'edit-draft': [nodeId: string]; 'edit-staff': [member: Schemas['StaffOut']] }>()
 const activeNode = ref<string | null>(null)
 const sizes = reactive<Record<string, { width: number; height: number }>>({})
@@ -19,6 +19,11 @@ const byId = computed(() => {
   }
   return map
 })
+/** 员工卡片不能删除时的提示（权限高于自己、自己的卡片），删除按钮置灰；待完善卡片都可以删除。 */
+function deleteBlocked(id: string): string | null {
+  const member = drafts.value.has(id) ? undefined : byId.value.get(id)
+  return member && props.deleteHint ? props.deleteHint(member) : null
+}
 function editCard(id: string): void {
   if (!props.canManage || id === 'company') return
   if (drafts.value.has(id)) emit('edit-draft', id)
@@ -92,10 +97,14 @@ const directions: { key: DiagramDirection; label: string }[] = [
         </template>
         <slot v-else-if="byId.has(node.id)" :member="byId.get(node.id)!" />
         <span v-else>员工卡片暂不可用，请刷新</span>
-        <button v-if="canManage && node.id !== 'company'" type="button"
-          class="delete-card" :disabled="adding" :data-testid="`delete-card-${node.id}`"
-          title="删除卡片" aria-label="删除卡片"
-          @click.stop="emit('delete-card', node.id)"><Delete aria-hidden="true" /></button>
+        <el-tooltip v-if="canManage && node.id !== 'company'" :disabled="!deleteBlocked(node.id)" :content="deleteBlocked(node.id) ?? ''" placement="top">
+          <span class="delete-wrap">
+            <button type="button"
+              :class="['delete-card', { blocked: deleteBlocked(node.id) }]" :disabled="adding || !!deleteBlocked(node.id)" :data-testid="`delete-card-${node.id}`"
+              :title="deleteBlocked(node.id) ? undefined : '删除卡片'" aria-label="删除卡片"
+              @click.stop="emit('delete-card', node.id)"><Delete aria-hidden="true" /></button>
+          </span>
+        </el-tooltip>
         <div v-if="canManage" class="branch-actions">
           <button v-for="direction in directions" :key="direction.key" type="button"
             :class="['branch-plus', direction.key]" :disabled="adding"
@@ -124,10 +133,13 @@ const directions: { key: DiagramDirection; label: string }[] = [
 .staff-node:not(.company) { cursor: pointer; }
 .staff-node:focus-visible { outline: 2px solid var(--el-color-primary); outline-offset: 4px; }
 .staff-node:not(.company) :deep(.staff-name) { padding-right: 30px; }
-.delete-card { position: absolute; top: 18px; right: 14px; display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; padding: 5px; border: 0; border-radius: 6px; background: transparent; color: var(--el-color-danger); cursor: pointer; z-index: 3; }
-.delete-card:hover { background: var(--el-color-danger-light-9); }
+.delete-wrap { position: absolute; top: 18px; right: 14px; display: flex; z-index: 3; }
+.delete-card { display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; padding: 5px; border: 0; border-radius: 6px; background: transparent; color: var(--el-color-danger); cursor: pointer; }
+.delete-card:not(:disabled):hover { background: var(--el-color-danger-light-9); }
 .delete-card:focus-visible { outline: 2px solid var(--el-color-danger); outline-offset: 2px; }
 .delete-card:disabled { opacity: .5; cursor: wait; }
+/* 权限高于自己的员工、自己的卡片：和置灰的"重置密码"一样，悬停时外层显示提示。 */
+.delete-card.blocked { color: var(--el-color-danger-light-5); opacity: 1; cursor: not-allowed; }
 .delete-card svg { width: 18px; height: 18px; }
 .staff-node.draft { border: 1px dashed var(--el-color-primary-light-5); border-top: 4px solid var(--el-color-primary-light-5); background: var(--el-color-primary-light-9); min-height: 140px; }
 .draft-title { display: block; padding-right: 30px; font-size: 16px; line-height: 28px; }

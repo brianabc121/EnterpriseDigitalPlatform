@@ -343,7 +343,12 @@ async function customerSection(page, adminToken) {
 
 async function settingsSection(page, adminToken) {
   await menu(page, '设置')
-  await page.locator('[data-testid="settings-tabs"] .el-tabs__item', { hasText: '数据保留' }).click()
+  // 页签打开后才读取已保存的保留期：等读完再填，否则读到的空值会盖掉刚填的天数。
+  await Promise.all([
+    page.waitForResponse((r) => r.url().includes('/api/v1/tenant/retention') && r.request().method() === 'GET'),
+    page.locator('[data-testid="settings-tabs"] .el-tabs__item', { hasText: '数据保留' }).click(),
+  ])
+  await page.waitForSelector('[data-testid="retention-form"] .el-loading-mask', { state: 'hidden' })
   await page.locator('[data-testid="retention-messages"] input').fill('180')
   await page.locator('[data-testid="retention-files"] input').fill('30')
   await page.locator('[data-testid="retention-save"]').click()

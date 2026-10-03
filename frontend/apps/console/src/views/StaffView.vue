@@ -10,8 +10,8 @@ import ResetPasswordDialog from '../components/staff/ResetPasswordDialog.vue'
 import RolesTab from '../components/staff/RolesTab.vue'
 import StaffAccessEditor from '../components/staff/StaffAccessEditor.vue'
 import StaffTree from '../components/staff/StaffTree.vue'
-import { resetAccess } from '../passwords'
 import { accessBody, accessOf, accessSummary, emptyAccess, type AccessForm } from '../staffAccess'
+import { manageAccess, manageHint } from '../staffManage'
 import type { DiagramDirection } from '../staffDiagram'
 import { normalizeRoleName } from '../roleNames'
 import { useAuthStore } from '../stores/auth'
@@ -54,13 +54,19 @@ const editForm = reactive<{ displayName: string; roleCodes: string[] }>({
 })
 const editAccess = ref<AccessForm>(emptyAccess())
 
-// 重置密码（§38.4）：全部角色都可以，权限高于自己的员工不能；自己的卡片上是修改密码（要输入当前密码）。
+// 重置密码（§38.4）：全部角色都可以；自己的卡片上是修改密码（要输入当前密码）。
 const resetOpen = ref(false)
 const resetting = ref<Schemas['StaffOut'] | null>(null)
 const passwordOpen = ref(false)
 
-function resetState(member: Schemas['StaffOut']) {
-  return resetAccess(member, { id: auth.me?.id ?? '', permissions: auth.permissions })
+// 重置密码、停用/启用、删除卡片（§38.4、§39.1）：权限高于自己的员工按钮置灰并提示，和后端的规则一致；
+// 自己的卡片不能停用（不显示）和删除（置灰）。
+function manageState(member: Schemas['StaffOut']) {
+  return manageAccess(member, { id: auth.me?.id ?? '', permissions: auth.permissions })
+}
+
+function deleteHint(member: Schemas['StaffOut']): string | null {
+  return manageHint(manageState(member), '删除')
 }
 
 async function load(): Promise<void> {
@@ -107,6 +113,7 @@ async function deleteCard(cardId: string): Promise<void> {
   if (!canManage.value || adding.value || cardId === 'company') return
   const node = diagramNodes.value.find((item) => item.id === cardId)
   const member = staff.value.find((item) => item.id === (node?.staff_id ?? cardId))
+  if (member && deleteHint(member)) return
   try {
     await ElMessageBox.confirm(member
       ? `确定删除 ${member.display_name} 的卡片和员工账号？该账号将无法登录。子卡片将接到上一级。`
@@ -259,7 +266,7 @@ onMounted(load)
     <el-tabs v-model="tab">
       <el-tab-pane label="员工" name="staff">
         <p class="hint">鼠标移到卡片边缘，点击“＋”新增卡片；再点击新卡片完善员工资料、角色和权限。连线不影响权限。</p>
-        <StaffTree v-loading="loading" :staff="staff" :company="auth.me?.tenant.name ?? '企业'" :can-manage="canManage" :focus-id="focusId" :diagram-nodes="diagramNodes" :adding="adding" data-testid="staff-tree" @add-branch="openBranch" @edit-draft="openDraft" @edit-staff="openEdit" @delete-card="deleteCard">
+        <StaffTree v-loading="loading" :staff="staff" :company="auth.me?.tenant.name ?? '企业'" :can-manage="canManage" :focus-id="focusId" :diagram-nodes="diagramNodes" :adding="adding" :delete-hint="deleteHint" data-testid="staff-tree" @add-branch="openBranch" @edit-draft="openDraft" @edit-staff="openEdit" @delete-card="deleteCard">
           <template #default="{ member: row }">
             <div class="staff-heading">
               <strong class="staff-name">{{ row.roles.includes('tenant_admin') ? '企业所有者' : row.roles.map((code) => roleNames.get(code) ?? code).join(' / ') || '员工' }}（{{ row.display_name }}）</strong>
@@ -292,15 +299,19 @@ onMounted(load)
             <div v-if="canManage || canHandover" class="staff-actions">
               <template v-if="canManage">
                 <el-button link type="primary" size="small" @click.stop="openEdit(row)">编辑</el-button>
-                <el-button v-if="resetState(row) === 'self'" link type="primary" size="small" :data-testid="`password-${row.username}`" @click.stop="passwordOpen = true">修改密码</el-button>
-                <el-tooltip v-else :disabled="resetState(row) === 'ok'" content="权限高于你，请让管理员重置" placement="top">
+                <el-button v-if="manageState(row) === 'self'" link type="primary" size="small" :data-testid="`password-${row.username}`" @click.stop="passwordOpen = true">修改密码</el-button>
+                <el-tooltip v-else :disabled="manageState(row) === 'ok'" :content="manageHint(manageState(row), '重置') ?? ''" placement="top">
                   <span class="action">
-                    <el-button link type="primary" size="small" :disabled="resetState(row) !== 'ok'" :data-testid="`reset-${row.username}`" @click.stop="openReset(row)">重置密码</el-button>
+                    <el-button link type="primary" size="small" :disabled="manageState(row) !== 'ok'" :data-testid="`reset-${row.username}`" @click.stop="openReset(row)">重置密码</el-button>
                   </span>
                 </el-tooltip>
-                <el-button v-if="row.id !== auth.me?.id" link :type="row.status === 'active' ? 'danger' : 'primary'" size="small" :data-testid="`toggle-${row.username}`" @click.stop="toggleStatus(row)">
-                  {{ row.status === 'active' ? '停用' : '启用' }}
-                </el-button>
+                <el-tooltip v-if="manageState(row) !== 'self'" :disabled="manageState(row) === 'ok'" :content="manageHint(manageState(row), row.status === 'active' ? '停用' : '启用') ?? ''" placement="top">
+                  <span class="action">
+                    <el-button link :type="row.status === 'active' ? 'danger' : 'primary'" size="small" :disabled="manageState(row) !== 'ok'" :data-testid="`toggle-${row.username}`" @click.stop="toggleStatus(row)">
+                      {{ row.status === 'active' ? '停用' : '启用' }}
+                    </el-button>
+                  </span>
+                </el-tooltip>
               </template>
               <el-button v-if="canHandover" link type="primary" size="small" @click.stop="openHandover(row)">交接客户</el-button>
             </div>
@@ -413,7 +424,7 @@ onMounted(load)
 .staff-created { color: var(--el-text-color-secondary); font-size: 12px; margin-top: 12px; }
 .staff-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; border-top: 1px solid var(--el-border-color-lighter); padding-top: 12px; }
 .staff-actions .el-button { margin-left: 0; }
-/* 状态和"待改密码"并排；置灰的重置按钮外面套一层，悬停时才能显示提示。 */
+/* 状态和"待改密码"并排；置灰的按钮外面套一层，悬停时才能显示提示。 */
 .staff-states { display: inline-flex; flex-wrap: wrap; gap: 6px; }
 .action { display: inline-flex; }
 

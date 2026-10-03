@@ -1,23 +1,9 @@
 import type { Schemas } from '@edp/api-client'
 
 /**
- * 重置密码（设计文档 §38）：能不能重置某个员工、重置后员工看到的说明、设置新密码时的检查。
+ * 重置密码（设计文档 §38）：重置后员工看到的说明、设置新密码时的检查。能不能重置某个员工见 staffManage.ts。
  */
 export const MIN_PASSWORD_LENGTH = 8
-
-export type ResetAccess = 'ok' | 'self' | 'higher'
-
-/**
- * 能不能重置这个员工的密码：自己的要输入当前密码修改（self）；对方有自己没有的权限时不能重置（higher）。
- * 和后端的规则一致（§38.4）。
- */
-export function resetAccess(
-  target: { id: string; permissions: readonly string[] },
-  me: { id: string; permissions: ReadonlySet<string> },
-): ResetAccess {
-  if (target.id === me.id) return 'self'
-  return target.permissions.every((p) => me.permissions.has(p)) ? 'ok' : 'higher'
-}
 
 /** 要先设置新密码时的说明：谁在什么时候重置了密码（平台运维人员的带原因）。 */
 export function resetNotice(
