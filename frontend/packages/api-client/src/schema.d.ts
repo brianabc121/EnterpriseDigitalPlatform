@@ -3673,7 +3673,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Me */
+        /**
+         * Me
+         * @description 当前员工的信息、权限和菜单。密码被重置后还没有设置新密码时也可以调用（§38.5）。
+         */
         get: operations["me_api_v1_me_get"];
         put?: never;
         post?: never;
@@ -3695,6 +3698,8 @@ export interface paths {
         /**
          * Change Password
          * @description 修改自己的密码。其他设备上的登录随即失效，当前页面换发新的令牌。
+         *
+         *     管理员或平台运维人员重置了密码时，用重置的密码作为当前密码，设置后才能使用控制台（§38.5）。
          */
         post: operations["change_password_api_v1_me_password_post"];
         delete?: never;
@@ -6334,6 +6339,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/staff/diagram/nodes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Staff Diagram Nodes */
+        get: operations["staff_diagram_nodes_api_v1_staff_diagram_nodes_get"];
+        put?: never;
+        /** Create Staff Diagram Node */
+        post: operations["create_staff_diagram_node_api_v1_staff_diagram_nodes_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/diagram/nodes/{card_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Staff Diagram Card */
+        delete: operations["delete_staff_diagram_card_api_v1_staff_diagram_nodes__card_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/staff/{staff_id}": {
         parameters: {
             query?: never;
@@ -6365,7 +6405,10 @@ export interface paths {
         put?: never;
         /**
          * Reset Staff Password
-         * @description 重置员工密码，员工现有的登录全部失效。
+         * @description 重置员工的密码（§38.4）：适用于全部角色，不能重置权限高于自己的员工，也不能重置自己的。
+         *
+         *     新密码不填时自动生成（只返回这一次）；默认要求员工下次登录时先设置新密码。员工现有的登录全部
+         *     失效。
          */
         post: operations["reset_staff_password_api_v1_staff__staff_id__password_post"];
         delete?: never;
@@ -8967,6 +9010,49 @@ export interface paths {
         patch: operations["update_tenant_platform_v1_tenants__tenant_id__patch"];
         trace?: never;
     };
+    "/platform/v1/tenants/{tenant_id}/admins": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Tenant Admins
+         * @description 企业的管理员账号（有租户管理员角色的员工），企业拥有者（开通企业时创建的账号）在前（§38.2）。
+         */
+        get: operations["list_tenant_admins_platform_v1_tenants__tenant_id__admins_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platform/v1/tenants/{tenant_id}/admins/{staff_id}/password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reset Tenant Admin Password
+         * @description 重置企业管理员的密码（§38.3），必须填写原因。
+         *
+         *     新密码不填时自动生成（只返回这一次）。新密码是临时密码：管理员登录后要先设置新密码；现有的登录
+         *     全部失效。记入企业的操作日志，企业的其他管理员收到提醒。
+         */
+        post: operations["reset_tenant_admin_password_platform_v1_tenants__tenant_id__admins__staff_id__password_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/platform/v1/tenants/{tenant_id}/billing": {
         parameters: {
             query?: never;
@@ -9313,6 +9399,19 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** AdminPasswordReset */
+        AdminPasswordReset: {
+            /**
+             * Password
+             * @description 新密码；不填时自动生成
+             */
+            password?: string | null;
+            /**
+             * Reason
+             * @description 重置的原因：记入企业的操作日志，企业的其他管理员会收到提醒
+             */
+            reason: string;
+        };
         /** AgentGroupOut */
         AgentGroupOut: {
             /**
@@ -17144,6 +17243,14 @@ export interface components {
              * Format: uuid
              */
             id: string;
+            /**
+             * Must Change Password
+             * @description 管理员或平台运维人员重置了密码，要先设置新密码才能使用（§38.5）
+             * @default false
+             */
+            must_change_password: boolean;
+            /** @description 要先设置新密码时：什么时候、由谁重置的 */
+            password_reset?: components["schemas"]["PasswordResetInfo"] | null;
             /** Permissions */
             permissions: components["schemas"]["Permission"][];
             /** @description 当前套餐；不按套餐计费的租户为空 */
@@ -19334,8 +19441,57 @@ export interface components {
         };
         /** PasswordReset */
         PasswordReset: {
-            /** Password */
-            password: string;
+            /**
+             * Must Change
+             * @description 员工下次登录时要先设置新密码
+             * @default true
+             */
+            must_change: boolean;
+            /**
+             * Password
+             * @description 新密码；不填时自动生成
+             */
+            password?: string | null;
+        };
+        /**
+         * PasswordResetInfo
+         * @description 最近一次重置密码（设计文档 §38.5）。
+         */
+        PasswordResetInfo: {
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+            /**
+             * By
+             * @description platform：平台运维人员重置；staff：企业的管理员重置
+             * @enum {string}
+             */
+            by: "platform" | "staff";
+            /**
+             * Operator
+             * @description 重置的管理员的姓名（平台运维人员不显示姓名）
+             */
+            operator: string | null;
+            /**
+             * Reason
+             * @description 平台运维人员填写的原因
+             */
+            reason: string | null;
+        };
+        /** PasswordResetResult */
+        PasswordResetResult: {
+            /**
+             * Must Change Password
+             * @description 员工下次登录时要先设置新密码
+             */
+            must_change_password: boolean;
+            /**
+             * Temporary Password
+             * @description 自动生成的新密码（只返回这一次）；手动设置时为空
+             */
+            temporary_password: string | null;
         };
         /** PaymentIn */
         PaymentIn: {
@@ -23081,6 +23237,21 @@ export interface components {
         StaffCreate: {
             /** @description 按员工设置的页面和权限；不填表示按角色（§31） */
             access?: components["schemas"]["StaffAccess"] | null;
+            /**
+             * Diagram Direction
+             * @description 新增卡片方向；不填使用默认布局
+             */
+            diagram_direction?: ("left" | "right" | "down") | null;
+            /**
+             * Diagram Node Id
+             * @description 将待完善卡片转为员工
+             */
+            diagram_node_id?: string | null;
+            /**
+             * Diagram Parent Id
+             * @description 来源卡片，空表示企业根；仅用于图形布局
+             */
+            diagram_parent_id?: string | null;
             /** Display Name */
             display_name: string;
             /** Password */
@@ -23089,6 +23260,43 @@ export interface components {
             role_codes: string[];
             /** Username */
             username: string;
+        };
+        /** StaffDiagramNodeCreate */
+        StaffDiagramNodeCreate: {
+            /**
+             * Direction
+             * @enum {string}
+             */
+            direction: "left" | "right" | "down";
+            /** Parent Id */
+            parent_id?: string | null;
+        };
+        /** StaffDiagramNodeOut */
+        StaffDiagramNodeOut: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Direction
+             * @enum {string}
+             */
+            direction: "left" | "right" | "down";
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Parent Id */
+            parent_id: string | null;
+            /** Staff Id */
+            staff_id: string | null;
+        };
+        /** StaffDiagramNodes */
+        StaffDiagramNodes: {
+            /** Items */
+            items: components["schemas"]["StaffDiagramNodeOut"][];
         };
         /** StaffList */
         StaffList: {
@@ -23130,6 +23338,10 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+            /** Diagram Direction */
+            diagram_direction?: ("left" | "right" | "down") | null;
+            /** Diagram Parent Id */
+            diagram_parent_id?: string | null;
             /** Display Name */
             display_name: string;
             /**
@@ -23137,6 +23349,17 @@ export interface components {
              * Format: uuid
              */
             id: string;
+            /**
+             * Must Change Password
+             * @description 密码被重置后还没有设置新密码（下次登录时要先设置）
+             * @default false
+             */
+            must_change_password: boolean;
+            /**
+             * Password Changed At
+             * @description 密码最近修改或重置的时间；为空表示创建以来没有改过
+             */
+            password_changed_at?: string | null;
             /**
              * Permissions
              * @description 有效权限：角色的权限 + 多给的 − 去掉的（不含仓管另外获得的确认权限）
@@ -23910,6 +24133,53 @@ export interface components {
             display_name: string;
             /** Password */
             password: string;
+            /** Username */
+            username: string;
+        };
+        /** TenantAdminList */
+        TenantAdminList: {
+            /** Items */
+            items: components["schemas"]["TenantAdminOut"][];
+        };
+        /**
+         * TenantAdminOut
+         * @description 企业的管理员账号（设计文档 §38.2）。
+         */
+        TenantAdminOut: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Display Name */
+            display_name: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Last Login At
+             * @description 最近登录（账号密码或企业微信）
+             */
+            last_login_at: string | null;
+            /**
+             * Must Change Password
+             * @description 密码被重置后还没有设置新密码
+             */
+            must_change_password: boolean;
+            /**
+             * Owner
+             * @description 企业拥有者：开通企业时创建的管理员账号（企业里最早创建的账号）
+             */
+            owner: boolean;
+            /**
+             * Password Changed At
+             * @description 密码最近修改或重置的时间；为空表示创建以来没有改过
+             */
+            password_changed_at: string | null;
+            /** Status */
+            status: string;
             /** Username */
             username: string;
         };
@@ -56910,6 +57180,232 @@ export interface operations {
             };
         };
     };
+    staff_diagram_nodes_api_v1_staff_diagram_nodes_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffDiagramNodes"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    create_staff_diagram_node_api_v1_staff_diagram_nodes_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StaffDiagramNodeCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffDiagramNodeOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    delete_staff_diagram_card_api_v1_staff_diagram_nodes__card_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                card_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     update_staff_api_v1_staff__staff_id__patch: {
         parameters: {
             query?: never;
@@ -57006,11 +57502,13 @@ export interface operations {
         };
         responses: {
             /** @description Successful Response */
-            204: {
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["PasswordResetResult"];
+                };
             };
             /** @description Bad Request */
             400: {
@@ -69144,6 +69642,163 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TenantOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    list_tenant_admins_platform_v1_tenants__tenant_id__admins_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TenantAdminList"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    reset_tenant_admin_password_platform_v1_tenants__tenant_id__admins__staff_id__password_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                staff_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminPasswordReset"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PasswordResetResult"];
                 };
             };
             /** @description Bad Request */

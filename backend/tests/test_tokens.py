@@ -319,16 +319,12 @@ async def test_gateway_records_who_triggered_the_call(
 
 async def test_permissions_menus_and_isolation(desk: Desk, app: FastAPI) -> None:
     agent = await desk.agent("amy", roles=["agent"], online=False)
-    # 财务岗位的默认权限里有 token:view（管理员按岗位建角色时一键填入）。
+    # 财务岗位的默认权限和系统角色"财务"都有 token:view。
     profiles = await call(desk, "/api/v1/roles/profile-permissions")
     defaults = next(p for p in profiles["items"] if p["profile"] == "finance")["permissions"]
     assert "token:view" in defaults
-    created = await desk.client.post(
-        "/api/v1/roles",
-        headers=desk.admin,
-        json={"code": "finance", "name": "财务", "permissions": defaults, "console": "finance"},
-    )
-    assert created.status_code == 201, created.text
+    roles = (await call(desk, "/api/v1/roles"))["items"]
+    assert "token:view" in next(r for r in roles if r["code"] == "finance")["permissions"]
     finance = await desk.agent("fay", roles=["finance"], online=False)
     for path in (f"{T}/summary", f"{T}/calls", f"{T}/calls/export"):
         assert (await desk.client.get(path, headers=agent.headers)).status_code == 403

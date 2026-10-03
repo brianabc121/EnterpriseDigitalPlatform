@@ -112,13 +112,21 @@ async function prepareTenant() {
     },
   })
   const admin = await login('admin')
+  // 知识管理员不再是系统角色（员工导图分支）：按"知识"岗位的默认权限建一个自定义角色。
+  const profiles = await json(`${API}/api/v1/roles/profile-permissions`, { token: admin })
+  const knowledge = profiles.items.find((p) => p.profile === 'knowledge')
+  await json(`${API}/api/v1/roles`, {
+    method: 'POST',
+    token: admin,
+    body: { code: 'knowledge', name: '知识管理员', permissions: knowledge.permissions, console: 'knowledge' },
+  })
   const staff = {}
   for (const [username, name, roles] of [
     ['mei', '客服小美', ['agent']],
     ['boss', '主管老李', ['supervisor']],
     ['cang', '仓管小陈', ['keeper']],
     ['wang', '工人老王', ['worker']],
-    ['kate', '知识管理员小凯', ['knowledge_manager']],
+    ['kate', '知识管理员小凯', ['knowledge']],
     ['chen', '客服兼仓管老陈', ['agent', 'keeper']],
   ]) {
     const created = await json(`${API}/api/v1/staff`, {

@@ -3,6 +3,7 @@ from uuid import UUID
 import httpx
 from fastapi import FastAPI
 
+from app.core.consoles import PROFILE_PERMISSIONS, ConsoleProfile
 from app.db.session import Database
 from app.modules.tenancy import service as tenancy
 from app.modules.tenancy.schemas import TenantAdminCreate, TenantCreate
@@ -65,6 +66,25 @@ async def create_staff(
     assert response.status_code == 201, response.text
     staff_id: str = response.json()["id"]
     return staff_id
+
+
+KNOWLEDGE_ROLE = "knowledge"
+
+
+async def create_knowledge_role(client: httpx.AsyncClient, admin_token: str) -> str:
+    """知识管理员：系统角色已经取消（员工导图分支），按"知识"岗位的默认权限建一个自定义角色。"""
+    response = await client.post(
+        "/api/v1/roles",
+        headers=bearer(admin_token),
+        json={
+            "code": KNOWLEDGE_ROLE,
+            "name": "知识管理员",
+            "permissions": sorted(PROFILE_PERMISSIONS[ConsoleProfile.KNOWLEDGE]),
+            "console": "knowledge",
+        },
+    )
+    assert response.status_code == 201, response.text
+    return KNOWLEDGE_ROLE
 
 
 async def create_platform_admin(app: FastAPI, username: str = "ops") -> None:

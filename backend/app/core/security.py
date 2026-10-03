@@ -36,6 +36,21 @@ def verify_password(password_hash: str | None, password: str) -> bool:
     return matched and password_hash is not None
 
 
+# 自动生成的密码（设计文档 §38）：去掉容易看错的 0/O、1/l/I，大写、小写字母和数字都有。
+_PASSWORD_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789"
+
+
+def generate_password(length: int = 12) -> str:
+    while True:
+        password = "".join(secrets.choice(_PASSWORD_ALPHABET) for _ in range(length))
+        if (
+            any(c.isupper() for c in password)
+            and any(c.islower() for c in password)
+            and any(c.isdigit() for c in password)
+        ):
+            return password
+
+
 class TokenError(Exception):
     """令牌无效、过期或类型不符。"""
 
@@ -44,6 +59,19 @@ class TokenError(Exception):
 class AccessClaims:
     staff_id: UUID
     tenant_id: UUID
+    # 签发时员工密码最近修改的时间（见 password_stamp）：和员工现在的不一样时令牌失效（§38.6）。
+    password_stamp: int | None = None
+
+
+_EPOCH = datetime(1970, 1, 1, tzinfo=UTC)
+
+
+def password_stamp(changed_at: datetime | None) -> int | None:
+    """密码最近修改的时间（微秒时间戳），写进访问令牌：重置或修改密码之后，之前签发的令牌就对不上了。
+    没有修改过时为空。"""
+    if changed_at is None:
+        return None
+    return (changed_at - _EPOCH) // timedelta(microseconds=1)
 
 
 @dataclass(frozen=True)
@@ -102,18 +130,28 @@ def _uuid(claims: dict[str, Any], key: str) -> UUID:
         raise TokenError(f"invalid claim: {key}") from exc
 
 
-def encode_access_token(*, staff_id: UUID, tenant_id: UUID, secret: str, ttl_seconds: int) -> str:
-    return _encode(
-        {"sub": str(staff_id), "tid": str(tenant_id), "typ": "access"},
-        secret=secret,
-        audience=TENANT_AUDIENCE,
-        ttl_seconds=ttl_seconds,
-    )
+def encode_access_token(
+    *,
+    staff_id: UUID,
+    tenant_id: UUID,
+    secret: str,
+    ttl_seconds: int,
+    password_stamp: int | None = None,
+) -> str:
+    payload: dict[str, Any] = {"sub": str(staff_id), "tid": str(tenant_id), "typ": "access"}
+    if password_stamp is not None:
+        payload["pwd"] = password_stamp
+    return _encode(payload, secret=secret, audience=TENANT_AUDIENCE, ttl_seconds=ttl_seconds)
 
 
 def decode_access_token(token: str, *, secret: str) -> AccessClaims:
     claims = _decode(token, secret=secret, audience=TENANT_AUDIENCE, token_type="access")
-    return AccessClaims(staff_id=_uuid(claims, "sub"), tenant_id=_uuid(claims, "tid"))
+    stamp = claims.get("pwd")
+    if stamp is not None and (not isinstance(stamp, int) or isinstance(stamp, bool)):
+        raise TokenError("invalid claim: pwd")
+    return AccessClaims(
+        staff_id=_uuid(claims, "sub"), tenant_id=_uuid(claims, "tid"), password_stamp=stamp
+    )
 
 
 def encode_refresh_token(

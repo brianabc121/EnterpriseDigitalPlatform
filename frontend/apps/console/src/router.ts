@@ -87,6 +87,13 @@ const routes: RouteRecordRaw[] = [
     meta: { public: true, title: '客户助手' },
   },
   {
+    // 管理员或平台运维人员重置了密码：设置新密码之后才能使用控制台（§38.5）。
+    path: '/password',
+    name: 'password-setup',
+    component: () => import('./views/PasswordSetupView.vue'),
+    meta: { title: '设置新密码' },
+  },
+  {
     // 企业微信手机端的坐席工作台（应用消息提醒点进来后免登进入）。
     path: '/m',
     name: 'mobile-workbench',
@@ -124,6 +131,12 @@ router.beforeEach(async (to, from) => {
     return to.name === 'login' && auth.isAuthenticated ? auth.home : true
   }
   if (!auth.isAuthenticated) return { name: 'login', query: { redirect: to.fullPath } }
+  // 密码被重置后，先设置新密码（§38.5）。
+  if (auth.mustChangePassword) {
+    if (to.name === 'password-setup') return true
+    return { name: 'password-setup', query: { redirect: to.fullPath === '/' ? undefined : to.fullPath } }
+  }
+  if (to.name === 'password-setup') return auth.home
   // 首页不在菜单里时（例如工人）打开第一个菜单（§25.15）。按员工设置了登录后打开的页面时（§31），
   // 刚打开控制台或刚登录时进入那个页面，之后点"首页"照常打开首页。
   const landing = from === START_LOCATION || from.meta.public === true

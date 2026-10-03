@@ -1,6 +1,36 @@
 {
   "components": {
     "schemas": {
+      "AdminPasswordReset": {
+        "properties": {
+          "password": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "minLength": 8,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "新密码；不填时自动生成",
+            "title": "Password"
+          },
+          "reason": {
+            "description": "重置的原因：记入企业的操作日志，企业的其他管理员会收到提醒",
+            "maxLength": 200,
+            "minLength": 2,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "title": "AdminPasswordReset",
+        "type": "object"
+      },
       "AgentGroupOut": {
         "properties": {
           "id": {
@@ -19489,6 +19519,23 @@
             "title": "Id",
             "type": "string"
           },
+          "must_change_password": {
+            "default": false,
+            "description": "管理员或平台运维人员重置了密码，要先设置新密码才能使用（§38.5）",
+            "title": "Must Change Password",
+            "type": "boolean"
+          },
+          "password_reset": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PasswordResetInfo"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "要先设置新密码时：什么时候、由谁重置的"
+          },
           "permissions": {
             "items": {
               "$ref": "#/components/schemas/Permission"
@@ -25529,17 +25576,106 @@
       },
       "PasswordReset": {
         "properties": {
+          "must_change": {
+            "default": true,
+            "description": "员工下次登录时要先设置新密码",
+            "title": "Must Change",
+            "type": "boolean"
+          },
           "password": {
-            "maxLength": 128,
-            "minLength": 8,
-            "title": "Password",
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "minLength": 8,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "新密码；不填时自动生成",
+            "title": "Password"
+          }
+        },
+        "title": "PasswordReset",
+        "type": "object"
+      },
+      "PasswordResetInfo": {
+        "description": "最近一次重置密码（设计文档 §38.5）。",
+        "properties": {
+          "at": {
+            "format": "date-time",
+            "title": "At",
             "type": "string"
+          },
+          "by": {
+            "description": "platform：平台运维人员重置；staff：企业的管理员重置",
+            "enum": [
+              "platform",
+              "staff"
+            ],
+            "title": "By",
+            "type": "string"
+          },
+          "operator": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "重置的管理员的姓名（平台运维人员不显示姓名）",
+            "title": "Operator"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "平台运维人员填写的原因",
+            "title": "Reason"
           }
         },
         "required": [
-          "password"
+          "at",
+          "by",
+          "operator",
+          "reason"
         ],
-        "title": "PasswordReset",
+        "title": "PasswordResetInfo",
+        "type": "object"
+      },
+      "PasswordResetResult": {
+        "properties": {
+          "must_change_password": {
+            "description": "员工下次登录时要先设置新密码",
+            "title": "Must Change Password",
+            "type": "boolean"
+          },
+          "temporary_password": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "自动生成的新密码（只返回这一次）；手动设置时为空",
+            "title": "Temporary Password"
+          }
+        },
+        "required": [
+          "temporary_password",
+          "must_change_password"
+        ],
+        "title": "PasswordResetResult",
         "type": "object"
       },
       "PaymentIn": {
@@ -34744,6 +34880,49 @@
             ],
             "description": "按员工设置的页面和权限；不填表示按角色（§31）"
           },
+          "diagram_direction": {
+            "anyOf": [
+              {
+                "enum": [
+                  "left",
+                  "right",
+                  "down"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "新增卡片方向；不填使用默认布局",
+            "title": "Diagram Direction"
+          },
+          "diagram_node_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "将待完善卡片转为员工",
+            "title": "Diagram Node Id"
+          },
+          "diagram_parent_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "来源卡片，空表示企业根；仅用于图形布局",
+            "title": "Diagram Parent Id"
+          },
           "display_name": {
             "maxLength": 64,
             "minLength": 1,
@@ -34777,6 +34956,108 @@
           "role_codes"
         ],
         "title": "StaffCreate",
+        "type": "object"
+      },
+      "StaffDiagramNodeCreate": {
+        "properties": {
+          "direction": {
+            "enum": [
+              "left",
+              "right",
+              "down"
+            ],
+            "title": "Direction",
+            "type": "string"
+          },
+          "parent_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Id"
+          }
+        },
+        "required": [
+          "direction"
+        ],
+        "title": "StaffDiagramNodeCreate",
+        "type": "object"
+      },
+      "StaffDiagramNodeOut": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "direction": {
+            "enum": [
+              "left",
+              "right",
+              "down"
+            ],
+            "title": "Direction",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "parent_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Id"
+          },
+          "staff_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Staff Id"
+          }
+        },
+        "required": [
+          "id",
+          "parent_id",
+          "direction",
+          "staff_id",
+          "created_at"
+        ],
+        "title": "StaffDiagramNodeOut",
+        "type": "object"
+      },
+      "StaffDiagramNodes": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/StaffDiagramNodeOut"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "StaffDiagramNodes",
         "type": "object"
       },
       "StaffList": {
@@ -34866,6 +35147,34 @@
             "title": "Created At",
             "type": "string"
           },
+          "diagram_direction": {
+            "anyOf": [
+              {
+                "enum": [
+                  "left",
+                  "right",
+                  "down"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Diagram Direction"
+          },
+          "diagram_parent_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Diagram Parent Id"
+          },
           "display_name": {
             "title": "Display Name",
             "type": "string"
@@ -34874,6 +35183,25 @@
             "format": "uuid",
             "title": "Id",
             "type": "string"
+          },
+          "must_change_password": {
+            "default": false,
+            "description": "密码被重置后还没有设置新密码（下次登录时要先设置）",
+            "title": "Must Change Password",
+            "type": "boolean"
+          },
+          "password_changed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "密码最近修改或重置的时间；为空表示创建以来没有改过",
+            "title": "Password Changed At"
           },
           "permissions": {
             "description": "有效权限：角色的权限 + 多给的 − 去掉的（不含仓管另外获得的确认权限）",
@@ -36860,6 +37188,98 @@
           "password"
         ],
         "title": "TenantAdminCreate",
+        "type": "object"
+      },
+      "TenantAdminList": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/TenantAdminOut"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "TenantAdminList",
+        "type": "object"
+      },
+      "TenantAdminOut": {
+        "description": "企业的管理员账号（设计文档 §38.2）。",
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "last_login_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "最近登录（账号密码或企业微信）",
+            "title": "Last Login At"
+          },
+          "must_change_password": {
+            "description": "密码被重置后还没有设置新密码",
+            "title": "Must Change Password",
+            "type": "boolean"
+          },
+          "owner": {
+            "description": "企业拥有者：开通企业时创建的管理员账号（企业里最早创建的账号）",
+            "title": "Owner",
+            "type": "boolean"
+          },
+          "password_changed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "密码最近修改或重置的时间；为空表示创建以来没有改过",
+            "title": "Password Changed At"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "username": {
+            "title": "Username",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "username",
+          "display_name",
+          "status",
+          "owner",
+          "created_at",
+          "last_login_at",
+          "password_changed_at",
+          "must_change_password"
+        ],
+        "title": "TenantAdminOut",
         "type": "object"
       },
       "TenantBilling": {
@@ -67418,6 +67838,7 @@
     },
     "/api/v1/me": {
       "get": {
+        "description": "当前员工的信息、权限和菜单。密码被重置后还没有设置新密码时也可以调用（§38.5）。",
         "operationId": "me_api_v1_me_get",
         "responses": {
           "200": {
@@ -67504,7 +67925,7 @@
     },
     "/api/v1/me/password": {
       "post": {
-        "description": "修改自己的密码。其他设备上的登录随即失效，当前页面换发新的令牌。",
+        "description": "修改自己的密码。其他设备上的登录随即失效，当前页面换发新的令牌。\n\n管理员或平台运维人员重置了密码时，用重置的密码作为当前密码，设置后才能使用控制台（§38.5）。",
         "operationId": "change_password_api_v1_me_password_post",
         "requestBody": {
           "content": {
@@ -84599,6 +85020,277 @@
         ]
       }
     },
+    "/api/v1/staff/diagram/nodes": {
+      "get": {
+        "operationId": "staff_diagram_nodes_api_v1_staff_diagram_nodes_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StaffDiagramNodes"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Staff Diagram Nodes",
+        "tags": [
+          "iam"
+        ]
+      },
+      "post": {
+        "operationId": "create_staff_diagram_node_api_v1_staff_diagram_nodes_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StaffDiagramNodeCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StaffDiagramNodeOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Create Staff Diagram Node",
+        "tags": [
+          "iam"
+        ]
+      }
+    },
+    "/api/v1/staff/diagram/nodes/{card_id}": {
+      "delete": {
+        "operationId": "delete_staff_diagram_card_api_v1_staff_diagram_nodes__card_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "card_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Card Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Delete Staff Diagram Card",
+        "tags": [
+          "iam"
+        ]
+      }
+    },
     "/api/v1/staff/{staff_id}": {
       "patch": {
         "description": "修改员工的名称、角色或状态。停用后立即退出登录并下线，接待中的会话退回队列。",
@@ -84710,7 +85402,7 @@
     },
     "/api/v1/staff/{staff_id}/password": {
       "post": {
-        "description": "重置员工密码，员工现有的登录全部失效。",
+        "description": "重置员工的密码（§38.4）：适用于全部角色，不能重置权限高于自己的员工，也不能重置自己的。\n\n新密码不填时自动生成（只返回这一次）；默认要求员工下次登录时先设置新密码。员工现有的登录全部\n失效。",
         "operationId": "reset_staff_password_api_v1_staff__staff_id__password_post",
         "parameters": [
           {
@@ -84735,7 +85427,14 @@
           "required": true
         },
         "responses": {
-          "204": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PasswordResetResult"
+                }
+              }
+            },
             "description": "Successful Response"
           },
           "400": {
@@ -101335,6 +102034,224 @@
           }
         ],
         "summary": "Update Tenant",
+        "tags": [
+          "platform"
+        ]
+      }
+    },
+    "/platform/v1/tenants/{tenant_id}/admins": {
+      "get": {
+        "description": "企业的管理员账号（有租户管理员角色的员工），企业拥有者（开通企业时创建的账号）在前（§38.2）。",
+        "operationId": "list_tenant_admins_platform_v1_tenants__tenant_id__admins_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tenant_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Tenant Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TenantAdminList"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "PlatformBearer": []
+          }
+        ],
+        "summary": "List Tenant Admins",
+        "tags": [
+          "platform"
+        ]
+      }
+    },
+    "/platform/v1/tenants/{tenant_id}/admins/{staff_id}/password": {
+      "post": {
+        "description": "重置企业管理员的密码（§38.3），必须填写原因。\n\n新密码不填时自动生成（只返回这一次）。新密码是临时密码：管理员登录后要先设置新密码；现有的登录\n全部失效。记入企业的操作日志，企业的其他管理员收到提醒。",
+        "operationId": "reset_tenant_admin_password_platform_v1_tenants__tenant_id__admins__staff_id__password_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tenant_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Tenant Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "staff_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Staff Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminPasswordReset"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PasswordResetResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "PlatformBearer": []
+          }
+        ],
+        "summary": "Reset Tenant Admin Password",
         "tags": [
           "platform"
         ]

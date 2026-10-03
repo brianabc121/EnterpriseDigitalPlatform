@@ -30,6 +30,8 @@ FINANCE_PERMISSIONS = {
     "finance:view",
     "order:payment",
     "order:read",
+    "profit:manage",
+    "profit:view",
     "task:use",
     "token:view",
 }
@@ -376,13 +378,12 @@ async def test_the_finance_position_is_the_admin_by_default_or_a_custom_role(des
     keeper = next(p for p in profiles["items"] if p["profile"] == "keeper")
     assert "warehouse:confirm" in keeper["permissions"]
 
-    # 管理员自己建一个财务角色：岗位"财务"，填入默认权限；财务登录后只看到和收款有关的菜单，
-    # 能看到全部订单和应收。
-    role = await call(
-        desk, desk.admin, "POST", "/api/v1/roles", 201, code="finance", name="财务",
-        permissions=finance["permissions"], console="finance",
-    )  # fmt: skip
-    assert (role["console"], role["console_auto"]) == ("finance", False)
+    # 系统角色"财务"（员工导图分支新增）：岗位"财务"，权限就是岗位的默认权限；财务登录后只看到
+    # 和收款、盈利有关的菜单，能看到全部订单和应收。
+    roles = await call(desk, desk.admin, "GET", "/api/v1/roles")
+    role = next(r for r in roles["items"] if r["code"] == "finance")
+    assert (role["name"], role["is_system"], role["console"]) == ("财务", True, "finance")
+    assert set(role["permissions"]) == FINANCE_PERMISSIONS
     cai = await desk.agent("cai", roles=["finance"], online=False)
     me = await call(desk, cai.headers, "GET", "/api/v1/me")
     assert me["console"] == {
@@ -394,6 +395,7 @@ async def test_the_finance_position_is_the_admin_by_default_or_a_custom_role(des
             "tasks",
             "customers",
             "assistant",
+            "profit",
             "tokens",
         ],
         "home": None,
@@ -420,7 +422,7 @@ async def test_the_finance_position_is_the_admin_by_default_or_a_custom_role(des
     denied = await desk.client.get(f"{FINANCE}/receivables/summary", headers=mei.headers)
     assert denied.status_code == 403
     cashier = await call(
-        desk, desk.admin, "POST", "/api/v1/roles", 201, code="cashier", name="出纳",
+        desk, desk.admin, "POST", "/api/v1/roles", 201, code="teller", name="收银",
         permissions=["finance:view", "order:read"],
     )  # fmt: skip
     assert (cashier["console"], cashier["console_auto"]) == ("finance", True)

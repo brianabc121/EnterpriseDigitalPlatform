@@ -18,13 +18,14 @@ from app.core.security import (
     encode_access_token,
     encode_refresh_token,
     hash_password,
+    password_stamp,
     verify_password,
 )
 from app.db.errors import violated_unique_constraint
 from app.db.session import bind_tenant
 from app.modules.audit.service import record_audit
 from app.modules.billing.entitlements import check_limit
-from app.modules.iam import access
+from app.modules.iam import access, diagram
 from app.modules.iam.models import RefreshToken, Role, Staff, StaffRole, StaffStatus
 from app.modules.iam.principal import Principal
 from app.modules.iam.schemas import StaffCreate, StaffOut
@@ -145,6 +146,7 @@ def issue_tokens(
             tenant_id=staff.tenant_id,
             secret=settings.jwt_secret.get_secret_value(),
             ttl_seconds=settings.access_token_ttl_seconds,
+            password_stamp=password_stamp(staff.password_changed_at),
         ),
         refresh_token=encode_refresh_token(
             staff_id=staff.id,
@@ -214,16 +216,21 @@ async def revoke_session(session: AsyncSession, claims: RefreshClaims) -> None:
 
 
 async def load_principal(session: AsyncSession, claims: AccessClaims) -> Principal | None:
-    return await principal_for(session, claims.tenant_id, claims.staff_id)
+    return await principal_for(session, claims.tenant_id, claims.staff_id, token=claims)
 
 
-async def principal_for(session: AsyncSession, tenant_id: UUID, staff_id: UUID) -> Principal | None:
-    """员工当前的身份与权限（后台任务以发起人的身份执行时也用它）。停用或租户不可用时为空。"""
+async def principal_for(
+    session: AsyncSession, tenant_id: UUID, staff_id: UUID, *, token: AccessClaims | None = None
+) -> Principal | None:
+    """员工当前的身份与权限（后台任务以发起人的身份执行时也用它）。停用或租户不可用时为空；
+    给了访问令牌时，令牌签发之后密码修改或重置过也为空（§38.6）。"""
     tenant = await session.get(Tenant, tenant_id)
     if tenant is None or tenant.status != TenantStatus.ACTIVE:
         return None
     staff = await session.get(Staff, staff_id)
     if staff is None or staff.status != StaffStatus.ACTIVE:
+        return None
+    if token is not None and token.password_stamp != password_stamp(staff.password_changed_at):
         return None
     roles = await roles_of(session, staff.id)
     permissions = effective_permissions(staff, roles)
@@ -239,6 +246,7 @@ async def principal_for(session: AsyncSession, tenant_id: UUID, staff_id: UUID) 
         display_name=staff.display_name,
         role_codes=tuple(role.code for role in roles),
         permissions=permissions,
+        must_change_password=staff.must_change_password,
     )
 
 
@@ -250,6 +258,8 @@ def staff_out(staff: Staff, roles: Iterable[Role]) -> StaffOut:
     roles = list(roles)
     return StaffOut(
         id=staff.id,
+        diagram_parent_id=staff.diagram_parent_id,
+        diagram_direction=staff.diagram_direction,
         username=staff.username,
         display_name=staff.display_name,
         status=staff.status,
@@ -257,6 +267,8 @@ def staff_out(staff: Staff, roles: Iterable[Role]) -> StaffOut:
         created_at=staff.created_at,
         access=access.out(staff, roles),
         permissions=access.known(effective_permissions(staff, roles)),
+        must_change_password=staff.must_change_password,
+        password_changed_at=staff.password_changed_at,
     )
 
 
@@ -269,6 +281,20 @@ async def list_staff(session: AsyncSession) -> list[StaffOut]:
 async def create_staff(
     session: AsyncSession, principal: Principal, payload: StaffCreate, *, ip: str | None
 ) -> StaffOut:
+    layout_node = (
+        await diagram.pending_node(session, principal.tenant_id, payload.diagram_node_id)
+        if payload.diagram_node_id is not None
+        else None
+    )
+    if payload.diagram_parent_id is not None:
+        parent = await session.scalar(
+            select(Staff.id).where(
+                Staff.id == payload.diagram_parent_id,
+                Staff.tenant_id == principal.tenant_id,
+            )
+        )
+        if parent is None:
+            raise Unprocessable("来源员工不存在或不属于当前企业")
     requested = set(payload.role_codes)
     roles = (await session.scalars(select(Role).where(Role.code.in_(requested)))).all()
     missing = requested - {role.code for role in roles}
@@ -280,6 +306,8 @@ async def create_staff(
     staff = Staff(
         id=new_id(),
         tenant_id=principal.tenant_id,
+        diagram_parent_id=payload.diagram_parent_id,
+        diagram_direction=payload.diagram_direction,
         username=payload.username,
         display_name=payload.display_name,
         password_hash=hash_password(payload.password),
@@ -307,7 +335,16 @@ async def create_staff(
         StaffRole(tenant_id=principal.tenant_id, staff_id=staff.id, role_id=role.id)
         for role in roles
     )
+    if layout_node is not None:
+        layout_node.staff_id = staff.id
     detail: dict[str, object] = {"username": staff.username, "roles": sorted(requested)}
+    if layout_node is not None:
+        detail["diagram_node_id"] = str(layout_node.id)
+    if payload.diagram_direction is not None:
+        detail["diagram"] = {
+            "parent_id": str(payload.diagram_parent_id) if payload.diagram_parent_id else None,
+            "direction": payload.diagram_direction,
+        }
     if (saved := access.snapshot(staff)) is not None:
         detail["access"] = saved
     record_audit(

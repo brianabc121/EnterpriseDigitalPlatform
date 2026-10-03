@@ -29,6 +29,8 @@ export const useAuthStore = defineStore('auth', () => {
   /** 菜单里有"首页"。 */
   const dashboardShown = computed(() => menus.value.some((item) => item.name === 'dashboard'))
   const profiles = computed(() => me.value?.console.profiles ?? [])
+  /** 管理员或平台运维人员重置了密码，要先设置新密码（§38.5）。 */
+  const mustChangePassword = computed(() => me.value?.must_change_password === true)
 
   function can(permission: Permission): boolean {
     return permissions.value.has(permission)
@@ -93,6 +95,7 @@ export const useAuthStore = defineStore('auth', () => {
     home,
     dashboardShown,
     profiles,
+    mustChangePassword,
     can,
     fetchMe,
     login,

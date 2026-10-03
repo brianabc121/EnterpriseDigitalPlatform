@@ -5,9 +5,10 @@ from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Cookie, Depends, Request, Response, status
 
+from app.context import AppContext
 from app.core.config import Settings
 from app.core.dates import today
-from app.core.deps import client_ip, get_app_settings, get_rate_limiter
+from app.core.deps import client_ip, get_app_settings, get_context, get_rate_limiter
 from app.core.errors import ERROR_RESPONSES, ErrorResponse, Unauthorized
 from app.core.ratelimit import RateLimiter, login_attempt
 from app.core.security import (
@@ -16,16 +17,19 @@ from app.core.security import (
     encode_platform_refresh_token,
     encode_platform_token,
 )
-from app.modules.tenancy import mfa, service
+from app.modules.iam.schemas import PasswordResetResult
+from app.modules.tenancy import admins, mfa, service
 from app.modules.tenancy.deps import CurrentPlatformUser, PlatformDb, PlatformUserForSetup
 from app.modules.tenancy.models import PlatformUser, PlatformUserStatus
 from app.modules.tenancy.schemas import (
+    AdminPasswordReset,
     MfaCode,
     MfaDisable,
     MfaSetupOut,
     PlatformLoginRequest,
     PlatformMe,
     PlatformTokenResponse,
+    TenantAdminList,
     TenantCreate,
     TenantList,
     TenantOut,
@@ -240,3 +244,33 @@ async def update_tenant(
         session, tenant_id, payload, actor_id=user.id, ip=client_ip(request)
     )
     return (await service.tenant_outs(session, [tenant]))[0]
+
+
+@router.get("/tenants/{tenant_id}/admins", response_model=TenantAdminList)
+async def list_tenant_admins(
+    tenant_id: UUID, session: PlatformDb, _: CurrentPlatformUser
+) -> TenantAdminList:
+    """企业的管理员账号（有租户管理员角色的员工），企业拥有者（开通企业时创建的账号）在前（§38.2）。"""
+    tenant = await service.get_tenant(session, tenant_id)
+    return TenantAdminList(items=await admins.list_admins(session, tenant))
+
+
+@router.post("/tenants/{tenant_id}/admins/{staff_id}/password", response_model=PasswordResetResult)
+async def reset_tenant_admin_password(
+    tenant_id: UUID,
+    staff_id: UUID,
+    payload: AdminPasswordReset,
+    request: Request,
+    session: PlatformDb,
+    user: CurrentPlatformUser,
+    ctx: Annotated[AppContext, Depends(get_context)],
+) -> PasswordResetResult:
+    """重置企业管理员的密码（§38.3），必须填写原因。
+
+    新密码不填时自动生成（只返回这一次）。新密码是临时密码：管理员登录后要先设置新密码；现有的登录
+    全部失效。记入企业的操作日志，企业的其他管理员收到提醒。
+    """
+    tenant = await service.get_tenant(session, tenant_id)
+    return await admins.reset_password(
+        ctx, session, tenant, staff_id, payload, actor=user, ip=client_ip(request)
+    )

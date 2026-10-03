@@ -14,6 +14,8 @@ class Principal:
     display_name: str
     role_codes: tuple[str, ...]
     permissions: frozenset[str]
+    # 管理员或平台运维人员重置了密码，员工还没有设置新密码（§38.5）：只能查看自己的信息、修改密码。
+    must_change_password: bool = False
 
     def has(self, permission: str) -> bool:
         return permission in self.permissions

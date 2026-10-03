@@ -2,7 +2,7 @@ from datetime import date, datetime
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.core.consoles import ConsoleMenu, ConsoleProfile
 from app.core.permissions import Permission
@@ -53,6 +53,17 @@ class ConsoleOut(BaseModel):
     )
 
 
+class PasswordResetInfo(BaseModel):
+    """最近一次重置密码（设计文档 §38.5）。"""
+
+    at: datetime
+    by: Literal["platform", "staff"] = Field(
+        description="platform：平台运维人员重置；staff：企业的管理员重置"
+    )
+    operator: str | None = Field(description="重置的管理员的姓名（平台运维人员不显示姓名）")
+    reason: str | None = Field(description="平台运维人员填写的原因")
+
+
 class MeResponse(BaseModel):
     id: UUID
     username: str
@@ -70,6 +81,13 @@ class MeResponse(BaseModel):
         default=None, description="试用或到期提醒（只返回给有设置权限的员工）"
     )
     console: ConsoleOut
+    must_change_password: bool = Field(
+        default=False,
+        description="管理员或平台运维人员重置了密码，要先设置新密码才能使用（§38.5）",
+    )
+    password_reset: PasswordResetInfo | None = Field(
+        default=None, description="要先设置新密码时：什么时候、由谁重置的"
+    )
 
 
 class RoleOut(BaseModel):
@@ -156,6 +174,8 @@ class StaffAccessOut(BaseModel):
 
 
 class StaffOut(BaseModel):
+    diagram_parent_id: UUID | None = None
+    diagram_direction: Literal["left", "right", "down"] | None = None
     id: UUID
     username: str
     display_name: str
@@ -166,6 +186,12 @@ class StaffOut(BaseModel):
     permissions: list[Permission] = Field(
         description="有效权限：角色的权限 + 多给的 − 去掉的（不含仓管另外获得的确认权限）"
     )
+    must_change_password: bool = Field(
+        default=False, description="密码被重置后还没有设置新密码（下次登录时要先设置）"
+    )
+    password_changed_at: datetime | None = Field(
+        default=None, description="密码最近修改或重置的时间；为空表示创建以来没有改过"
+    )
 
 
 class StaffList(BaseModel):
@@ -173,6 +199,24 @@ class StaffList(BaseModel):
 
 
 class StaffCreate(BaseModel):
+    diagram_node_id: UUID | None = Field(default=None, description="将待完善卡片转为员工")
+    diagram_parent_id: UUID | None = Field(
+        default=None, description="来源卡片，空表示企业根；仅用于图形布局"
+    )
+    diagram_direction: Literal["left", "right", "down"] | None = Field(
+        default=None, description="新增卡片方向；不填使用默认布局"
+    )
+
+    @model_validator(mode="after")
+    def validate_diagram(self) -> "StaffCreate":
+        if self.diagram_node_id is not None and (
+            self.diagram_parent_id is not None or self.diagram_direction is not None
+        ):
+            raise ValueError("完善卡片时不能覆盖已保存的来源和方向")
+        if self.diagram_parent_id is not None and self.diagram_direction is None:
+            raise ValueError("指定来源卡片时必须选择新增方向")
+        return self
+
     username: str = Field(pattern=USERNAME_PATTERN)
     display_name: str = Field(min_length=1, max_length=64)
     password: str = Field(min_length=8, max_length=128)
@@ -180,6 +224,25 @@ class StaffCreate(BaseModel):
     access: StaffAccess | None = Field(
         default=None, description="按员工设置的页面和权限；不填表示按角色（§31）"
     )
+
+
+class StaffDiagramNodeCreate(BaseModel):
+    parent_id: UUID | None = None
+    direction: Literal["left", "right", "down"]
+
+
+class StaffDiagramNodeOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    parent_id: UUID | None
+    direction: Literal["left", "right", "down"]
+    staff_id: UUID | None
+    created_at: datetime
+
+
+class StaffDiagramNodes(BaseModel):
+    items: list[StaffDiagramNodeOut]
 
 
 class StaffUpdate(BaseModel):
@@ -209,7 +272,17 @@ class StaffAccessDefaults(BaseModel):
 
 
 class PasswordReset(BaseModel):
-    password: str = Field(min_length=8, max_length=128)
+    password: str | None = Field(
+        default=None, min_length=8, max_length=128, description="新密码；不填时自动生成"
+    )
+    must_change: bool = Field(default=True, description="员工下次登录时要先设置新密码")
+
+
+class PasswordResetResult(BaseModel):
+    temporary_password: str | None = Field(
+        description="自动生成的新密码（只返回这一次）；手动设置时为空"
+    )
+    must_change_password: bool = Field(description="员工下次登录时要先设置新密码")
 
 
 class PasswordChange(BaseModel):

@@ -49,6 +49,7 @@ MATRIX: list[tuple[str, str, dict[str, Any] | None]] = [
     ("POST", "/api/v1/sessions/{session_id}/assists", {"staff_id": "{own_staff_id}"}),
     ("DELETE", "/api/v1/sessions/{session_id}/watchers/{staff_id}", None),
     ("PATCH", "/api/v1/staff/{staff_id}", {"display_name": "越权修改"}),
+    ("DELETE", "/api/v1/staff/diagram/nodes/{card_id}", None),
     ("POST", "/api/v1/staff/{staff_id}/password", {"password": "cross-tenant-reset"}),
     ("PATCH", "/api/v1/roles/{role_id}", {"name": "越权修改"}),
     ("DELETE", "/api/v1/roles/{role_id}", None),
@@ -497,8 +498,16 @@ async def build(desk: Desk) -> Tenant:
     # 坐席客户的意向记录（直接写库，流程见 test_prospects.py）。
     prospect = await prospect_of(desk, chat["customer_id"])
     material_ids = await materials(desk)
+    # 员工导图里的待完善卡片。
+    card = await desk.client.post(
+        "/api/v1/staff/diagram/nodes",
+        headers=desk.admin,
+        json={"parent_id": None, "direction": "right"},
+    )
+    assert card.status_code == 201, card.text
     await desk.flush()
     ids = {
+        "card_id": card.json()["id"],
         "prospect_id": prospect,
         **material_ids,
         "contract_category_id": str(contract_category["id"]),

@@ -2,8 +2,10 @@
 import { errorMessage, type Schemas } from '@edp/api-client'
 import { ElMessage } from 'element-plus'
 import { onMounted, ref } from 'vue'
+import { useRoute } from 'vue-router'
 
 import { api, formatDateTime } from '../api'
+import TenantAdmins from '../components/TenantAdmins.vue'
 import TenantBilling from '../components/TenantBilling.vue'
 import TenantClosure from '../components/TenantClosure.vue'
 import TenantKeys from '../components/TenantKeys.vue'
@@ -15,7 +17,9 @@ import { TENANT_STATUS } from '../labels'
 const props = defineProps<{ id: string }>()
 
 const tenant = ref<Schemas['TenantOut'] | null>(null)
-const tab = ref('billing')
+// 链接里可以带 tab=admins 等直接打开某个页签。
+const initialTab = useRoute().query.tab
+const tab = ref(typeof initialTab === 'string' ? initialTab : 'billing')
 
 async function load(): Promise<void> {
   const { data, error } = await api.GET('/platform/v1/tenants/{tenant_id}', {
@@ -46,6 +50,9 @@ onMounted(load)
     <el-tabs v-model="tab" class="tabs">
       <el-tab-pane label="套餐与账单" name="billing">
         <TenantBilling :tenant-id="tenant.id" @changed="load" />
+      </el-tab-pane>
+      <el-tab-pane label="管理员账号" name="admins" lazy>
+        <TenantAdmins :tenant="tenant" />
       </el-tab-pane>
       <el-tab-pane label="大模型" name="llm" lazy>
         <TenantLlm :tenant-id="tenant.id" />

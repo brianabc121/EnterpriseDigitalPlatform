@@ -113,14 +113,9 @@ async function prepare() {
     token: state.admin,
     body: { username: 'alice', display_name: '小艾', password: PASSWORD, role_codes: ['agent'] },
   })
-  // 财务：管理员按"财务"岗位建角色，一键填入默认权限。
+  // 财务：系统角色"财务"（员工导图分支新增），权限就是"财务"岗位的默认权限。
   const profiles = await json(`${API}/api/v1/roles/profile-permissions`, { token: state.admin })
   const finance = profiles.items.find((p) => p.profile === 'finance')
-  await json(`${API}/api/v1/roles`, {
-    method: 'POST',
-    token: state.admin,
-    body: { code: 'finance', name: '财务', permissions: finance.permissions, console: 'finance' },
-  })
   await json(`${API}/api/v1/staff`, {
     method: 'POST',
     token: state.admin,

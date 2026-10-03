@@ -25,9 +25,9 @@ from app.db.session import Database
 from app.modules.audit.service import record_audit
 from app.modules.billing.entitlements import entitlements
 from app.modules.billing.service import billing_notice
-from app.modules.iam import access, manage, service
+from app.modules.iam import access, diagram, manage, passwords, service
 from app.modules.iam import console as consoles
-from app.modules.iam.deps import CurrentPrincipal, TenantDb, require_permission
+from app.modules.iam.deps import PrincipalForPasswordChange, TenantDb, require_permission
 from app.modules.iam.models import Role, Staff
 from app.modules.iam.principal import Principal
 from app.modules.iam.schemas import (
@@ -40,6 +40,7 @@ from app.modules.iam.schemas import (
     MeResponse,
     PasswordChange,
     PasswordReset,
+    PasswordResetResult,
     PermissionList,
     ProfilePermissionList,
     ProfilePermissions,
@@ -49,6 +50,9 @@ from app.modules.iam.schemas import (
     RoleUpdate,
     StaffAccessDefaults,
     StaffCreate,
+    StaffDiagramNodeCreate,
+    StaffDiagramNodeOut,
+    StaffDiagramNodes,
     StaffList,
     StaffOut,
     StaffUpdate,
@@ -166,7 +170,10 @@ async def logout(
 
 
 @router.get("/me", response_model=MeResponse)
-async def me(principal: CurrentPrincipal, session: TenantDb, settings: SettingsDep) -> MeResponse:
+async def me(
+    principal: PrincipalForPasswordChange, session: TenantDb, settings: SettingsDep
+) -> MeResponse:
+    """当前员工的信息、权限和菜单。密码被重置后还没有设置新密码时也可以调用（§38.5）。"""
     entitled = await entitlements(session, principal.tenant_id)
     sub, plan = entitled.subscription, entitled.plan
     roles = await service.roles_of(session, principal.staff_id)
@@ -209,6 +216,10 @@ async def me(principal: CurrentPrincipal, session: TenantDb, settings: SettingsD
         else None,
         billing_notice=notice if principal.has(Permission.SETTINGS_MANAGE) else None,
         console=ConsoleOut(profiles=profiles, menus=menus, home=home if home in menus else None),
+        must_change_password=staff.must_change_password,
+        password_reset=await passwords.last_reset(session, staff)
+        if staff.must_change_password
+        else None,
     )
 
 
@@ -221,12 +232,15 @@ async def change_password(
     payload: PasswordChange,
     request: Request,
     response: Response,
-    principal: CurrentPrincipal,
+    principal: PrincipalForPasswordChange,
     session: TenantDb,
     settings: SettingsDep,
     limiter: LimiterDep,
 ) -> TokenResponse:
-    """修改自己的密码。其他设备上的登录随即失效，当前页面换发新的令牌。"""
+    """修改自己的密码。其他设备上的登录随即失效，当前页面换发新的令牌。
+
+    管理员或平台运维人员重置了密码时，用重置的密码作为当前密码，设置后才能使用控制台（§38.5）。
+    """
     await limiter.check(PASSWORD_CHECK, str(principal.staff_id))
     tokens = await manage.change_own_password(
         session, settings, principal, payload, ip=client_ip(request)
@@ -374,6 +388,29 @@ async def staff_access_defaults(
     )
 
 
+@router.get("/staff/diagram/nodes", response_model=StaffDiagramNodes)
+async def staff_diagram_nodes(session: TenantDb, principal: CanReadStaff) -> StaffDiagramNodes:
+    return StaffDiagramNodes(items=await diagram.list_nodes(session, principal.tenant_id))
+
+
+@router.post("/staff/diagram/nodes", response_model=StaffDiagramNodeOut, status_code=201)
+async def create_staff_diagram_node(
+    payload: StaffDiagramNodeCreate,
+    request: Request,
+    session: TenantDb,
+    principal: CanManageStaff,
+) -> StaffDiagramNodeOut:
+    return await diagram.create_node(session, principal, payload, ip=client_ip(request))
+
+
+@router.delete("/staff/diagram/nodes/{card_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_staff_diagram_card(
+    card_id: UUID, request: Request, session: TenantDb, principal: CanManageStaff
+) -> Response:
+    await diagram.delete_card(session, principal, card_id, ip=client_ip(request))
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
 @router.post("/staff", response_model=StaffOut, status_code=status.HTTP_201_CREATED)
 async def create_staff(
     payload: StaffCreate, request: Request, session: TenantDb, principal: CanManageStaff
@@ -396,16 +433,20 @@ async def update_staff(
     )
 
 
-@router.post("/staff/{staff_id}/password", status_code=status.HTTP_204_NO_CONTENT)
+@router.post("/staff/{staff_id}/password", response_model=PasswordResetResult)
 async def reset_staff_password(
     staff_id: UUID,
     payload: PasswordReset,
     request: Request,
+    ctx: ContextDep,
     session: TenantDb,
     principal: CanManageStaff,
-) -> Response:
-    """重置员工密码，员工现有的登录全部失效。"""
-    await manage.reset_password(
-        session, principal, staff_id, payload.password, ip=client_ip(request)
+) -> PasswordResetResult:
+    """重置员工的密码（§38.4）：适用于全部角色，不能重置权限高于自己的员工，也不能重置自己的。
+
+    新密码不填时自动生成（只返回这一次）；默认要求员工下次登录时先设置新密码。员工现有的登录全部
+    失效。
+    """
+    return await manage.reset_password(
+        ctx, session, principal, staff_id, payload, ip=client_ip(request)
     )
-    return Response(status_code=status.HTTP_204_NO_CONTENT)
