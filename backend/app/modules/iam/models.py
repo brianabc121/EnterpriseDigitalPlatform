@@ -34,6 +34,10 @@ class Staff(IdMixin, TimestampMixin, TenantMixin, Base):
     revoked_permissions: Mapped[list[str]] = mapped_column(server_default=text("'{}'"))
     menus: Mapped[list[str] | None]
     home_menu: Mapped[str | None] = mapped_column(String(16))
+    # 重置密码（设计文档 §38）：管理员或平台运维人员重置的是临时密码，登录后要先设置新密码；密码最近
+    # 修改的时间，在这之前签发的访问令牌失效。
+    must_change_password: Mapped[bool] = mapped_column(server_default=text("false"))
+    password_changed_at: Mapped[datetime | None]
 
 
 class Role(IdMixin, TimestampMixin, TenantMixin, Base):

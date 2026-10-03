@@ -14,7 +14,7 @@ from collections import Counter
 from datetime import UTC, datetime
 from uuid import UUID
 
-from sqlalchemy import delete, func, select, update
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.context import AppContext
@@ -22,16 +22,18 @@ from app.core.config import Settings
 from app.core.errors import Conflict, Forbidden, NotFound, Unprocessable
 from app.core.ids import new_id
 from app.core.permissions import PERMISSION_INFO, TENANT_ADMIN_ROLE
-from app.core.security import hash_password, verify_password
+from app.core.security import verify_password
 from app.modules.audit.service import record_audit
 from app.modules.billing.entitlements import check_limit
 from app.modules.conversation import imids, outbox
-from app.modules.iam import access
+from app.modules.iam import access, passwords
 from app.modules.iam.console import role_profile
-from app.modules.iam.models import RefreshToken, Role, Staff, StaffRole, StaffStatus
+from app.modules.iam.models import Role, Staff, StaffRole, StaffStatus
 from app.modules.iam.principal import Principal
 from app.modules.iam.schemas import (
     PasswordChange,
+    PasswordReset,
+    PasswordResetResult,
     PermissionInfo,
     RoleCreate,
     RoleOut,
@@ -108,14 +110,6 @@ async def _resolve_roles(
     return roles
 
 
-async def _revoke_tokens(session: AsyncSession, staff_id: UUID) -> None:
-    await session.execute(
-        update(RefreshToken)
-        .where(RefreshToken.staff_id == staff_id, RefreshToken.revoked_at.is_(None))
-        .values(revoked_at=_now())
-    )
-
-
 async def update_staff(
     ctx: AppContext,
     session: AsyncSession,
@@ -177,7 +171,7 @@ async def update_staff(
         staff.status = status
         changes["status"] = status
     if disabling:
-        await _revoke_tokens(session, staff.id)
+        await passwords.revoke_tokens(session, staff.id)
         await lock_tenant_routing(session, principal.tenant_id)
         now = _now()
         state = await session.scalar(
@@ -217,24 +211,45 @@ async def update_staff(
 
 
 async def reset_password(
-    session: AsyncSession, principal: Principal, staff_id: UUID, password: str, *, ip: str | None
-) -> None:
-    """管理员重置员工密码；员工的现有登录全部失效。"""
+    ctx: AppContext,
+    session: AsyncSession,
+    principal: Principal,
+    staff_id: UUID,
+    payload: PasswordReset,
+    *,
+    ip: str | None,
+) -> PasswordResetResult:
+    """管理员重置员工的密码（设计文档 §38.4）。
+
+    适用于全部角色，但不能重置权限高于自己的员工，也不能重置自己的（要输入当前密码修改）。
+    新密码不填时自动生成；员工现有的登录全部失效。
+    """
+    if staff_id == principal.staff_id:
+        raise Unprocessable("不能重置自己的密码，请在右上角的账号菜单里修改密码")
     staff = await _target(session, principal, staff_id)
-    staff.password_hash = hash_password(password)
-    await _revoke_tokens(session, staff.id)
+    generated = await passwords.reset(
+        session, staff, payload.password, must_change=payload.must_change
+    )
     record_audit(
         session,
-        action="staff.reset_password",
+        action=passwords.RESET_ACTION,
         actor_type="staff",
         actor_id=principal.staff_id,
         tenant_id=principal.tenant_id,
         resource_type="staff",
         resource_id=str(staff.id),
-        detail={"username": staff.username},
+        detail={
+            "username": staff.username,
+            "generated": generated is not None,
+            "must_change": payload.must_change,
+        },
         ip=ip,
     )
     await session.commit()
+    await passwords.im_logout(ctx, principal.tenant_code, staff.id)
+    return PasswordResetResult(
+        temporary_password=generated, must_change_password=payload.must_change
+    )
 
 
 async def change_own_password(
@@ -252,8 +267,8 @@ async def change_own_password(
         raise Unprocessable("当前密码不正确")
     if payload.new_password == payload.current_password:
         raise Unprocessable("新密码不能与当前密码相同")
-    staff.password_hash = hash_password(payload.new_password)
-    await _revoke_tokens(session, staff.id)
+    # 重置后要求设置的新密码（§38.5）也在这里设置，设置后清除标记。
+    await passwords.set_password(session, staff, payload.new_password, must_change=False)
     tokens, _ = issue_tokens(session, settings, staff)
     record_audit(
         session,

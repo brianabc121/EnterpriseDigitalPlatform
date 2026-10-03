@@ -53,6 +53,17 @@ class ConsoleOut(BaseModel):
     )
 
 
+class PasswordResetInfo(BaseModel):
+    """最近一次重置密码（设计文档 §38.5）。"""
+
+    at: datetime
+    by: Literal["platform", "staff"] = Field(
+        description="platform：平台运维人员重置；staff：企业的管理员重置"
+    )
+    operator: str | None = Field(description="重置的管理员的姓名（平台运维人员不显示姓名）")
+    reason: str | None = Field(description="平台运维人员填写的原因")
+
+
 class MeResponse(BaseModel):
     id: UUID
     username: str
@@ -70,6 +81,13 @@ class MeResponse(BaseModel):
         default=None, description="试用或到期提醒（只返回给有设置权限的员工）"
     )
     console: ConsoleOut
+    must_change_password: bool = Field(
+        default=False,
+        description="管理员或平台运维人员重置了密码，要先设置新密码才能使用（§38.5）",
+    )
+    password_reset: PasswordResetInfo | None = Field(
+        default=None, description="要先设置新密码时：什么时候、由谁重置的"
+    )
 
 
 class RoleOut(BaseModel):
@@ -166,6 +184,12 @@ class StaffOut(BaseModel):
     permissions: list[Permission] = Field(
         description="有效权限：角色的权限 + 多给的 − 去掉的（不含仓管另外获得的确认权限）"
     )
+    must_change_password: bool = Field(
+        default=False, description="密码被重置后还没有设置新密码（下次登录时要先设置）"
+    )
+    password_changed_at: datetime | None = Field(
+        default=None, description="密码最近修改或重置的时间；为空表示创建以来没有改过"
+    )
 
 
 class StaffList(BaseModel):
@@ -209,7 +233,17 @@ class StaffAccessDefaults(BaseModel):
 
 
 class PasswordReset(BaseModel):
-    password: str = Field(min_length=8, max_length=128)
+    password: str | None = Field(
+        default=None, min_length=8, max_length=128, description="新密码；不填时自动生成"
+    )
+    must_change: bool = Field(default=True, description="员工下次登录时要先设置新密码")
+
+
+class PasswordResetResult(BaseModel):
+    temporary_password: str | None = Field(
+        description="自动生成的新密码（只返回这一次）；手动设置时为空"
+    )
+    must_change_password: bool = Field(description="员工下次登录时要先设置新密码")
 
 
 class PasswordChange(BaseModel):

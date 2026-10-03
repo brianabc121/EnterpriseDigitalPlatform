@@ -50,12 +50,28 @@ async def get_tenant_db(
 TenantDb = Annotated[AsyncSession, Depends(get_tenant_db, scope="function")]
 
 
-async def get_current_principal(
+class PasswordChangeRequired(Forbidden):
+    """管理员或平台运维人员重置了密码，员工要先设置新密码（设计文档 §38.5）。"""
+
+    code = "password_change_required"
+
+
+async def get_principal_for_password_change(
     claims: Annotated[AccessClaims, Depends(get_access_claims)], session: TenantDb
 ) -> Principal:
+    """已登录的员工，不检查是否要先设置新密码（只用于查看自己的信息和修改密码）。"""
     principal = await load_principal(session, claims)
     if principal is None:
         raise Unauthorized("登录已失效，请重新登录")
+    return principal
+
+
+PrincipalForPasswordChange = Annotated[Principal, Depends(get_principal_for_password_change)]
+
+
+async def get_current_principal(principal: PrincipalForPasswordChange) -> Principal:
+    if principal.must_change_password:
+        raise PasswordChangeRequired("管理员重置了你的密码，请先设置新密码")
     return principal
 
 

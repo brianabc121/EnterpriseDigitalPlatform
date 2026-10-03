@@ -144,9 +144,10 @@ async def test_reset_and_change_passwords(desk: Desk) -> None:
     reset = await desk.client.post(
         f"/api/v1/staff/{alice.staff_id}/password",
         headers=desk.admin,
-        json={"password": "brand-new-pass"},
+        json={"password": "brand-new-pass", "must_change": False},
     )
-    assert reset.status_code == 204
+    assert reset.status_code == 200, reset.text
+    assert reset.json() == {"temporary_password": None, "must_change_password": False}
     assert (await _login(desk.client, "alice", STAFF_PASSWORD)).status_code == 401
     token = await login_token(desk.client, "acme", "alice", "brand-new-pass")
 
@@ -186,10 +187,10 @@ async def test_reset_and_change_passwords(desk: Desk) -> None:
         )
     ]
     assert actions[-2:] == ["staff.reset_password", "staff.change_password"]
-    # 员工不能重置别人的密码。
+    # 员工不能重置别人的密码（修改密码之后之前的令牌失效，用换发的令牌）。
     denied = await desk.client.post(
         f"/api/v1/staff/{alice.staff_id}/password",
-        headers=bearer(token),
+        headers=bearer(changed.json()["access_token"]),
         json={"password": "x" * 10},
     )
     assert denied.status_code == 403

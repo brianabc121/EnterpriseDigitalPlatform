@@ -117,3 +117,36 @@ class TenantOut(BaseModel):
 
 class TenantList(BaseModel):
     items: list[TenantOut]
+
+
+class TenantAdminOut(BaseModel):
+    """企业的管理员账号（设计文档 §38.2）。"""
+
+    id: UUID
+    username: str
+    display_name: str
+    status: str
+    owner: bool = Field(
+        description="企业拥有者：开通企业时创建的管理员账号（企业里最早创建的账号）"
+    )
+    created_at: datetime
+    last_login_at: datetime | None = Field(description="最近登录（账号密码或企业微信）")
+    password_changed_at: datetime | None = Field(
+        description="密码最近修改或重置的时间；为空表示创建以来没有改过"
+    )
+    must_change_password: bool = Field(description="密码被重置后还没有设置新密码")
+
+
+class TenantAdminList(BaseModel):
+    items: list[TenantAdminOut]
+
+
+class AdminPasswordReset(BaseModel):
+    reason: str = Field(
+        min_length=2,
+        max_length=200,
+        description="重置的原因：记入企业的操作日志，企业的其他管理员会收到提醒",
+    )
+    password: str | None = Field(
+        default=None, min_length=8, max_length=128, description="新密码；不填时自动生成"
+    )
