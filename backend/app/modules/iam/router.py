@@ -202,6 +202,7 @@ async def me(
             timezone=sla.tz_of(await sla.business_hours(session)).key,
         ),
         roles=list(principal.role_codes),
+        role_names={role.code: service.role_name(role) for role in roles},
         # 自定义角色里可能残留已下线的权限点，只返回当前版本认识的。
         permissions=sorted(Permission(p) for p in principal.permissions if p in ALL_PERMISSIONS),
         features=dict(entitled.features),

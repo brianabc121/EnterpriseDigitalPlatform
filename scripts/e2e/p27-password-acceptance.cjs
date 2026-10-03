@@ -7,7 +7,8 @@
 //    自己的卡片上是"修改密码"、没有删除；"交接客户"只在客服（小艾）的卡片上（§39.6）。为小艾自动
 //    生成新密码（只显示一次，可以复制），卡片上标"待改密码"；再为其他系统角色的员工逐个重置，用新密码都能登录、
 //    都要先设置新密码，旧密码不能登录；工人已经打开的页面立即回到登录页；手动为人事设置密码、不要求修改。
-//    财务名下还有客户时她的卡片上也有"交接客户"，交接给小艾后就没有了。
+//    财务名下还有客户时她的卡片上也有"交接客户"，交接给小艾后就没有了。卡片上写着"用户名：…"，左上角显示
+//    "企业所有者（张总）"（§39.7）。
 // 3. 人事登录：企业所有者的卡片上"编辑"、"重置密码"置灰并提示（只能由本人或平台管理），没有"停用"和删除；权限高于自己的员工
 //    （客服等）的"重置密码"、"停用"、删除都置灰并提示，访客的都能用；自己的卡片不能删除。
 // 4. 小艾用新密码登录后只能进入"设置新密码"页面（说明谁在什么时候重置的），其他页面和接口都不行；设置后进入控制台。
@@ -284,6 +285,18 @@ async function staffPage(browser) {
     Object.entries(handover).every(([username, n]) => n === (username === 'alice' ? 1 : 0)),
     handover,
   )
+  // 卡片上的用户名前面写着"用户名："；左上角"EDP 智能客服"旁边是自己的"角色（姓名）"（§39.7）。
+  const usernames = {}
+  for (const username of ['admin', ...others]) {
+    usernames[username] = await page.locator(`[data-testid="username-${username}"]`).innerText()
+  }
+  const ownIdentity = await page.locator('[data-testid="console-identity"]').innerText()
+  check(
+    'every card says 用户名：<username>; the header next to the logo shows 企业所有者（张总）',
+    Object.entries(usernames).every(([username, text]) => text === `用户名：${username}`) &&
+      ownIdentity === '企业所有者（张总）',
+    { usernames, ownIdentity },
+  )
   const states = {}
   for (const username of others) states[username] = await disabledButtons(page, username)
   check(
@@ -394,7 +407,12 @@ async function staffPage(browser) {
 async function hrPage(browser) {
   // 手动设置、不要求修改的密码：直接进入控制台。
   const page = await consoleLogin(browser, 'hrm', HR_PASSWORD)
-  check('人事 logs in with the manual password without a forced change', page.url().includes('/password') === false)
+  const hrIdentity = await page.locator('[data-testid="console-identity"]').innerText()
+  check(
+    '人事 logs in with the manual password without a forced change; the header shows 人事（人事小何）',
+    page.url().includes('/password') === false && hrIdentity === '人事（人事小何）',
+    { url: page.url(), hrIdentity },
+  )
   await page.setViewportSize(STAFF_VIEWPORT)
   await menu(page, '员工')
   await page.locator('[data-testid="staff-node-hrm"]').waitFor()

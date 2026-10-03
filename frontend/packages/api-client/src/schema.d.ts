@@ -17255,6 +17255,13 @@ export interface components {
             permissions: components["schemas"]["Permission"][];
             /** @description 当前套餐；不按套餐计费的租户为空 */
             plan?: components["schemas"]["MePlan"] | null;
+            /**
+             * Role Names
+             * @description 角色的名称（编码 → 名称）：控制台左上角显示“角色（姓名）”（§39.7）
+             */
+            role_names?: {
+                [key: string]: string;
+            };
             /** Roles */
             roles: string[];
             tenant: components["schemas"]["TenantBrief"];

@@ -43,6 +43,13 @@ def role_permissions(role: Role) -> frozenset[str]:
     return frozenset(spec.permissions) if spec else frozenset(role.permissions)
 
 
+def role_name(role: Role) -> str:
+    """角色的名称：系统角色以代码中的定义为准（改过名的系统角色，数据库里可能还是以前的名称），
+    自定义角色用保存的名称。"""
+    spec = _SYSTEM_ROLES.get(role.code) if role.is_system else None
+    return spec.name if spec else role.name
+
+
 def granted_by(roles: Iterable[Role]) -> frozenset[str]:
     """角色给的权限（并集）。"""
     return frozenset(p for role in roles for p in role_permissions(role))

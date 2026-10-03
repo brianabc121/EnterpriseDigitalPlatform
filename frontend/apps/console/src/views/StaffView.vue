@@ -13,7 +13,7 @@ import StaffTree from '../components/staff/StaffTree.vue'
 import { accessBody, accessOf, accessSummary, emptyAccess, type AccessForm } from '../staffAccess'
 import { assignableRoles, manageAccess, manageHint, showsHandover } from '../staffManage'
 import type { DiagramDirection } from '../staffDiagram'
-import { normalizeRoleName } from '../roleNames'
+import { normalizeRoleName, roleTitle } from '../roleNames'
 import { useAuthStore } from '../stores/auth'
 
 const auth = useAuthStore()
@@ -278,7 +278,7 @@ onMounted(load)
         <StaffTree v-loading="loading" :staff="staff" :company="auth.me?.tenant.name ?? '企业'" :can-manage="canManage" :focus-id="focusId" :diagram-nodes="diagramNodes" :adding="adding" :delete-hint="deleteHint" data-testid="staff-tree" @add-branch="openBranch" @edit-draft="openDraft" @edit-staff="openEdit" @delete-card="deleteCard">
           <template #default="{ member: row }">
             <div class="staff-heading">
-              <strong class="staff-name">{{ row.roles.includes('tenant_admin') ? '企业所有者' : row.roles.map((code) => roleNames.get(code) ?? code).join(' / ') || '员工' }}（{{ row.display_name }}）</strong>
+              <strong class="staff-name">{{ roleTitle(row.roles, (code) => roleNames.get(code)) }}（{{ row.display_name }}）</strong>
               <span class="staff-states">
                 <el-tag :type="row.status === 'active' ? 'success' : 'info'" size="small" disable-transitions>
                   {{ row.status === 'active' ? '启用' : '停用' }}
@@ -292,7 +292,7 @@ onMounted(load)
                 </el-tooltip>
               </span>
             </div>
-            <div class="staff-username">{{ row.username }}</div>
+            <div class="staff-username" :data-testid="`username-${row.username}`">用户名：{{ row.username }}</div>
             <div class="staff-tags">
               <el-tag v-for="code in row.roles" :key="code" size="small" disable-transitions>
                 {{ roleNames.get(code) ?? code }}
