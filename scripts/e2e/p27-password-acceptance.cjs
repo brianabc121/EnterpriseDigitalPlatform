@@ -272,14 +272,14 @@ async function staffPage(browser) {
     Object.entries(handover).every(([username, n]) => n === (username === 'alice' ? 1 : 0)),
     handover,
   )
-  // 卡片上的用户名前面写着"用户名："；左上角"EDP 智能客服"旁边是自己的"角色（姓名）"（§39.7）。
+  // 卡片上的用户名前面写着"用户名："；左上角"EDP 智能客服"下面是自己的"角色（姓名）"（§39.7）。
   const usernames = {}
   for (const username of ['admin', ...others]) {
     usernames[username] = await page.locator(`[data-testid="username-${username}"]`).innerText()
   }
   const ownIdentity = await page.locator('[data-testid="console-identity"]').innerText()
   check(
-    'every card says 用户名：<username>; the header next to the logo shows 企业所有者（张总）',
+    'every card says 用户名：<username>; under the logo it says 企业所有者（张总）',
     Object.entries(usernames).every(([username, text]) => text === `用户名：${username}`) &&
       ownIdentity === '企业所有者（张总）',
     { usernames, ownIdentity },
@@ -412,7 +412,7 @@ async function hrPage(browser) {
   const page = await consoleLogin(browser, 'hrm', HR_PASSWORD)
   const hrIdentity = await page.locator('[data-testid="console-identity"]').innerText()
   check(
-    '人事 logs in with the manual password without a forced change; the header shows 人事（人事小何）',
+    '人事 logs in with the manual password without a forced change; under the logo it says 人事（人事小何）',
     page.url().includes('/password') === false && hrIdentity === '人事（人事小何）',
     { url: page.url(), hrIdentity },
   )

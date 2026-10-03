@@ -17,7 +17,8 @@
 // 9. 管理员新建自定义角色"拣货员"：不选岗位时按权限判断（仓管），选成"工人"后，有这个角色的员工
 //    只看到"加工"。
 // 10. 手机：仓管首页没有横向滚动。
-// 11. 每个角色进入控制台后，左上角"EDP 智能客服"旁边显示自己的"角色（姓名）"（设计文档 §39.7），手机上也完整显示。
+// 11. 每个角色进入控制台后，左上角"EDP 智能客服"下面、和它左对齐显示自己的"角色（姓名）"（设计文档 §39.7）；手机上
+//     侧边栏只有图标，显示在顶栏最左边，也完整显示。
 //
 // 前置：后端（传输加密为 optional 或 required）、控制台。
 // 运行：NODE_PATH=$(npm root -g) PLATFORM_PASSWORD=<平台账号密码> node scripts/e2e/p11-transport-consoles-acceptance.cjs
@@ -256,13 +257,22 @@ async function menus(page) {
   return items.map((text) => text.replace(/\d+\+?/g, '').trim())
 }
 
-// 左上角"EDP 智能客服"旁边的"角色（姓名）"（§39.7）：记下每个角色看到的，最后一起检查；放不下被截断时记为截断。
+// 左上角"EDP 智能客服"下面、和它左对齐的"角色（姓名）"（§39.7；手机上在顶栏最左边）：记下每个角色看到的，最后一起
+// 检查；放不下被截断、不在"EDP 智能客服"下面或没有左对齐时记下来。
 const identities = {}
 async function identity(page, label) {
   const element = page.locator('[data-testid="console-identity"]')
   await element.waitFor()
   const cut = await element.evaluate((el) => el.scrollWidth > el.clientWidth)
-  identities[label] = cut ? `（截断）${await element.innerText()}` : (await element.innerText()).trim()
+  let text = (await element.innerText()).trim()
+  if (cut) text = `（截断）${text}`
+  if (!label.endsWith('-phone')) {
+    const brand = await page.locator('[data-testid="console-brand"]').boundingBox()
+    const box = await element.boundingBox()
+    if (box.y < brand.y + brand.height - 1) text = `（不在下面）${text}`
+    if (Math.abs(box.x - brand.x) > 1) text = `（没有左对齐）${text}`
+  }
+  identities[label] = text
 }
 
 async function tile(page, testid) {
@@ -585,7 +595,7 @@ async function run(browser) {
     'cang-phone': '仓管（仓管小陈）',
   }
   check(
-    '每个角色进入控制台后，左上角"EDP 智能客服"旁边显示自己的"角色（姓名）"，手机上也完整显示',
+    '每个角色进入控制台后，左上角"EDP 智能客服"下面、左对齐显示自己的"角色（姓名）"，手机上在顶栏也完整显示',
     same(Object.entries(identities).sort(), Object.entries(expected).sort()),
     identities,
   )
