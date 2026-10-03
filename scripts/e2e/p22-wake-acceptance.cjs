@@ -2,8 +2,8 @@
 //
 // 1. 准备：库存不足的门铃、低于成本价成交的订单、小艾手上两条到期的待办、和制度冲突的问答、一对重复的问答。
 // 2. 管理员打开"AI 唤醒"：设置里把"逾期待办积压"改成 2 条；"立即巡检"后看到 3 个问题（库存不足、低于成本价、
-//    逾期待办积压）和 AI 简报；唤醒记录写明检查了 19 项。
-// 3. 增量更新索引：命令行按定时唤醒的方式再巡检一次——数据没有变化，19 项全部跳过；补了门铃的库存后再巡检，
+//    逾期待办积压）和 AI 简报；唤醒记录写明检查了 22 项。
+// 3. 增量更新索引：命令行按定时唤醒的方式再巡检一次——数据没有变化，22 项全部跳过；补了门铃的库存后再巡检，
 //    只有读商品表的"库存不足"重新检查，问题自动消除；"增量更新索引"页签显示商品表最近的变化。
 // 4. 小艾的首页显示"需要我处理的问题"，她忽略 7 天后首页不再显示；管理员按"已忽略"能看到原因。
 // 5. 知识库：新建文档时勾选"规章制度"，列表显示"制度"标签；"制度对齐"立即整理后报告有冲突、建议新增和重复；
@@ -290,11 +290,11 @@ async function wakeAsAdmin(browser) {
   await tab(page, 'wake-tabs', '唤醒记录')
   await page.waitForSelector('[data-testid="wake-run-summary"]')
   const firstRun = await page.locator('[data-testid="wake-run-summary"]').first().innerText()
-  check('manual run checked all 19 checks', /^检查 19 项，.*待处理 3 个/.test(firstRun), firstRun)
+  check('manual run checked all 22 checks', /^检查 22 项，.*待处理 3 个/.test(firstRun), firstRun)
 
-  // 增量更新索引：按定时唤醒的方式再巡检一次——数据没有变化，19 项全部跳过。
+  // 增量更新索引：按定时唤醒的方式再巡检一次——数据没有变化，22 项全部跳过。
   const idle = await cli('wake-run', TENANT, '--kind', 'daily')
-  check('unchanged data: every check skipped', idle.stats.ran === 0 && idle.stats.skipped === 19, idle.stats)
+  check('unchanged data: every check skipped', idle.stats.ran === 0 && idle.stats.skipped === 22, idle.stats)
   // 补了门铃的库存：只有读商品表的检查项重新检查，库存不足的问题自动消除。
   await json(`${API}/api/v1/products/${state.bellId}/stock`, {
     method: 'POST',
@@ -304,7 +304,7 @@ async function wakeAsAdmin(browser) {
   const restocked = await cli('wake-run', TENANT, '--kind', 'daily')
   check(
     'only the stock check ran after the restock',
-    restocked.stats.ran === 1 && restocked.stats.skipped === 18 && restocked.stats.resolved === 1,
+    restocked.stats.ran === 1 && restocked.stats.skipped === 21 && restocked.stats.resolved === 1,
     restocked.stats,
   )
   await page.reload()
@@ -313,8 +313,8 @@ async function wakeAsAdmin(browser) {
   const runs = await page.locator('[data-testid="wake-run-summary"]').allInnerTexts()
   check(
     'run log shows the skipped checks',
-    runs[0].startsWith('检查 19 项（18 项数据没有变化，直接跳过），已消除 1 个，待处理 2 个') &&
-      runs[1].startsWith('检查 19 项（19 项数据没有变化，直接跳过），待处理 3 个'),
+    runs[0].startsWith('检查 22 项（21 项数据没有变化，直接跳过），已消除 1 个，待处理 2 个') &&
+      runs[1].startsWith('检查 22 项（22 项数据没有变化，直接跳过），待处理 3 个'),
     runs.slice(0, 3),
   )
   await page.screenshot({ path: `${SHOTS}/p22-03-wake-runs.png`, fullPage: true })
