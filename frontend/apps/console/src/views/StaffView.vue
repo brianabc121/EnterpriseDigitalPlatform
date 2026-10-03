@@ -296,8 +296,10 @@ onMounted(load)
     </div>
     <el-tabs v-model="tab">
       <el-tab-pane label="员工" name="staff">
-        <p class="hint">鼠标移到卡片边缘，点击“＋”新增卡片；再点击新卡片完善员工资料、角色和权限。连线不影响权限。</p>
         <StaffTree v-loading="loading" :staff="staff" :company="auth.me?.tenant.name ?? '企业'" :can-manage="canManage" :focus-id="focusId" :diagram-nodes="diagramNodes" :adding="adding" :delete-hint="deleteHint" data-testid="staff-tree" @add-branch="openBranch" @edit-draft="openDraft" @edit-staff="openEdit" @delete-card="deleteCard">
+          <template #hint>
+            <p class="hint">鼠标移到卡片边缘，点击“＋”新增卡片；再点击新卡片完善员工资料、角色和权限。连线不影响权限。</p>
+          </template>
           <template #default="{ member: row }">
             <div class="staff-heading">
               <div class="staff-title">

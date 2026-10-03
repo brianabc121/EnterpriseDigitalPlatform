@@ -1,6 +1,6 @@
 // 员工导图验收：最顶部是企业所有者的卡片（§39.5）；从它向左、右、下三个方向悬停"＋"先生成待完善卡片（不弹表单），
 // 刷新后仍在；点"完善信息"
-// 填写员工资料后卡片变成员工，刷新后仍在；卡片互不重叠。
+// 填写员工资料后卡片变成员工，刷新后仍在；员工多了一排放不下时换行，整张图不超出显示框，可以缩放（§39.9）；卡片互不重叠。
 //
 // 指定 DIAGRAM_TENANT、DIAGRAM_USERNAME、DIAGRAM_PASSWORD 时用这个专用测试企业（会创建 3 位测试员工）；不指定时用
 // PLATFORM_PASSWORD 开通一个新的测试企业（和其他验收脚本一样，CI 里这样运行）。
@@ -108,6 +108,54 @@ async function main() {
       await page.getByTestId(`staff-node-${username}`).waitFor()
       check(`${direction}: the staff card stays after a reload`, true)
     }
+    // 一排放不下时换行（§39.9）：再加 8 位员工（没有布局，排在企业所有者下方），整张图不超出显示框。
+    const token = (await json(`${API}/api/v1/auth/login`, {
+      method: 'POST',
+      body: { tenant_code: tenant, username: login, password },
+    })).access_token
+    const many = Array.from({ length: 8 }, (_, index) => `wrap${index + 1}-${RUN}`)
+    for (const [index, username] of many.entries()) {
+      await json(`${API}/api/v1/staff`, {
+        method: 'POST',
+        token,
+        body: { username, display_name: `换行${index + 1}`, password: `Diagram-${RUN}-test`, role_codes: ['agent'] },
+      })
+    }
+    await page.reload()
+    await page.getByTestId(`staff-node-${many[many.length - 1]}`).waitFor()
+    await page.waitForTimeout(600)
+    const frame = await page.locator('.tree-viewport').evaluate((element) => {
+      const box = element.getBoundingClientRect()
+      const root = element.querySelector('[data-root="true"]').getBoundingClientRect()
+      return { scrollWidth: element.scrollWidth, clientWidth: element.clientWidth, left: box.left, right: box.right, rootLeft: root.left, rootRight: root.right }
+    })
+    const rows = new Set(
+      await page.locator('[data-testid^="staff-node-wrap"]').evaluateAll((elements) => elements.map((element) => element.offsetTop)),
+    )
+    check(
+      'many staff cards wrap into rows inside the frame: no sideways scrolling, the top card in view',
+      frame.scrollWidth <= frame.clientWidth + 1 && rows.size >= 2 && frame.rootLeft >= frame.left && frame.rootRight <= frame.right,
+      { frame, rows: [...rows] },
+    )
+    await page.screenshot({ path: `${SHOTS}/staff-diagram-wrap.png` })
+    // 缩放：缩小一档是 90%，点百分比回到 100%，"适应宽度"是默认的。
+    const zoomValue = page.getByTestId('tree-zoom-value')
+    const fitPressed = async () => (await page.getByTestId('tree-zoom-fit').getAttribute('aria-pressed')) === 'true'
+    const scale = () => page.locator('.staff-tree').evaluate((element) => element.style.transform)
+    const before = { value: (await zoomValue.innerText()).trim(), fit: await fitPressed() }
+    await page.getByTestId('tree-zoom-out').click()
+    const out = { value: (await zoomValue.innerText()).trim(), scale: await scale(), fit: await fitPressed() }
+    await page.screenshot({ path: `${SHOTS}/staff-diagram-zoom.png` })
+    await zoomValue.click()
+    const reset = { value: (await zoomValue.innerText()).trim(), scale: await scale() }
+    await page.getByTestId('tree-zoom-fit').click()
+    const fit = { value: (await zoomValue.innerText()).trim(), fit: await fitPressed() }
+    check(
+      'zoom: 适应宽度 by default, 缩小 to 90%, the percentage back to 100%, 适应宽度 again',
+      before.value === '100%' && before.fit && out.value === '90%' && out.scale.includes('scale(0.9)') && !out.fit &&
+        reset.value === '100%' && !reset.scale && fit.value === '100%' && fit.fit,
+      { before, out, reset, fit },
+    )
     const boxes = await page.locator('[data-node-id]').evaluateAll((elements) =>
       elements.map((element) => ({ x: element.offsetLeft, y: element.offsetTop, width: element.offsetWidth, height: element.offsetHeight })),
     )
