@@ -25,7 +25,7 @@ from app.db.errors import violated_unique_constraint
 from app.db.session import bind_tenant
 from app.modules.audit.service import record_audit
 from app.modules.billing.entitlements import check_limit
-from app.modules.iam import access
+from app.modules.iam import access, diagram
 from app.modules.iam.models import RefreshToken, Role, Staff, StaffRole, StaffStatus
 from app.modules.iam.principal import Principal
 from app.modules.iam.schemas import StaffCreate, StaffOut
@@ -258,6 +258,8 @@ def staff_out(staff: Staff, roles: Iterable[Role]) -> StaffOut:
     roles = list(roles)
     return StaffOut(
         id=staff.id,
+        diagram_parent_id=staff.diagram_parent_id,
+        diagram_direction=staff.diagram_direction,
         username=staff.username,
         display_name=staff.display_name,
         status=staff.status,
@@ -279,6 +281,20 @@ async def list_staff(session: AsyncSession) -> list[StaffOut]:
 async def create_staff(
     session: AsyncSession, principal: Principal, payload: StaffCreate, *, ip: str | None
 ) -> StaffOut:
+    layout_node = (
+        await diagram.pending_node(session, principal.tenant_id, payload.diagram_node_id)
+        if payload.diagram_node_id is not None
+        else None
+    )
+    if payload.diagram_parent_id is not None:
+        parent = await session.scalar(
+            select(Staff.id).where(
+                Staff.id == payload.diagram_parent_id,
+                Staff.tenant_id == principal.tenant_id,
+            )
+        )
+        if parent is None:
+            raise Unprocessable("来源员工不存在或不属于当前企业")
     requested = set(payload.role_codes)
     roles = (await session.scalars(select(Role).where(Role.code.in_(requested)))).all()
     missing = requested - {role.code for role in roles}
@@ -290,6 +306,8 @@ async def create_staff(
     staff = Staff(
         id=new_id(),
         tenant_id=principal.tenant_id,
+        diagram_parent_id=payload.diagram_parent_id,
+        diagram_direction=payload.diagram_direction,
         username=payload.username,
         display_name=payload.display_name,
         password_hash=hash_password(payload.password),
@@ -317,7 +335,16 @@ async def create_staff(
         StaffRole(tenant_id=principal.tenant_id, staff_id=staff.id, role_id=role.id)
         for role in roles
     )
+    if layout_node is not None:
+        layout_node.staff_id = staff.id
     detail: dict[str, object] = {"username": staff.username, "roles": sorted(requested)}
+    if layout_node is not None:
+        detail["diagram_node_id"] = str(layout_node.id)
+    if payload.diagram_direction is not None:
+        detail["diagram"] = {
+            "parent_id": str(payload.diagram_parent_id) if payload.diagram_parent_id else None,
+            "direction": payload.diagram_direction,
+        }
     if (saved := access.snapshot(staff)) is not None:
         detail["access"] = saved
     record_audit(

@@ -9,13 +9,19 @@ import HandoverDialog from '../components/customers/HandoverDialog.vue'
 import ResetPasswordDialog from '../components/staff/ResetPasswordDialog.vue'
 import RolesTab from '../components/staff/RolesTab.vue'
 import StaffAccessEditor from '../components/staff/StaffAccessEditor.vue'
+import StaffTree from '../components/staff/StaffTree.vue'
 import { resetAccess } from '../passwords'
 import { accessBody, accessOf, accessSummary, emptyAccess, type AccessForm } from '../staffAccess'
+import type { DiagramDirection } from '../staffDiagram'
+import { normalizeRoleName } from '../roleNames'
 import { useAuthStore } from '../stores/auth'
 
 const auth = useAuthStore()
 const tab = ref('staff')
 const staff = ref<Schemas['StaffOut'][]>([])
+const diagramNodes = ref<Schemas['StaffDiagramNodeOut'][]>([])
+const draftId = ref<string | null>(null)
+const adding = ref(false)
 const roles = ref<Schemas['RoleOut'][]>([])
 const loading = ref(false)
 const canManage = computed(() => auth.can('staff:manage'))
@@ -32,6 +38,9 @@ const roleNames = computed(() => new Map(roles.value.map((r) => [r.code, r.name]
 const catalog = ref<Schemas['PermissionInfo'][]>([])
 const permissionNames = computed(() => new Map(catalog.value.map((p) => [p.code, p.name])))
 
+const branch = ref<{ parentId: string | null; direction: DiagramDirection; name: string } | null>(null)
+const focusId = ref<string | null>(null)
+const directionNames = { left: '左侧', right: '右侧', down: '下方' }
 const dialogVisible = ref(false)
 const saving = ref(false)
 const form = reactive({ username: '', displayName: '', password: '', roleCodes: ['agent'] })
@@ -45,7 +54,7 @@ const editForm = reactive<{ displayName: string; roleCodes: string[] }>({
 })
 const editAccess = ref<AccessForm>(emptyAccess())
 
-// 重置密码（§38.4）：全部角色都可以，权限高于自己的员工不能；自己那一行改为修改密码（要输入当前密码）。
+// 重置密码（§38.4）：全部角色都可以，权限高于自己的员工不能；自己的卡片上是修改密码（要输入当前密码）。
 const resetOpen = ref(false)
 const resetting = ref<Schemas['StaffOut'] | null>(null)
 const passwordOpen = ref(false)
@@ -56,25 +65,75 @@ function resetState(member: Schemas['StaffOut']) {
 
 async function load(): Promise<void> {
   loading.value = true
-  const [staffResult, rolesResult, catalogResult] = await Promise.all([
+  const [staffResult, rolesResult, catalogResult, nodesResult] = await Promise.all([
     api.GET('/api/v1/staff'),
     api.GET('/api/v1/roles'),
     api.GET('/api/v1/permissions'),
+    api.GET('/api/v1/staff/diagram/nodes'),
   ])
   loading.value = false
-  if (!staffResult.data || !rolesResult.data) {
-    ElMessage.error(errorMessage(staffResult.error ?? rolesResult.error))
+  if (!staffResult.data || !rolesResult.data || !nodesResult.data) {
+    ElMessage.error(errorMessage(staffResult.error ?? rolesResult.error ?? nodesResult.error))
     return
   }
+  diagramNodes.value = nodesResult.data.items
   staff.value = staffResult.data.items
-  roles.value = rolesResult.data.items
+  roles.value = rolesResult.data.items.map(normalizeRoleName)
   if (catalogResult.data) catalog.value = catalogResult.data.items
 }
 
 function openCreate(): void {
+  branch.value = null
+  draftId.value = null
   Object.assign(form, { username: '', displayName: '', password: '', roleCodes: ['agent'] })
   createAccess.value = emptyAccess()
   dialogVisible.value = true
+}
+
+async function openBranch(parentId: string | null, direction: DiagramDirection): Promise<void> {
+  if (adding.value || !canManage.value) return
+  adding.value = true
+  try {
+    const { data, error } = await api.POST('/api/v1/staff/diagram/nodes', { body: { parent_id: parentId, direction } })
+    if (!data) { ElMessage.error(errorMessage(error)); return }
+    diagramNodes.value.push(data)
+    focusId.value = data.id
+  } catch {
+    ElMessage.error('新增卡片失败，请检查连接后重试')
+  } finally { adding.value = false }
+}
+
+async function deleteCard(cardId: string): Promise<void> {
+  if (!canManage.value || adding.value || cardId === 'company') return
+  const node = diagramNodes.value.find((item) => item.id === cardId)
+  const member = staff.value.find((item) => item.id === (node?.staff_id ?? cardId))
+  try {
+    await ElMessageBox.confirm(member
+      ? `确定删除 ${member.display_name} 的卡片和员工账号？该账号将无法登录。子卡片将接到上一级。`
+      : '确定删除这张待完善卡片？子卡片将接到上一级。', '删除卡片', {
+      type: 'warning', confirmButtonText: '确认删除', cancelButtonText: '取消',
+    })
+  } catch { return }
+  adding.value = true
+  try {
+    const { error } = await api.DELETE('/api/v1/staff/diagram/nodes/{card_id}', {
+      params: { path: { card_id: cardId } },
+    })
+    if (error) { ElMessage.error(errorMessage(error)); return }
+    ElMessage.success('卡片已删除')
+    await load()
+  } catch { ElMessage.error('删除失败，请检查连接后重试') }
+  finally { adding.value = false }
+}
+
+function openDraft(nodeId: string): void {
+  const node = diagramNodes.value.find((item) => item.id === nodeId)
+  if (!node || node.staff_id) return
+  openCreate()
+  draftId.value = nodeId
+  const parentNode = diagramNodes.value.find((item) => item.id === node.parent_id)
+  const member = staff.value.find((item) => item.id === (parentNode?.staff_id ?? node.parent_id))
+  branch.value = { parentId: node.parent_id, direction: node.direction, name: node.parent_id ? member?.display_name ?? '待完善员工' : auth.me?.tenant.name ?? '企业' }
 }
 
 /** 自定义时至少要勾一个页面。 */
@@ -87,6 +146,11 @@ function accessReady(access: AccessForm): boolean {
 }
 
 async function create(): Promise<void> {
+  if (saving.value) return
+  if (!form.username.trim() || !form.displayName.trim() || form.password.length < 8 || !form.roleCodes.length) {
+    ElMessage.warning('请填写账号、姓名、至少 8 位密码，并选择角色')
+    return
+  }
   if (!accessReady(createAccess.value)) return
   saving.value = true
   const { data, error } = await api.POST('/api/v1/staff', {
@@ -96,6 +160,7 @@ async function create(): Promise<void> {
       password: form.password,
       role_codes: form.roleCodes,
       access: accessBody(createAccess.value),
+      diagram_node_id: draftId.value,
     },
   })
   saving.value = false
@@ -103,6 +168,7 @@ async function create(): Promise<void> {
     ElMessage.error(errorMessage(error))
     return
   }
+  focusId.value = draftId.value ?? data.id
   ElMessage.success('已创建员工')
   dialogVisible.value = false
   await load()
@@ -192,109 +258,54 @@ onMounted(load)
     </div>
     <el-tabs v-model="tab">
       <el-tab-pane label="员工" name="staff">
-        <el-table v-loading="loading" :data="staff" data-testid="staff-table">
-          <el-table-column prop="username" label="用户名" min-width="140" />
-          <el-table-column prop="display_name" label="姓名" min-width="120" />
-          <el-table-column label="角色" min-width="200">
-            <template #default="{ row }">
-              <el-tag v-for="code in row.roles" :key="code" class="role" disable-transitions>
+        <p class="hint">鼠标移到卡片边缘，点击“＋”新增卡片；再点击新卡片完善员工资料、角色和权限。连线不影响权限。</p>
+        <StaffTree v-loading="loading" :staff="staff" :company="auth.me?.tenant.name ?? '企业'" :can-manage="canManage" :focus-id="focusId" :diagram-nodes="diagramNodes" :adding="adding" data-testid="staff-tree" @add-branch="openBranch" @edit-draft="openDraft" @edit-staff="openEdit" @delete-card="deleteCard">
+          <template #default="{ member: row }">
+            <div class="staff-heading">
+              <strong class="staff-name">{{ row.roles.includes('tenant_admin') ? '企业所有者' : row.roles.map((code) => roleNames.get(code) ?? code).join(' / ') || '员工' }}（{{ row.display_name }}）</strong>
+              <span class="staff-states">
+                <el-tag :type="row.status === 'active' ? 'success' : 'info'" size="small" disable-transitions>
+                  {{ row.status === 'active' ? '启用' : '停用' }}
+                </el-tag>
+                <el-tooltip
+                  v-if="row.must_change_password"
+                  placement="top"
+                  :content="`密码重置于 ${row.password_changed_at ? formatDateTime(row.password_changed_at) : '—'}，员工下次登录时要先设置新密码`"
+                >
+                  <el-tag type="warning" size="small" disable-transitions :data-testid="`must-change-${row.username}`">待改密码</el-tag>
+                </el-tooltip>
+              </span>
+            </div>
+            <div class="staff-username">{{ row.username }}</div>
+            <div class="staff-tags">
+              <el-tag v-for="code in row.roles" :key="code" size="small" disable-transitions>
                 {{ roleNames.get(code) ?? code }}
               </el-tag>
               <el-tooltip v-if="row.access" placement="top">
                 <template #content>
-                  <div v-for="line in accessSummary(row, permissionNames)" :key="line">
-                    {{ line }}
-                  </div>
+                  <div v-for="line in accessSummary(row, permissionNames)" :key="line">{{ line }}</div>
                 </template>
-                <el-tag
-                  type="warning"
-                  class="role"
-                  disable-transitions
-                  :data-testid="`custom-access-${row.username}`"
-                  >自定义</el-tag
-                >
+                <el-tag type="warning" size="small" :data-testid="`custom-access-${row.username}`">自定义</el-tag>
               </el-tooltip>
-            </template>
-          </el-table-column>
-          <el-table-column label="状态" width="180">
-            <template #default="{ row }">
-              <el-tag :type="row.status === 'active' ? 'success' : 'info'" disable-transitions>
-                {{ row.status === 'active' ? '启用' : '停用' }}
-              </el-tag>
-              <el-tooltip
-                v-if="row.must_change_password"
-                placement="top"
-                :content="`密码重置于 ${row.password_changed_at ? formatDateTime(row.password_changed_at) : '—'}，员工下次登录时要先设置新密码`"
-              >
-                <el-tag
-                  type="warning"
-                  class="role"
-                  disable-transitions
-                  :data-testid="`must-change-${row.username}`"
-                  >待改密码</el-tag
-                >
-              </el-tooltip>
-            </template>
-          </el-table-column>
-          <el-table-column label="创建时间" width="180">
-            <template #default="{ row }">{{ formatDateTime(row.created_at) }}</template>
-          </el-table-column>
-          <el-table-column v-if="canManage || canHandover" label="" width="260">
-            <template #default="{ row }">
+            </div>
+            <div class="staff-created">创建于 {{ formatDateTime(row.created_at) }}</div>
+            <div v-if="canManage || canHandover" class="staff-actions">
               <template v-if="canManage">
-                <el-button link type="primary" size="small" @click="openEdit(row)">编辑</el-button>
-                <el-button
-                  v-if="resetState(row) === 'self'"
-                  link
-                  type="primary"
-                  size="small"
-                  :data-testid="`password-${row.username}`"
-                  @click="passwordOpen = true"
-                >
-                  修改密码
-                </el-button>
-                <el-tooltip
-                  v-else
-                  :disabled="resetState(row) === 'ok'"
-                  content="权限高于你，请让管理员重置"
-                  placement="top"
-                >
+                <el-button link type="primary" size="small" @click.stop="openEdit(row)">编辑</el-button>
+                <el-button v-if="resetState(row) === 'self'" link type="primary" size="small" :data-testid="`password-${row.username}`" @click.stop="passwordOpen = true">修改密码</el-button>
+                <el-tooltip v-else :disabled="resetState(row) === 'ok'" content="权限高于你，请让管理员重置" placement="top">
                   <span class="action">
-                    <el-button
-                      link
-                      type="primary"
-                      size="small"
-                      :disabled="resetState(row) !== 'ok'"
-                      :data-testid="`reset-${row.username}`"
-                      @click="openReset(row)"
-                    >
-                      重置密码
-                    </el-button>
+                    <el-button link type="primary" size="small" :disabled="resetState(row) !== 'ok'" :data-testid="`reset-${row.username}`" @click.stop="openReset(row)">重置密码</el-button>
                   </span>
                 </el-tooltip>
-                <el-button
-                  v-if="row.id !== auth.me?.id"
-                  link
-                  :type="row.status === 'active' ? 'danger' : 'primary'"
-                  size="small"
-                  :data-testid="`toggle-${row.username}`"
-                  @click="toggleStatus(row)"
-                >
+                <el-button v-if="row.id !== auth.me?.id" link :type="row.status === 'active' ? 'danger' : 'primary'" size="small" :data-testid="`toggle-${row.username}`" @click.stop="toggleStatus(row)">
                   {{ row.status === 'active' ? '停用' : '启用' }}
                 </el-button>
               </template>
-              <el-button
-                v-if="canHandover"
-                link
-                type="primary"
-                size="small"
-                @click="openHandover(row)"
-              >
-                交接客户
-              </el-button>
-            </template>
-          </el-table-column>
-        </el-table>
+              <el-button v-if="canHandover" link type="primary" size="small" @click.stop="openHandover(row)">交接客户</el-button>
+            </div>
+          </template>
+        </StaffTree>
       </el-tab-pane>
       <el-tab-pane label="角色" name="roles" lazy>
         <RolesTab @changed="load" />
@@ -304,12 +315,13 @@ onMounted(load)
 
     <el-dialog
       v-model="dialogVisible"
-      title="新建员工"
+      :title="draftId ? '完善员工信息' : '新建员工'"
       width="min(860px, 96vw)"
       top="5vh"
       class="scroll-dialog"
       data-testid="staff-create"
     >
+      <p v-if="branch" class="hint" data-testid="branch-context">在“{{ branch.name }}”{{ directionNames[branch.direction] }}的待完善卡片；保存后创建员工账号，角色和权限请独立设置。</p>
       <el-form label-position="top" @submit.prevent="create">
         <div class="fields">
           <el-form-item label="用户名" required>
@@ -394,18 +406,24 @@ onMounted(load)
 </template>
 
 <style scoped>
+.staff-heading { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; }
+.staff-name { font-size: 15px; line-height: 1.5; overflow-wrap: anywhere; }
+.staff-username { color: var(--el-text-color-secondary); font-size: 13px; margin-top: 8px; overflow-wrap: anywhere; }
+.staff-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+.staff-created { color: var(--el-text-color-secondary); font-size: 12px; margin-top: 12px; }
+.staff-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; border-top: 1px solid var(--el-border-color-lighter); padding-top: 12px; }
+.staff-actions .el-button { margin-left: 0; }
+/* 状态和"待改密码"并排；置灰的重置按钮外面套一层，悬停时才能显示提示。 */
+.staff-states { display: inline-flex; flex-wrap: wrap; gap: 6px; }
+.action { display: inline-flex; }
+
 .role + .role {
   margin-left: 6px;
 }
 
-/* 置灰的按钮外面套一层，悬停时才能显示提示；和相邻的按钮保持同样的间距。 */
-.action {
-  display: inline-flex;
-  margin-left: 12px;
-}
-
-.action + .el-button {
-  margin-left: 12px;
+.hint {
+  margin: 0 0 12px;
+  color: var(--el-text-color-secondary);
 }
 
 .fields {

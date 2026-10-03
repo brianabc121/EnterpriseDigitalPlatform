@@ -2,7 +2,7 @@ from datetime import date, datetime
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.core.consoles import ConsoleMenu, ConsoleProfile
 from app.core.permissions import Permission
@@ -174,6 +174,8 @@ class StaffAccessOut(BaseModel):
 
 
 class StaffOut(BaseModel):
+    diagram_parent_id: UUID | None = None
+    diagram_direction: Literal["left", "right", "down"] | None = None
     id: UUID
     username: str
     display_name: str
@@ -197,6 +199,24 @@ class StaffList(BaseModel):
 
 
 class StaffCreate(BaseModel):
+    diagram_node_id: UUID | None = Field(default=None, description="将待完善卡片转为员工")
+    diagram_parent_id: UUID | None = Field(
+        default=None, description="来源卡片，空表示企业根；仅用于图形布局"
+    )
+    diagram_direction: Literal["left", "right", "down"] | None = Field(
+        default=None, description="新增卡片方向；不填使用默认布局"
+    )
+
+    @model_validator(mode="after")
+    def validate_diagram(self) -> "StaffCreate":
+        if self.diagram_node_id is not None and (
+            self.diagram_parent_id is not None or self.diagram_direction is not None
+        ):
+            raise ValueError("完善卡片时不能覆盖已保存的来源和方向")
+        if self.diagram_parent_id is not None and self.diagram_direction is None:
+            raise ValueError("指定来源卡片时必须选择新增方向")
+        return self
+
     username: str = Field(pattern=USERNAME_PATTERN)
     display_name: str = Field(min_length=1, max_length=64)
     password: str = Field(min_length=8, max_length=128)
@@ -204,6 +224,25 @@ class StaffCreate(BaseModel):
     access: StaffAccess | None = Field(
         default=None, description="按员工设置的页面和权限；不填表示按角色（§31）"
     )
+
+
+class StaffDiagramNodeCreate(BaseModel):
+    parent_id: UUID | None = None
+    direction: Literal["left", "right", "down"]
+
+
+class StaffDiagramNodeOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    parent_id: UUID | None
+    direction: Literal["left", "right", "down"]
+    staff_id: UUID | None
+    created_at: datetime
+
+
+class StaffDiagramNodes(BaseModel):
+    items: list[StaffDiagramNodeOut]
 
 
 class StaffUpdate(BaseModel):

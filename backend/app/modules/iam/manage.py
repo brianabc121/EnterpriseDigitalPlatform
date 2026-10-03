@@ -147,7 +147,7 @@ async def update_staff(
     )
     stays_admin = status == StaffStatus.ACTIVE and any(r.code == TENANT_ADMIN_ROLE for r in roles)
     if was_admin and not stays_admin and await _other_active_admins(session, staff.id) == 0:
-        raise Conflict("至少需要保留一名启用状态的租户管理员")
+        raise Conflict("至少需要保留一名启用状态的企业所有者")
     enabling = status == StaffStatus.ACTIVE and staff.status != StaffStatus.ACTIVE
     disabling = status == StaffStatus.DISABLED and staff.status == StaffStatus.ACTIVE
     if enabling:
@@ -298,7 +298,11 @@ def role_out(role: Role, members: int) -> RoleOut:
     return RoleOut(
         id=role.id,
         code=role.code,
-        name=role.name,
+        name={
+            "tenant_admin": "企业所有者", "agent": "客服", "worker": "工厂工人",
+            "finance": "财务", "cashier": "出纳"
+        }.get(role.code, role.name)
+        if role.is_system else role.name,
         permissions=sorted(role_permissions(role)),
         is_system=role.is_system,
         members=members,
