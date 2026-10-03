@@ -19,6 +19,7 @@ import { MENU } from './menu'
 const staff = (access: Schemas['StaffOut']['access'], permissions: Permission[] = []) =>
   ({
     id: 's1',
+    is_owner: false,
     username: 'xiao',
     display_name: '小王',
     status: 'active',

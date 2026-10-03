@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import Settings
 from app.core.errors import Conflict, Forbidden, Unauthorized, Unprocessable
 from app.core.ids import new_id
-from app.core.permissions import DEFAULT_ROLES
+from app.core.permissions import DEFAULT_ROLES, TENANT_ADMIN_ROLE
 from app.core.security import (
     AccessClaims,
     RefreshClaims,
@@ -25,7 +25,7 @@ from app.db.errors import violated_unique_constraint
 from app.db.session import bind_tenant
 from app.modules.audit.service import record_audit
 from app.modules.billing.entitlements import check_limit
-from app.modules.iam import access, diagram
+from app.modules.iam import access, diagram, owner
 from app.modules.iam.models import RefreshToken, Role, Staff, StaffRole, StaffStatus
 from app.modules.iam.principal import Principal
 from app.modules.iam.schemas import StaffCreate, StaffOut
@@ -254,10 +254,11 @@ async def list_roles(session: AsyncSession) -> list[Role]:
     return list((await session.scalars(select(Role).order_by(Role.created_at, Role.code))).all())
 
 
-def staff_out(staff: Staff, roles: Iterable[Role]) -> StaffOut:
+def staff_out(staff: Staff, roles: Iterable[Role], *, owner: bool = False) -> StaffOut:
     roles = list(roles)
     return StaffOut(
         id=staff.id,
+        is_owner=owner,
         diagram_parent_id=staff.diagram_parent_id,
         diagram_direction=staff.diagram_direction,
         username=staff.username,
@@ -273,9 +274,13 @@ def staff_out(staff: Staff, roles: Iterable[Role]) -> StaffOut:
 
 
 async def list_staff(session: AsyncSession) -> list[StaffOut]:
-    staff_rows = (await session.scalars(select(Staff).order_by(Staff.created_at))).all()
+    staff_rows = (await session.scalars(select(Staff).order_by(Staff.created_at, Staff.id))).all()
     held = await _roles_by_staff(session)
-    return [staff_out(s, held[s.id]) for s in staff_rows]
+    # 企业所有者：有这个角色的员工里最早创建的（§39.5，和 owner.owner_id 一致）。
+    owner_id = next(
+        (s.id for s in staff_rows if any(r.code == TENANT_ADMIN_ROLE for r in held[s.id])), None
+    )
+    return [staff_out(s, held[s.id], owner=s.id == owner_id) for s in staff_rows]
 
 
 async def create_staff(
@@ -296,6 +301,7 @@ async def create_staff(
         if parent is None:
             raise Unprocessable("来源员工不存在或不属于当前企业")
     requested = set(payload.role_codes)
+    owner.check_assignable(requested)
     roles = (await session.scalars(select(Role).where(Role.code.in_(requested)))).all()
     missing = requested - {role.code for role in roles}
     if missing:

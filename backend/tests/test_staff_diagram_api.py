@@ -13,7 +13,7 @@ desk = test_staff_admin.desk
 
 @pytest.mark.parametrize("direction", ["left", "right", "down"])
 async def test_create_branch_persists_without_inheriting_permissions(desk: Desk, direction: str):
-    parent = await desk.agent("diagram-admin", roles=["tenant_admin"], online=False)
+    parent = await desk.extra_admin("diagram-admin")
     response = await desk.client.post(
         "/api/v1/staff",
         headers=desk.admin,

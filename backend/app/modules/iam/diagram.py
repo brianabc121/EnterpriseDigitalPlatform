@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.errors import Conflict, NotFound, Unprocessable
 from app.core.ids import new_id
 from app.modules.audit.service import record_audit
+from app.modules.iam import owner
 from app.modules.iam.models import Staff, StaffDiagramNode
 from app.modules.iam.principal import Principal
 from app.modules.iam.schemas import StaffDiagramNodeCreate, StaffDiagramNodeOut
@@ -155,6 +156,7 @@ async def delete_card(
             raise NotFound("卡片不存在或不属于当前企业，企业卡片不能删除")
         if staff.id == principal.staff_id:
             raise Conflict("不能删除自己的账号")
+        await owner.refuse_others(session, principal, staff.id, "不能删除企业所有者")
         # 锁住当前企业所有员工，使并发删除管理员仍至少保留一人。
         await manage._target(session, principal, staff.id)
         roles = await roles_of(session, staff.id)

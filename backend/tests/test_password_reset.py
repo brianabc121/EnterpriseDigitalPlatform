@@ -195,10 +195,14 @@ async def test_manual_password_without_a_forced_change(desk: Desk) -> None:
 
 
 async def test_every_role_can_be_reset_but_not_yourself_or_higher_staff(desk: Desk) -> None:
-    # 全部角色：管理员可以重置每一个系统角色的员工（包括另一个管理员）。
+    # 全部角色：企业所有者可以重置每一个系统角色的员工（包括以前分配过企业所有者角色的员工，
+    # 这个角色现在只能由平台创建，§39.5）。
     for spec in DEFAULT_ROLES:
         username = f"user-{spec.code.replace('_', '-')}"
-        staff_id = await create_staff(desk.client, desk.admin_token, username, [spec.code])
+        if spec.code == TENANT_ADMIN_ROLE:
+            staff_id = str((await desk.extra_admin(username)).staff_id)
+        else:
+            staff_id = await create_staff(desk.client, desk.admin_token, username, [spec.code])
         reset = await _reset(desk, staff_id, desk.admin)
         assert reset.status_code == 200, (spec.code, reset.text)
         assert reset.json()["temporary_password"]
@@ -235,8 +239,9 @@ async def test_platform_resets_the_owner_password(
 ) -> None:
     client = desk.client
     owner = (await client.get("/api/v1/me", headers=desk.admin)).json()
-    second_id = await create_staff(client, desk.admin_token, "root2", [TENANT_ADMIN_ROLE])
-    second = await login_token(client, "acme", "root2", STAFF_PASSWORD)
+    # 企业里另一个有企业所有者角色的员工（以前分配的，§39.5）：平台重置后收到提醒。
+    extra = await desk.extra_admin("root2")
+    second_id, second = str(extra.staff_id), extra.token
     agent_id = await create_staff(client, desk.admin_token, "alice", ["agent"])
     await create_platform_admin(app)
     ops = bearer(await platform_login(client))

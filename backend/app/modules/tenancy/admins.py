@@ -21,6 +21,7 @@ from app.core.errors import Conflict, NotFound, Unprocessable
 from app.core.permissions import TENANT_ADMIN_ROLE
 from app.modules.audit.models import AuditLog
 from app.modules.audit.service import record_audit
+from app.modules.iam import owner as owners
 from app.modules.iam import passwords
 from app.modules.iam.models import Role, Staff, StaffRole, StaffStatus
 from app.modules.iam.schemas import PasswordResetResult
@@ -41,15 +42,6 @@ def _admin_ids(tenant_id: UUID) -> Select[UUID]:
     )
 
 
-async def _owner_id(session: AsyncSession, tenant_id: UUID) -> UUID | None:
-    return await session.scalar(
-        select(Staff.id)
-        .where(Staff.tenant_id == tenant_id)
-        .order_by(Staff.created_at, Staff.id)
-        .limit(1)
-    )
-
-
 async def list_admins(session: AsyncSession, tenant: Tenant) -> list[TenantAdminOut]:
     """企业的管理员账号：拥有者在前，其余按创建的先后。"""
     staff = list(
@@ -61,7 +53,7 @@ async def list_admins(session: AsyncSession, tenant: Tenant) -> list[TenantAdmin
             )
         ).all()
     )
-    owner = await _owner_id(session, tenant.id)
+    owner = await owners.owner_id(session, tenant.id)
     logins: dict[UUID, datetime] = {}
     if staff:
         rows = await session.execute(

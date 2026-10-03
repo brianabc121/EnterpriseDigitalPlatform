@@ -26,7 +26,7 @@ from app.core.security import verify_password
 from app.modules.audit.service import record_audit
 from app.modules.billing.entitlements import check_limit
 from app.modules.conversation import imids, outbox
-from app.modules.iam import access, passwords
+from app.modules.iam import access, owner, passwords
 from app.modules.iam.console import role_profile
 from app.modules.iam.models import Role, Staff, StaffRole, StaffStatus
 from app.modules.iam.principal import Principal
@@ -120,9 +120,16 @@ async def update_staff(
     ip: str | None,
 ) -> StaffOut:
     staff = await _target(session, principal, staff_id)
+    is_owner = await owner.refuse_others(
+        session, principal, staff.id, "企业所有者的账号只能由本人修改"
+    )
     current = await roles_of(session, staff.id)
     roles = current
     if payload.role_codes is not None:
+        held = {r.code for r in current}
+        owner.check_assignable(set(payload.role_codes), held)
+        if is_owner and set(payload.role_codes) != held:
+            raise Unprocessable("企业所有者的角色不能修改")
         roles = await _resolve_roles(session, principal, payload.role_codes)
     saved = access.snapshot(staff)
     if "access" in payload.model_fields_set:
@@ -207,7 +214,7 @@ async def update_staff(
             await ctx.im.force_logout(imids.staff_user(principal.tenant_code, staff.id))
         except Exception:
             logger.warning("cannot log staff %s out of IM", staff.id, exc_info=True)
-    return staff_out(staff, roles)
+    return staff_out(staff, roles, owner=is_owner)
 
 
 async def reset_password(
@@ -227,6 +234,9 @@ async def reset_password(
     if staff_id == principal.staff_id:
         raise Unprocessable("不能重置自己的密码，请在右上角的账号菜单里修改密码")
     staff = await _target(session, principal, staff_id)
+    await owner.refuse_others(
+        session, principal, staff.id, "企业所有者的密码由本人修改，或由平台运维人员重置"
+    )
     generated = await passwords.reset(
         session, staff, payload.password, must_change=payload.must_change
     )

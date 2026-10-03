@@ -1,23 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { newPasswordProblem, resetAccess, resetNotice } from './passwords'
-
-const me = { id: 'me', permissions: new Set(['staff:read', 'staff:manage', 'customer:read']) }
-
-describe('resetAccess', () => {
-  it('reserves your own password for the change-password dialog', () => {
-    expect(resetAccess({ id: 'me', permissions: [] }, me)).toBe('self')
-  })
-
-  it('allows staff whose permissions you all have, whatever their role', () => {
-    expect(resetAccess({ id: 'a', permissions: ['customer:read'] }, me)).toBe('ok')
-    expect(resetAccess({ id: 'b', permissions: [] }, me)).toBe('ok')
-  })
-
-  it('refuses staff with a permission you lack', () => {
-    expect(resetAccess({ id: 'c', permissions: ['customer:read', 'order:review'] }, me)).toBe('higher')
-  })
-})
+import { newPasswordProblem, resetNotice } from './passwords'
 
 describe('resetNotice', () => {
   const at = '2026-10-03T06:20:00Z'

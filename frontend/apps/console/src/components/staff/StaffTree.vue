@@ -5,11 +5,13 @@ import { computed, nextTick, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import { layoutStaffDiagram, type DiagramDirection } from '../../staffDiagram'
 import { mergeDiagramCards } from '../../staffDiagramCards'
 
-const props = defineProps<{ staff: Schemas['StaffOut'][]; company: string; canManage: boolean; focusId?: string | null; diagramNodes?: Schemas['StaffDiagramNodeOut'][]; adding?: boolean }>()
+const props = defineProps<{ staff: Schemas['StaffOut'][]; company: string; canManage: boolean; focusId?: string | null; diagramNodes?: Schemas['StaffDiagramNodeOut'][]; adding?: boolean; deleteHint?: (member: Schemas['StaffOut']) => string | null }>()
 const emit = defineEmits<{ 'add-branch': [parentId: string | null, direction: DiagramDirection]; 'delete-card': [nodeId: string]; 'edit-draft': [nodeId: string]; 'edit-staff': [member: Schemas['StaffOut']] }>()
 const activeNode = ref<string | null>(null)
 const sizes = reactive<Record<string, { width: number; height: number }>>({})
-const diagram = computed(() => layoutStaffDiagram(mergeDiagramCards(props.staff, props.diagramNodes ?? []), sizes))
+/** 最顶部的卡片（§39.5）：企业所有者的卡片，企业里的其他角色从这里延伸出去；没有时显示企业。 */
+const owner = computed(() => props.staff.find((member) => member.is_owner) ?? null)
+const diagram = computed(() => layoutStaffDiagram(mergeDiagramCards(props.staff, props.diagramNodes ?? [], owner.value?.id), sizes))
 const drafts = computed(() => new Map((props.diagramNodes ?? []).filter((node) => !node.staff_id).map((node) => [node.id, node])))
 const byId = computed(() => {
   const map = new Map(props.staff.map((member) => [member.id, member]))
@@ -17,10 +19,19 @@ const byId = computed(() => {
     const member = node.staff_id ? map.get(node.staff_id) : undefined
     if (member) map.set(node.id, member)
   }
+  if (owner.value) map.set('company', owner.value)
   return map
 })
+function cardName(id: string): string {
+  return byId.value.get(id)?.display_name ?? (id === 'company' ? props.company : '待完善员工')
+}
+/** 员工卡片不能删除时的提示（权限高于自己、自己的卡片），删除按钮置灰；待完善卡片都可以删除。 */
+function deleteBlocked(id: string): string | null {
+  const member = drafts.value.has(id) ? undefined : byId.value.get(id)
+  return member && props.deleteHint ? props.deleteHint(member) : null
+}
 function editCard(id: string): void {
-  if (!props.canManage || id === 'company') return
+  if (!props.canManage) return
   if (drafts.value.has(id)) emit('edit-draft', id)
   else if (byId.value.has(id)) emit('edit-staff', byId.value.get(id)!)
 }
@@ -74,12 +85,13 @@ const directions: { key: DiagramDirection; label: string }[] = [
       </svg>
       <article v-for="node in diagram.nodes" :key="node.id"
         :ref="nodeRef(node.id)" :data-node-id="node.id"
-        :class="['staff-node', { company: node.id === 'company', draft: drafts.has(node.id), selected: activeNode === node.id, administrator: byId.get(node.id)?.roles.includes('tenant_admin'), disabled: byId.has(node.id) && byId.get(node.id)?.status !== 'active' }]"
+        :class="['staff-node', { company: node.id === 'company' && !owner, root: node.id === 'company', draft: drafts.has(node.id), selected: activeNode === node.id, administrator: byId.get(node.id)?.roles.includes('tenant_admin'), disabled: byId.has(node.id) && byId.get(node.id)?.status !== 'active' }]"
         :style="{ left: `${node.x}px`, top: `${node.y}px` }"
-        :data-testid="node.id === 'company' ? 'staff-node-company' : drafts.has(node.id) ? `staff-draft-${node.id}` : `staff-node-${byId.get(node.id)?.username}`"
+        :data-testid="drafts.has(node.id) ? `staff-draft-${node.id}` : byId.has(node.id) ? `staff-node-${byId.get(node.id)?.username}` : 'staff-node-company'"
+        :data-root="node.id === 'company' ? 'true' : undefined"
         :tabindex="canManage ? 0 : undefined" @click="clickCard(node.id)"
         @keydown.enter.self.prevent="editCard(node.id)" @keydown.space.self.prevent="editCard(node.id)">
-        <template v-if="node.id === 'company'">
+        <template v-if="node.id === 'company' && !owner">
           <span class="node-caption">企业</span>
           <strong>{{ company }}</strong>
           <span>{{ staff.length }} 位员工</span>
@@ -90,17 +102,27 @@ const directions: { key: DiagramDirection; label: string }[] = [
           <el-tag type="info" size="small">尚未创建账号</el-tag>
           <el-button v-if="canManage" link type="primary" class="draft-edit" @click.stop="editCard(node.id)">完善信息</el-button>
         </template>
-        <slot v-else-if="byId.has(node.id)" :member="byId.get(node.id)!" />
+        <template v-else-if="byId.has(node.id)">
+          <div v-if="node.id === 'company'" class="root-company" data-testid="root-company">
+            <strong>{{ company }}</strong>
+            <span>{{ staff.length }} 位员工</span>
+          </div>
+          <slot :member="byId.get(node.id)!" />
+        </template>
         <span v-else>员工卡片暂不可用，请刷新</span>
-        <button v-if="canManage && node.id !== 'company'" type="button"
-          class="delete-card" :disabled="adding" :data-testid="`delete-card-${node.id}`"
-          title="删除卡片" aria-label="删除卡片"
-          @click.stop="emit('delete-card', node.id)"><Delete aria-hidden="true" /></button>
+        <el-tooltip v-if="canManage && node.id !== 'company'" :disabled="!deleteBlocked(node.id)" :content="deleteBlocked(node.id) ?? ''" placement="top">
+          <span class="delete-wrap">
+            <button type="button"
+              :class="['delete-card', { blocked: deleteBlocked(node.id) }]" :disabled="adding || !!deleteBlocked(node.id)" :data-testid="`delete-card-${node.id}`"
+              :title="deleteBlocked(node.id) ? undefined : '删除卡片'" aria-label="删除卡片"
+              @click.stop="emit('delete-card', node.id)"><Delete aria-hidden="true" /></button>
+          </span>
+        </el-tooltip>
         <div v-if="canManage" class="branch-actions">
           <button v-for="direction in directions" :key="direction.key" type="button"
             :class="['branch-plus', direction.key]" :disabled="adding"
             :data-testid="`branch-${node.id}-${direction.key}`"
-            :aria-label="`在${node.id === 'company' ? company : byId.get(node.id)?.display_name ?? '待完善员工'}${direction.key === 'left' ? '左侧' : direction.key === 'right' ? '右侧' : '下方'}新增卡片`"
+            :aria-label="`在${cardName(node.id)}${direction.key === 'left' ? '左侧' : direction.key === 'right' ? '右侧' : '下方'}新增卡片`"
             @click.stop="emit('add-branch', node.id === 'company' ? null : node.id, direction.key)">＋</button>
         </div>
       </article>
@@ -119,15 +141,23 @@ const directions: { key: DiagramDirection; label: string }[] = [
 .staff-node.company { display: flex; flex-direction: column; gap: 8px; text-align: center; background: #1260ec; color: white; border: 0; border-radius: 10px; padding: 20px 16px; }
 .company strong { font-size: 20px; overflow-wrap: anywhere; }
 .company span { font-size: 13px; }
+/* 企业所有者的卡片在最顶部：上方蓝色的一栏写着企业名称和员工数。 */
+.staff-node.root:not(.company) { border-top: 0; box-shadow: 0 8px 24px #1647ce1f; }
+.root-company { display: flex; flex-direction: column; gap: 4px; margin: -18px -18px 14px; padding: 14px 18px 12px; border-radius: 7px 7px 0 0; background: #1260ec; color: white; text-align: center; }
+.root-company strong { font-size: 18px; line-height: 1.4; overflow-wrap: anywhere; }
+.root-company span { font-size: 12px; opacity: .85; }
 .node-caption { opacity: .8; }
 .staff-node { cursor: default; }
 .staff-node:not(.company) { cursor: pointer; }
 .staff-node:focus-visible { outline: 2px solid var(--el-color-primary); outline-offset: 4px; }
 .staff-node:not(.company) :deep(.staff-name) { padding-right: 30px; }
-.delete-card { position: absolute; top: 18px; right: 14px; display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; padding: 5px; border: 0; border-radius: 6px; background: transparent; color: var(--el-color-danger); cursor: pointer; z-index: 3; }
-.delete-card:hover { background: var(--el-color-danger-light-9); }
+.delete-wrap { position: absolute; top: 18px; right: 14px; display: flex; z-index: 3; }
+.delete-card { display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; padding: 5px; border: 0; border-radius: 6px; background: transparent; color: var(--el-color-danger); cursor: pointer; }
+.delete-card:not(:disabled):hover { background: var(--el-color-danger-light-9); }
 .delete-card:focus-visible { outline: 2px solid var(--el-color-danger); outline-offset: 2px; }
 .delete-card:disabled { opacity: .5; cursor: wait; }
+/* 权限高于自己的员工、自己的卡片：和置灰的"重置密码"一样，悬停时外层显示提示。 */
+.delete-card.blocked { color: var(--el-color-danger-light-5); opacity: 1; cursor: not-allowed; }
 .delete-card svg { width: 18px; height: 18px; }
 .staff-node.draft { border: 1px dashed var(--el-color-primary-light-5); border-top: 4px solid var(--el-color-primary-light-5); background: var(--el-color-primary-light-9); min-height: 140px; }
 .draft-title { display: block; padding-right: 30px; font-size: 16px; line-height: 28px; }
