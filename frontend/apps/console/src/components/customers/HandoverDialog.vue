@@ -7,6 +7,8 @@ import { api } from '../../api'
 import { transferSummary } from '../../wecom'
 
 const props = defineProps<{ from: Schemas['StaffOut'] | null; staff: Schemas['StaffOut'][] }>()
+// 交接完成后（员工卡片上的名下客户数变了，§39.6）。
+const emit = defineEmits<{ done: [] }>()
 const visible = defineModel<boolean>({ required: true })
 
 const groups = ref<Schemas['SkillGroupOut'][]>([])
@@ -59,6 +61,7 @@ async function submit(): Promise<void> {
   }
   ElMessage.success(transferSummary(data.transferred, data.wecom).replace('已转移', '已交接'))
   visible.value = false
+  emit('done')
 }
 </script>
 

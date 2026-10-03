@@ -34,3 +34,14 @@ export function manageHint(access: ManageAccess, action: string): string | null 
 export function assignableRoles<T extends { code: string }>(roles: readonly T[]): T[] {
   return roles.filter((role) => role.code !== OWNER_ROLE)
 }
+
+/**
+ * 卡片上有没有"交接客户"（§39.6）：客服岗位的员工有（角色的岗位是客服，§25.15）；其他岗位没有，名下还有客户的
+ * （例如从客服调岗）也有，交接完就不再显示。consoles 是角色编码到岗位的对照。
+ */
+export function showsHandover(
+  member: { roles: readonly string[]; customers?: number },
+  consoles: ReadonlyMap<string, string>,
+): boolean {
+  return (member.customers ?? 0) > 0 || member.roles.some((code) => consoles.get(code) === 'agent')
+}

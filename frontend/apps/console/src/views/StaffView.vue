@@ -11,7 +11,7 @@ import RolesTab from '../components/staff/RolesTab.vue'
 import StaffAccessEditor from '../components/staff/StaffAccessEditor.vue'
 import StaffTree from '../components/staff/StaffTree.vue'
 import { accessBody, accessOf, accessSummary, emptyAccess, type AccessForm } from '../staffAccess'
-import { assignableRoles, manageAccess, manageHint } from '../staffManage'
+import { assignableRoles, manageAccess, manageHint, showsHandover } from '../staffManage'
 import type { DiagramDirection } from '../staffDiagram'
 import { normalizeRoleName } from '../roleNames'
 import { useAuthStore } from '../stores/auth'
@@ -34,6 +34,11 @@ function openHandover(member: Schemas['StaffOut']): void {
   handoverOpen.value = true
 }
 const roleNames = computed(() => new Map(roles.value.map((r) => [r.code, r.name])))
+/** 角色的岗位（§25.15）：只有客服岗位和名下还有客户的员工卡片上有"交接客户"（§39.6）。 */
+const roleConsoles = computed(() => new Map<string, string>(roles.value.map((r) => [r.code, r.console])))
+function handover(member: Schemas['StaffOut']): boolean {
+  return canHandover.value && showsHandover(member, roleConsoles.value)
+}
 /** 分配角色时可以选的角色：企业所有者只能由平台创建，不显示（§39.5）。 */
 const assignable = computed(() => assignableRoles(roles.value))
 /** 权限点的名称和分组（"页面和权限"里按分组勾选，§31）。 */
@@ -300,7 +305,7 @@ onMounted(load)
               </el-tooltip>
             </div>
             <div class="staff-created">创建于 {{ formatDateTime(row.created_at) }}</div>
-            <div v-if="canManage || canHandover" class="staff-actions">
+            <div v-if="canManage || handover(row)" class="staff-actions">
               <template v-if="canManage">
                 <el-tooltip :disabled="manageState(row) !== 'owner'" :content="manageHint('owner', '编辑') ?? ''" placement="top">
                   <span class="action">
@@ -321,7 +326,7 @@ onMounted(load)
                   </span>
                 </el-tooltip>
               </template>
-              <el-button v-if="canHandover" link type="primary" size="small" @click.stop="openHandover(row)">交接客户</el-button>
+              <el-button v-if="handover(row)" link type="primary" size="small" :data-testid="`handover-${row.username}`" @click.stop="openHandover(row)">交接客户</el-button>
             </div>
           </template>
         </StaffTree>
@@ -330,7 +335,7 @@ onMounted(load)
         <RolesTab @changed="load" />
       </el-tab-pane>
     </el-tabs>
-    <HandoverDialog v-model="handoverOpen" :from="handoverFrom" :staff="staff" />
+    <HandoverDialog v-model="handoverOpen" :from="handoverFrom" :staff="staff" @done="load" />
 
     <el-dialog
       v-model="dialogVisible"

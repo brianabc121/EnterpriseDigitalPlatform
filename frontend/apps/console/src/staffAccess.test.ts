@@ -20,6 +20,7 @@ const staff = (access: Schemas['StaffOut']['access'], permissions: Permission[] 
   ({
     id: 's1',
     is_owner: false,
+    customers: 0,
     username: 'xiao',
     display_name: '小王',
     status: 'active',
