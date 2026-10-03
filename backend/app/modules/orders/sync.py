@@ -263,6 +263,7 @@ async def _create(
             payload={"todo_id": str(todo.id)},
             public=True,
         )
+        await opportunities.order_changed(session, order, "submitted")
     else:
         _ready(items, order)
         await _payment_terms(
@@ -284,8 +285,8 @@ async def _create(
         order.credit_due_date = payload.credit_due_date if credit else None
         order.credit_approved_at = now if credit else None
         order.submitted_at = order.confirmed_at = now
-        # 意向客户（§35.4）：企业系统同步过来的已确认订单也算成交。
-        await opportunities.order_confirmed(session, order)
+        # 商机（§40.7）：企业系统同步过来的已确认订单也算赢单。
+        await opportunities.order_changed(session, order, "confirmed")
         webhook_outbox.order_event(session, order, "api_created", actor_type=API)
         service.event(
             session,
@@ -381,6 +382,9 @@ async def _add_payment(
         actor_id=actor.key_id,
         payload={"amount": service.text_money(payload.amount), "channel": payload.channel},
         public=True,
+    )
+    await opportunities.order_changed(
+        session, order, "refunded" if refund else "paid", amount=payload.amount
     )
     if service.outstanding(order) == 0 and order.total > 0:
         await service.close_todo(
@@ -506,6 +510,7 @@ async def update_status(
                 payload={"payment_method": method, "by": "api"},
                 public=True,
             )
+            await opportunities.order_changed(session, order, "confirmed")
         detail: dict[str, object] = {"by": "api"}
         if target == OrderStatus.CONFIRMED:
             detail["payment_method"] = method
@@ -522,6 +527,8 @@ async def update_status(
             payload=detail,
             public=True,
         )
+        # 商机的时间线（§40.7）：确认后自动赢单，发货、完成、取消各记一条。
+        await opportunities.order_changed(session, order, EVENT_OF[target])
         if confirming or target == OrderStatus.CANCELLED:
             await service.close_todo(
                 session,

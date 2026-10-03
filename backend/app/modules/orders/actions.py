@@ -309,6 +309,10 @@ async def _submit(
         payload={"todo_id": str(todo.id)},
         public=True,
     )
+    # 商机的时间线（§40.7）：提交审核后自动推进到"已报价"。
+    await opportunities.order_changed(
+        session, order, "submitted", staff_id=principal.staff_id if principal else None
+    )
     return todo.id
 
 
@@ -542,9 +546,8 @@ async def _transition(
         payload=payload,
         public=True,
     )
-    if status == OrderStatus.CONFIRMED:
-        # 意向客户（§35.4）：这个客户跟进中的意向记录变成"已成交"。
-        await opportunities.order_confirmed(session, order)
+    # 商机的时间线（§40.7）：确认后自动赢单，发货、完成、取消各记一条。
+    await opportunities.order_changed(session, order, event_type, staff_id=actor_id)
     return items, payments
 
 
@@ -906,6 +909,13 @@ async def add_payment(
         actor_id=principal.staff_id,
         payload={"amount": service.text_money(payload.amount), "channel": payload.channel},
         public=True,
+    )
+    await opportunities.order_changed(
+        session,
+        order,
+        "refunded" if refund else "paid",
+        amount=payload.amount,
+        staff_id=principal.staff_id,
     )
     record_audit(
         session,

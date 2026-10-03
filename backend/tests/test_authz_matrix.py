@@ -215,6 +215,8 @@ MATRIX: list[tuple[str, str, dict[str, Any] | None]] = [
         {"kind": "note", "content": "越权备注"},
     ),
     ("POST", "/api/v1/opportunities/{opportunity_id}/stage", {"stage_id": "{stage_id}"}),
+    ("POST", "/api/v1/opportunities/{opportunity_id}/summary", None),
+    ("POST", "/api/v1/opportunities/{opportunity_id}/todos", {"type_code": "callback"}),
     ("POST", "/api/v1/opportunities/{opportunity_id}/assign", {"owner_id": None}),
     ("PATCH", "/api/v1/opportunities/stages/{stage_id}", {"name": "越权改阶段"}),
     ("DELETE", "/api/v1/opportunities/stages/{stage_id}", None),

@@ -39,6 +39,14 @@ class OpportunityLevel(StrEnum):
 class OpportunitySource(StrEnum):
     AI = "ai"
     STAFF = "staff"
+    API = "api"  # 企业系统通过开放接口创建的线索（设计文档 §40.6）
+
+
+SOURCE_LABELS: dict[str, str] = {
+    OpportunitySource.AI: "AI 转入",
+    OpportunitySource.STAFF: "员工转入",
+    OpportunitySource.API: "企业系统",
+}
 
 
 class FollowMethod(StrEnum):

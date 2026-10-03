@@ -1078,7 +1078,9 @@
                 "products:write",
                 "orders:read",
                 "orders:write",
-                "todos:write"
+                "todos:write",
+                "opportunities:read",
+                "opportunities:write"
               ],
               "type": "string"
             },
@@ -11551,6 +11553,43 @@
         "title": "FormKbSummary",
         "type": "object"
       },
+      "FunnelStage": {
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "count": {
+            "description": "期间内新建的商机里到过这个阶段（或更靠后）的",
+            "title": "Count",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "rate": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "相对上一个阶段的转化率；第一个阶段为空",
+            "title": "Rate"
+          }
+        },
+        "required": [
+          "code",
+          "name",
+          "count",
+          "rate"
+        ],
+        "title": "FunnelStage",
+        "type": "object"
+      },
       "GroupChatOut": {
         "properties": {
           "chat_id": {
@@ -20287,6 +20326,79 @@
         "title": "MyBindings",
         "type": "object"
       },
+      "NextStep": {
+        "description": "安排下一步（§40.7）：建一条关联这条商机的待办。",
+        "properties": {
+          "assignee_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "处理人；不填时是负责人",
+            "title": "Assignee Id"
+          },
+          "detail": {
+            "default": "",
+            "maxLength": 4000,
+            "title": "Detail",
+            "type": "string"
+          },
+          "due_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "截止时间；不填时按类型的时限",
+            "title": "Due At"
+          },
+          "next_follow_at": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "同时改商机的下次跟进日期",
+            "title": "Next Follow At"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "不填时按类型和商机名称",
+            "title": "Title"
+          },
+          "type_code": {
+            "default": "callback",
+            "description": "待办类型的代码，默认回电 / 回访",
+            "maxLength": 32,
+            "minLength": 1,
+            "title": "Type Code",
+            "type": "string"
+          }
+        },
+        "title": "NextStep",
+        "type": "object"
+      },
       "NoteRequest": {
         "properties": {
           "note": {
@@ -20596,6 +20708,538 @@
           "quantity"
         ],
         "title": "OpenLineIn",
+        "type": "object"
+      },
+      "OpenOpportunity": {
+        "properties": {
+          "amount": {
+            "anyOf": [
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Amount"
+          },
+          "closed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Closed At"
+          },
+          "concerns": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Concerns"
+          },
+          "contract_no": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contract No"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "customer_id": {
+            "format": "uuid",
+            "title": "Customer Id",
+            "type": "string"
+          },
+          "customer_name": {
+            "title": "Customer Name",
+            "type": "string"
+          },
+          "expected_close_at": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Close At"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "interest": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Interest"
+          },
+          "level": {
+            "title": "Level",
+            "type": "string"
+          },
+          "lost_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lost Reason"
+          },
+          "lost_reason_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lost Reason Code"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "next_follow_at": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Follow At"
+          },
+          "order_no": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Order No"
+          },
+          "owner_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owner Name"
+          },
+          "owner_username": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owner Username"
+          },
+          "probability": {
+            "title": "Probability",
+            "type": "integer"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "stage": {
+            "description": "阶段代码",
+            "title": "Stage",
+            "type": "string"
+          },
+          "stage_name": {
+            "title": "Stage Name",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "customer_id",
+          "customer_name",
+          "name",
+          "status",
+          "stage",
+          "stage_name",
+          "level",
+          "source",
+          "interest",
+          "concerns",
+          "amount",
+          "probability",
+          "expected_close_at",
+          "next_follow_at",
+          "owner_username",
+          "owner_name",
+          "order_no",
+          "contract_no",
+          "lost_reason_code",
+          "lost_reason",
+          "created_at",
+          "updated_at",
+          "closed_at"
+        ],
+        "title": "OpenOpportunity",
+        "type": "object"
+      },
+      "OpenOpportunityCreate": {
+        "description": "企业系统创建线索（官网表单、投放线索）：客户已有的用 customer_id，否则按手机号找到或者新建。\n同一客户已经有待确认、跟进中的商机时返回已有的（200）。",
+        "properties": {
+          "amount": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,12}|(?=[\\d.]{1,15}0*$)\\d{0,12}\\.\\d{0,2}0*$)",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Amount"
+          },
+          "concerns": {
+            "anyOf": [
+              {
+                "maxLength": 1000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Concerns"
+          },
+          "customer": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/OpenCustomerIn"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "没有 customer_id 时：按手机号找到客户，找不到时新建"
+          },
+          "customer_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Customer Id"
+          },
+          "expected_close_at": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Close At"
+          },
+          "interest": {
+            "anyOf": [
+              {
+                "maxLength": 1000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "客户想要什么",
+            "title": "Interest"
+          },
+          "level": {
+            "default": "medium",
+            "enum": [
+              "high",
+              "medium",
+              "low"
+            ],
+            "title": "Level",
+            "type": "string"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "不填时按想要什么或客户称呼",
+            "title": "Name"
+          },
+          "owner_username": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "负责人的用户名；不填时按商机设置分配",
+            "title": "Owner Username"
+          }
+        },
+        "title": "OpenOpportunityCreate",
+        "type": "object"
+      },
+      "OpenOpportunityPage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/OpenOpportunity"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          }
+        },
+        "required": [
+          "items",
+          "next_cursor"
+        ],
+        "title": "OpenOpportunityPage",
+        "type": "object"
+      },
+      "OpenOpportunityUpdate": {
+        "description": "修改商机：字段、换到进行中的阶段（阶段代码）、赢单（可带平台订单号）或输单（原因分类代码）。",
+        "properties": {
+          "amount": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,12}|(?=[\\d.]{1,15}0*$)\\d{0,12}\\.\\d{0,2}0*$)",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Amount"
+          },
+          "concerns": {
+            "anyOf": [
+              {
+                "maxLength": 1000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Concerns"
+          },
+          "expected_close_at": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Close At"
+          },
+          "interest": {
+            "anyOf": [
+              {
+                "maxLength": 1000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Interest"
+          },
+          "level": {
+            "anyOf": [
+              {
+                "enum": [
+                  "high",
+                  "medium",
+                  "low"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Level"
+          },
+          "lost_reason": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lost Reason"
+          },
+          "lost_reason_code": {
+            "anyOf": [
+              {
+                "maxLength": 16,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lost Reason Code"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "next_follow_at": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Follow At"
+          },
+          "order_no": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "赢单关联的平台订单号",
+            "title": "Order No"
+          },
+          "stage": {
+            "anyOf": [
+              {
+                "maxLength": 32,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "进行中的阶段的代码",
+            "title": "Stage"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "enum": [
+                  "won",
+                  "lost"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          }
+        },
+        "title": "OpenOpportunityUpdate",
         "type": "object"
       },
       "OpenOrder": {
@@ -22611,6 +23255,45 @@
         "title": "OpportunityCreate",
         "type": "object"
       },
+      "OpportunityDigest": {
+        "description": "AI 小结（§40.7）：现在到哪一步、客户在意什么、建议下一步；同时记进时间线。",
+        "properties": {
+          "cares": {
+            "description": "客户在意什么",
+            "title": "Cares",
+            "type": "string"
+          },
+          "generated_at": {
+            "format": "date-time",
+            "title": "Generated At",
+            "type": "string"
+          },
+          "next": {
+            "description": "建议下一步",
+            "title": "Next",
+            "type": "string"
+          },
+          "status": {
+            "description": "现在到哪一步",
+            "title": "Status",
+            "type": "string"
+          },
+          "text": {
+            "description": "三句话连起来",
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "cares",
+          "next",
+          "text",
+          "generated_at"
+        ],
+        "title": "OpportunityDigest",
+        "type": "object"
+      },
       "OpportunityLost": {
         "properties": {
           "reason": {
@@ -22980,7 +23663,8 @@
           "source": {
             "enum": [
               "ai",
-              "staff"
+              "staff",
+              "api"
             ],
             "title": "Source",
             "type": "string"
@@ -23027,6 +23711,14 @@
             ],
             "title": "Status",
             "type": "string"
+          },
+          "todos": {
+            "description": "没完成的待办",
+            "items": {
+              "$ref": "#/components/schemas/TodoBrief"
+            },
+            "title": "Todos",
+            "type": "array"
           },
           "updated_at": {
             "format": "date-time",
@@ -23271,6 +23963,11 @@
             "title": "Today",
             "type": "integer"
           },
+          "week": {
+            "description": "本周（到周日）要跟进的，包括今天",
+            "title": "Week",
+            "type": "integer"
+          },
           "won_amount_this_month": {
             "anyOf": [
               {
@@ -23292,6 +23989,7 @@
           "active",
           "mine",
           "today",
+          "week",
           "overdue",
           "stale",
           "suggested",
@@ -23599,7 +24297,8 @@
           "source": {
             "enum": [
               "ai",
-              "staff"
+              "staff",
+              "api"
             ],
             "title": "Source",
             "type": "string"
@@ -27413,6 +28112,80 @@
           "created_at"
         ],
         "title": "OwnerHistoryOut",
+        "type": "object"
+      },
+      "OwnerSales": {
+        "properties": {
+          "active": {
+            "description": "现在进行中的",
+            "title": "Active",
+            "type": "integer"
+          },
+          "avg_days": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avg Days"
+          },
+          "created": {
+            "description": "期间内新建的",
+            "title": "Created",
+            "type": "integer"
+          },
+          "lost": {
+            "title": "Lost",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "staff_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Staff Id"
+          },
+          "won": {
+            "description": "期间内赢单的",
+            "title": "Won",
+            "type": "integer"
+          },
+          "won_amount": {
+            "anyOf": [
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Won Amount"
+          }
+        },
+        "required": [
+          "staff_id",
+          "name",
+          "created",
+          "active",
+          "won",
+          "lost",
+          "won_amount",
+          "avg_days"
+        ],
+        "title": "OwnerSales",
         "type": "object"
       },
       "PasswordChange": {
@@ -33562,6 +34335,197 @@
         "title": "RunRequest",
         "type": "object"
       },
+      "SalesAmount": {
+        "description": "进行中的商机的预计金额（不限期间）。金额设置为只有管理者可见而自己不能看时为空。",
+        "properties": {
+          "by_stage": {
+            "items": {
+              "$ref": "#/components/schemas/Bucket"
+            },
+            "title": "By Stage",
+            "type": "array"
+          },
+          "next_month": {
+            "anyOf": [
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Month"
+          },
+          "open_count": {
+            "title": "Open Count",
+            "type": "integer"
+          },
+          "this_month": {
+            "anyOf": [
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "本月预计成交的金额合计",
+            "title": "This Month"
+          },
+          "weighted": {
+            "anyOf": [
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Σ 预计金额 × 成交概率",
+            "title": "Weighted"
+          }
+        },
+        "required": [
+          "open_count",
+          "by_stage",
+          "weighted",
+          "this_month",
+          "next_month"
+        ],
+        "title": "SalesAmount",
+        "type": "object"
+      },
+      "SalesReport": {
+        "properties": {
+          "amount": {
+            "$ref": "#/components/schemas/SalesAmount"
+          },
+          "amount_visible": {
+            "title": "Amount Visible",
+            "type": "boolean"
+          },
+          "by_owner": {
+            "items": {
+              "$ref": "#/components/schemas/OwnerSales"
+            },
+            "title": "By Owner",
+            "type": "array"
+          },
+          "by_source": {
+            "items": {
+              "$ref": "#/components/schemas/SourceSales"
+            },
+            "title": "By Source",
+            "type": "array"
+          },
+          "end": {
+            "format": "date",
+            "title": "End",
+            "type": "string"
+          },
+          "funnel": {
+            "items": {
+              "$ref": "#/components/schemas/FunnelStage"
+            },
+            "title": "Funnel",
+            "type": "array"
+          },
+          "lost_reasons": {
+            "items": {
+              "$ref": "#/components/schemas/Bucket"
+            },
+            "title": "Lost Reasons",
+            "type": "array"
+          },
+          "start": {
+            "format": "date",
+            "title": "Start",
+            "type": "string"
+          },
+          "win": {
+            "$ref": "#/components/schemas/SalesWin"
+          }
+        },
+        "required": [
+          "start",
+          "end",
+          "amount_visible",
+          "funnel",
+          "amount",
+          "win",
+          "lost_reasons",
+          "by_owner",
+          "by_source"
+        ],
+        "title": "SalesReport",
+        "type": "object"
+      },
+      "SalesWin": {
+        "properties": {
+          "avg_amount": {
+            "anyOf": [
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "赢单的平均预计金额",
+            "title": "Avg Amount"
+          },
+          "avg_days": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "赢单的平均成交周期（转入到赢单的天数）",
+            "title": "Avg Days"
+          },
+          "closed": {
+            "description": "期间内关闭（赢单或输单）的",
+            "title": "Closed",
+            "type": "integer"
+          },
+          "lost": {
+            "title": "Lost",
+            "type": "integer"
+          },
+          "win_rate": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Win Rate"
+          },
+          "won": {
+            "title": "Won",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "closed",
+          "won",
+          "lost",
+          "win_rate",
+          "avg_days",
+          "avg_amount"
+        ],
+        "title": "SalesWin",
+        "type": "object"
+      },
       "SendMessageRequest": {
         "properties": {
           "attachment": {
@@ -35659,6 +36623,48 @@
           }
         },
         "title": "SkillGroupUpdate",
+        "type": "object"
+      },
+      "SourceSales": {
+        "properties": {
+          "count": {
+            "description": "期间内新建的",
+            "title": "Count",
+            "type": "integer"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "win_rate": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "赢单 / 新建",
+            "title": "Win Rate"
+          },
+          "won": {
+            "title": "Won",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "key",
+          "label",
+          "count",
+          "won",
+          "win_rate"
+        ],
+        "title": "SourceSales",
         "type": "object"
       },
       "SsoUrlOut": {
@@ -39621,6 +40627,66 @@
           "assign"
         ],
         "title": "TodoAllowed",
+        "type": "object"
+      },
+      "TodoBrief": {
+        "description": "商机上没完成的待办（安排的下一步）。",
+        "properties": {
+          "assignee_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assignee Name"
+          },
+          "due_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Due At"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "no": {
+            "title": "No",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "type_name": {
+            "title": "Type Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "no",
+          "title",
+          "type_name",
+          "status",
+          "due_at",
+          "assignee_name"
+        ],
+        "title": "TodoBrief",
         "type": "object"
       },
       "TodoCounts": {
@@ -44464,7 +45530,12 @@
                 "order.status_changed",
                 "order.cancelled",
                 "order.payment",
-                "todo.done"
+                "todo.done",
+                "opportunity.created",
+                "opportunity.stage_changed",
+                "opportunity.won",
+                "opportunity.lost",
+                "opportunity.assigned"
               ],
               "type": "string"
             },
@@ -69648,6 +70719,7 @@
                 "active",
                 "mine",
                 "today",
+                "week",
                 "overdue",
                 "closing",
                 "stale",
@@ -69707,7 +70779,8 @@
                 {
                   "enum": [
                     "ai",
-                    "staff"
+                    "staff",
+                    "api"
                   ],
                   "type": "string"
                 },
@@ -70081,7 +71154,8 @@
                 {
                   "enum": [
                     "ai",
-                    "staff"
+                    "staff",
+                    "api"
                   ],
                   "type": "string"
                 },
@@ -70316,6 +71390,165 @@
           }
         ],
         "summary": "Customer Opportunity",
+        "tags": [
+          "opportunities"
+        ]
+      }
+    },
+    "/api/v1/opportunities/export": {
+      "get": {
+        "description": "导出查看范围内、符合筛选条件的商机（CSV）。预计金额设置为只有管理者可见而自己不能看时，\n金额列为空。",
+        "operationId": "export_opportunities_api_v1_opportunities_export_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "view",
+            "required": false,
+            "schema": {
+              "default": "all",
+              "enum": [
+                "active",
+                "mine",
+                "today",
+                "week",
+                "overdue",
+                "closing",
+                "stale",
+                "suggested",
+                "won",
+                "lost",
+                "all"
+              ],
+              "title": "View",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "stage_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Stage Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "owner_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Owner Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 100,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Q"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "text/csv": {}
+            },
+            "description": "CSV 文件"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Export Opportunities",
         "tags": [
           "opportunities"
         ]
@@ -71006,7 +72239,7 @@
     },
     "/api/v1/opportunities/stats": {
       "get": {
-        "description": "顶部数字。",
+        "description": "顶部数字（首页的四个数字也从这里取：我负责的、本周要跟进、停滞、本月赢单金额）。",
         "operationId": "stats_api_v1_opportunities_stats_get",
         "responses": {
           "200": {
@@ -71189,7 +72422,7 @@
         ]
       },
       "patch": {
-        "description": "修改名称、等级、想要什么、顾虑、预计金额、预计成交日、概率、下次跟进日期、关联商品、\n负责人（改成别人需要分配商机的权限）。",
+        "description": "修改名称、等级、想要什么、顾虑、预计金额、预计成交日、概率、下次跟进日期、关联商品、\n负责人（改成别人需要分配商机的权限，会提醒新负责人）。",
         "operationId": "update_opportunity_api_v1_opportunities__opportunity_id__patch",
         "parameters": [
           {
@@ -71607,7 +72840,7 @@
     },
     "/api/v1/opportunities/{opportunity_id}/assign": {
       "post": {
-        "description": "换负责人（改成别人需要分配商机的权限）。",
+        "description": "换负责人（改成别人需要分配商机的权限，会提醒新负责人）。",
         "operationId": "assign_api_v1_opportunities__opportunity_id__assign_post",
         "parameters": [
           {
@@ -72343,6 +73576,214 @@
           }
         ],
         "summary": "Move Stage",
+        "tags": [
+          "opportunities"
+        ]
+      }
+    },
+    "/api/v1/opportunities/{opportunity_id}/summary": {
+      "post": {
+        "description": "AI 小结（需要套餐包含 AI）：现在到哪一步、客户在意什么、建议下一步；同时记进时间线。",
+        "operationId": "write_summary_api_v1_opportunities__opportunity_id__summary_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "opportunity_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Opportunity Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpportunityDigest"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Write Summary",
+        "tags": [
+          "opportunities"
+        ]
+      }
+    },
+    "/api/v1/opportunities/{opportunity_id}/todos": {
+      "post": {
+        "description": "安排下一步：建一条关联这条商机的待办（默认\"回电 / 回访\"，处理人默认是负责人），可以同时改\n下次跟进日期。",
+        "operationId": "schedule_next_api_v1_opportunities__opportunity_id__todos_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "opportunity_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Opportunity Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NextStep"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpportunityOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Schedule Next",
         "tags": [
           "opportunities"
         ]
@@ -82433,6 +83874,151 @@
           }
         ],
         "summary": "Realtime",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
+    "/api/v1/reports/sales": {
+      "get": {
+        "description": "销售：漏斗、进行中的预计金额、赢单率、输单原因、按负责人、按来源（数据范围按客户的可见范围，\n默认最近 30 天）。",
+        "operationId": "sales_report_api_v1_reports_sales_get",
+        "parameters": [
+          {
+            "description": "开始日期（含），默认最近 7 天",
+            "in": "query",
+            "name": "start",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "开始日期（含），默认最近 7 天",
+              "title": "Start"
+            }
+          },
+          {
+            "description": "结束日期（含），默认今天",
+            "in": "query",
+            "name": "end",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "结束日期（含），默认今天",
+              "title": "End"
+            }
+          },
+          {
+            "description": "划分日期的时区，默认 Asia/Shanghai",
+            "in": "query",
+            "name": "tz",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "划分日期的时区，默认 Asia/Shanghai",
+              "title": "Tz"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SalesReport"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Sales Report",
         "tags": [
           "reports"
         ]
@@ -99321,6 +100907,467 @@
         "summary": "Liveness",
         "tags": [
           "health"
+        ]
+      }
+    },
+    "/open/v1/opportunities": {
+      "get": {
+        "description": "按更新时间（从早到晚）增量同步商机；忽略了的 AI 建议不返回。",
+        "operationId": "list_opportunities_open_v1_opportunities_get",
+        "parameters": [
+          {
+            "description": "只返回这个时间之后有更新的商机（含）",
+            "in": "query",
+            "name": "updated_since",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "只返回这个时间之后有更新的商机（含）",
+              "title": "Updated Since"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "suggested",
+                    "active",
+                    "won",
+                    "lost"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "description": "上一页的 next_cursor",
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "上一页的 next_cursor",
+              "title": "Cursor"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenOpportunityPage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "ApiKey": []
+          }
+        ],
+        "summary": "List Opportunities",
+        "tags": [
+          "open"
+        ]
+      },
+      "post": {
+        "description": "创建线索（官网表单、投放线索）：进第一个进行中的阶段，按商机设置分配负责人。同一客户已经有\n待确认、跟进中的商机时返回已有的（200）。",
+        "operationId": "create_opportunity_open_v1_opportunities_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenOpportunityCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenOpportunity"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "ApiKey": []
+          }
+        ],
+        "summary": "Create Opportunity",
+        "tags": [
+          "open"
+        ]
+      }
+    },
+    "/open/v1/opportunities/{opportunity_id}": {
+      "get": {
+        "operationId": "get_opportunity_open_v1_opportunities__opportunity_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "opportunity_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Opportunity Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenOpportunity"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "ApiKey": []
+          }
+        ],
+        "summary": "Get Opportunity",
+        "tags": [
+          "open"
+        ]
+      },
+      "patch": {
+        "description": "修改字段、换到进行中的阶段、赢单（可带平台订单号）或输单（原因分类代码）。",
+        "operationId": "update_opportunity_open_v1_opportunities__opportunity_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "opportunity_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Opportunity Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenOpportunityUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenOpportunity"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "ApiKey": []
+          }
+        ],
+        "summary": "Update Opportunity",
+        "tags": [
+          "open"
         ]
       }
     },

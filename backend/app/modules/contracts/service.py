@@ -48,6 +48,7 @@ from app.modules.history import service as history
 from app.modules.history.models import RecordType
 from app.modules.iam.models import Staff
 from app.modules.iam.principal import Principal
+from app.modules.opportunities import service as opportunities
 from app.modules.orders import service as order_service
 from app.modules.orders.models import Order
 from app.modules.todos import sla
@@ -420,6 +421,8 @@ async def new_contract(
     await session.flush()
     _track(session, principal, contract, action)
     _audit(session, principal, f"contract.{action}", contract, ip=ip)
+    # 商机的时间线（§40.7）：起草的合同挂到客户进行中的商机上。
+    await opportunities.contract_changed(session, contract, action, staff_id=principal.staff_id)
     return contract
 
 
@@ -625,6 +628,8 @@ async def finalize(
     contract.finalized_at = datetime.now(UTC)
     _track(session, principal, contract, "finalize")
     _audit(session, principal, "contract.finalize", contract, ip=ip)
+    # 商机（§40.7）：定稿后自动推进到"谈判中"。
+    await opportunities.contract_changed(session, contract, "finalize", staff_id=principal.staff_id)
     await session.commit()
     await session.refresh(contract)
     return contract
@@ -641,6 +646,7 @@ async def reopen(
     contract.finalized_at = None
     _track(session, principal, contract, "reopen")
     _audit(session, principal, "contract.reopen", contract, ip=ip)
+    await opportunities.contract_changed(session, contract, "reopen", staff_id=principal.staff_id)
     await session.commit()
     await session.refresh(contract)
     return contract
@@ -689,6 +695,8 @@ async def sign(
     contract.signed_at = datetime.now(UTC)
     _track(session, principal, contract, "sign")
     _audit(session, principal, "contract.sign", contract, {"scan": bool(payload.scan)}, ip)
+    # 商机（§40.7）：签署后自动赢单。
+    await opportunities.contract_changed(session, contract, "sign", staff_id=principal.staff_id)
     await session.commit()
     await session.refresh(contract)
     return contract
@@ -711,6 +719,7 @@ async def void(
     contract.voided_at = datetime.now(UTC)
     _track(session, principal, contract, "void")
     _audit(session, principal, "contract.void", contract, {"reason": contract.void_reason}, ip)
+    await opportunities.contract_changed(session, contract, "void", staff_id=principal.staff_id)
     await session.commit()
     await session.refresh(contract)
     return contract

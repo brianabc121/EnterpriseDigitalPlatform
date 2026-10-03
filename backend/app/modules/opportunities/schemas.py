@@ -11,7 +11,7 @@ from app.modules.opportunities.settings import OpportunitySettings
 
 OpportunityStatusValue = Literal["suggested", "active", "won", "lost", "dismissed"]
 OpportunityLevelValue = Literal["high", "medium", "low"]
-OpportunitySourceValue = Literal["ai", "staff"]
+OpportunitySourceValue = Literal["ai", "staff", "api"]
 FollowMethodValue = Literal["phone", "wechat", "chat", "visit", "other"]
 StageKindValue = Literal["open", "won", "lost"]
 ActivityKindValue = Literal[
@@ -28,10 +28,20 @@ ActivityKindValue = Literal[
     "payment",
     "ai",
 ]
-# 快捷视图：跟进中、我负责的、今天该跟进、已逾期、本月预计成交、停滞、待确认（AI 建议）、赢单、
-# 输单、全部。
+# 快捷视图：跟进中、我负责的、今天该跟进、本周要跟进、已逾期、本月预计成交、停滞、待确认
+# （AI 建议）、赢单、输单、全部。
 OpportunityView = Literal[
-    "active", "mine", "today", "overdue", "closing", "stale", "suggested", "won", "lost", "all"
+    "active",
+    "mine",
+    "today",
+    "week",
+    "overdue",
+    "closing",
+    "stale",
+    "suggested",
+    "won",
+    "lost",
+    "all",
 ]
 Money = Decimal
 
@@ -156,8 +166,21 @@ class OpportunitySummary(BaseModel):
     due_today: bool = Field(description="跟进中、今天该跟进")
 
 
+class TodoBrief(BaseModel):
+    """商机上没完成的待办（安排的下一步）。"""
+
+    id: uuid.UUID
+    no: str
+    title: str
+    type_name: str
+    status: str
+    due_at: datetime | None
+    assignee_name: str | None
+
+
 class OpportunityOut(OpportunitySummary):
     activities: list[OpportunityActivityOut]
+    todos: list[TodoBrief] = Field(default_factory=list, description="没完成的待办")
     can_manage: bool = Field(description="可以修改、跟进、换阶段")
     can_assign: bool = Field(description="可以把负责人改成别人")
     amount_visible: bool
@@ -190,6 +213,7 @@ class OpportunityStats(BaseModel):
     active: int
     mine: int
     today: int
+    week: int = Field(description="本周（到周日）要跟进的，包括今天")
     overdue: int
     stale: int
     suggested: int
@@ -297,6 +321,37 @@ class OpportunityMessage(BaseModel):
 
     text: str
     knowledge: list[str] = Field(default_factory=list, description="参考的知识标题")
+
+
+class OpportunityDigest(BaseModel):
+    """AI 小结（§40.7）：现在到哪一步、客户在意什么、建议下一步；同时记进时间线。"""
+
+    status: str = Field(description="现在到哪一步")
+    cares: str = Field(description="客户在意什么")
+    next: str = Field(description="建议下一步")
+    text: str = Field(description="三句话连起来")
+    generated_at: datetime
+
+
+class NextStep(BaseModel):
+    """安排下一步（§40.7）：建一条关联这条商机的待办。"""
+
+    type_code: str = Field(
+        default="callback",
+        min_length=1,
+        max_length=32,
+        description="待办类型的代码，默认回电 / 回访",
+    )
+    title: str | None = Field(default=None, max_length=100, description="不填时按类型和商机名称")
+    detail: str = Field(default="", max_length=4000)
+    due_at: datetime | None = Field(default=None, description="截止时间；不填时按类型的时限")
+    assignee_id: uuid.UUID | None = Field(default=None, description="处理人；不填时是负责人")
+    next_follow_at: date | None = Field(default=None, description="同时改商机的下次跟进日期")
+
+    @field_validator("title")
+    @classmethod
+    def _title(cls, value: str | None) -> str | None:
+        return _text(value)
 
 
 class OpportunitySettingsOut(BaseModel):

@@ -7,6 +7,10 @@
 - POST /open/v1/orders/{ref}/status     回传状态、物流、收款和企业系统订单号（orders:write）
 - POST /open/v1/todos                   创建待办（todos:write）
 - GET  /open/v1/todos/{ref}             平台待办编号或企业系统单号（todos:write）
+- GET  /open/v1/opportunities           按更新时间增量同步商机（opportunities:read，§40.13）
+- GET  /open/v1/opportunities/{id}      一条商机（opportunities:read）
+- POST /open/v1/opportunities           创建线索（opportunities:write）
+- PATCH /open/v1/opportunities/{id}     修改、换阶段、赢单 / 输单（opportunities:write）
 """
 
 import base64
@@ -31,6 +35,11 @@ from app.modules.integration import payloads
 from app.modules.integration.auth import ApiCaller, ApiDb, require_scope
 from app.modules.integration.models import Scope
 from app.modules.integration.schemas import (
+    OpenOpportunity,
+    OpenOpportunityCreate,
+    OpenOpportunityPage,
+    OpenOpportunityStatus,
+    OpenOpportunityUpdate,
     OpenOrder,
     OpenOrderCreate,
     OpenOrderPage,
@@ -41,6 +50,8 @@ from app.modules.integration.schemas import (
     OpenTodo,
     OpenTodoCreate,
 )
+from app.modules.opportunities import sync as opportunity_sync
+from app.modules.opportunities.models import Opportunity, OpportunityStatus
 from app.modules.orders import sync as order_sync
 from app.modules.orders.models import Order, OrderStatus
 from app.modules.orders.schemas import OrderStatusValue
@@ -58,6 +69,8 @@ Ref = Annotated[str, Path(min_length=1, max_length=64, description="平台单号
 ProductsWriter = Annotated[ApiCaller, Depends(require_scope(Scope.PRODUCTS_WRITE))]
 OrdersReader = Annotated[ApiCaller, Depends(require_scope(Scope.ORDERS_READ))]
 OrdersWriter = Annotated[ApiCaller, Depends(require_scope(Scope.ORDERS_WRITE))]
+OpportunitiesReader = Annotated[ApiCaller, Depends(require_scope(Scope.OPPORTUNITIES_READ))]
+OpportunitiesWriter = Annotated[ApiCaller, Depends(require_scope(Scope.OPPORTUNITIES_WRITE))]
 TodosWriter = Annotated[ApiCaller, Depends(require_scope(Scope.TODOS_WRITE))]
 
 
@@ -326,3 +339,88 @@ async def get_todo(ref: Ref, session: ApiDb, caller: TodosWriter) -> OpenTodo:
     if todo is None:
         raise NotFound("待办不存在")
     return await payloads.todo_out(session, todo)
+
+
+# ---- 商机（设计文档 §40.13）----
+
+
+def _opportunity_cursor(opportunity: Opportunity) -> str:
+    raw = f"{opportunity.updated_at.isoformat()}|{opportunity.id}"
+    return base64.urlsafe_b64encode(raw.encode()).decode().rstrip("=")
+
+
+@router.get("/opportunities", response_model=OpenOpportunityPage)
+async def list_opportunities(
+    session: ApiDb,
+    caller: OpportunitiesReader,
+    updated_since: Annotated[
+        datetime | None, Query(description="只返回这个时间之后有更新的商机（含）")
+    ] = None,
+    status_: Annotated[OpenOpportunityStatus | None, Query(alias="status")] = None,
+    cursor: Annotated[str | None, Query(max_length=200, description="上一页的 next_cursor")] = None,
+    limit: Annotated[int, Query(ge=1, le=100)] = 50,
+) -> OpenOpportunityPage:
+    """按更新时间（从早到晚）增量同步商机；忽略了的 AI 建议不返回。"""
+    conditions = [Opportunity.status != OpportunityStatus.DISMISSED]
+    if updated_since is not None:
+        conditions.append(Opportunity.updated_at >= updated_since)
+    if status_ is not None:
+        conditions.append(Opportunity.status == status_)
+    if cursor:
+        stamp, opportunity_id = _decode_cursor(cursor)
+        conditions.append(
+            tuple_(Opportunity.updated_at, Opportunity.id) > tuple_(stamp, opportunity_id)
+        )
+    rows = list(
+        (
+            await session.scalars(
+                select(Opportunity)
+                .where(*conditions)
+                .order_by(Opportunity.updated_at, Opportunity.id)
+                .limit(limit + 1)
+            )
+        ).all()
+    )
+    page = rows[:limit]
+    return OpenOpportunityPage(
+        items=[await payloads.opportunity_out(session, o) for o in page],
+        next_cursor=_opportunity_cursor(page[-1]) if len(rows) > limit else None,
+    )
+
+
+@router.get("/opportunities/{opportunity_id}", response_model=OpenOpportunity)
+async def get_opportunity(
+    opportunity_id: uuid.UUID, session: ApiDb, caller: OpportunitiesReader
+) -> OpenOpportunity:
+    opportunity = await session.get(Opportunity, opportunity_id)
+    if opportunity is None or opportunity.status == OpportunityStatus.DISMISSED:
+        raise NotFound("商机不存在")
+    return await payloads.opportunity_out(session, opportunity)
+
+
+@router.post("/opportunities", response_model=OpenOpportunity, status_code=status.HTTP_201_CREATED)
+async def create_opportunity(
+    payload: OpenOpportunityCreate,
+    response: Response,
+    ctx: Context,
+    session: ApiDb,
+    caller: OpportunitiesWriter,
+) -> OpenOpportunity:
+    """创建线索（官网表单、投放线索）：进第一个进行中的阶段，按商机设置分配负责人。同一客户已经有
+    待确认、跟进中的商机时返回已有的（200）。"""
+    opportunity, created = await opportunity_sync.create(ctx, session, _actor(caller), payload)
+    if not created:
+        response.status_code = status.HTTP_200_OK
+    return await payloads.opportunity_out(session, opportunity)
+
+
+@router.patch("/opportunities/{opportunity_id}", response_model=OpenOpportunity)
+async def update_opportunity(
+    opportunity_id: uuid.UUID,
+    payload: OpenOpportunityUpdate,
+    session: ApiDb,
+    caller: OpportunitiesWriter,
+) -> OpenOpportunity:
+    """修改字段、换到进行中的阶段、赢单（可带平台订单号）或输单（原因分类代码）。"""
+    opportunity = await opportunity_sync.update(session, _actor(caller), opportunity_id, payload)
+    return await payloads.opportunity_out(session, opportunity)

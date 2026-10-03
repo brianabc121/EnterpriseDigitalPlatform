@@ -24,6 +24,7 @@ from app.modules.iam.models import Staff, StaffStatus
 from app.modules.iam.principal import Principal
 from app.modules.notifications import service as notifications
 from app.modules.notifications.push import notify_staff
+from app.modules.opportunities import service as opportunities
 from app.modules.routing.models import SkillGroup, SkillGroupMember
 from app.modules.todos import assign, events, notify, sla
 from app.modules.todos import fields as todo_fields
@@ -531,6 +532,8 @@ async def complete(
         actor_id=principal.staff_id,
         payload={"result": todo.result},
     )
+    # 商机的时间线（§40.7）："报价"完成后自动推进到已报价。
+    await opportunities.todo_changed(session, todo, "done", staff_id=principal.staff_id)
     result = None
     rooms: set[uuid.UUID] = set()
     if payload.notify_customer:
@@ -570,6 +573,7 @@ async def cancel(
         actor_id=principal.staff_id,
         payload={"reason": todo.close_note},
     )
+    await opportunities.todo_changed(session, todo, "cancelled", staff_id=principal.staff_id)
     await session.commit()
     return todo
 

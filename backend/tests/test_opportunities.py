@@ -4,7 +4,7 @@
 
 import json
 import uuid
-from datetime import date, timedelta
+from datetime import UTC, date, datetime, timedelta
 from typing import Any
 
 import httpx
@@ -17,8 +17,9 @@ from tests.desk import Agent, Desk, Visitor
 from tests.fake_llm import FakeLLM
 from tests.fake_openim import FakeOpenIM
 from tests.support import DatabaseUrls
+from tests.test_integration import api_key, bearer, outbox
 from tests.test_orders import catalog, customer, new_order
-from tests.test_wake import findings, wake
+from tests.test_wake import findings, notes, wake
 
 P = "/api/v1/opportunities"
 
@@ -243,8 +244,12 @@ async def test_staff_converts_follows_up_wins_and_reopens(desk: Desk) -> None:
         order["no"],
     )
     assert won["amount"] == "12000.00"
-    [confirmed] = of_kind(won, "order")
+    # 新建的订单直接提交审核：时间线先记一条提交审核（并自动推进到已报价），确认后自动赢单。
+    submitted, confirmed = of_kind(won, "order")
+    assert submitted["title"] == f"订单 {order['no']} 提交审核，金额 1299.00 元"
+    assert of_kind(won, "stage")[-1]["properties"]["to"] == "quoted"
     assert confirmed["title"] == f"订单 {order['no']} 已确认，自动赢单"
+    assert confirmed["properties"]["from"] == "quoted"
     assert (confirmed["linked_type"], confirmed["linked_id"]) == ("order", order["id"])
     page = await listing(desk, view="won")
     assert page["total"] == 1 and page["won_this_month"] == 1
@@ -453,7 +458,7 @@ async def test_ai_adopts_closed_sessions_and_records_returns(desk: Desk, fake_ll
     assert (await scan(desk))["created"] == 0
     await call(desk, "PUT", f"{P}/settings", ai_mode="auto", min_stage=3, follow_days=3)
     fake_llm.requests.clear()
-    assert await scan(desk) == {"won": 0, "returns": 0, "created": 1, "suggested": 0}
+    assert await scan(desk) == {"won": 0, "returns": 0, "ready": 0, "created": 1, "suggested": 0}
     [item] = (await listing(desk))["items"]
     day = await today(desk)
     assert (item["source"], item["status"], item["level"]) == ("ai", "active", "medium")
@@ -476,14 +481,22 @@ async def test_ai_adopts_closed_sessions_and_records_returns(desk: Desk, fake_ll
     # 已经在名单里：不再转入。
     assert (await scan(desk))["created"] == 0
 
-    # 客户又来咨询了：时间线上记一条（系统记的），意向更高时调高等级；同一会话只记一次。
+    # 客户又来咨询了：时间线上记一条（系统记的），意向更高时调高等级；同一会话只记一次。意图第一次
+    # 到"准备下单"也记一条（每条商机一次）。
     _, _, again = await closed_chat(desk, alice, "我要下单，地址是浦东新区", 4, visitor=visitor)
-    assert (await scan(desk))["returns"] == 1
-    assert (await scan(desk))["returns"] == 0
+    first_scan = await scan(desk)
+    assert (first_scan["returns"], first_scan["ready"]) == (1, 1)
+    second_scan = await scan(desk)
+    assert (second_scan["returns"], second_scan["ready"]) == (0, 0)
     detail = await call(desk, "GET", f"{P}/{item['id']}")
-    [entry] = of_kind(detail, "session")
+    ready, entry = sorted(of_kind(detail, "session"), key=lambda a: a["linked_type"] or "")
     assert (entry["method"], entry["staff_id"], entry["session_id"]) == ("chat", None, again)
     assert entry["content"].startswith("客户又来咨询了（准备下单）")
+    assert (ready["title"], ready["linked_type"], ready["linked_id"]) == (
+        "客户准备下单了（意图判断）",
+        "intent",
+        again,
+    )
     assert detail["level"] == "high" and detail["follow_count"] == 0
 
     # 只建议：AI 的建议员工确认后才进名单；忽略的 30 天内不再建议。
@@ -713,3 +726,394 @@ async def test_due_check_groups_by_owner_and_merge_keeps_one_record(desk: Desk) 
     )
     moved_counts = json.loads(audit["detail"])["moved"]
     assert moved_counts["opportunities"] == 2 and moved_counts["contracts"] == 1
+
+
+async def test_orders_contracts_and_todos_write_the_timeline_and_advance(
+    desk: Desk, fake_llm: FakeLLM
+) -> None:
+    """安排下一步的待办、"报价"待办完成 → 已报价；订单提交审核和收款记一条；合同起草挂上、定稿 →
+    谈判中、签署 → 赢单；换负责人提醒新负责人；AI 小结；导出；推送事件。"""
+    alice = await desk.agent("alice", online=False)
+    products = await catalog(desk)
+    customer_id = await customer(desk, "周总")
+    day = await today(desk)
+    made = await call(desk, "POST", P, 201, customer_id=customer_id, interest="门锁 20 把")
+    assert (made["stage_code"], made["todos"]) == ("new", [])
+
+    # 安排下一步：建一条关联这条商机的待办（默认回电 / 回访，处理人默认是负责人），同时改下次跟进
+    # 日期；详情里显示没完成的待办，时间线记一条。
+    due = (datetime.now(UTC) + timedelta(days=1)).isoformat()
+    planned = await call(
+        desk,
+        "POST",
+        f"{P}/{made['id']}/todos",
+        title="回访周总",
+        due_at=due,
+        next_follow_at=str(day + timedelta(days=1)),
+    )
+    [todo] = planned["todos"]
+    assert (todo["title"], todo["type_name"], todo["assignee_name"], todo["status"]) == (
+        "回访周总",
+        "回电 / 回访",
+        "管理员",
+        "open",
+    )
+    assert planned["next_follow_at"] == str(day + timedelta(days=1))
+    [created] = of_kind(planned, "todo")
+    assert created["title"] == f"待办 {todo['no']}：回访周总"
+    assert (created["linked_type"], created["linked_id"], created["staff_name"]) == (
+        "todo",
+        todo["id"],
+        "管理员",
+    )
+    await call(desk, "POST", f"{P}/{made['id']}/todos", 422, type_code="nope")
+
+    # "报价"待办完成后自动推进到已报价；完成的结果记在时间线上。
+    quoted = await call(desk, "POST", f"{P}/{made['id']}/todos", type_code="quote", title="报价")
+    quote_todo = next(t for t in quoted["todos"] if t["title"] == "报价")
+    await call(desk, "POST", f"/api/v1/todos/{quote_todo['id']}/done", result="已报 2 万")
+    detail = await call(desk, "GET", f"{P}/{made['id']}")
+    assert detail["stage_code"] == "quoted"
+    assert [t["title"] for t in detail["todos"]] == ["回访周总"]
+    done = of_kind(detail, "todo")[-1]
+    assert done["title"] == f"完成待办 {quote_todo['no']}：报价" and done["content"] == "已报 2 万"
+    advanced = of_kind(detail, "stage")[-1]
+    assert advanced["properties"]["auto"] is True
+    assert advanced["properties"]["reason"] == f"报价待办 {quote_todo['no']} 完成"
+
+    # 订单提交审核：时间线记一条（已经在已报价，不再推进）；登记收款也记一条。
+    order = await new_order(
+        desk,
+        desk.admin,
+        customer_id,
+        [{"product_id": products["LOCK-X1"], "quantity": 2}],
+        submit=True,
+    )
+    await call(
+        desk, "POST", f"/api/v1/orders/{order['id']}/payments", amount="500", channel="wechat"
+    )
+    detail = await call(desk, "GET", f"{P}/{made['id']}")
+    [submitted] = of_kind(detail, "order")
+    assert submitted["title"] == f"订单 {order['no']} 提交审核，金额 2598.00 元"
+    assert (submitted["linked_type"], submitted["linked_id"]) == ("order", order["id"])
+    [paid] = of_kind(detail, "payment")
+    assert (
+        paid["title"] == f"订单 {order['no']} 收款 500.00 元" and detail["stage_code"] == "quoted"
+    )
+
+    # 合同：起草的挂到这条商机上；定稿自动推进到谈判中；签署自动赢单（预计金额取合同金额）。
+    contract = await call(
+        desk,
+        "POST",
+        "/api/v1/contracts",
+        201,
+        title="门锁采购合同",
+        customer_id=customer_id,
+        order_id=order["id"],
+    )
+    detail = await call(desk, "GET", f"{P}/{made['id']}")
+    assert (detail["contract_id"], detail["contract_no"]) == (contract["id"], contract["no"])
+    [drafted] = of_kind(detail, "contract")
+    assert drafted["title"] == f"起草合同 {contract['no']}《门锁采购合同》"
+    await call(desk, "POST", f"/api/v1/contracts/{contract['id']}/finalize")
+    detail = await call(desk, "GET", f"{P}/{made['id']}")
+    assert detail["stage_code"] == "negotiating"
+    assert of_kind(detail, "stage")[-1]["properties"]["reason"] == f"合同 {contract['no']} 定稿"
+    await call(desk, "POST", f"/api/v1/contracts/{contract['id']}/sign", sign_date=str(day))
+    detail = await call(desk, "GET", f"{P}/{made['id']}")
+    assert (detail["status"], detail["stage_code"], detail["amount"]) == ("won", "won", "2598.00")
+    signed = of_kind(detail, "contract")[-1]
+    assert signed["title"] == f"合同 {contract['no']} 已签署，自动赢单"
+    assert (signed["properties"]["from"], signed["properties"]["to"]) == ("negotiating", "won")
+    events = [e for e in await outbox(desk) if e.startswith("opportunity.")]
+    assert events == [
+        "opportunity.created",
+        "opportunity.stage_changed",
+        "opportunity.stage_changed",
+        "opportunity.won",
+    ]
+
+    # 换负责人：站内信提醒新负责人；交给自己不提醒。
+    await call(desk, "POST", f"{P}/{made['id']}/assign", owner_id=str(alice.staff_id))
+    assert await notes(desk, "opportunity") == [
+        ("商机「门锁 20 把」交给你负责", "管理员 把这条商机交给你负责")
+    ]
+    assert (await outbox(desk))[-1] == "opportunity.assigned"
+
+    # AI 小结：三句话，记进时间线，用量记在"商机"场景。
+    fake_llm.requests.clear()
+    digest = await call(desk, "POST", f"{P}/{made['id']}/summary")
+    assert digest["status"].startswith("门锁 20 把现在在赢单")
+    assert (digest["cares"], digest["next"]) == ("没有记录", "建议约时间报价")
+    assert digest["text"] == f"{digest['status']} {digest['cares']} {digest['next']}"
+    [chat] = [r for r in fake_llm.requests if "messages" in r]
+    assert chat["messages"][0]["content"].startswith("任务：商机小结")
+    assert "【时间线】" in chat["messages"][1]["content"]
+    detail = await call(desk, "GET", f"{P}/{made['id']}")
+    [noted] = of_kind(detail, "ai")
+    assert noted["title"] == "AI 小结" and noted["content"] == digest["text"]
+
+    # 导出（opportunity:export）：CSV；客服没有权限。
+    exported = await desk.client.get(f"{P}/export", headers=desk.admin, params={"view": "all"})
+    assert exported.status_code == 200, exported.text
+    assert exported.headers["content-type"].startswith("text/csv")
+    lines = exported.text.lstrip("﻿").splitlines()
+    assert lines[0].startswith("客户,公司,商机,阶段,状态")
+    assert len(lines) == 2 and lines[1].startswith("周总,,门锁 20 把,赢单,赢单,中,2598.00")
+    denied = await desk.client.get(f"{P}/export", headers=alice.headers)
+    assert denied.status_code == 403
+
+
+async def test_open_api_leads_are_assigned_in_turn_and_pushed(desk: Desk) -> None:
+    """企业系统创建线索：按手机号找到或者新建客户，负责人按设置轮流分给技能组；查询和回传；推送事件。"""
+    alice = await desk.agent("alice", online=False)
+    bob = await desk.agent("bob", online=False)
+    group = await call(
+        desk,
+        "POST",
+        "/api/v1/skill-groups",
+        201,
+        name="销售",
+        members=[{"staff_id": str(alice.staff_id)}, {"staff_id": str(bob.staff_id)}],
+    )
+    await call(
+        desk,
+        "PUT",
+        f"{P}/settings",
+        ai_mode="auto",
+        min_stage=2,
+        follow_days=3,
+        assignment="round_robin",
+        assignment_group_id=group["id"],
+    )
+    key = await api_key(desk, "opportunities:read", "opportunities:write")
+    reader = await api_key(desk, "orders:read")
+
+    async def post(body: dict[str, Any], expected: int = 201) -> Any:
+        response = await desk.client.post("/open/v1/opportunities", headers=bearer(key), json=body)
+        assert response.status_code == expected, response.text
+        return response.json()
+
+    async def patch(opportunity_id: str, body: dict[str, Any], expected: int = 200) -> Any:
+        response = await desk.client.patch(
+            f"/open/v1/opportunities/{opportunity_id}", headers=bearer(key), json=body
+        )
+        assert response.status_code == expected, response.text
+        return response.json()
+
+    first = await post(
+        {
+            "customer": {"name": "官网线索甲", "phone": "13800009001"},
+            "interest": "想买 10 把门锁",
+            "amount": "9999",
+        }
+    )
+    assert (first["status"], first["stage"], first["source"], first["level"]) == (
+        "active",
+        "new",
+        "api",
+        "medium",
+    )
+    assert (first["owner_username"], first["amount"], first["customer_name"]) == (
+        "alice",
+        "9999.00",
+        "官网线索甲",
+    )
+    second = await post(
+        {"customer": {"name": "官网线索乙", "phone": "13800009002"}, "name": "乙的商机"}
+    )
+    assert second["owner_username"] == "bob" and second["name"] == "乙的商机"
+    third = await post({"customer": {"name": "官网线索丙", "phone": "13800009003"}})
+    assert third["owner_username"] == "alice" and third["name"] == "官网线索丙 的商机"
+    # 同一客户（按手机号）已经有进行中的商机：返回已有的（200）；指定的负责人不存在时 422。
+    again = await post({"customer": {"name": "官网线索甲", "phone": "13800009001"}}, 200)
+    assert again["id"] == first["id"]
+    await post(
+        {"customer": {"name": "丁", "phone": "13800009004"}, "owner_username": "nobody"}, 422
+    )
+    await post({"name": "没有客户"}, 422)
+    # 控制台里来源是"企业系统"，负责人看得到自己负责的。
+    page = await listing(desk, headers=alice.headers)
+    assert sorted(i["customer_name"] for i in page["items"]) == ["官网线索丙", "官网线索甲"]
+    assert {i["source"] for i in page["items"]} == {"api"}
+
+    # 查询：增量同步和单条；没有这个权限范围的密钥 403。
+    listed = await desk.client.get(
+        "/open/v1/opportunities", headers=bearer(key), params={"status": "active"}
+    )
+    assert listed.status_code == 200, listed.text
+    assert len(listed.json()["items"]) == 3 and listed.json()["next_cursor"] is None
+    one = await desk.client.get(f"/open/v1/opportunities/{first['id']}", headers=bearer(key))
+    assert one.status_code == 200 and one.json()["name"] == "想买 10 把门锁"
+    denied = await desk.client.get("/open/v1/opportunities", headers=bearer(reader))
+    assert denied.status_code == 403
+
+    # 回传：换阶段、改金额；赢单、输单（要原因分类）；已关闭的不能再回传。
+    moved = await patch(first["id"], {"stage": "quoted", "amount": "12000"})
+    assert (moved["stage"], moved["amount"], moved["probability"]) == ("quoted", "12000.00", 60)
+    await patch(first["id"], {"stage": "won"}, 422)
+    await patch(first["id"], {"status": "lost"}, 422)
+    lost = await patch(
+        first["id"], {"status": "lost", "lost_reason_code": "price", "lost_reason": "预算不够"}
+    )
+    assert (lost["status"], lost["stage"], lost["lost_reason_code"]) == ("lost", "lost", "price")
+    won = await patch(second["id"], {"status": "won"})
+    assert won["status"] == "won" and won["closed_at"] is not None
+    await patch(second["id"], {"status": "won"}, 409)
+    detail = await call(desk, "GET", f"{P}/{first['id']}")
+    assert [a["title"] for a in reversed(detail["activities"])] == [
+        "企业系统转入，阶段：新线索",
+        "新线索 → 已报价（企业系统回传）",
+        "输单：价格（企业系统回传）",
+    ]
+    assert all(a["staff_id"] is None for a in detail["activities"])
+    events = [e for e in await outbox(desk) if e.startswith("opportunity.")]
+    assert events == [
+        "opportunity.created",
+        "opportunity.created",
+        "opportunity.created",
+        "opportunity.stage_changed",
+        "opportunity.lost",
+        "opportunity.won",
+    ]
+
+
+async def test_wake_flags_stale_overdue_and_unattended_opportunities(desk: Desk) -> None:
+    """AI 唤醒：新线索没人跟、商机停滞（超过 2 倍严重）、预计成交日已过；处理后自动消除。"""
+    names = ("甲", "乙", "丙", "丁")
+    customers = [await customer(desk, n) for n in names]
+    made = [
+        await call(desk, "POST", P, 201, customer_id=c, interest=f"{n}的需求")
+        for c, n in zip(customers, names, strict=True)
+    ]
+    day = await today(desk)
+    stages = await stage_ids(desk)
+    # 甲：转入 30 小时还没跟进；乙：在已沟通停了 15 天（阶段的停滞天数 7 天）；丙：预计成交日
+    # 过了 3 天。
+    await desk.sql(
+        "UPDATE opportunities SET opened_at = now() - interval '30 hours',"
+        " stage_entered_at = now() - interval '30 hours',"
+        " last_activity_at = now() - interval '30 hours' WHERE id = $1",
+        uuid.UUID(made[0]["id"]),
+    )
+    await call(desk, "POST", f"{P}/{made[1]['id']}/followups", content="聊过一次")
+    await desk.sql(
+        "UPDATE opportunities SET stage_entered_at = now() - interval '15 days',"
+        " last_activity_at = now() - interval '15 days' WHERE id = $1",
+        uuid.UUID(made[1]["id"]),
+    )
+    await call(
+        desk, "PATCH", f"{P}/{made[2]['id']}", expected_close_at=str(day - timedelta(days=3))
+    )
+
+    await wake(desk, "daily", trigger="manual")
+    found = await findings(desk)
+
+    def hits(code: str) -> list[dict[str, Any]]:
+        return [v for k, v in found.items() if k.startswith(code)]
+
+    [unattended] = hits("opportunity_unattended")
+    assert unattended["title"] == "甲 的新线索 30 小时没人跟进"
+    assert unattended["severity"] == "warning" and str(unattended["entity_id"]) == made[0]["id"]
+    assert unattended["detail"].endswith("员工转入，还没有记过跟进，负责人 管理员。")
+    assert unattended["link"] == f"/customers?tab=prospects&id={made[0]['id']}"
+    [stale] = hits("opportunity_stale")
+    assert stale["title"] == "乙 的商机在「已沟通」停了 15 天" and stale["severity"] == "critical"
+    assert "这个阶段的停滞天数是 7 天" in stale["detail"]
+    assert json.loads(stale["data"]) == {"days": 15, "stale_days": 7, "stage": "已沟通"}
+    [overdue] = hits("opportunity_closing_overdue")
+    assert overdue["title"] == "丙 的商机预计成交日已过 3 天" and overdue["severity"] == "warning"
+    assert hits("prospect_due") == []
+
+    # 记了跟进、换了阶段、改了预计成交日后自动消除。
+    await call(desk, "POST", f"{P}/{made[0]['id']}/followups", content="打过电话了")
+    await call(desk, "POST", f"{P}/{made[1]['id']}/stage", stage_id=stages["quoted"])
+    await call(
+        desk, "PATCH", f"{P}/{made[2]['id']}", expected_close_at=str(day + timedelta(days=3))
+    )
+    await wake(desk, "daily", trigger="manual")
+    found = await findings(desk)
+    assert {
+        f["status"]
+        for code in ("opportunity_unattended", "opportunity_stale", "opportunity_closing_overdue")
+        for f in hits(code)
+    } == {"resolved"}
+
+
+async def test_sales_report_counts_funnel_amounts_and_outcomes(desk: Desk) -> None:
+    """销售报表：漏斗（到过各阶段）、进行中的金额和加权金额、赢单率和周期、输单原因、按负责人、按来源；
+    顶部数字多了本周要跟进的。"""
+    day = await today(desk)
+    stages = await stage_ids(desk)
+    ids = [await customer(desk, n) for n in ("A", "B", "C", "D")]
+    a = await call(
+        desk, "POST", P, 201, customer_id=ids[0], amount="1000", expected_close_at=str(day)
+    )
+    b = await call(desk, "POST", P, 201, customer_id=ids[1], amount="2000")
+    c = await call(desk, "POST", P, 201, customer_id=ids[2], amount="3000")
+    await call(desk, "POST", P, 201, customer_id=ids[3])
+    await call(desk, "POST", f"{P}/{a['id']}/stage", stage_id=stages["quoted"])
+    await call(desk, "POST", f"{P}/{b['id']}/stage", stage_id=stages["negotiating"])
+    await call(desk, "POST", f"{P}/{b['id']}/won")
+    await call(desk, "POST", f"{P}/{c['id']}/lost", reason_code="price")
+
+    report = await call(desk, "GET", "/api/v1/reports/sales")
+    assert report["amount_visible"] is True
+    funnel = {f["code"]: (f["count"], f["rate"]) for f in report["funnel"]}
+    assert funnel == {
+        "new": (4, None),
+        "contacted": (2, 0.5),
+        "quoted": (2, 1.0),
+        "negotiating": (1, 0.5),
+        "won": (1, 1.0),
+    }
+    amount = report["amount"]
+    assert (amount["open_count"], amount["weighted"], amount["this_month"]) == (
+        2,
+        "600.00",
+        "1000.00",
+    )
+    assert {b_["key"]: b_["amount"] for b_ in amount["by_stage"]}["quoted"] == "1000.00"
+    win = report["win"]
+    assert (win["closed"], win["won"], win["lost"], win["win_rate"], win["avg_amount"]) == (
+        2,
+        1,
+        1,
+        0.5,
+        "2000.00",
+    )
+    assert win["avg_days"] == 0.0
+    assert [(r["key"], r["label"], r["count"]) for r in report["lost_reasons"]] == [
+        ("price", "价格", 1)
+    ]
+    [owner] = report["by_owner"]
+    assert (owner["name"], owner["created"], owner["active"], owner["won"], owner["lost"]) == (
+        "管理员",
+        4,
+        2,
+        1,
+        1,
+    )
+    assert owner["won_amount"] == "2000.00"
+    [source] = report["by_source"]
+    assert (source["key"], source["label"], source["count"], source["won"], source["win_rate"]) == (
+        "staff",
+        "员工转入",
+        4,
+        1,
+        0.25,
+    )
+    # 期间不含今天时什么都没有。
+    response = await desk.client.get(
+        "/api/v1/reports/sales",
+        headers=desk.admin,
+        params={"start": str(day - timedelta(days=30)), "end": str(day - timedelta(days=1))},
+    )
+    assert response.status_code == 200, response.text
+    empty = response.json()
+    assert empty["funnel"][0]["count"] == 0 and empty["win"]["closed"] == 0
+
+    stats = await call(desk, "GET", f"{P}/stats")
+    week_end = day + timedelta(days=6 - day.weekday())
+    assert stats["week"] == (2 if day + timedelta(days=3) <= week_end else 0)
+    assert (stats["active"], stats["won_this_month"]) == (2, 1)

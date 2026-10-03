@@ -16,7 +16,14 @@ from app.modules.orders.schemas import (
 from app.modules.products.schemas import Qty, QtyIn
 from app.modules.todos.models import Priority
 
-ScopeValue = Literal["products:write", "orders:read", "orders:write", "todos:write"]
+ScopeValue = Literal[
+    "products:write",
+    "orders:read",
+    "orders:write",
+    "todos:write",
+    "opportunities:read",
+    "opportunities:write",
+]
 EventValue = Literal[
     "order.created",
     "order.updated",
@@ -25,6 +32,11 @@ EventValue = Literal[
     "order.cancelled",
     "order.payment",
     "todo.done",
+    "opportunity.created",
+    "opportunity.stage_changed",
+    "opportunity.won",
+    "opportunity.lost",
+    "opportunity.assigned",
 ]
 assert set(ScopeValue.__args__) == {s.value for s in Scope}  # type: ignore[attr-defined]
 assert set(EventValue.__args__) == {  # type: ignore[attr-defined]
@@ -380,3 +392,76 @@ class OpenTodo(BaseModel):
     external_ref: str | None
     created_at: datetime
     closed_at: datetime | None
+
+
+# ---- 商机（设计文档 §40.13）----
+
+OpenOpportunityStatus = Literal["suggested", "active", "won", "lost"]
+
+
+class OpenOpportunityCreate(BaseModel):
+    """企业系统创建线索（官网表单、投放线索）：客户已有的用 customer_id，否则按手机号找到或者新建。
+    同一客户已经有待确认、跟进中的商机时返回已有的（200）。"""
+
+    customer_id: uuid.UUID | None = None
+    customer: OpenCustomerIn | None = Field(
+        default=None, description="没有 customer_id 时：按手机号找到客户，找不到时新建"
+    )
+    name: str | None = Field(default=None, max_length=128, description="不填时按想要什么或客户称呼")
+    interest: str | None = Field(default=None, max_length=1000, description="客户想要什么")
+    concerns: str | None = Field(default=None, max_length=1000)
+    level: Literal["high", "medium", "low"] = "medium"
+    amount: Decimal | None = Field(default=None, ge=0, max_digits=14, decimal_places=2)
+    expected_close_at: date | None = None
+    owner_username: str | None = Field(
+        default=None, max_length=64, description="负责人的用户名；不填时按商机设置分配"
+    )
+
+
+class OpenOpportunityUpdate(BaseModel):
+    """修改商机：字段、换到进行中的阶段（阶段代码）、赢单（可带平台订单号）或输单（原因分类代码）。"""
+
+    name: str | None = Field(default=None, max_length=128)
+    interest: str | None = Field(default=None, max_length=1000)
+    concerns: str | None = Field(default=None, max_length=1000)
+    level: Literal["high", "medium", "low"] | None = None
+    amount: Decimal | None = Field(default=None, ge=0, max_digits=14, decimal_places=2)
+    expected_close_at: date | None = None
+    next_follow_at: date | None = None
+    stage: str | None = Field(default=None, max_length=32, description="进行中的阶段的代码")
+    status: Literal["won", "lost"] | None = None
+    order_no: str | None = Field(default=None, max_length=64, description="赢单关联的平台订单号")
+    lost_reason_code: str | None = Field(default=None, max_length=16)
+    lost_reason: str | None = Field(default=None, max_length=500)
+
+
+class OpenOpportunity(BaseModel):
+    id: uuid.UUID
+    customer_id: uuid.UUID
+    customer_name: str
+    name: str
+    status: str
+    stage: str = Field(description="阶段代码")
+    stage_name: str
+    level: str
+    source: str
+    interest: str | None
+    concerns: str | None
+    amount: Decimal | None
+    probability: int
+    expected_close_at: date | None
+    next_follow_at: date | None
+    owner_username: str | None
+    owner_name: str | None
+    order_no: str | None
+    contract_no: str | None
+    lost_reason_code: str | None
+    lost_reason: str | None
+    created_at: datetime
+    updated_at: datetime
+    closed_at: datetime | None
+
+
+class OpenOpportunityPage(BaseModel):
+    items: list[OpenOpportunity]
+    next_cursor: str | None

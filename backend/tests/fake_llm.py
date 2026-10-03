@@ -72,6 +72,7 @@ from app.modules.ai.prompts import (
     TASK_PHRASE,
     TASK_PROSPECT,
     TASK_PROSPECT_MESSAGE,
+    TASK_PROSPECT_SUMMARY,
     TASK_REPLY,
     TASK_REWRITE,
     TASK_SESSION_SUMMARY,
@@ -795,6 +796,22 @@ def _opportunity(user: str) -> str:
     )
 
 
+def _opportunity_summary(user: str) -> str:
+    """商机小结：按阶段、顾虑和时间线的最后一条拼三句。"""
+    name = re.search(r"【商机】(.*?)（", user)
+    stage = re.search(r"【阶段】(.*?)（", user)
+    concerns = re.search(r"【顾虑】(.*)", user)
+    lines = [line[2:] for line in _section(user, "时间线").splitlines() if line.startswith("- ")]
+    status = f"{name.group(1) if name else '商机'}现在在{stage.group(1) if stage else '跟进中'}"
+    if lines:
+        status += f"，最近：{lines[-1]}"
+    cares = f"客户在意{concerns.group(1)}" if concerns else "没有记录"
+    next_ = "建议确认订单" if stage and "报价" in stage.group(1) else "建议约时间报价"
+    return json.dumps(
+        {"status": status[:80], "cares": cares[:80], "next": next_}, ensure_ascii=False
+    )
+
+
 def _opportunity_message(user: str) -> str:
     """意向客户跟进话术：问候、想要什么，有参考资料时引用第一条的第一句。"""
     customer = re.search(r"【客户】(.*)", user)
@@ -904,6 +921,8 @@ class FakeLLM:
             content = "这不是 JSON" if self.mode == "bad_json" else _opportunity(last_user)
         elif task == TASK_PROSPECT_MESSAGE:
             content = _opportunity_message(last_user)
+        elif task == TASK_PROSPECT_SUMMARY:
+            content = "这不是 JSON" if self.mode == "bad_json" else _opportunity_summary(last_user)
         elif task == TASK_SUGGEST:
             answers = [*_products(system), *_answers(system)] or ["您好，我帮您确认一下，请稍等。"]
             content = json.dumps({"suggestions": answers[:3]}, ensure_ascii=False)

@@ -11,8 +11,15 @@ from app.core.permissions import Permission
 from app.modules.billing.entitlements import require_feature
 from app.modules.iam.deps import TenantDb, require_permission
 from app.modules.iam.principal import Principal
-from app.modules.reports import business, service
-from app.modules.reports.schemas import AgentReport, OrderReport, Overview, Realtime, TodoReport
+from app.modules.reports import business, sales, service
+from app.modules.reports.schemas import (
+    AgentReport,
+    OrderReport,
+    Overview,
+    Realtime,
+    SalesReport,
+    TodoReport,
+)
 
 router = APIRouter(prefix="/api/v1/reports", tags=["reports"], responses=ERROR_RESPONSES)
 
@@ -93,3 +100,19 @@ async def orders_report(
     zone_ = zone(tz or settings.usage_timezone)
     first, last = date_range(start, end, zone_, default_days=DEFAULT_DAYS)
     return await business.order_report(session, principal, first, last, zone_, today(zone_))
+
+
+@router.get("/sales", response_model=SalesReport)
+async def sales_report(
+    session: TenantDb,
+    principal: CanView,
+    settings: SettingsDep,
+    start: Start = None,
+    end: End = None,
+    tz: Tz = None,
+) -> SalesReport:
+    """销售：漏斗、进行中的预计金额、赢单率、输单原因、按负责人、按来源（数据范围按客户的可见范围，
+    默认最近 30 天）。"""
+    zone_ = zone(tz or settings.usage_timezone)
+    first, last = date_range(start, end, zone_, default_days=30)
+    return await sales.sales_report(session, principal, first, last, zone_)

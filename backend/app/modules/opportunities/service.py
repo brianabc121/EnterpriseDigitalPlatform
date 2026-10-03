@@ -10,7 +10,7 @@ import secrets
 import uuid
 from datetime import UTC, date, datetime, time, timedelta
 from decimal import Decimal
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import ColumnElement, and_, case, func, or_, select, true
 from sqlalchemy import update as update_rows
@@ -25,6 +25,9 @@ from app.modules.customer import service as customer_service
 from app.modules.customer.models import Customer
 from app.modules.iam.models import Staff, StaffStatus
 from app.modules.iam.principal import Principal
+from app.modules.integration import outbox as webhook_outbox
+from app.modules.integration.models import WebhookEventType
+from app.modules.notifications import service as notifications
 from app.modules.opportunities import settings as opportunity_settings
 from app.modules.opportunities.models import (
     DEFAULT_STAGES,
@@ -43,6 +46,7 @@ from app.modules.opportunities.schemas import (
     BoardColumn,
     CustomerOpportunityInfo,
     FollowupCreate,
+    NextStep,
     OpportunityActivityOut,
     OpportunityBoard,
     OpportunityBrief,
@@ -58,11 +62,17 @@ from app.modules.opportunities.schemas import (
     StageMove,
     StageOut,
     StageUpdate,
+    TodoBrief,
 )
 from app.modules.opportunities.settings import OpportunitySettings
 from app.modules.orders.models import Order, OrderStatus
+from app.modules.routing.models import SkillGroupMember
 from app.modules.security.keys import TenantKeyring
 from app.modules.todos import sla
+from app.modules.todos.models import ActorType, Todo, TodoSource, TodoStatus, TodoType
+
+if TYPE_CHECKING:
+    from app.context import AppContext
 
 NOT_FOUND = "商机不存在"
 ALREADY = "这个客户已经有一条进行中的商机了"
@@ -78,6 +88,7 @@ VIEWS: tuple[str, ...] = (
     "active",
     "mine",
     "today",
+    "week",
     "overdue",
     "closing",
     "stale",
@@ -421,6 +432,47 @@ def _audit(
     )
 
 
+def emit(
+    session: AsyncSession,
+    opportunity: Opportunity,
+    event: WebhookEventType,
+    data: dict[str, Any] | None = None,
+    *,
+    actor_type: str = "staff",
+) -> None:
+    """同一个事务里写入推送事件（企业系统对接，§25.8）。"""
+    webhook_outbox.emit(
+        session,
+        tenant_id=opportunity.tenant_id,
+        event=event,
+        resource_type="opportunity",
+        resource_id=opportunity.id,
+        data={"status": opportunity.status, **(data or {})},
+        actor_type=actor_type,
+    )
+
+
+def _owner_notice(principal: Principal, opportunity: Opportunity) -> tuple[str, str, str]:
+    """负责人变了：提醒新负责人的标题、内容和链接。"""
+    return (
+        f"商机「{opportunity.name}」交给你负责",
+        f"{principal.display_name} 把这条商机交给你负责",
+        f"/customers?tab=prospects&id={opportunity.id}",
+    )
+
+
+async def _push_owner(ctx: "AppContext", principal: Principal, opportunity: Opportunity) -> None:
+    """站内信在事务里已经写了；提交后再经企业微信、公司助理送到新负责人手上。"""
+    from app.modules.notifications.push import notify_staff
+
+    if opportunity.owner_id is None:
+        return
+    title, body, link = _owner_notice(principal, opportunity)
+    await notify_staff(
+        ctx, principal.tenant_id, [opportunity.owner_id], title=title, description=body, path=link
+    )
+
+
 # ---- 时间线 ----
 
 
@@ -650,6 +702,7 @@ async def out(
     return OpportunityOut(
         **summary.model_dump(),
         activities=await activities(session, opportunity.id),
+        todos=await open_todos(session, opportunity.id),
         can_manage=principal.has(Permission.OPPORTUNITY_MANAGE),
         can_assign=principal.has(Permission.OPPORTUNITY_ASSIGN),
         amount_visible=show_amount,
@@ -686,6 +739,13 @@ def _view(view: str, day: date, principal: Principal) -> ColumnElement[bool]:
         return and_(status == OpportunityStatus.ACTIVE, Opportunity.owner_id == principal.staff_id)
     if view == "today":
         return and_(status == OpportunityStatus.ACTIVE, Opportunity.next_follow_at == day)
+    if view == "week":
+        # 本周（到周日）要跟进的，包括今天。
+        return and_(
+            status == OpportunityStatus.ACTIVE,
+            Opportunity.next_follow_at >= day,
+            Opportunity.next_follow_at <= day + timedelta(days=6 - day.weekday()),
+        )
     if view == "overdue":
         return and_(status == OpportunityStatus.ACTIVE, Opportunity.next_follow_at < day)
     if view == "closing":
@@ -919,11 +979,12 @@ async def board(
 
 
 async def stats(session: AsyncSession, principal: Principal) -> OpportunityStats:
-    """顶部数字：进行中、我负责的、今天该跟进、已逾期、停滞、待确认、本月赢单（数量和金额）。"""
+    """顶部数字：进行中、我负责的、今天该跟进、本周要跟进、已逾期、停滞、待确认、本月赢单（数量和
+    金额）。首页的四个数字（§40.8）也从这里取。"""
     day = await today(session)
     settings = await opportunity_settings.load(session, principal.tenant_id)
     scope = [visible_to(principal)]
-    keys = ("active", "mine", "today", "overdue", "stale", "suggested")
+    keys = ("active", "mine", "today", "week", "overdue", "stale", "suggested")
     row = (
         await session.execute(
             select(*(func.count().filter(_view(v, day, principal)) for v in keys))
@@ -1097,6 +1158,7 @@ async def create(
         at=now,
     )
     _audit(session, principal, "opportunity.create", opportunity, {"level": payload.level}, ip)
+    emit(session, opportunity, WebhookEventType.OPPORTUNITY_CREATED, {"stage": stage.code})
     await session.commit()
     await session.refresh(opportunity)
     return opportunity
@@ -1144,6 +1206,24 @@ async def _change_owner(
         {"owner_id": str(opportunity.owner_id) if opportunity.owner_id else None},
         ip,
     )
+    emit(
+        session,
+        opportunity,
+        WebhookEventType.OPPORTUNITY_ASSIGNED,
+        {"owner_id": str(opportunity.owner_id) if opportunity.owner_id else None},
+    )
+    # 交给别人时提醒新负责人（§40.6）。
+    if opportunity.owner_id is not None and opportunity.owner_id != principal.staff_id:
+        title, body, link = _owner_notice(principal, opportunity)
+        notifications.add(
+            session,
+            principal.tenant_id,
+            [opportunity.owner_id],
+            kind="opportunity",
+            title=title,
+            body=body,
+            link=link,
+        )
 
 
 async def update(
@@ -1153,8 +1233,10 @@ async def update(
     payload: OpportunityUpdate,
     *,
     ip: str | None = None,
+    ctx: "AppContext | None" = None,
 ) -> Opportunity:
     opportunity = await get_visible(session, principal, opportunity_id, lock=True)
+    owner_before = opportunity.owner_id
     changes = payload.model_dump(exclude_unset=True)
     if payload.name is not None:
         opportunity.name = payload.name[:NAME_MAX]
@@ -1199,6 +1281,8 @@ async def update(
     opportunity.updated_at = datetime.now(UTC)
     await session.commit()
     await session.refresh(opportunity)
+    if ctx is not None and opportunity.owner_id not in (None, owner_before, principal.staff_id):
+        await _push_owner(ctx, principal, opportunity)
     return opportunity
 
 
@@ -1209,19 +1293,23 @@ async def assign(
     owner_id: uuid.UUID | None,
     *,
     ip: str | None = None,
+    ctx: "AppContext | None" = None,
 ) -> Opportunity:
     opportunity = await get_visible(session, principal, opportunity_id, lock=True)
+    owner_before = opportunity.owner_id
     if owner_id != opportunity.owner_id:
         await _change_owner(session, principal, opportunity, owner_id, ip)
     await session.commit()
     await session.refresh(opportunity)
+    if ctx is not None and opportunity.owner_id not in (None, owner_before, principal.staff_id):
+        await _push_owner(ctx, principal, opportunity)
     return opportunity
 
 
 # ---- 跟进 ----
 
 
-def _enter_stage(
+def enter_stage(
     session: AsyncSession,
     opportunity: Opportunity,
     current: PipelineStage,
@@ -1253,6 +1341,13 @@ def _enter_stage(
         },
         at=now,
     )
+    emit(
+        session,
+        opportunity,
+        WebhookEventType.OPPORTUNITY_STAGE_CHANGED,
+        {"from": current.code, "to": target.code},
+        actor_type="staff" if staff_id else "system",
+    )
 
 
 def auto_advance(
@@ -1271,7 +1366,7 @@ def auto_advance(
     current = stage_by_id(all_stages, opportunity.stage_id)
     if current.kind != StageKind.OPEN or target.position <= current.position:
         return False
-    _enter_stage(
+    enter_stage(
         session,
         opportunity,
         current,
@@ -1399,6 +1494,9 @@ async def _win(
         linked_type="order" if order_id else ("contract" if contract_id else None),
         linked_id=order_id or contract_id,
     )
+    emit(
+        session, opportunity, WebhookEventType.OPPORTUNITY_WON, {"from": current.code, **properties}
+    )
     _audit(
         session,
         principal,
@@ -1439,6 +1537,12 @@ async def _lose(
         staff_id=principal.staff_id,
         content=reason,
         properties={"from": current.code, "to": lost_stage.code, "reason_code": reason_code},
+    )
+    emit(
+        session,
+        opportunity,
+        WebhookEventType.OPPORTUNITY_LOST,
+        {"from": current.code, "reason_code": reason_code, "reason_name": name},
     )
     _audit(
         session,
@@ -1499,7 +1603,7 @@ async def move_stage(
             opportunity.position = payload.position
             opportunity.updated_at = datetime.now(UTC)
     else:
-        _enter_stage(
+        enter_stage(
             session,
             opportunity,
             current,
@@ -1623,6 +1727,12 @@ async def reopen(
             properties={"from": current.code, "to": target.code, "reopen": True},
             at=now,
         )
+        emit(
+            session,
+            opportunity,
+            WebhookEventType.OPPORTUNITY_STAGE_CHANGED,
+            {"from": current.code, "to": target.code, "reopen": True},
+        )
         _audit(session, principal, "opportunity.reopen", opportunity, ip=ip)
         await session.commit()
         await session.refresh(opportunity)
@@ -1672,6 +1782,12 @@ async def reopen(
         at=now,
     )
     _audit(session, principal, "opportunity.reopen", opportunity, {"next_id": str(fresh.id)}, ip)
+    emit(
+        session,
+        fresh,
+        WebhookEventType.OPPORTUNITY_CREATED,
+        {"stage": stage.code, "previous_id": str(opportunity.id)},
+    )
     await session.commit()
     await session.refresh(fresh)
     return fresh
@@ -1698,6 +1814,13 @@ async def accept(
         at=now,
     )
     _audit(session, principal, "opportunity.accept", opportunity, ip=ip)
+    stage = stage_by_id(await stages(session, principal.tenant_id), opportunity.stage_id)
+    emit(
+        session,
+        opportunity,
+        WebhookEventType.OPPORTUNITY_CREATED,
+        {"stage": stage.code, "accepted": True},
+    )
     await session.commit()
     await session.refresh(opportunity)
     return opportunity
@@ -1749,25 +1872,414 @@ async def win_by_order(
         linked_id=order.id,
         at=order.confirmed_at or datetime.now(UTC),
     )
+    emit(
+        session,
+        opportunity,
+        WebhookEventType.OPPORTUNITY_WON,
+        {"from": current.code, "order_no": order.no},
+        actor_type="system",
+    )
 
 
 async def order_confirmed(session: AsyncSession, order: Order) -> Opportunity | None:
     """订单确认后：这个客户待确认、跟进中的商机变成"赢单"（由调用方提交）。"""
-    if order.customer_id is None:
-        return None
-    opportunity = await session.scalar(
-        select(Opportunity)
-        .where(
-            Opportunity.customer_id == order.customer_id,
-            Opportunity.status.in_(OPEN_STATUSES),
+    return await order_changed(session, order, "confirmed")
+
+
+# ---- 订单、合同、待办的动态（§40.7）----
+
+ORDER_TITLES = {
+    "submitted": "订单 {no} 提交审核，金额 {total} 元",
+    "confirmed": "订单 {no} 已确认，金额 {total} 元",
+    "shipped": "订单 {no} 已发货",
+    "completed": "订单 {no} 已完成",
+    "cancelled": "订单 {no} 已取消",
+    "paid": "订单 {no} 收款 {amount} 元",
+    "refunded": "订单 {no} 退款 {amount} 元",
+}
+CONTRACT_TITLES = {
+    "create": "起草合同 {no}《{title}》",
+    "generate": "AI 起草合同 {no}《{title}》",
+    "finalize": "合同 {no} 已定稿",
+    "reopen": "合同 {no} 退回修改",
+    "sign": "合同 {no} 已签署",
+    "void": "合同 {no} 已作废",
+}
+TODO_TITLES = {
+    "created": "待办 {no}：{title}",
+    "done": "完成待办 {no}：{title}",
+    "cancelled": "取消待办 {no}：{title}",
+}
+OPEN_TODO_STATUSES = (
+    TodoStatus.PENDING,
+    TodoStatus.OPEN,
+    TodoStatus.IN_PROGRESS,
+    TodoStatus.WAITING,
+)
+
+
+async def related(
+    session: AsyncSession,
+    customer_id: uuid.UUID | None,
+    *,
+    order_id: uuid.UUID | None = None,
+    contract_id: uuid.UUID | None = None,
+) -> Opportunity | None:
+    """订单、合同所属的商机（锁住）：关联了它的那条；否则这个客户待确认、跟进中的那条。"""
+    links = [
+        column == value
+        for column, value in (
+            (Opportunity.order_id, order_id),
+            (Opportunity.contract_id, contract_id),
         )
+        if value is not None
+    ]
+    if links:
+        linked = await session.scalar(
+            select(Opportunity)
+            .where(or_(*links))
+            .order_by(Opportunity.created_at.desc())
+            .limit(1)
+            .with_for_update()
+        )
+        if linked is not None:
+            return linked
+    if customer_id is None:
+        return None
+    return await session.scalar(
+        select(Opportunity)
+        .where(Opportunity.customer_id == customer_id, Opportunity.status.in_(OPEN_STATUSES))
         .with_for_update()
+    )
+
+
+def _yuan(value: Decimal | None) -> str:
+    return f"{value:.2f}" if value is not None else "0.00"
+
+
+async def order_changed(
+    session: AsyncSession,
+    order: Order,
+    change: str,
+    *,
+    amount: Decimal | None = None,
+    staff_id: uuid.UUID | None = None,
+) -> Opportunity | None:
+    """订单的动态写进商机的时间线并自动推进（§40.7，由调用方提交）：提交审核 → 已报价；确认 →
+    赢单（待确认、跟进中的）；发货、完成、取消和收款、退款各记一条。只记事实和编号。"""
+    title = ORDER_TITLES.get(change)
+    if title is None:
+        return None
+    opportunity = await related(session, order.customer_id, order_id=order.id)
+    if opportunity is None:
+        return None
+    all_stages = await stages(session, opportunity.tenant_id)
+    if change == "confirmed" and opportunity.status in OPEN_STATUSES:
+        await win_by_order(session, opportunity, order, all_stages)
+        return opportunity
+    record(
+        session,
+        opportunity,
+        ActivityKind.PAYMENT if change in ("paid", "refunded") else ActivityKind.ORDER,
+        title.format(no=order.no, total=_yuan(order.total), amount=_yuan(amount)),
+        staff_id=staff_id,
+        properties={
+            "change": change,
+            "order_no": order.no,
+            "status": order.status,
+            "total": _yuan(order.total),
+            **({"amount": _yuan(amount)} if amount is not None else {}),
+        },
+        linked_type="order",
+        linked_id=order.id,
+    )
+    if change == "submitted":
+        settings = await opportunity_settings.load(session, opportunity.tenant_id)
+        auto_advance(
+            session,
+            opportunity,
+            all_stages,
+            settings.auto_advance.quote,
+            f"订单 {order.no} 提交审核",
+        )
+    return opportunity
+
+
+async def win_by_contract(
+    session: AsyncSession,
+    opportunity: Opportunity,
+    contract: Contract,
+    all_stages: list[PipelineStage],
+    *,
+    staff_id: uuid.UUID | None,
+) -> None:
+    """合同签署后自动赢单（由调用方提交）：记下合同，预计金额没填时取合同金额。"""
+    current = stage_by_id(all_stages, opportunity.stage_id)
+    won_stage = stage_of_kind(all_stages, StageKind.WON)
+    opportunity.contract_id = contract.id
+    if opportunity.amount is None and contract.amount is not None:
+        opportunity.amount = contract.amount
+    _close(opportunity, OpportunityStatus.WON, won_stage, staff_id)
+    record(
+        session,
+        opportunity,
+        ActivityKind.CONTRACT,
+        f"合同 {contract.no} 已签署，自动赢单",
+        staff_id=staff_id,
+        properties={
+            "from": current.code,
+            "to": won_stage.code,
+            "action": "sign",
+            "contract_no": contract.no,
+        },
+        linked_type="contract",
+        linked_id=contract.id,
+    )
+    emit(
+        session,
+        opportunity,
+        WebhookEventType.OPPORTUNITY_WON,
+        {"from": current.code, "contract_no": contract.no},
+        actor_type="staff" if staff_id else "system",
+    )
+
+
+async def contract_changed(
+    session: AsyncSession,
+    contract: Contract,
+    action: str,
+    *,
+    staff_id: uuid.UUID | None = None,
+) -> Opportunity | None:
+    """合同的动态写进时间线并自动推进（§40.7，由调用方提交）：定稿 → 谈判中；签署 → 赢单；起草、
+    退回修改、作废各记一条。起草的合同挂到这条商机上（还没有关联合同时）。"""
+    title = CONTRACT_TITLES.get(action)
+    if title is None:
+        return None
+    opportunity = await related(
+        session, contract.customer_id, order_id=contract.order_id, contract_id=contract.id
     )
     if opportunity is None:
         return None
     all_stages = await stages(session, opportunity.tenant_id)
-    await win_by_order(session, opportunity, order, all_stages)
+    if action == "sign" and opportunity.status in OPEN_STATUSES:
+        await win_by_contract(session, opportunity, contract, all_stages, staff_id=staff_id)
+        return opportunity
+    record(
+        session,
+        opportunity,
+        ActivityKind.CONTRACT,
+        title.format(no=contract.no, title=contract.title),
+        staff_id=staff_id,
+        properties={
+            "action": action,
+            "contract_no": contract.no,
+            "status": contract.status,
+            **({"amount": _yuan(contract.amount)} if contract.amount is not None else {}),
+        },
+        linked_type="contract",
+        linked_id=contract.id,
+    )
+    if (
+        opportunity.contract_id is None
+        and action in ("create", "generate")
+        and opportunity.status in OPEN_STATUSES
+    ):
+        opportunity.contract_id = contract.id
+    if action == "finalize":
+        settings = await opportunity_settings.load(session, opportunity.tenant_id)
+        auto_advance(
+            session,
+            opportunity,
+            all_stages,
+            settings.auto_advance.contract_final,
+            f"合同 {contract.no} 定稿",
+        )
     return opportunity
+
+
+async def open_opportunity_id(
+    session: AsyncSession, customer_id: uuid.UUID | None
+) -> uuid.UUID | None:
+    """客户待确认、跟进中的商机（新建待办时挂上去）。"""
+    if customer_id is None:
+        return None
+    return await session.scalar(
+        select(Opportunity.id).where(
+            Opportunity.customer_id == customer_id, Opportunity.status.in_(OPEN_STATUSES)
+        )
+    )
+
+
+async def todo_changed(
+    session: AsyncSession, todo: Todo, change: str, *, staff_id: uuid.UUID | None = None
+) -> Opportunity | None:
+    """关联商机的待办的创建、完成、取消写进时间线（§40.7，由调用方提交）；"报价"类的待办完成后
+    自动推进到已报价。"""
+    title = TODO_TITLES.get(change)
+    if title is None or todo.opportunity_id is None:
+        return None
+    opportunity = await session.get(Opportunity, todo.opportunity_id, with_for_update=True)
+    if opportunity is None:
+        return None
+    type_ = await session.get(TodoType, todo.type_id)
+    record(
+        session,
+        opportunity,
+        ActivityKind.TODO,
+        title.format(no=todo.no, title=todo.title),
+        staff_id=staff_id,
+        content=todo.result if change == "done" else None,
+        properties={
+            "change": change,
+            "todo_no": todo.no,
+            "type": type_.code if type_ else None,
+            "type_name": type_.name if type_ else None,
+            "status": todo.status,
+        },
+        linked_type="todo",
+        linked_id=todo.id,
+    )
+    if change == "done" and type_ is not None and type_.code == "quote":
+        settings = await opportunity_settings.load(session, opportunity.tenant_id)
+        auto_advance(
+            session,
+            opportunity,
+            await stages(session, opportunity.tenant_id),
+            settings.auto_advance.quote,
+            f"报价待办 {todo.no} 完成",
+        )
+    return opportunity
+
+
+async def open_todos(session: AsyncSession, opportunity_id: uuid.UUID) -> list[TodoBrief]:
+    """这条商机上没完成的待办（详情里显示）。"""
+    rows = (
+        await session.execute(
+            select(Todo, TodoType.name, Staff.display_name)
+            .join(TodoType, TodoType.id == Todo.type_id)
+            .outerjoin(Staff, Staff.id == Todo.assignee_id)
+            .where(Todo.opportunity_id == opportunity_id, Todo.status.in_(OPEN_TODO_STATUSES))
+            .order_by(Todo.due_at.nulls_last(), Todo.created_at)
+        )
+    ).all()
+    return [
+        TodoBrief(
+            id=t.id,
+            no=t.no,
+            title=t.title,
+            type_name=type_name,
+            status=t.status,
+            due_at=t.due_at,
+            assignee_name=assignee,
+        )
+        for t, type_name, assignee in rows
+    ]
+
+
+async def schedule_todo(
+    session: AsyncSession,
+    keys: TenantKeyring | None,
+    principal: Principal,
+    opportunity_id: uuid.UUID,
+    payload: NextStep,
+) -> Opportunity:
+    """安排下一步（§40.7）：建一条关联这条商机的待办（默认"回电 / 回访"，处理人默认是负责人），
+    可以同时改下次跟进日期。待办的到期提醒走待办自己的机制。"""
+    from app.modules.todos import service as todo_service
+    from app.modules.todos.presets import type_by_code
+
+    opportunity = await get_visible(session, principal, opportunity_id, lock=True)
+    _ensure_active(opportunity, "安排下一步")
+    try:
+        type_ = await type_by_code(session, principal.tenant_id, payload.type_code)
+    except LookupError as exc:
+        raise Unprocessable("待办类型不存在") from exc
+    if not type_.enabled or type_.system:
+        raise Unprocessable("这个类型的待办不能手工新建")
+    assignee = payload.assignee_id or opportunity.owner_id or principal.staff_id
+    if assignee not in (principal.staff_id, opportunity.owner_id) and not principal.has(
+        Permission.TODO_ASSIGN
+    ):
+        raise Forbidden("没有分派待办的权限，只能安排给自己或负责人")
+    staff = await session.get(Staff, assignee)
+    if staff is None or staff.status != StaffStatus.ACTIVE:
+        raise Unprocessable("处理人不存在或者已经停用")
+    now = datetime.now(UTC)
+    if payload.due_at is not None and payload.due_at <= now:
+        raise Unprocessable("截止时间必须晚于现在")
+    day = await today(session)
+    if payload.next_follow_at is not None and payload.next_follow_at < day:
+        raise Unprocessable("下次跟进日期不能早于今天")
+    await todo_service.create(
+        session,
+        keys,
+        todo_service.Draft(
+            type=type_,
+            title=(payload.title or f"{type_.name}：{opportunity.name}")[:100],
+            detail=payload.detail,
+            source=TodoSource.STAFF,
+            created_by_type=ActorType.STAFF,
+            created_by=principal.staff_id,
+            customer_id=opportunity.customer_id,
+            due_at=payload.due_at,
+            explicit=True,
+            assignee_id=assignee,
+            opportunity_id=opportunity.id,
+        ),
+        now=now,
+    )
+    if payload.next_follow_at is not None:
+        opportunity.next_follow_at = payload.next_follow_at
+    opportunity.updated_at = now
+    await session.commit()
+    await session.refresh(opportunity)
+    return opportunity
+
+
+# ---- 轮流分配（§40.6）----
+
+
+async def round_robin_owner(
+    session: AsyncSession, settings: OpportunitySettings
+) -> uuid.UUID | None:
+    """设置为轮流分配时：技能组里启用的成员中，还没分到过商机的先分（先加入企业的在前），然后是最近
+    分到商机最早的。没有设置或者组里没有启用的成员时为空。"""
+    if settings.assignment != "round_robin" or settings.assignment_group_id is None:
+        return None
+    members = list(
+        (
+            await session.scalars(
+                select(SkillGroupMember.staff_id)
+                .join(Staff, Staff.id == SkillGroupMember.staff_id)
+                .where(
+                    SkillGroupMember.skill_group_id == settings.assignment_group_id,
+                    Staff.status == StaffStatus.ACTIVE,
+                )
+                .order_by(Staff.created_at, Staff.id)
+            )
+        ).all()
+    )
+    if not members:
+        return None
+    latest: dict[uuid.UUID, datetime] = {
+        owner_id: at
+        for owner_id, at in await session.execute(
+            select(Opportunity.owner_id, func.max(Opportunity.created_at))
+            .where(Opportunity.owner_id.in_(members))
+            .group_by(Opportunity.owner_id)
+        )
+        if owner_id is not None
+    }
+    floor = datetime.min.replace(tzinfo=UTC)
+    return min(
+        members,
+        key=lambda staff_id: (
+            staff_id in latest,
+            latest.get(staff_id, floor),
+            members.index(staff_id),
+        ),
+    )
 
 
 # ---- 合并客户 ----
@@ -1839,3 +2351,87 @@ def level_of(stage: int | None) -> OpportunityLevel:
     if stage is not None and stage >= 3:
         return OpportunityLevel.MEDIUM
     return OpportunityLevel.LOW
+
+
+# ---- 导出、企业系统回传 ----
+
+
+async def export_conditions(
+    session: AsyncSession,
+    keys: TenantKeyring,
+    principal: Principal,
+    *,
+    view: str,
+    stage_id: uuid.UUID | None,
+    owner_id: uuid.UUID | None,
+    q: str | None,
+) -> list[ColumnElement[bool]]:
+    """导出用的筛选条件：查看范围、快捷视图、阶段、负责人、搜索。"""
+    day = await today(session)
+    conditions = await _scope(keys, principal, stage_id=stage_id, owner_id=owner_id, q=q)
+    conditions.append(_view(view, day, principal))
+    return conditions
+
+
+async def close_by_system(
+    session: AsyncSession,
+    opportunity: Opportunity,
+    all_stages: list[PipelineStage],
+    status: OpportunityStatus,
+    *,
+    order: Order | None = None,
+    reason_code: str | None = None,
+    reason: str | None = None,
+    actor_type: str = "api",
+) -> None:
+    """没有员工操作的赢单 / 输单（企业系统回传，由调用方提交）。"""
+    current = stage_by_id(all_stages, opportunity.stage_id)
+    if status == OpportunityStatus.WON:
+        if order is not None:
+            await win_by_order(session, opportunity, order, all_stages)
+            return
+        won_stage = stage_of_kind(all_stages, StageKind.WON)
+        _close(opportunity, OpportunityStatus.WON, won_stage, None)
+        record(
+            session,
+            opportunity,
+            ActivityKind.STAGE,
+            f"赢单（{current.name} → {won_stage.name}，企业系统回传）",
+            properties={"from": current.code, "to": won_stage.code, "by": actor_type},
+        )
+        emit(
+            session,
+            opportunity,
+            WebhookEventType.OPPORTUNITY_WON,
+            {"from": current.code},
+            actor_type=actor_type,
+        )
+        return
+    settings = await opportunity_settings.load(session, opportunity.tenant_id)
+    name = settings.lost_reason_name(reason_code)
+    if reason_code is None or name is None:
+        raise Unprocessable("请选择输单原因（商机设置里的分类代码）")
+    lost_stage = stage_of_kind(all_stages, StageKind.LOST)
+    opportunity.lost_reason_code = reason_code
+    opportunity.lost_reason = reason
+    _close(opportunity, OpportunityStatus.LOST, lost_stage, None)
+    record(
+        session,
+        opportunity,
+        ActivityKind.STAGE,
+        f"输单：{name}（企业系统回传）",
+        content=reason,
+        properties={
+            "from": current.code,
+            "to": lost_stage.code,
+            "reason_code": reason_code,
+            "by": actor_type,
+        },
+    )
+    emit(
+        session,
+        opportunity,
+        WebhookEventType.OPPORTUNITY_LOST,
+        {"from": current.code, "reason_code": reason_code, "reason_name": name},
+        actor_type=actor_type,
+    )

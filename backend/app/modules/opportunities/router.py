@@ -5,11 +5,13 @@
 需要 opportunity:manage；把负责人改成别人、商机设置和阶段需要 opportunity:assign。
 """
 
+from datetime import date
 from decimal import Decimal
 from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, Request, Response, status
+from fastapi.responses import StreamingResponse
 
 from app.context import AppContext
 from app.core.deps import client_ip, get_context
@@ -19,14 +21,17 @@ from app.modules.audit.service import record_audit
 from app.modules.iam.deps import TenantDb, require_permission
 from app.modules.iam.principal import Principal
 from app.modules.opportunities import ai, service
+from app.modules.opportunities import export as opportunity_export
 from app.modules.opportunities import settings as opportunity_settings
 from app.modules.opportunities.schemas import (
     CustomerOpportunityInfo,
     FollowupCreate,
+    NextStep,
     OpportunityActivityOut,
     OpportunityAssign,
     OpportunityBoard,
     OpportunityCreate,
+    OpportunityDigest,
     OpportunityLevelValue,
     OpportunityLost,
     OpportunityMessage,
@@ -53,6 +58,7 @@ Context = Annotated[AppContext, Depends(get_context)]
 CanRead = Annotated[Principal, Depends(require_permission(Permission.OPPORTUNITY_READ))]
 CanManage = Annotated[Principal, Depends(require_permission(Permission.OPPORTUNITY_MANAGE))]
 CanAssign = Annotated[Principal, Depends(require_permission(Permission.OPPORTUNITY_ASSIGN))]
+CanExport = Annotated[Principal, Depends(require_permission(Permission.OPPORTUNITY_EXPORT))]
 
 
 @router.get("", response_model=OpportunityPage)
@@ -118,8 +124,47 @@ async def board(
 
 @router.get("/stats", response_model=OpportunityStats)
 async def stats(session: TenantDb, principal: CanRead) -> OpportunityStats:
-    """顶部数字。"""
+    """顶部数字（首页的四个数字也从这里取：我负责的、本周要跟进、停滞、本月赢单金额）。"""
     return await service.stats(session, principal)
+
+
+@router.get(
+    "/export",
+    response_class=StreamingResponse,
+    responses={200: {"content": {"text/csv": {}}, "description": "CSV 文件"}},
+)
+async def export_opportunities(
+    request: Request,
+    ctx: Context,
+    session: TenantDb,
+    principal: CanExport,
+    view: OpportunityView = "all",
+    stage_id: UUID | None = None,
+    owner_id: UUID | None = None,
+    q: str | None = Query(default=None, max_length=100),
+) -> StreamingResponse:
+    """导出查看范围内、符合筛选条件的商机（CSV）。预计金额设置为只有管理者可见而自己不能看时，
+    金额列为空。"""
+    conditions = await service.export_conditions(
+        session, ctx.keys, principal, view=view, stage_id=stage_id, owner_id=owner_id, q=q
+    )
+    record_audit(
+        session,
+        action="opportunity.export",
+        actor_type="staff",
+        actor_id=principal.staff_id,
+        tenant_id=principal.tenant_id,
+        resource_type="opportunity",
+        detail={"view": view, "q": q},
+        ip=client_ip(request),
+    )
+    await session.commit()
+    name = f"opportunities-{date.today():%Y%m%d}.csv"
+    return StreamingResponse(
+        opportunity_export.rows(ctx, principal, conditions),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{name}"'},
+    )
 
 
 @router.post("", response_model=OpportunityOut, status_code=status.HTTP_201_CREATED)
@@ -233,13 +278,14 @@ async def update_opportunity(
     opportunity_id: UUID,
     payload: OpportunityUpdate,
     request: Request,
+    ctx: Context,
     session: TenantDb,
     principal: CanManage,
 ) -> OpportunityOut:
     """修改名称、等级、想要什么、顾虑、预计金额、预计成交日、概率、下次跟进日期、关联商品、
-    负责人（改成别人需要分配商机的权限）。"""
+    负责人（改成别人需要分配商机的权限，会提醒新负责人）。"""
     opportunity = await service.update(
-        session, principal, opportunity_id, payload, ip=client_ip(request)
+        session, principal, opportunity_id, payload, ip=client_ip(request), ctx=ctx
     )
     return await service.out(session, principal, opportunity)
 
@@ -361,12 +407,13 @@ async def assign(
     opportunity_id: UUID,
     payload: OpportunityAssign,
     request: Request,
+    ctx: Context,
     session: TenantDb,
     principal: CanManage,
 ) -> OpportunityOut:
-    """换负责人（改成别人需要分配商机的权限）。"""
+    """换负责人（改成别人需要分配商机的权限，会提醒新负责人）。"""
     opportunity = await service.assign(
-        session, principal, opportunity_id, payload.owner_id, ip=client_ip(request)
+        session, principal, opportunity_id, payload.owner_id, ip=client_ip(request), ctx=ctx
     )
     return await service.out(session, principal, opportunity)
 
@@ -378,3 +425,26 @@ async def write_message(
     """AI 写跟进话术（需要套餐包含 AI）：员工修改后自己发送。"""
     opportunity = await service.get_visible(session, principal, opportunity_id)
     return await ai.message(ctx, session, principal, opportunity)
+
+
+@router.post("/{opportunity_id}/summary", response_model=OpportunityDigest)
+async def write_summary(
+    opportunity_id: UUID, ctx: Context, session: TenantDb, principal: CanManage
+) -> OpportunityDigest:
+    """AI 小结（需要套餐包含 AI）：现在到哪一步、客户在意什么、建议下一步；同时记进时间线。"""
+    opportunity = await service.get_visible(session, principal, opportunity_id)
+    return await ai.summary(ctx, session, principal, opportunity)
+
+
+@router.post("/{opportunity_id}/todos", response_model=OpportunityOut)
+async def schedule_next(
+    opportunity_id: UUID,
+    payload: NextStep,
+    ctx: Context,
+    session: TenantDb,
+    principal: CanManage,
+) -> OpportunityOut:
+    """安排下一步：建一条关联这条商机的待办（默认"回电 / 回访"，处理人默认是负责人），可以同时改
+    下次跟进日期。"""
+    opportunity = await service.schedule_todo(session, ctx.keys, principal, opportunity_id, payload)
+    return await service.out(session, principal, opportunity)

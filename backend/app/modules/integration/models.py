@@ -16,6 +16,8 @@ class Scope(StrEnum):
     ORDERS_READ = "orders:read"  # 查询订单（含收货信息明文）
     ORDERS_WRITE = "orders:write"  # 创建订单，回传状态、物流和收款
     TODOS_WRITE = "todos:write"  # 创建待办
+    OPPORTUNITIES_READ = "opportunities:read"  # 查询商机（设计文档 §40.13）
+    OPPORTUNITIES_WRITE = "opportunities:write"  # 创建线索、修改商机
 
 
 class DeliveryStatus(StrEnum):
@@ -32,6 +34,12 @@ class WebhookEventType(StrEnum):
     ORDER_CANCELLED = "order.cancelled"
     ORDER_PAYMENT = "order.payment"  # 登记收款、退款或作废收款
     TODO_DONE = "todo.done"
+    # 商机（设计文档 §40.13）：转入、换阶段、赢单、输单、换负责人。
+    OPPORTUNITY_CREATED = "opportunity.created"
+    OPPORTUNITY_STAGE_CHANGED = "opportunity.stage_changed"
+    OPPORTUNITY_WON = "opportunity.won"
+    OPPORTUNITY_LOST = "opportunity.lost"
+    OPPORTUNITY_ASSIGNED = "opportunity.assigned"
     PING = "ping"  # 测试推送
 
 
