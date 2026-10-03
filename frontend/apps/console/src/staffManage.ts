@@ -1,7 +1,7 @@
 /**
  * 员工卡片上的管理操作（编辑、重置密码、停用/启用、删除，设计文档 §38.4、§39.1、§39.5）：能不能对这个员工操作。
  * 和后端的规则一致：不能管理权限高于自己的员工；自己的账号不能重置（要输入当前密码修改）、停用或删除；
- * 企业所有者的账号只能由本人修改，密码由平台运维人员重置。
+ * 企业所有者的账号只能由本人修改：密码由他自己修改，忘记时由平台运维人员重置。
  */
 export type ManageAccess = 'ok' | 'self' | 'higher' | 'owner'
 
@@ -23,7 +23,7 @@ export function manageHint(access: ManageAccess, action: string): string | null 
   if (access === 'higher') return `权限高于你，请让管理员${action}`
   if (access === 'self') return `不能${action}自己的账号`
   if (access === 'owner') {
-    if (action === '重置') return '企业所有者的密码只能由平台运维人员重置'
+    if (action === '重置') return '企业所有者的密码由本人修改，或由平台运维人员重置'
     if (action === '编辑') return '企业所有者的资料只能由本人修改'
     return `不能${action}企业所有者`
   }

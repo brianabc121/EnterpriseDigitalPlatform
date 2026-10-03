@@ -235,7 +235,7 @@ async def reset_password(
         raise Unprocessable("不能重置自己的密码，请在右上角的账号菜单里修改密码")
     staff = await _target(session, principal, staff_id)
     await owner.refuse_others(
-        session, principal, staff.id, "企业所有者的密码只能由平台运维人员重置"
+        session, principal, staff.id, "企业所有者的密码由本人修改，或由平台运维人员重置"
     )
     generated = await passwords.reset(
         session, staff, payload.password, must_change=payload.must_change

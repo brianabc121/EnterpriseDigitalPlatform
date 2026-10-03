@@ -33,7 +33,7 @@ describe('manageHint', () => {
   })
 
   it('explains the owner card', () => {
-    expect(manageHint('owner', '重置')).toBe('企业所有者的密码只能由平台运维人员重置')
+    expect(manageHint('owner', '重置')).toBe('企业所有者的密码由本人修改，或由平台运维人员重置')
     expect(manageHint('owner', '编辑')).toBe('企业所有者的资料只能由本人修改')
     expect(manageHint('owner', '停用')).toBe('不能停用企业所有者')
   })

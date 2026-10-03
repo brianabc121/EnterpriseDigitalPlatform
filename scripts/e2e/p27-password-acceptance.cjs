@@ -381,7 +381,7 @@ async function hrPage(browser) {
   const tips = { remove: await tooltip(workerDelete, '权限高于你，请让管理员删除') }
   await frameDiagram(page)
   tips.edit = await tooltip(page.locator('[data-testid="edit-admin"]'), '企业所有者的资料只能由本人修改')
-  tips.reset = await tooltip(owner.reset, '企业所有者的密码只能由平台运维人员重置')
+  tips.reset = await tooltip(owner.reset, '企业所有者的密码由本人修改，或由平台运维人员重置')
   check('tooltips explain why (编辑、重置、删除)', Object.values(tips).every(Boolean), tips)
   await settle(page)
   await page.screenshot({ path: `${SHOTS}/p27-03-hr-view.png` })
