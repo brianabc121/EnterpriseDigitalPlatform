@@ -11420,7 +11420,7 @@ export interface components {
          * @description 控制台的菜单，与前端 menu.ts 的菜单名一致（前端按 OpenAPI 的枚举检查）。
          * @enum {string}
          */
-        ConsoleMenu: "dashboard" | "workbench" | "sessions" | "todos" | "orders" | "receivables" | "contracts" | "materials" | "products" | "production" | "warehouse" | "tasks" | "customers" | "knowledge" | "ai" | "wake" | "assistant" | "staff" | "reports" | "profit" | "tokens" | "broadcasts" | "wecom" | "audit" | "settings";
+        ConsoleMenu: "dashboard" | "workbench" | "sessions" | "todos" | "orders" | "receivables" | "contracts" | "materials" | "products" | "production" | "warehouse" | "tasks" | "customers" | "opportunities" | "knowledge" | "ai" | "wake" | "assistant" | "staff" | "reports" | "profit" | "tokens" | "broadcasts" | "wecom" | "audit" | "settings";
         /**
          * ConsoleOut
          * @description 按岗位的控制台（设计文档 §25.15）。

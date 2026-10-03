@@ -682,7 +682,7 @@ async def test_due_check_groups_by_owner_and_merge_keeps_one_record(desk: Desk) 
     assert finding["title"] == "Alice 有 2 条商机该跟进了"
     assert finding["severity"] == "critical" and finding["assignee_ids"] == [alice.staff_id]
     assert finding["detail"].startswith("客户甲、客户乙。其中 1 位已经过了下次跟进日期")
-    assert finding["link"] == f"/customers?tab=prospects&view=overdue&owner={alice.staff_id}"
+    assert finding["link"] == f"/opportunities?view=overdue&owner={alice.staff_id}"
     assert json.loads(finding["data"]) == {"due": 2, "overdue": 1}
 
     # 跟进以后自动消除。
@@ -1016,7 +1016,7 @@ async def test_wake_flags_stale_overdue_and_unattended_opportunities(desk: Desk)
     assert unattended["title"] == "甲 的新线索 30 小时没人跟进"
     assert unattended["severity"] == "warning" and str(unattended["entity_id"]) == made[0]["id"]
     assert unattended["detail"].endswith("员工转入，还没有记过跟进，负责人 管理员。")
-    assert unattended["link"] == f"/customers?tab=prospects&id={made[0]['id']}"
+    assert unattended["link"] == f"/opportunities?id={made[0]['id']}"
     [stale] = hits("opportunity_stale")
     assert stale["title"] == "乙 的商机在「已沟通」停了 15 天" and stale["severity"] == "critical"
     assert "这个阶段的停滞天数是 7 天" in stale["detail"]

@@ -978,7 +978,7 @@ async def prospect_due(scope: Scope) -> list[Hit]:
         if overdue:
             detail += f"其中 {len(overdue)} 位已经过了下次跟进日期（最早 {min(overdue):%m-%d}）。"
         view = "overdue" if overdue else "today"
-        link = f"/customers?tab=prospects&view={view}"
+        link = f"/opportunities?view={view}"
         hits.append(
             Hit(
                 key=f"staff:{owner_id}" if owner_id else "unassigned",
@@ -1002,7 +1002,7 @@ async def prospect_due(scope: Scope) -> list[Hit]:
 
 
 def _opportunity_link(opportunity_id: uuid.UUID) -> str:
-    return f"/customers?tab=prospects&id={opportunity_id}"
+    return f"/opportunities?id={opportunity_id}"
 
 
 async def opportunity_stale(scope: Scope) -> list[Hit]:

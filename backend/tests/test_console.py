@@ -17,9 +17,9 @@ from tests.test_warehouse import material
 
 ALL = [
     "dashboard", "workbench", "sessions", "todos", "orders", "receivables", "contracts",
-    "materials", "products", "production", "warehouse", "tasks", "customers", "knowledge", "ai",
-    "wake", "assistant", "staff", "reports", "profit", "tokens", "broadcasts", "wecom", "audit",
-    "settings",
+    "materials", "products", "production", "warehouse", "tasks", "customers", "opportunities",
+    "knowledge", "ai", "wake", "assistant", "staff", "reports", "profit", "tokens", "broadcasts",
+    "wecom", "audit", "settings",
 ]  # fmt: skip
 
 
@@ -58,6 +58,7 @@ async def test_each_role_has_its_own_console(desk: Desk) -> None:
             "materials",
             "tasks",
             "customers",
+            "opportunities",
             "knowledge",
             "assistant",
         ],
@@ -68,8 +69,8 @@ async def test_each_role_has_its_own_console(desk: Desk) -> None:
         "profiles": ["supervisor"],
         "menus": [
             "dashboard", "workbench", "sessions", "todos", "orders", "contracts", "materials",
-            "products", "warehouse", "tasks", "customers", "knowledge", "assistant", "reports",
-            "broadcasts",
+            "products", "warehouse", "tasks", "customers", "opportunities", "knowledge",
+            "assistant", "reports", "broadcasts",
         ],
     }  # fmt: skip
     knowledge = await create_knowledge_role(desk.client, desk.admin_token)
@@ -97,7 +98,7 @@ async def test_each_role_has_its_own_console(desk: Desk) -> None:
         "profiles": ["agent", "keeper"],
         "menus": [
             "dashboard", "workbench", "sessions", "todos", "orders", "contracts", "materials",
-            "warehouse", "tasks", "customers", "knowledge", "assistant",
+            "warehouse", "tasks", "customers", "opportunities", "knowledge", "assistant",
         ],
     }  # fmt: skip
 

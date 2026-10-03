@@ -1,18 +1,19 @@
-// P24 验收：意向客户（设计文档 §35）——员工转入、跟进、AI 写跟进话术、访客咨询后 AI 转入、客户又来咨询、
-// 订单确认后自动成交、只建议时确认 AI 的建议、"意向客户该跟进了"的提醒、放弃和重新跟进、坐席的查看范围，
-// 在浏览器里走通。
+// P24 / P28 验收：商机（设计文档 §40，原意向客户 §35）——员工转入、看板拖拽换阶段、跟进、AI 写跟进话术、访客咨询后
+// AI 转入、客户又来咨询、订单确认后自动赢单、只建议时确认 AI 的建议、"商机该跟进了"的提醒、输单和重新跟进、坐席的
+// 查看范围，在浏览器里走通。
 //
 // 1. 准备：知识"智能门锁国庆活动"、商品、客户"王先生"（归管理员）；坐席小艾；平台的"意图判断"路由到
 //    判断模型（接到模拟服务，结束时删除）。
-// 2. 管理员在客户资料里把王先生转入意向客户（意向高），客户列表标"意向"；"意向客户"页签的数字和列表；
-//    意向详情里 AI 写跟进话术（参考知识库）、记一次跟进、把下次跟进改成今天。
-// 3. 访客咨询智能门锁（意向明确、嫌贵、下周再说），小艾接待后结束会话：AI 转入意向客户（来源 AI，想要
-//    什么、顾虑、7 天后跟进，跟进人小艾），依据的会话可以点开；访客又来说要下单：记"客户又来咨询了"、
-//    等级调高；这个客户的订单确认后自动成交，"本月成交"加一。
-// 4. 意向客户设置改成"只建议"：另一位访客咨询后进"待确认"，管理员确认转入。
-// 5. AI 唤醒的每日巡检提醒"管理员 有 1 条商机该跟进了"，提醒的链接打开今天该跟进的列表。
-// 6. 放弃（写原因）和重新跟进。
-// 7. 小艾只看到自己跟进的意向客户（客户不归她也能看到），没有意向客户设置。
+// 2. 管理员在客户资料里把王先生转入商机（意向高、预计金额），客户列表标阶段"新线索"；"商机看板"：卡片在"新线索"
+//    列，拖到"已沟通"、菜单"移到…"到"已报价"，拖到"赢单"弹出确认；列表里的数字和一行；商机详情里 AI 写跟进话术
+//    （参考知识库）、记一次跟进、把下次跟进改成今天。
+// 3. 访客咨询智能门锁（意向明确、嫌贵、下周再说），小艾接待后结束会话：AI 转入商机（来源 AI，想要什么、顾虑、
+//    7 天后跟进，负责人小艾），依据的会话可以点开；访客又来说要下单：记"客户又来咨询了"、等级调高；这个客户的
+//    订单确认后自动赢单，"本月赢单"加一。
+// 4. 商机设置改成"只建议"：另一位访客咨询后进"待确认"，管理员确认转入。
+// 5. AI 唤醒的每日巡检提醒"管理员 有 1 条商机该跟进了"，提醒的链接打开今天该跟进的看板。
+// 6. 输单（选原因、写说明）和重新跟进（回到已沟通）。
+// 7. 小艾有"商机"菜单，只看到自己负责的商机（客户不归她也能看到），没有商机设置。
 //
 // 前置：与 p22-wake-acceptance.cjs 相同（后端、实时消费进程、调度进程接到模拟大模型 :8900），另需访客
 // Widget（:5175）。运行：NODE_PATH=$(npm root -g) PLATFORM_PASSWORD=<密码> node scripts/e2e/p24-prospect-acceptance.cjs
@@ -111,7 +112,7 @@ async function prepare() {
     token: state.ops,
     body: {
       code: TENANT,
-      name: `意向客户验收 ${RUN}`,
+      name: `商机验收 ${RUN}`,
       admin: { username: 'admin', display_name: '管理员', password: PASSWORD },
     },
   })
@@ -224,136 +225,212 @@ async function success(page, text, timeout = 15_000) {
 const settle = (page) => page.waitForTimeout(600)
 const text = (locator) => locator.innerText().then((t) => t.trim())
 
-/** el-input 的 textarea（data-testid 可能在 textarea 上，也可能在外层）。 */
+/** el-input 的 textarea / input（data-testid 可能在 textarea 上，也可能在外层）。 */
 const area = (scope, testid) =>
   scope.locator(`textarea[data-testid="${testid}"], [data-testid="${testid}"] textarea`).first()
+const input = (scope, testid) =>
+  scope.locator(`input[data-testid="${testid}"], [data-testid="${testid}"] input`).first()
 
 async function closeDrawer(page) {
   await page.locator('.el-drawer__close-btn:visible').last().click()
+  await page.mouse.move(400, 300)
   await settle(page)
 }
 
-/** 关闭指定的抽屉（意向详情里打开的会话记录叠在上面，关闭按钮在同一个位置）。 */
+/** 关闭指定的抽屉（商机详情里打开的会话记录叠在上面，关闭按钮在同一个位置）。 */
 async function closeNamed(page, testid) {
   const drawer = page.locator(`.el-drawer[data-testid="${testid}"], .el-drawer:has([data-testid="${testid}"])`).first()
   await drawer.locator('.el-drawer__close-btn').click()
   await drawer.waitFor({ state: 'hidden' })
 }
 
-async function prospects(page, view) {
-  await page.goto(`${CONSOLE}/customers?tab=prospects${view ? `&view=${view}` : ''}`)
-  await page.waitForSelector('[data-testid="prospect-table"]')
-  await page.waitForFunction(() => !document.querySelector('[data-testid="prospect-table"] .el-loading-mask'))
+/** 打开商机页面：看板（默认）或列表，可以带快捷视图。 */
+async function opportunities(page, view, mode = 'list') {
+  const query = [mode === 'list' ? 'mode=list' : '', view ? `view=${view}` : ''].filter(Boolean).join('&')
+  await page.goto(`${CONSOLE}/opportunities${query ? `?${query}` : ''}`)
+  const root = mode === 'list' ? 'opp-table' : 'opp-board'
+  await page.waitForSelector(`[data-testid="${root}"]`)
+  await page.waitForFunction((id) => !document.querySelector(`[data-testid="${id}"] .el-loading-mask`), root)
+  await page.waitForSelector('[data-testid="opp-tiles"]')
+  // 鼠标从右上角（上一个抽屉的关闭按钮）挪开，不然顶栏的悬停菜单会盖住页面头部的按钮。
+  await page.mouse.move(400, 300)
 }
 
 async function rowOf(page, name) {
-  const row = page.locator('[data-testid="prospect-table"] .el-table__row', { hasText: name }).first()
+  const row = page.locator('[data-testid="opp-table"] .el-table__row', { hasText: name }).first()
   await row.waitFor()
   return row
 }
 
-async function openProspect(page, name) {
+async function openOpportunity(page, name) {
   await (await rowOf(page, name)).click()
-  const drawer = page.locator('[data-testid="prospect-drawer"]')
-  await drawer.locator('[data-testid="prospect-status"]').waitFor()
+  const drawer = page.locator('[data-testid="opp-drawer"]')
+  await drawer.locator('[data-testid="opp-status"]').waitFor()
   return drawer
 }
 
 async function tile(page, name) {
-  return Number((await text(page.locator(`[data-testid="prospect-tile-${name}"] .value`))) || 0)
+  return Number((await text(page.locator(`[data-testid="opp-tile-${name}"] .value`))) || 0)
 }
 
-// ---- 2. 员工转入、跟进、AI 写跟进话术 ----
+/** 看板上的卡片（卡片里的菜单、下次跟进也以 opp-card- 开头，按 class 排除）。 */
+const CARD = '.card[data-testid^="opp-card-"]'
+const cardsIn = (page, code) => page.locator(`[data-testid="opp-column-${code}"] ${CARD}`)
+
+// ---- 2. 员工转入、看板、跟进、AI 写跟进话术 ----
 
 async function staffConverts(page) {
   await page.goto(`${CONSOLE}/customers`)
   await page.waitForSelector('[data-testid="customer-table"]')
   await page.locator('[data-testid="customer-table"] .el-table__row', { hasText: '王先生' }).getByRole('button', { name: '王先生' }).click()
-  const panel = page.locator('[data-testid="customer-prospect"]')
-  await panel.locator('[data-testid="customer-prospect-create"]').click()
-  const dialog = page.locator('[data-testid="prospect-create"]')
+  const panel = page.locator('[data-testid="customer-opportunity"]')
+  await panel.locator('[data-testid="customer-opportunity-create"]').click()
+  const dialog = page.locator('[data-testid="opp-create"]')
   await dialog.waitFor()
-  const fixed = await text(dialog.locator('[data-testid="prospect-create-customer"]'))
-  await dialog.locator('[data-testid="prospect-level"] label', { hasText: '高' }).click()
-  await area(dialog, 'prospect-interest').fill('智能门锁 X1，小区 20 户统一换锁')
-  await area(dialog, 'prospect-concerns').fill('觉得价格偏高，想等活动')
+  const fixed = await text(dialog.locator('[data-testid="opp-create-customer"]'))
+  await dialog.locator('[data-testid="opp-level"] label', { hasText: '高' }).click()
+  await area(dialog, 'opp-interest').fill('智能门锁 X1，小区 20 户统一换锁')
+  await area(dialog, 'opp-concerns').fill('觉得价格偏高，想等活动')
+  const amount = input(dialog, 'opp-amount')
+  await amount.fill('25960')
+  await amount.blur()
   await settle(page)
   await page.screenshot({ path: `${SHOTS}/p24-01-convert.png` })
-  await dialog.locator('[data-testid="prospect-create-save"]').click()
-  await success(page, '已转入意向客户')
-  const status = await text(panel.locator('[data-testid="customer-prospect-status"]'))
-  check('the customer profile converts 王先生 into a prospect', fixed === '王先生' && status === '跟进中', {
-    fixed,
-    status,
-  })
-  // 客户资料里打开意向详情。
-  await panel.locator('[data-testid="customer-prospect-open"]').click()
-  const fromPanel = page.locator('[data-testid="prospect-drawer"]')
-  await fromPanel.locator('[data-testid="prospect-status"]', { hasText: '跟进中' }).waitFor()
-  check('the profile opens the prospect details', (await text(fromPanel)).includes('员工转入'))
-  await closeNamed(page, 'prospect-drawer')
+  await dialog.locator('[data-testid="opp-create-save"]').click()
+  await success(page, '已转入商机')
+  const status = await text(panel.locator('[data-testid="customer-opportunity-status"]'))
+  const panelText = await text(panel)
+  check(
+    'the customer profile converts 王先生 into an opportunity in 新线索 with the amount',
+    fixed === '王先生' && status === '新线索' && panelText.includes('¥25,960'),
+    { fixed, status, panelText },
+  )
+  // 客户资料里打开商机详情。
+  await panel.locator('[data-testid="customer-opportunity-open"]').click()
+  const fromPanel = page.locator('[data-testid="opp-drawer"]')
+  await fromPanel.locator('[data-testid="opp-status"]', { hasText: '跟进中' }).waitFor()
+  const fromPanelText = await text(fromPanel)
+  check(
+    'the profile opens the opportunity details',
+    fromPanelText.includes('员工转入') && fromPanelText.includes('¥25,960'),
+    fromPanelText,
+  )
+  await closeNamed(page, 'opp-drawer')
   await closeDrawer(page)
-  const tag = page.locator(`[data-testid="customer-prospect-tag-${state.wangId}"]`)
+  const tag = page.locator(`[data-testid="customer-opportunity-tag-${state.wangId}"]`)
   await tag.waitFor()
-  check('the customer list tags 王先生 as 意向', (await text(tag)) === '意向')
+  check('the customer list tags 王先生 with the stage 新线索', (await text(tag)) === '新线索')
   await page.screenshot({ path: `${SHOTS}/p24-02-customer-tag.png` })
 
-  await page.locator('[data-testid="customer-tabs"] .el-tabs__item', { hasText: '意向客户' }).click()
-  await page.waitForURL(/tab=prospects/)
-  await page.waitForSelector('[data-testid="prospect-table"]')
+  // 客户页的"商机看板"按钮打开看板。
+  await page.locator('[data-testid="customer-opportunities-link"]').click()
+  await page.waitForURL(/\/opportunities/)
+  await page.waitForSelector('[data-testid="opp-board"]')
+  const card = cardsIn(page, 'new').filter({ hasText: '浦东物业' }).first()
+  await card.waitFor()
+  const cardText = await text(card)
+  const newCount = await text(page.locator('[data-testid="opp-column-count-new"]'))
+  check(
+    'the board shows 王先生 in 新线索 with the amount, the owner and the follow-up in 3 days',
+    cardText.includes('王先生') &&
+      cardText.includes('¥25,960') &&
+      cardText.includes('管理员') &&
+      cardText.includes('3 天后') &&
+      newCount === '1' &&
+      (await tile(page, 'active')) === 1,
+    { cardText, newCount },
+  )
+  await settle(page)
+  await page.screenshot({ path: `${SHOTS}/p24-03-board.png` })
+
+  // 拖到"已沟通"换阶段；卡片菜单"移到…"到"已报价"；拖到"赢单"弹出确认。
+  const cardId = (await card.getAttribute('data-testid')).replace('opp-card-', '')
+  await card.dragTo(page.locator('[data-testid="opp-column-contacted"]'))
+  await success(page, '已移到「已沟通」')
+  const moved = page.locator(`[data-testid="opp-column-contacted"] [data-testid="opp-card-${cardId}"]`)
+  await moved.waitFor()
+  check('dragging the card to 已沟通 changes the stage', (await cardsIn(page, 'new').count()) === 0)
+  await moved.locator(`[data-testid="opp-card-menu-${cardId}"]`).click()
+  await page.locator('.el-dropdown-menu__item:visible', { hasText: '已报价' }).click()
+  await success(page, '已移到「已报价」')
+  const quoted = page.locator(`[data-testid="opp-column-quoted"] [data-testid="opp-card-${cardId}"]`)
+  await quoted.waitFor()
+  check('the card menu moves it to 已报价', await quoted.isVisible())
+  await quoted.dragTo(page.locator('[data-testid="opp-column-won"]'))
+  const wonDialog = page.locator('[data-testid="opp-won-dialog"]')
+  await wonDialog.waitFor()
+  check('dropping on 赢单 asks for confirmation instead of closing at once', await wonDialog.isVisible())
+  await settle(page)
+  await page.screenshot({ path: `${SHOTS}/p24-04-won-dialog.png` })
+  await wonDialog.locator('button', { hasText: '取消' }).click()
+  await wonDialog.waitFor({ state: 'hidden' })
+
+  // 列表：数字和一行。
+  await opportunities(page)
   const row = await rowOf(page, '王先生')
   const rowText = await text(row)
   check(
-    'the prospects tab lists 王先生 with level, wants, concerns and the follow-up in 3 days',
+    'the list shows 王先生 with level, stage, amount, owner and the follow-up in 3 days',
     (await tile(page, 'active')) === 1 &&
       rowText.includes('高') &&
-      rowText.includes('小区 20 户') &&
-      rowText.includes('价格偏高') &&
+      rowText.includes('已报价') &&
+      rowText.includes('¥25,960') &&
+      rowText.includes('管理员') &&
       rowText.includes('3 天后') &&
       rowText.includes(shanghaiDate(3)),
     rowText,
   )
 
-  const drawer = await openProspect(page, '王先生')
-  await drawer.locator('[data-testid="prospect-write-message"]').click()
-  const message = area(drawer, 'prospect-message')
+  const drawer = await openOpportunity(page, '王先生')
+  const stageInfo = await text(drawer.locator('[data-testid="opp-stage-info"]'))
+  const current = await drawer.locator('[data-testid="opp-stage-quoted"]').getAttribute('class')
+  check('the step bar marks 已报价 as the current stage', current.includes('current') && stageInfo.includes('已报价'), {
+    current,
+    stageInfo,
+  })
+  await drawer.locator('[data-testid="opp-write-message"]').click()
+  const message = area(drawer, 'opp-message')
   await message.waitFor()
   const written = await message.inputValue()
-  const refs = await text(drawer.locator('[data-testid="prospect-message-refs"]'))
+  const refs = await text(drawer.locator('[data-testid="opp-message-refs"]'))
   check(
     'AI writes a follow-up message from the knowledge base',
     written.startsWith('王先生您好') && written.includes('国庆期间智能门锁 9 折') && refs.includes('智能门锁国庆活动'),
     { written, refs },
   )
-  await drawer.locator('[data-testid="prospect-copy-message"]').click()
+  await drawer.locator('[data-testid="opp-copy-message"]').click()
   const copied = page.locator('.el-message', { hasText: '复制' }).last()
   await copied.waitFor()
   check('the message can be copied to send by hand', (await copied.getAttribute('class')).includes('success'))
 
-  const form = drawer.locator('[data-testid="prospect-follow-form"]')
+  const form = drawer.locator('[data-testid="opp-follow-form"]')
   await form.locator('label', { hasText: '微信' }).click()
-  await area(form, 'prospect-follow-content').fill('微信发了活动介绍，客户说下周和业委会商量')
-  await form.locator('[data-testid="prospect-follow-save"]').click()
+  await area(form, 'opp-follow-content').fill('微信发了活动介绍，客户说下周和业委会商量')
+  await form.locator('[data-testid="opp-follow-save"]').click()
   await success(page, '已记一次跟进')
-  const timeline = drawer.locator('[data-testid="prospect-activities"]')
+  const timeline = drawer.locator('[data-testid="opp-activities"]')
   await timeline.locator('text=业委会').waitFor()
   const entry = await text(timeline)
-  check('a follow-up is recorded with its method and author', entry.includes('微信') && entry.includes('管理员'), entry)
+  check(
+    'the timeline has the follow-up with its method and author and the stage changes',
+    entry.includes('微信') && entry.includes('管理员') && entry.includes('已报价') && entry.includes('已沟通'),
+    entry,
+  )
 
   // 下次跟进改成今天（之后 AI 唤醒提醒"该跟进了"）。
-  const next = drawer.locator('.el-form-item', { hasText: '下次跟进' }).locator('input').first()
+  const next = drawer.locator('.el-form-item', { hasText: '下次跟进' }).first().locator('input').first()
   await next.fill(shanghaiDate(0))
   await next.press('Enter')
-  await drawer.locator('[data-testid="prospect-save"]').click()
+  await drawer.locator('[data-testid="opp-save"]').click()
   await success(page, '已保存')
-  const due = await text(drawer.locator('[data-testid="prospect-due"]'))
+  const due = await text(drawer.locator('[data-testid="opp-due"]'))
   check('moving the next follow-up to today shows 今天', due === '今天', due)
   await settle(page)
-  await page.screenshot({ path: `${SHOTS}/p24-03-drawer.png` })
+  await page.screenshot({ path: `${SHOTS}/p24-05-drawer.png` })
   await closeDrawer(page)
 }
 
-// ---- 3. 访客咨询后 AI 转入、又来咨询、订单确认后成交 ----
+// ---- 3. 访客咨询后 AI 转入、又来咨询、订单确认后赢单 ----
 
 async function serveAndClose(alice, visitor, ask, stage) {
   await say(visitor, ask)
@@ -374,59 +451,65 @@ async function aiConverts(browser, admin, alice) {
   const visitor = await openVisitor(browser)
   await serveAndClose(alice, visitor, FIRST_ASK, '意向明确')
   await cli('opportunities-scan', TENANT)
-  const page = await until('the AI prospect', async () => {
+  const page = await until('the AI opportunity', async () => {
     const list = await json(`${API}/api/v1/opportunities?view=active`, { token: state.admin })
     return list.items.find((p) => p.source === 'ai') ?? null
   })
   state.aiCustomerId = page.customer_id
   state.aiName = page.customer_name
 
-  await prospects(admin)
+  await opportunities(admin)
   const row = await rowOf(admin, state.aiName)
   const rowText = await text(row)
   check(
-    'AI converts the closed high-intent session: wants, concerns, 7 days, follower 小艾',
+    'AI converts the closed high-intent session: source AI, 新线索, 7 days, owner 小艾, level 中',
     rowText.includes('AI') &&
-      rowText.includes('智能门锁有货吗') &&
-      rowText.includes('价格、还要考虑') &&
+      rowText.includes('新线索') &&
       rowText.includes('7 天后') &&
       rowText.includes('小艾') &&
       rowText.includes('中'),
     rowText,
   )
-  const drawer = await openProspect(admin, state.aiName)
-  await drawer.locator('[data-testid="prospect-session"]').click()
+  const drawer = await openOpportunity(admin, state.aiName)
+  const interest = await area(drawer, 'opp-edit-interest').inputValue()
+  const concerns = await area(drawer, 'opp-edit-concerns').inputValue()
+  check(
+    'the AI filled in what the customer wants and the concerns',
+    interest.includes('智能门锁有货吗') && concerns.includes('价格、还要考虑'),
+    { interest, concerns },
+  )
+  await drawer.locator('[data-testid="opp-session"]').click()
   const session = admin.locator('[data-testid="session-drawer"]')
   await session.locator('text=智能门锁有货吗').first().waitFor()
-  check('the source session opens from the prospect', true)
+  check('the source session opens from the opportunity', true)
   await settle(admin)
-  await admin.screenshot({ path: `${SHOTS}/p24-04-ai-session.png` })
+  await admin.screenshot({ path: `${SHOTS}/p24-06-ai-session.png` })
   await closeNamed(admin, 'session-drawer')
-  await closeNamed(admin, 'prospect-drawer')
+  await closeNamed(admin, 'opp-drawer')
 
-  // 客户又来咨询了：说要下单——系统记一条跟进，等级调高。
+  // 客户又来咨询了：说要下单——系统记一条动态，等级调高。
   await serveAndClose(alice, visitor, RETURN_ASK, '准备下单')
   await cli('opportunities-scan', TENANT)
-  await until('the return visit follow-up', async () => {
+  await until('the return visit entry', async () => {
     const list = await json(`${API}/api/v1/opportunities?view=active&customer_id=${state.aiCustomerId}`, {
       token: state.admin,
     })
     const item = list.items[0]
     return item && item.level === 'high' ? item : null
   })
-  await prospects(admin)
-  const again = await openProspect(admin, state.aiName)
-  const timeline = await text(again.locator('[data-testid="prospect-activities"]'))
+  await opportunities(admin)
+  const again = await openOpportunity(admin, state.aiName)
+  const timeline = await text(again.locator('[data-testid="opp-activities"]'))
   check(
     'a return visit is recorded by the system and the level goes up to 高',
     timeline.includes('客户又来咨询了（准备下单）') && timeline.includes('系统') && (await text(again)).includes('意向高'),
     timeline,
   )
   await settle(admin)
-  await admin.screenshot({ path: `${SHOTS}/p24-05-return.png` })
+  await admin.screenshot({ path: `${SHOTS}/p24-07-return.png` })
   await closeDrawer(admin)
 
-  // 这个客户的订单确认后自动成交。
+  // 这个客户的订单确认后自动赢单。
   const order = await json(`${API}/api/v1/orders`, {
     method: 'POST',
     token: state.admin,
@@ -441,30 +524,34 @@ async function aiConverts(browser, admin, alice) {
     token: state.admin,
     body: { payment_method: 'cod', notify_customer: false },
   })
-  await prospects(admin, 'won')
-  const won = await openProspect(admin, state.aiName)
+  await opportunities(admin, 'won')
+  const won = await openOpportunity(admin, state.aiName)
   const wonText = await text(won)
   check(
-    'confirming the order marks the prospect won with the order',
-    wonText.includes('已成交') && wonText.includes(order.no) && (await tile(admin, 'won')) === 1,
+    'confirming the order marks the opportunity won with the order',
+    wonText.includes('已赢单') && wonText.includes(order.no) && (await tile(admin, 'won')) === 1,
     wonText,
   )
   await settle(admin)
-  await admin.screenshot({ path: `${SHOTS}/p24-06-won.png` })
+  await admin.screenshot({ path: `${SHOTS}/p24-08-won.png` })
   await closeDrawer(admin)
 }
 
 // ---- 4. 只建议：确认 AI 的建议 ----
 
 async function suggestion(browser, admin, alice) {
-  await prospects(admin)
-  await admin.click('[data-testid="prospect-settings-open"]')
-  const dialog = admin.locator('[data-testid="prospect-settings"]')
-  await dialog.locator('[data-testid="prospect-ai-mode"] label', { hasText: '只建议' }).click()
-  await dialog.locator('[data-testid="prospect-settings-save"]').click()
-  await success(admin, '已保存意向客户设置')
+  await opportunities(admin)
+  await admin.click('[data-testid="opp-settings-open"]')
+  const dialog = admin.locator('[data-testid="opp-settings"]')
+  await dialog.waitFor()
+  await settle(admin)
+  await admin.screenshot({ path: `${SHOTS}/p24-09-settings.png` })
+  await dialog.locator('.el-tabs__item', { hasText: 'AI 转入' }).click()
+  await dialog.locator('[data-testid="opp-ai-mode"] label', { hasText: '只建议' }).click()
+  await dialog.locator('[data-testid="opp-settings-save"]').click()
+  await success(admin, '已保存商机设置')
   const saved = await json(`${API}/api/v1/opportunities/settings`, { token: state.admin })
-  check('settings switch AI to suggest only', saved.settings.ai_mode === 'suggest', saved)
+  check('settings switch AI to suggest only', saved.settings.ai_mode === 'suggest', saved.settings)
 
   const visitor = await openVisitor(browser)
   await serveAndClose(alice, visitor, '可视门铃有货吗？什么时候能发货', '意向明确')
@@ -473,22 +560,22 @@ async function suggestion(browser, admin, alice) {
     const list = await json(`${API}/api/v1/opportunities?view=suggested`, { token: state.admin })
     return list.items[0] ?? null
   })
-  await prospects(admin, 'suggested')
+  await opportunities(admin, 'suggested')
   check('the suggestion waits in 待确认', (await tile(admin, 'suggested')) === 1)
-  const row = admin.locator('[data-testid="prospect-table"] .el-table__row').first()
+  const row = admin.locator('[data-testid="opp-table"] .el-table__row').first()
   await row.click()
-  const drawer = admin.locator('[data-testid="prospect-drawer"]')
-  await drawer.locator('[data-testid="prospect-suggestion"]').waitFor()
+  const drawer = admin.locator('[data-testid="opp-drawer"]')
+  await drawer.locator('[data-testid="opp-suggestion"]').waitFor()
   await settle(admin)
-  await admin.screenshot({ path: `${SHOTS}/p24-07-suggestion.png` })
-  await drawer.locator('[data-testid="prospect-accept"]').click()
-  await success(admin, '已转入意向客户')
-  const status = await text(drawer.locator('[data-testid="prospect-status"]'))
+  await admin.screenshot({ path: `${SHOTS}/p24-10-suggestion.png` })
+  await drawer.locator('[data-testid="opp-accept"]').click()
+  await success(admin, '已转入商机')
+  const status = await text(drawer.locator('[data-testid="opp-status"]'))
   check('accepting the suggestion starts following up', status === '跟进中', status)
   await closeDrawer(admin)
 }
 
-// ---- 5. AI 唤醒：意向客户该跟进了 ----
+// ---- 5. AI 唤醒：商机该跟进了 ----
 
 async function wakeReminder(admin) {
   await until(
@@ -504,56 +591,64 @@ async function wakeReminder(admin) {
   const findings = await json(`${API}/api/v1/wake/findings?view=all&status=open&limit=50`, { token: state.admin })
   const finding = findings.items.find((f) => f.check_code === 'prospect_due')
   check(
-    'AI wake-up reminds the follower: 管理员 有 1 条商机该跟进了',
+    'AI wake-up reminds the owner: 管理员 有 1 条商机该跟进了',
     finding && finding.title === '管理员 有 1 条商机该跟进了' && finding.detail.startsWith('王先生'),
     findings.items.map((f) => f.title),
   )
   if (!finding) return
   await admin.goto(`${CONSOLE}${finding.link}`)
-  await admin.waitForSelector('[data-testid="prospect-table"]')
-  await admin.waitForFunction(() => !document.querySelector('[data-testid="prospect-table"] .el-loading-mask'))
-  const rows = await admin.locator('[data-testid="prospect-table"] .el-table__row').allInnerTexts()
-  const view = await text(admin.locator('[data-testid="prospect-views"] .is-active'))
+  await admin.waitForSelector('[data-testid="opp-board"]')
+  await admin.waitForFunction(() => !document.querySelector('[data-testid="opp-board"] .el-loading-mask'))
+  await admin.locator(CARD).first().waitFor()
+  const cards = await admin.locator(CARD).allInnerTexts()
+  const view = await text(admin.locator('[data-testid="opp-views"] .is-active'))
   check(
-    "the reminder link opens today's list of that follower",
-    rows.length === 1 && rows[0].includes('王先生') && view.startsWith('今天该跟进'),
-    { rows, view },
+    "the reminder link opens today's board of that owner",
+    cards.length === 1 && cards[0].includes('王先生') && view.startsWith('今天该跟进'),
+    { cards, view },
   )
-  await admin.screenshot({ path: `${SHOTS}/p24-08-wake-link.png`, fullPage: true })
+  await admin.screenshot({ path: `${SHOTS}/p24-11-wake-link.png`, fullPage: true })
 }
 
-// ---- 6. 放弃和重新跟进 ----
+// ---- 6. 输单和重新跟进 ----
 
 async function loseAndReopen(admin) {
-  await prospects(admin)
-  const drawer = await openProspect(admin, '王先生')
-  await drawer.locator('[data-testid="prospect-lost"]').click()
-  const box = admin.locator('.el-message-box:visible')
-  await box.waitFor()
-  await box.locator('input').fill('业委会决定暂缓换锁')
-  await box.locator('button', { hasText: '放弃' }).click()
-  await success(admin, '已放弃跟进')
-  const reason = await text(drawer.locator('[data-testid="prospect-lost-reason"]'))
-  check('giving up keeps the reason', reason === '业委会决定暂缓换锁', reason)
-  await drawer.locator('[data-testid="prospect-reopen"]').click()
+  await opportunities(admin)
+  const drawer = await openOpportunity(admin, '王先生')
+  await drawer.locator('[data-testid="opp-lost"]').click()
+  const dialog = admin.locator('[data-testid="opp-lost-dialog"]')
+  await dialog.waitFor()
+  await dialog.locator('[data-testid="opp-lost-code"] label', { hasText: '其他' }).click()
+  await area(dialog, 'opp-lost-text').fill('业委会决定暂缓换锁')
+  await dialog.locator('[data-testid="opp-lost-confirm"]').click()
+  await success(admin, '已输单')
+  const reason = await text(drawer.locator('[data-testid="opp-lost-reason"]'))
+  check('losing keeps the reason category and the note', reason === '其他：业委会决定暂缓换锁', reason)
+  await drawer.locator('[data-testid="opp-reopen"]').click()
   await success(admin, '已重新跟进')
-  const status = await text(drawer.locator('[data-testid="prospect-status"]'))
-  check('a lost prospect can be followed up again', status === '跟进中', status)
+  const status = await text(drawer.locator('[data-testid="opp-status"]'))
+  const stageInfo = await text(drawer.locator('[data-testid="opp-stage-info"]'))
+  check(
+    'a lost opportunity can be followed up again and goes back to 已沟通',
+    status === '跟进中' && stageInfo.includes('已沟通'),
+    { status, stageInfo },
+  )
   await closeDrawer(admin)
 }
 
 // ---- 7. 坐席的查看范围 ----
 
 async function agentScope(alice) {
-  await prospects(alice, 'all')
-  const rows = await alice.locator('[data-testid="prospect-table"] .el-table__row').allInnerTexts()
-  const settings = await alice.locator('[data-testid="prospect-settings-open"]').count()
+  await opportunities(alice, 'all')
+  const menu = await text(alice.locator('[data-testid="main-menu"]'))
+  const rows = await alice.locator('[data-testid="opp-table"] .el-table__row').allInnerTexts()
+  const settings = await alice.locator('[data-testid="opp-settings-open"]').count()
   check(
-    "小艾 sees the prospects she follows (not 王先生) and has no settings",
-    rows.length === 2 && rows.every((r) => !r.includes('王先生')) && settings === 0,
+    '小艾 has the 商机 menu, sees the opportunities she owns (not 王先生) and has no settings',
+    menu.includes('商机') && rows.length === 2 && rows.every((r) => !r.includes('王先生')) && settings === 0,
     { rows, settings },
   )
-  await alice.screenshot({ path: `${SHOTS}/p24-09-agent.png`, fullPage: true })
+  await alice.screenshot({ path: `${SHOTS}/p24-12-agent.png`, fullPage: true })
 }
 
 async function cleanup() {

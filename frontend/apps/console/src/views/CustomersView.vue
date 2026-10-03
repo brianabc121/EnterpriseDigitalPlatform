@@ -13,10 +13,9 @@ import PrivacyDialog from '../components/customers/PrivacyDialog.vue'
 import PrivacyRequestsDrawer from '../components/customers/PrivacyRequestsDrawer.vue'
 import TransferRequestDialog from '../components/customers/TransferRequestDialog.vue'
 import TransferRequestsDrawer from '../components/customers/TransferRequestsDrawer.vue'
-import ProspectList from '../components/prospects/ProspectList.vue'
 import CustomerPanel from '../components/workbench/CustomerPanel.vue'
 import { CUSTOMER_SOURCE } from '../labels'
-import { prospectTag } from '../prospects'
+import { stageTag } from '../opportunities'
 import { useAuthStore } from '../stores/auth'
 
 const PAGE_SIZE = 20
@@ -24,8 +23,6 @@ const PAGE_SIZE = 20
 const auth = useAuthStore()
 const route = useRoute()
 const router = useRouter()
-/** 两个页签：全部客户、意向客户（§35.5，链接 /customers?tab=prospects）。 */
-const tab = ref<'all' | 'prospects'>(route.query.tab === 'prospects' ? 'prospects' : 'all')
 const items = ref<Schemas['CustomerOut'][]>([])
 const total = ref(0)
 const page = ref(1)
@@ -82,8 +79,17 @@ const transferOpen = ref(false)
 const historyOpen = ref(false)
 const historyOf = ref<Schemas['CustomerOut'] | null>(null)
 
-function tagOf(customer: Schemas['CustomerOut']): ReturnType<typeof prospectTag> {
-  return prospectTag(customer.opportunity_status)
+/** 进行中的客户标阶段名，AI 建议的标"待确认"（§40.8）。 */
+function tagOf(customer: Schemas['CustomerOut']): ReturnType<typeof stageTag> {
+  return stageTag(customer.opportunity_status, customer.opportunity_stage)
+}
+
+/** 原"意向客户"页签搬到了"商机"页面（§40.8）：旧链接 /customers?tab=prospects 跳过去，view、owner、id 照带。 */
+function redirectProspects(): boolean {
+  if (route.query.tab !== 'prospects') return false
+  const { view, owner, id } = route.query
+  void router.replace({ path: '/opportunities', query: { view, owner, id } })
+  return true
 }
 
 function showHistory(customer: Schemas['CustomerOut']): void {
@@ -175,19 +181,9 @@ async function openFromQuery(): Promise<void> {
   await router.replace({ query: { ...route.query, customer: undefined } })
 }
 
-function switchTab(name: string | number): void {
-  void router.replace({ query: { ...route.query, tab: name === 'prospects' ? 'prospects' : undefined } })
-  if (name === 'all') void load()
-}
-
-watch(
-  () => route.query.tab,
-  (value) => {
-    tab.value = value === 'prospects' ? 'prospects' : 'all'
-  },
-)
 watch(() => route.query.customer, openFromQuery)
 onMounted(async () => {
+  if (redirectProspects()) return
   await Promise.all([load(), openFromQuery()])
 })
 </script>
@@ -196,7 +192,7 @@ onMounted(async () => {
   <div>
     <div class="page-header">
       <h2>客户</h2>
-      <div v-if="tab === 'all'" class="toolbar">
+      <div class="toolbar">
         <el-input
           v-model="q"
           placeholder="名称、公司，或完整手机号、邮箱"
@@ -227,14 +223,16 @@ onMounted(async () => {
         >
           转移归属
         </el-button>
+        <el-button
+          v-if="auth.can('opportunity:read')"
+          data-testid="customer-opportunities-link"
+          @click="router.push('/opportunities')"
+        >
+          商机看板
+        </el-button>
         <el-button v-if="canCreate" type="primary" @click="openCreate">新建客户</el-button>
       </div>
     </div>
-    <el-tabs v-model="tab" class="tabs" data-testid="customer-tabs" @tab-change="switchTab">
-      <el-tab-pane label="全部客户" name="all" />
-      <el-tab-pane label="意向客户" name="prospects" />
-    </el-tabs>
-    <template v-if="tab === 'all'">
     <el-alert
       v-if="!seesAll"
       type="info"
@@ -260,8 +258,8 @@ onMounted(async () => {
             v-if="tagOf(row)"
             :type="tagOf(row)?.type"
             size="small"
-            class="prospect-tag"
-            :data-testid="`customer-prospect-tag-${row.id}`"
+            class="stage-tag"
+            :data-testid="`customer-opportunity-tag-${row.id}`"
           >
             {{ tagOf(row)?.text }}
           </el-tag>
@@ -311,8 +309,6 @@ onMounted(async () => {
         </template>
       </el-table-column>
     </el-table>
-    </template>
-    <ProspectList v-else />
     <OwnerTransferDialog
       v-model="transferOpen"
       :customer-ids="selected.map((c) => c.id)"
@@ -332,7 +328,7 @@ onMounted(async () => {
     <el-drawer v-model="profileOpen" :title="current?.display_name" size="380px" @closed="load">
       <CustomerPanel v-if="current && profileOpen" :key="current.id" :customer-id="current.id" />
     </el-drawer>
-    <div v-if="tab === 'all'" class="page-footer">
+    <div class="page-footer">
       <el-pagination
         v-model:current-page="page"
         layout="total, prev, pager, next"
@@ -380,11 +376,7 @@ onMounted(async () => {
   margin-bottom: 12px;
 }
 
-.tabs {
-  margin-bottom: 4px;
-}
-
-.prospect-tag {
+.stage-tag {
   margin-left: 6px;
 }
 

@@ -27,7 +27,7 @@ AGENT = {
 }  # fmt: skip
 AGENT_MENUS = [
     "dashboard", "workbench", "sessions", "todos", "orders", "contracts", "materials", "tasks",
-    "customers", "knowledge", "assistant",
+    "customers", "opportunities", "knowledge", "assistant",
 ]  # fmt: skip
 
 

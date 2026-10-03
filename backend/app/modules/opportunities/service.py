@@ -457,7 +457,7 @@ def _owner_notice(principal: Principal, opportunity: Opportunity) -> tuple[str, 
     return (
         f"商机「{opportunity.name}」交给你负责",
         f"{principal.display_name} 把这条商机交给你负责",
-        f"/customers?tab=prospects&id={opportunity.id}",
+        f"/opportunities?id={opportunity.id}",
     )
 
 
