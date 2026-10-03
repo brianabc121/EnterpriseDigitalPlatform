@@ -217,17 +217,19 @@ async def test_roles_stay_the_base_and_settings_can_be_reset(desk: Desk) -> None
     assert updates[-1]["access"] is None
     assert updates[-2]["access"]["menus"] == ["dashboard", "orders", "tasks", "customers"]
 
-    # 改成租户管理员：清掉原来的设置；管理员不能单独调整。
+    # 不能改成企业所有者（这个角色只能由平台创建，§39.5），原来的设置不变。
     await call(desk, desk.admin, "PATCH", f"/api/v1/staff/{lin['id']}", access=access)
-    promoted = await call(
-        desk, desk.admin, "PATCH", f"/api/v1/staff/{lin['id']}", role_codes=["tenant_admin"]
+    await call(
+        desk, desk.admin, "PATCH", f"/api/v1/staff/{lin['id']}", 422, role_codes=["tenant_admin"]
     )
-    assert promoted["access"] is None
-    assert set(promoted["permissions"]) == {str(p) for p in Permission}
-    await call(desk, desk.admin, "PATCH", f"/api/v1/staff/{lin['id']}", 422, access=access)
+    [row] = await desk.sql("SELECT menus FROM staff WHERE id = $1", uuid.UUID(lin["id"]))
+    assert row["menus"] is not None
+    # 有企业所有者角色的员工（以前分配的）不能单独调整。
+    boss = await desk.extra_admin("boss2")
+    await call(desk, desk.admin, "PATCH", f"/api/v1/staff/{boss.staff_id}", 422, access=access)
     [row] = await desk.sql(
         "SELECT menus, extra_permissions, revoked_permissions FROM staff WHERE id = $1",
-        promoted["id"],
+        boss.staff_id,
     )
     assert (row["menus"], row["extra_permissions"], row["revoked_permissions"]) == (None, [], [])
 

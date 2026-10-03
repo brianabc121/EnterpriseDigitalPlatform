@@ -23350,6 +23350,12 @@ export interface components {
              */
             id: string;
             /**
+             * Is Owner
+             * @description 企业所有者：开通企业时由平台创建的账号，员工导图最顶部的卡片（§39.5）
+             * @default false
+             */
+            is_owner: boolean;
+            /**
              * Must Change Password
              * @description 密码被重置后还没有设置新密码（下次登录时要先设置）
              * @default false

@@ -1,18 +1,18 @@
 // P27 验收：重置密码（设计文档 §38）——企业后台为全部角色的员工重置密码，平台运营后台为企业拥有者（管理员账号）
 // 重置密码；重置后的密码是临时密码，登录后先设置新密码；之前的登录立即失效。
 //
-// 1. 准备：企业（拥有者"张总"）和每个系统角色的员工——客服小艾、主管、财务、出纳、工厂工人、仓管、副管理员
-//    （企业所有者），另有只能管理员工的"人事"和只能查看员工的"访客"（自定义角色）。
-// 2. 张总在"员工"页面（员工导图的卡片）：每张员工卡片的"重置密码"、"停用"、删除都能用，自己的卡片上是"修改密码"、
-//    不能删除；为小艾自动
+// 1. 准备：企业（企业所有者"张总"，开通企业时由平台创建）和每个可以分配的系统角色的员工——客服小艾、主管、财务、
+//    出纳、工厂工人、仓管，另有只能管理员工的"人事"和只能查看员工的"访客"（自定义角色）。
+// 2. 张总在"员工"页面（员工导图）：最顶部是张总（企业所有者）的卡片；每张员工卡片的"重置密码"、"停用"、删除都能用，
+//    自己的卡片上是"修改密码"、没有删除；为小艾自动
 //    生成新密码（只显示一次，可以复制），卡片上标"待改密码"；再为其他系统角色的员工逐个重置，用新密码都能登录、
 //    都要先设置新密码，旧密码不能登录；工人已经打开的页面立即回到登录页；手动为人事设置密码、不要求修改。
-// 3. 人事登录：权限高于自己的员工（管理员、客服）的"重置密码"、"停用"、删除都置灰并提示，访客的都能用；自己的
-//    卡片不能删除。
+// 3. 人事登录：企业所有者的卡片上"编辑"、"重置密码"、"停用"置灰并提示（只能由本人或平台管理）；权限高于自己的员工
+//    （客服等）的"重置密码"、"停用"、删除都置灰并提示，访客的都能用；自己的卡片不能删除。
 // 4. 小艾用新密码登录后只能进入"设置新密码"页面（说明谁在什么时候重置的），其他页面和接口都不行；设置后进入控制台。
-// 5. 运营后台的租户详情"管理员账号"：张总标"拥有者"、副管理员；填写原因后为张总重置密码，显示临时密码和登录信息。
-// 6. 张总之前的登录立即失效；副管理员收到站内信，操作日志里记着"平台运维"和原因；张总用临时密码登录后看到
-//    "平台运维人员……重置了你的密码，原因：……"，设置新密码后进入控制台；运营后台显示已经改过；平台审计里有记录。
+// 5. 运营后台的租户详情"管理员账号"：张总标"拥有者"；填写原因后为张总重置密码，显示临时密码和登录信息。
+// 6. 张总之前的登录立即失效；张总用临时密码登录后看到"平台运维人员……重置了你的密码，原因：……"，设置新密码后
+//    进入控制台，操作日志里记着"平台运维"和原因；运营后台显示已经改过；平台审计里有记录。
 //
 // 前置：与 p0 相同（后端、控制台 :5173、运营后台 :5174）。
 // 运行：NODE_PATH=$(npm root -g) PLATFORM_PASSWORD=<密码> node scripts/e2e/p27-password-acceptance.cjs
@@ -31,7 +31,7 @@ const TENANT = `pwd-${RUN}`
 const PASSWORD = 'demo-pass-2026'
 const HR_PASSWORD = 'hr-new-pass-2026'
 const REASON = '企业负责人来电，核对营业执照后申请重置'
-// 每个系统角色一个员工（企业所有者是副管理员）。
+// 每个可以分配的系统角色一个员工（企业所有者的角色只能由平台创建，§39.5）。
 const MEMBERS = [
   ['alice', '小艾', ['agent']],
   ['sam', '主管老孙', ['supervisor']],
@@ -39,7 +39,6 @@ const MEMBERS = [
   ['qian', '出纳小钱', ['cashier']],
   ['wang', '工人老王', ['worker']],
   ['kay', '仓管小凯', ['keeper']],
-  ['root2', '副管理员', ['tenant_admin']],
 ]
 
 const summary = { tenant: TENANT, checks: [], consoleErrors: [] }
@@ -181,18 +180,18 @@ async function quiet(page) {
   await page.locator('.el-message').first().waitFor({ state: 'detached', timeout: 8000 }).catch(() => undefined)
 }
 
-// 员工页面是可以上下左右滚动的员工导图（10 位员工时比屏幕宽）：截图前页面和菜单滚回顶部，导图以企业卡片为中心，
-// 企业、两位管理员和中间几位员工的卡片完整地出现在画面里。
+// 员工页面是可以上下左右滚动的员工导图（9 位员工时比屏幕宽）：截图前页面和菜单滚回顶部，导图以最顶部的卡片
+// （企业所有者）为中心，它和中间几位员工的卡片完整地出现在画面里。
 async function frameDiagram(page) {
   await page.evaluate(() => {
     const viewport = document.querySelector('.tree-viewport')
     for (const element of document.querySelectorAll('*')) {
       if (element !== viewport && element.scrollTop > 0) element.scrollTop = 0
     }
-    const company = document.querySelector('[data-testid="staff-node-company"]')
-    if (!viewport || !company) return
+    const root = document.querySelector('[data-root="true"]')
+    if (!viewport || !root) return
     const v = viewport.getBoundingClientRect()
-    const c = company.getBoundingClientRect()
+    const c = root.getBoundingClientRect()
     viewport.scrollTo({ top: 0, left: viewport.scrollLeft + c.left + c.width / 2 - (v.left + v.width / 2) })
   })
 }
@@ -250,14 +249,23 @@ async function staffPage(browser) {
   await menu(page, '员工')
   await page.locator('[data-testid="staff-node-admin"]').waitFor()
   const others = [...MEMBERS.map(([u]) => u), 'hrm', 'vic']
+  const root = page.locator('[data-root="true"]')
+  const rootText = await root.innerText()
+  check(
+    'the top card is the enterprise owner 张总; every other staff card branches out below it',
+    (await root.getAttribute('data-testid')) === 'staff-node-admin' &&
+      rootText.includes('企业所有者（张总）') &&
+      (await page.locator('[data-testid^="staff-node-"]').count()) === others.length + 1,
+    rootText,
+  )
   const states = {}
   for (const username of others) states[username] = await disabledButtons(page, username)
   check(
-    'every staff member of every role has enabled 重置密码, 停用 and delete; your own card has 修改密码 and cannot be deleted',
+    'every staff member of every role has enabled 重置密码, 停用 and delete; your own card on top has 修改密码 and no delete',
     Object.values(states).every((s) => !s.reset && !s.toggle && !s.remove) &&
       (await page.locator('[data-testid="password-admin"]').isVisible()) &&
       (await page.locator('[data-testid="reset-admin"]').count()) === 0 &&
-      (await manageButtons(page, 'admin').remove.isDisabled()),
+      (await manageButtons(page, 'admin').remove.count()) === 0,
     states,
   )
 
@@ -293,7 +301,7 @@ async function staffPage(browser) {
     outcomes[username] = { fresh: fresh.status, mustChange: me?.must_change_password, blocked: blocked?.status }
   }
   check(
-    'all seven system roles (客服、主管、财务、出纳、工厂工人、仓管、企业所有者) log in with the new password and must set their own first',
+    'all six enterprise roles (客服、主管、财务、出纳、工厂工人、仓管) log in with the new password and must set their own first',
     Object.values(outcomes).every((o) => o.fresh === 200 && o.mustChange === true && o.blocked === 403),
     outcomes,
   )
@@ -322,13 +330,6 @@ async function staffPage(browser) {
     body: {},
   })
   check('the API refuses to reset your own password', own.status === 422, own.status)
-
-  // 副管理员先设置自己的新密码（后面要看平台重置的提醒）。
-  await json(`${API}/api/v1/me/password`, {
-    method: 'POST',
-    token: state.tokens.root2,
-    body: { current_password: state.temporary.root2, new_password: PASSWORD + '-r2' },
-  })
 }
 
 // ---- 3. 人事只能重置权限不高于自己的员工 ----
@@ -340,19 +341,31 @@ async function hrPage(browser) {
   await page.setViewportSize(STAFF_VIEWPORT)
   await menu(page, '员工')
   await page.locator('[data-testid="staff-node-hrm"]').waitFor()
+  const owner = manageButtons(page, 'admin')
+  const ownerCard = {
+    edit: await page.locator('[data-testid="edit-admin"]').isDisabled(),
+    reset: await owner.reset.isDisabled(),
+    toggle: await owner.toggle.isDisabled(),
+    deleteButtons: await owner.remove.count(),
+  }
+  check(
+    '人事 sees the owner card on top with 编辑, 重置密码 and 停用 greyed out and no delete',
+    ownerCard.edit && ownerCard.reset && ownerCard.toggle && ownerCard.deleteButtons === 0,
+    ownerCard,
+  )
   const states = {}
-  for (const username of ['admin', 'root2', 'alice', 'vic']) states[username] = await disabledButtons(page, username)
+  for (const username of ['alice', 'wang', 'vic']) states[username] = await disabledButtons(page, username)
   const all = (s) => s.reset && s.toggle && s.remove
   const none = (s) => !s.reset && !s.toggle && !s.remove
   check(
-    '人事 cannot reset, disable or delete staff with more permissions (管理员、客服) but can for 访客',
-    all(states.admin) && all(states.root2) && all(states.alice) && none(states.vic),
+    '人事 cannot reset, disable or delete staff with more permissions (客服、工厂工人) but can for 访客',
+    all(states.alice) && all(states.wang) && none(states.vic),
     states,
   )
   check("人事's own card cannot be deleted", await manageButtons(page, 'hrm').remove.isDisabled())
 
-  // 置灰的按钮外面那一层显示提示。直接把鼠标移过去（hover() 可能为了让按钮完整出现而横向滚动导图）。
-  await frameDiagram(page)
+  // 置灰的按钮外面那一层显示提示。直接把鼠标移过去（hover() 可能为了让按钮完整出现而横向滚动导图）；
+  // 先看工人卡片的删除，再回到最顶部看企业所有者的卡片（最后一个提示留在截图里）。
   const tooltip = async (button, text) => {
     const box = await button.locator('..').boundingBox()
     await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
@@ -361,13 +374,14 @@ async function hrPage(browser) {
       .waitFor({ timeout: 5000 })
       .then(() => true, () => false)
   }
-  const owner = manageButtons(page, 'admin')
-  const tips = {
-    remove: await tooltip(owner.remove, '权限高于你，请让管理员删除'),
-    reset: await tooltip(owner.reset, '权限高于你，请让管理员重置'),
-    toggle: await tooltip(owner.toggle, '权限高于你，请让管理员停用'),
-  }
-  check('tooltips explain why (重置、停用、删除)', Object.values(tips).every(Boolean), tips)
+  const workerDelete = manageButtons(page, 'wang').remove
+  await workerDelete.scrollIntoViewIfNeeded()
+  const tips = { remove: await tooltip(workerDelete, '权限高于你，请让管理员删除') }
+  await frameDiagram(page)
+  tips.edit = await tooltip(page.locator('[data-testid="edit-admin"]'), '企业所有者的资料只能由本人修改')
+  tips.toggle = await tooltip(owner.toggle, '不能停用企业所有者')
+  tips.reset = await tooltip(owner.reset, '企业所有者的密码只能由平台运维人员重置')
+  check('tooltips explain why (编辑、重置、停用、删除)', Object.values(tips).every(Boolean), tips)
   await settle(page)
   await page.screenshot({ path: `${SHOTS}/p27-03-hr-view.png` })
 }
@@ -436,8 +450,8 @@ async function platformReset(browser) {
   await table.locator('.el-table__row').first().waitFor()
   const rows = await table.locator('.el-table__row').allInnerTexts()
   check(
-    'the 管理员账号 tab lists the owner first (拥有者) and the other admin',
-    rows.length === 2 && rows[0].includes('admin') && rows[0].includes('拥有者') && rows[1].includes('root2'),
+    'the 管理员账号 tab lists the owner (拥有者)',
+    rows.length === 1 && rows[0].includes('admin') && rows[0].includes('拥有者'),
     rows,
   )
   await settle(ops)
@@ -476,33 +490,6 @@ async function afterPlatformReset(browser) {
     (await request(`${API}/api/v1/me`, { token: state.admin })).status === 401,
   )
 
-  const root2 = await consoleLogin(browser, 'root2', PASSWORD + '-r2')
-  await root2.locator('[data-testid="notification-bell"]').click()
-  const notice = root2.locator('[data-testid="notification"]', { hasText: '重置了管理员' })
-  await notice.waitFor()
-  const noticeText = await notice.innerText()
-  check(
-    'the other admin is told the platform reset the owner\'s password, with the reason',
-    noticeText.includes('平台运维人员重置了管理员 张总（admin）的密码') && noticeText.includes(REASON),
-    noticeText,
-  )
-  await settle(root2)
-  await root2.screenshot({ path: `${SHOTS}/p27-07-admin-notice.png` })
-  await root2.keyboard.press('Escape')
-  await root2.mouse.click(700, 600)
-  await menu(root2, '操作日志')
-  await root2.locator('.el-tabs__item', { hasText: '系统日志' }).click()
-  const auditRow = root2.locator('[data-testid="audit-table"] .el-table__row', { hasText: '平台运维' }).first()
-  await auditRow.waitFor()
-  const auditText = await auditRow.innerText()
-  check(
-    'the tenant audit log shows 重置员工密码 by 平台运维 with the reason',
-    auditText.includes('重置员工密码') && auditText.includes(REASON),
-    auditText,
-  )
-  await settle(root2)
-  await root2.screenshot({ path: `${SHOTS}/p27-08-audit.png` })
-
   const owner = await consoleLogin(browser, 'admin', state.ownerTemporary, { setup: true })
   const setupNotice = await owner.locator('[data-testid="password-setup-notice"]').innerText()
   check(
@@ -519,6 +506,20 @@ async function afterPlatformReset(browser) {
   await owner.locator('[data-testid="main-menu"]').waitFor()
   const ownerMe = await owner.evaluate(() => document.title)
   check('the owner enters the console after setting a new password', !owner.url().includes('/password'), ownerMe)
+
+  await menu(owner, '操作日志')
+  await owner.locator('.el-tabs__item', { hasText: '系统日志' }).click()
+  const auditRow = owner.locator('[data-testid="audit-table"] .el-table__row', { hasText: '平台运维' }).first()
+  await auditRow.waitFor()
+  const auditText = await auditRow.innerText()
+  check(
+    'the tenant audit log shows 重置员工密码 by 平台运维 with the reason',
+    auditText.includes('重置员工密码') && auditText.includes(REASON),
+    auditText,
+  )
+  await quiet(owner)
+  await settle(owner)
+  await owner.screenshot({ path: `${SHOTS}/p27-08-audit.png` })
 
   const admins = await json(`${API}/platform/v1/tenants/${state.tenantId}/admins`, { token: state.ops })
   const ownerRow = admins.items.find((a) => a.owner)

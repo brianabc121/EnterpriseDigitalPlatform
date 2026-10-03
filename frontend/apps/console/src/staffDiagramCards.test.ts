@@ -26,3 +26,19 @@ it('旧员工连线指向已转换的节点时正确映射来源', () => {
   expect(result.find((n) => n.id === 'child')!.diagram_parent_id).toBe('card')
   expect(result.filter((n) => n.id === 'parent')).toHaveLength(0)
 })
+
+it('企业所有者是最顶部的卡片：不再单独占一张卡片，连到他的分支接到最顶部', () => {
+  const staff = [
+    { id: 'owner', roles: ['tenant_admin'], created_at: '1' },
+    { id: 'agent', roles: ['agent'], created_at: '2', diagram_parent_id: 'owner', diagram_direction: 'left' as const },
+    { id: 'worker', roles: ['worker'], created_at: '3' },
+  ]
+  const result = mergeDiagramCards(staff, [
+    { id: 'draft', parent_id: 'owner', direction: 'down', staff_id: null, created_at: '4' },
+    { id: 'child', parent_id: 'draft', direction: 'right', staff_id: null, created_at: '5' },
+  ], 'owner')
+  expect(result.map((n) => n.id)).toEqual(['agent', 'worker', 'draft', 'child'])
+  expect(result.find((n) => n.id === 'agent')!.diagram_parent_id).toBeNull()
+  expect(result.find((n) => n.id === 'draft')!.diagram_parent_id).toBeNull()
+  expect(result.find((n) => n.id === 'child')!.diagram_parent_id).toBe('draft')
+})

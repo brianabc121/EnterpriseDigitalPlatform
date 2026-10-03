@@ -93,22 +93,27 @@ async def test_guards_on_staff_changes(desk: Desk, app: FastAPI) -> None:
     [admin] = await desk.sql("SELECT id FROM staff WHERE username = 'admin'")
     own = await _patch(desk, admin["id"], desk.admin, status="disabled")
     assert own.status_code == 422
-    # 唯一的租户管理员不能去掉管理员角色。
+    # 企业所有者的角色不能修改（§39.5）。
     demote = await _patch(desk, admin["id"], desk.admin, role_codes=["agent"])
-    assert demote.status_code == 409
-    second = await desk.agent("root2", roles=["tenant_admin"], online=False)
+    assert demote.status_code == 422
+    # 以前分配过企业所有者角色的员工也不能修改企业所有者的账号。
+    second = await desk.extra_admin("root2")
     demote = await _patch(desk, admin["id"], second.headers, role_codes=["agent"])
-    assert demote.status_code == 200, demote.text
-    assert demote.json()["roles"] == ["agent"]
-    # 现在 root2 是唯一的管理员：原管理员（只剩坐席权限）不能再管理员工。
-    agent_try = await _patch(desk, second.staff_id, desk.admin, status="disabled")
+    assert demote.status_code == 403
+    rename = await _patch(desk, admin["id"], second.headers, display_name="改名")
+    assert rename.status_code == 403
+    # 企业所有者可以去掉他的这个角色；之后他只剩坐席权限，不能再管理员工。
+    demoted = await _patch(desk, second.staff_id, desk.admin, role_codes=["agent"])
+    assert demoted.status_code == 200, demoted.text
+    assert demoted.json()["roles"] == ["agent"]
+    assert demoted.json()["is_owner"] is False
+    agent_try = await _patch(desk, admin["id"], second.headers, status="disabled")
     assert agent_try.status_code == 403
-    desk.admin_token = second.token
 
-    # 主管加上员工管理权限后，也不能管理或提拔到权限比自己高的员工。
+    # 主管加上员工管理权限后，也不能管理或提拔权限比自己高的员工。
     await desk.client.post(
         "/api/v1/roles",
-        headers=second.headers,
+        headers=desk.admin,
         json={
             "code": "team_lead",
             "name": "组长",
@@ -119,13 +124,13 @@ async def test_guards_on_staff_changes(desk: Desk, app: FastAPI) -> None:
     carol = await desk.agent("carol", online=False)
     promote = await _patch(desk, carol.staff_id, lead.headers, role_codes=["tenant_admin"])
     assert promote.status_code == 403
-    manage_admin = await _patch(desk, second.staff_id, lead.headers, display_name="改名")
+    manage_admin = await _patch(desk, admin["id"], lead.headers, display_name="改名")
     assert manage_admin.status_code == 403
-    missing = await _patch(desk, carol.staff_id, second.headers, role_codes=["no_such_role"])
+    missing = await _patch(desk, carol.staff_id, desk.admin, role_codes=["no_such_role"])
     assert missing.status_code == 422
 
     # 坐席额度用完后不能再启用停用的员工（启用中的：admin、root2、lead）。
-    await _patch(desk, carol.staff_id, second.headers, status="disabled")
+    await _patch(desk, carol.staff_id, desk.admin, status="disabled")
     await create_platform_admin(app)
     ops = bearer(await platform_login(desk.client))
     limits = await desk.client.put(
@@ -134,7 +139,7 @@ async def test_guards_on_staff_changes(desk: Desk, app: FastAPI) -> None:
         json={"limits": {"seats": 3}},
     )
     assert limits.status_code == 200, limits.text
-    full = await _patch(desk, carol.staff_id, second.headers, status="active")
+    full = await _patch(desk, carol.staff_id, desk.admin, status="active")
     assert full.status_code == 409
     assert full.json()["error"]["code"] == "plan_limit"
 

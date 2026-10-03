@@ -93,6 +93,23 @@ class Desk:
             await self.set_status(agent, "online")
         return agent
 
+    async def extra_admin(self, username: str, *, online: bool = False) -> Agent:
+        """又一个有"企业所有者"角色的员工。这个角色现在只能由平台创建，企业里不能分配
+        （设计文档 §39.5）；这里模拟以前分配过的数据：先建成坐席，再在数据库里换成这个角色。
+        """
+        agent = await self.agent(username, online=online)
+        await self.sql(
+            "DELETE FROM staff_roles WHERE staff_id = $1",
+            agent.staff_id,
+        )
+        await self.sql(
+            "INSERT INTO staff_roles (tenant_id, staff_id, role_id) "
+            "SELECT tenant_id, $1, id FROM roles WHERE tenant_id = $2 AND code = 'tenant_admin'",
+            agent.staff_id,
+            self.tenant_id,
+        )
+        return agent
+
     async def set_status(self, agent: Agent, status: str) -> dict[str, Any]:
         response = await self.client.put(
             "/api/v1/agent/state", headers=agent.headers, json={"status": status}

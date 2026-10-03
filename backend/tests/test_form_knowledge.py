@@ -84,8 +84,8 @@ async def test_aliases_learned_from_entry_are_used_in_suggestions_and_ai(desk: D
     big = await goods(desk, "WIN-02", "铝合金窗", spec="1.5m×1.8m")
     small = await goods(desk, "WIN-01", "铝合金窗", spec="1.2m×1.5m")
     screen = await goods(desk, "NET-01", "纱窗", unit="扇")
-    alice = await desk.agent("alice", roles=["tenant_admin"], online=False)
-    bob = await desk.agent("bob", roles=["tenant_admin"], online=False)
+    alice = await desk.extra_admin("alice")
+    bob = await desk.extra_admin("bob")
     customer_id = await customer(desk)
 
     # 第一次：输入「大窗」没找到，换成「铝合金窗」后选了第二个候选——记下来，还在观察中。
@@ -182,7 +182,7 @@ async def test_aliases_learned_from_entry_are_used_in_suggestions_and_ai(desk: D
 async def test_learned_alias_is_replaced_when_people_pick_another_product(desk: Desk) -> None:
     big = await goods(desk, "WIN-02", "铝合金窗", spec="1.5m×1.8m")
     small = await goods(desk, "WIN-01", "铝合金窗", spec="1.2m×1.5m")
-    alice = await desk.agent("alice", roles=["tenant_admin"], online=False)
+    alice = await desk.extra_admin("alice")
     customer_id = await customer(desk)
 
     async def pick(product: dict[str, Any]) -> None:
@@ -308,7 +308,7 @@ async def test_companions_and_learning_records(desk: Desk) -> None:
     window = await goods(desk, "WIN-01", "铝合金窗")
     screen = await goods(desk, "NET-01", "纱窗", unit="扇")
     lock = await goods(desk, "LOCK-01", "门锁", unit="把")
-    alice = await desk.agent("alice", roles=["tenant_admin"], online=False)
+    alice = await desk.extra_admin("alice")
     customer_id = await customer(desk)
 
     # 每次提交后立即判断（与实时消费进程相同）。
@@ -354,7 +354,7 @@ async def test_companions_and_learning_records(desk: Desk) -> None:
 async def test_manual_knowledge_review_permissions_and_settings(desk: Desk) -> None:
     big = await goods(desk, "WIN-02", "铝合金窗", spec="1.5m×1.8m")
     small = await goods(desk, "WIN-01", "铝合金窗", spec="1.2m×1.5m")
-    alice = await desk.agent("alice", roles=["tenant_admin"], online=False)
+    alice = await desk.extra_admin("alice")
     zhou = await desk.agent("zhou", roles=["supervisor"], online=False)
     clerk = await desk.agent("clerk", online=False)
     customer_id = await customer(desk)

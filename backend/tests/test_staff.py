@@ -103,9 +103,12 @@ async def test_cannot_grant_a_role_with_more_permissions_than_you_have(
         await session.commit()
 
     hr = await login(client, "acme", "hrmgr", STAFF_PASSWORD)
-    response = await client.post(STAFF, headers=bearer(hr), json=_payload("boss", ["tenant_admin"]))
+    response = await client.post(STAFF, headers=bearer(hr), json=_payload("boss", ["supervisor"]))
 
     assert response.status_code == 403
+    # 企业所有者的角色只能由平台创建（§39.5），谁都不能分配。
+    owner = await client.post(STAFF, headers=bearer(hr), json=_payload("boss", ["tenant_admin"]))
+    assert owner.status_code == 422
 
 
 async def test_system_role_permissions_come_from_code(

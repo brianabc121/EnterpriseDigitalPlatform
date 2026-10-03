@@ -1,15 +1,20 @@
 /**
- * 员工卡片上的管理操作（重置密码、停用/启用、删除，设计文档 §38.4、§39.1）：能不能对这个员工操作。
- * 和后端的规则一致：不能管理权限高于自己的员工；自己的账号不能重置（要输入当前密码修改）、停用或删除。
+ * 员工卡片上的管理操作（编辑、重置密码、停用/启用、删除，设计文档 §38.4、§39.1、§39.5）：能不能对这个员工操作。
+ * 和后端的规则一致：不能管理权限高于自己的员工；自己的账号不能重置（要输入当前密码修改）、停用或删除；
+ * 企业所有者的账号只能由本人修改，密码由平台运维人员重置。
  */
-export type ManageAccess = 'ok' | 'self' | 'higher'
+export type ManageAccess = 'ok' | 'self' | 'higher' | 'owner'
 
-/** 自己的卡片（self）；对方有自己没有的权限（higher）；其他情况可以操作（ok）。 */
+/** 企业所有者的角色：只能由平台在开通企业时创建，企业里不能分配。 */
+export const OWNER_ROLE = 'tenant_admin'
+
+/** 自己的卡片（self）；企业所有者（owner）；对方有自己没有的权限（higher）；其他情况可以操作（ok）。 */
 export function manageAccess(
-  target: { id: string; permissions: readonly string[] },
+  target: { id: string; permissions: readonly string[]; is_owner?: boolean },
   me: { id: string; permissions: ReadonlySet<string> },
 ): ManageAccess {
   if (target.id === me.id) return 'self'
+  if (target.is_owner) return 'owner'
   return target.permissions.every((p) => me.permissions.has(p)) ? 'ok' : 'higher'
 }
 
@@ -17,5 +22,15 @@ export function manageAccess(
 export function manageHint(access: ManageAccess, action: string): string | null {
   if (access === 'higher') return `权限高于你，请让管理员${action}`
   if (access === 'self') return `不能${action}自己的账号`
+  if (access === 'owner') {
+    if (action === '重置') return '企业所有者的密码只能由平台运维人员重置'
+    if (action === '编辑') return '企业所有者的资料只能由本人修改'
+    return `不能${action}企业所有者`
+  }
   return null
+}
+
+/** 分配角色时可以选的角色：不含企业所有者。 */
+export function assignableRoles<T extends { code: string }>(roles: readonly T[]): T[] {
+  return roles.filter((role) => role.code !== OWNER_ROLE)
 }

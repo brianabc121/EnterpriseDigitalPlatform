@@ -1,4 +1,5 @@
-// 员工导图验收：从企业卡片向左、右、下三个方向悬停"＋"先生成待完善卡片（不弹表单），刷新后仍在；点"完善信息"
+// 员工导图验收：最顶部是企业所有者的卡片（§39.5）；从它向左、右、下三个方向悬停"＋"先生成待完善卡片（不弹表单），
+// 刷新后仍在；点"完善信息"
 // 填写员工资料后卡片变成员工，刷新后仍在；卡片互不重叠。
 //
 // 指定 DIAGRAM_TENANT、DIAGRAM_USERNAME、DIAGRAM_PASSWORD 时用这个专用测试企业（会创建 3 位测试员工）；不指定时用
@@ -66,9 +67,15 @@ async function main() {
     await page.getByLabel('密码', { exact: true }).fill(password)
     await page.getByRole('button', { name: '登录', exact: true }).click()
     await page.getByTestId('staff-tree').waitFor()
+    // 员工读完之前最顶部先显示企业卡片；等企业所有者的卡片出来。
+    const root = page.locator('[data-root="true"]')
+    await page.locator('[data-root="true"]:not([data-testid="staff-node-company"])').waitFor()
+    const rootText = await root.innerText()
+    const rootId = await root.getAttribute('data-testid')
+    check('the top card is the enterprise owner', rootText.includes('企业所有者') && rootId !== 'staff-node-company', { rootId, rootText })
     for (const direction of ['left', 'right', 'down']) {
       const username = `diagram-${direction}-${RUN}`
-      await page.getByTestId('staff-node-company').hover()
+      await root.hover()
       await page.getByTestId(`branch-company-${direction}`).click()
       const dialog = page.getByTestId('staff-create')
       const draft = page.locator('[data-testid^="staff-draft-"]').last()

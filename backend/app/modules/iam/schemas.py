@@ -177,6 +177,10 @@ class StaffOut(BaseModel):
     diagram_parent_id: UUID | None = None
     diagram_direction: Literal["left", "right", "down"] | None = None
     id: UUID
+    is_owner: bool = Field(
+        default=False,
+        description="企业所有者：开通企业时由平台创建的账号，员工导图最顶部的卡片（§39.5）",
+    )
     username: str
     display_name: str
     status: str

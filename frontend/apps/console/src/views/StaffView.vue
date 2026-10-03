@@ -11,7 +11,7 @@ import RolesTab from '../components/staff/RolesTab.vue'
 import StaffAccessEditor from '../components/staff/StaffAccessEditor.vue'
 import StaffTree from '../components/staff/StaffTree.vue'
 import { accessBody, accessOf, accessSummary, emptyAccess, type AccessForm } from '../staffAccess'
-import { manageAccess, manageHint } from '../staffManage'
+import { assignableRoles, manageAccess, manageHint } from '../staffManage'
 import type { DiagramDirection } from '../staffDiagram'
 import { normalizeRoleName } from '../roleNames'
 import { useAuthStore } from '../stores/auth'
@@ -34,6 +34,8 @@ function openHandover(member: Schemas['StaffOut']): void {
   handoverOpen.value = true
 }
 const roleNames = computed(() => new Map(roles.value.map((r) => [r.code, r.name])))
+/** 分配角色时可以选的角色：企业所有者只能由平台创建，不显示（§39.5）。 */
+const assignable = computed(() => assignableRoles(roles.value))
 /** 权限点的名称和分组（"页面和权限"里按分组勾选，§31）。 */
 const catalog = ref<Schemas['PermissionInfo'][]>([])
 const permissionNames = computed(() => new Map(catalog.value.map((p) => [p.code, p.name])))
@@ -59,8 +61,8 @@ const resetOpen = ref(false)
 const resetting = ref<Schemas['StaffOut'] | null>(null)
 const passwordOpen = ref(false)
 
-// 重置密码、停用/启用、删除卡片（§38.4、§39.1）：权限高于自己的员工按钮置灰并提示，和后端的规则一致；
-// 自己的卡片不能停用（不显示）和删除（置灰）。
+// 编辑、重置密码、停用/启用、删除卡片（§38.4、§39.1、§39.5）：权限高于自己的员工按钮置灰并提示，和后端的
+// 规则一致；自己的卡片不能停用（不显示）和删除（置灰）；企业所有者的卡片只有本人能编辑。
 function manageState(member: Schemas['StaffOut']) {
   return manageAccess(member, { id: auth.me?.id ?? '', permissions: auth.permissions })
 }
@@ -182,6 +184,7 @@ async function create(): Promise<void> {
 }
 
 function openEdit(member: Schemas['StaffOut']): void {
+  if (manageState(member) === 'owner') return
   editing.value = member
   Object.assign(editForm, { displayName: member.display_name, roleCodes: [...member.roles] })
   editAccess.value = accessOf(member)
@@ -298,7 +301,11 @@ onMounted(load)
             <div class="staff-created">创建于 {{ formatDateTime(row.created_at) }}</div>
             <div v-if="canManage || canHandover" class="staff-actions">
               <template v-if="canManage">
-                <el-button link type="primary" size="small" @click.stop="openEdit(row)">编辑</el-button>
+                <el-tooltip :disabled="manageState(row) !== 'owner'" :content="manageHint('owner', '编辑') ?? ''" placement="top">
+                  <span class="action">
+                    <el-button link type="primary" size="small" :disabled="manageState(row) === 'owner'" :data-testid="`edit-${row.username}`" @click.stop="openEdit(row)">编辑</el-button>
+                  </span>
+                </el-tooltip>
                 <el-button v-if="manageState(row) === 'self'" link type="primary" size="small" :data-testid="`password-${row.username}`" @click.stop="passwordOpen = true">修改密码</el-button>
                 <el-tooltip v-else :disabled="manageState(row) === 'ok'" :content="manageHint(manageState(row), '重置') ?? ''" placement="top">
                   <span class="action">
@@ -352,7 +359,7 @@ onMounted(load)
         </div>
         <el-form-item label="角色" required>
           <el-checkbox-group v-model="form.roleCodes" class="roles">
-            <el-checkbox v-for="r in roles" :key="r.code" :value="r.code" border>
+            <el-checkbox v-for="r in assignable" :key="r.code" :value="r.code" border>
               {{ r.name }}
             </el-checkbox>
           </el-checkbox-group>
@@ -390,8 +397,9 @@ onMounted(load)
           </el-form-item>
         </div>
         <el-form-item label="角色" required>
-          <el-checkbox-group v-model="editForm.roleCodes" class="roles">
-            <el-checkbox v-for="r in roles" :key="r.code" :value="r.code" border>
+          <p v-if="editing?.is_owner" class="owner-role" data-testid="owner-role-fixed">企业所有者（由平台在开通企业时创建，角色不能修改）</p>
+          <el-checkbox-group v-else v-model="editForm.roleCodes" class="roles">
+            <el-checkbox v-for="r in assignable" :key="r.code" :value="r.code" border>
               {{ r.name }}
             </el-checkbox>
           </el-checkbox-group>
@@ -427,6 +435,7 @@ onMounted(load)
 /* 状态和"待改密码"并排；置灰的按钮外面套一层，悬停时才能显示提示。 */
 .staff-states { display: inline-flex; flex-wrap: wrap; gap: 6px; }
 .action { display: inline-flex; }
+.owner-role { margin: 0; color: var(--el-text-color-regular); }
 
 .role + .role {
   margin-left: 6px;
