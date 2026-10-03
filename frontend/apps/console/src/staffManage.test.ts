@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { assignableRoles, manageAccess, manageHint } from './staffManage'
+import { assignableRoles, manageAccess, manageHint, showsHandover } from './staffManage'
 
 const me = { id: 'me', permissions: new Set(['staff:read', 'staff:manage', 'customer:read']) }
 
@@ -47,5 +47,32 @@ describe('assignableRoles', () => {
   it('never offers the enterprise owner role', () => {
     const roles = [{ code: 'tenant_admin' }, { code: 'agent' }, { code: 'finance' }]
     expect(assignableRoles(roles).map((r) => r.code)).toEqual(['agent', 'finance'])
+  })
+})
+
+describe('showsHandover', () => {
+  // 角色的岗位（§25.15）：系统角色固定，自定义角色可以选择。
+  const consoles = new Map([
+    ['tenant_admin', 'admin'],
+    ['agent', 'agent'],
+    ['supervisor', 'supervisor'],
+    ['finance', 'finance'],
+    ['presales', 'agent'],
+  ])
+
+  it('shows 交接客户 on the cards of 客服 positions, including custom roles in that position', () => {
+    expect(showsHandover({ roles: ['agent'], customers: 0 }, consoles)).toBe(true)
+    expect(showsHandover({ roles: ['presales'] }, consoles)).toBe(true)
+    expect(showsHandover({ roles: ['finance', 'agent'] }, consoles)).toBe(true)
+  })
+
+  it('leaves it off other positions and the owner', () => {
+    for (const roles of [['tenant_admin'], ['supervisor'], ['finance'], [], ['unknown']]) {
+      expect(showsHandover({ roles, customers: 0 }, consoles)).toBe(false)
+    }
+  })
+
+  it('keeps it while someone in another position still has customers', () => {
+    expect(showsHandover({ roles: ['finance'], customers: 3 }, consoles)).toBe(true)
   })
 })

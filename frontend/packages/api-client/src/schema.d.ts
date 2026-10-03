@@ -23338,6 +23338,12 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+            /**
+             * Customers
+             * @description 名下的客户数（员工列表里有；客服岗位和名下还有客户的员工卡片上有交接客户，§39.6）
+             * @default 0
+             */
+            customers: number;
             /** Diagram Direction */
             diagram_direction?: ("left" | "right" | "down") | null;
             /** Diagram Parent Id */

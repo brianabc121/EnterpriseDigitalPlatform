@@ -4,9 +4,10 @@
 // 1. 准备：企业（企业所有者"张总"，开通企业时由平台创建）和每个可以分配的系统角色的员工——客服小艾、主管、财务、
 //    出纳、工厂工人、仓管，另有只能管理员工的"人事"和只能查看员工的"访客"（自定义角色）。
 // 2. 张总在"员工"页面（员工导图）：最顶部是张总（企业所有者）的卡片，上面写着企业名称；每张员工卡片的"重置密码"、"停用"、删除都能用，
-//    自己的卡片上是"修改密码"、没有删除；为小艾自动
+//    自己的卡片上是"修改密码"、没有删除；"交接客户"只在客服（小艾）的卡片上（§39.6）。为小艾自动
 //    生成新密码（只显示一次，可以复制），卡片上标"待改密码"；再为其他系统角色的员工逐个重置，用新密码都能登录、
 //    都要先设置新密码，旧密码不能登录；工人已经打开的页面立即回到登录页；手动为人事设置密码、不要求修改。
+//    财务名下还有客户时她的卡片上也有"交接客户"，交接给小艾后就没有了。
 // 3. 人事登录：企业所有者的卡片上"编辑"、"重置密码"置灰并提示（只能由本人或平台管理），没有"停用"和删除；权限高于自己的员工
 //    （客服等）的"重置密码"、"停用"、删除都置灰并提示，访客的都能用；自己的卡片不能删除。
 // 4. 小艾用新密码登录后只能进入"设置新密码"页面（说明谁在什么时候重置的），其他页面和接口都不行；设置后进入控制台。
@@ -181,19 +182,32 @@ async function quiet(page) {
 }
 
 // 员工页面是可以上下左右滚动的员工导图（9 位员工时比屏幕宽）：截图前页面和菜单滚回顶部，导图以最顶部的卡片
-// （企业所有者）为中心，它和中间几位员工的卡片完整地出现在画面里。
-async function frameDiagram(page) {
-  await page.evaluate(() => {
+// （企业所有者）或指定的卡片为中心，它和旁边几位员工的卡片完整地出现在画面里。
+async function frameDiagram(page, target = '[data-root="true"]') {
+  await page.evaluate((selector) => {
     const viewport = document.querySelector('.tree-viewport')
     for (const element of document.querySelectorAll('*')) {
       if (element !== viewport && element.scrollTop > 0) element.scrollTop = 0
     }
-    const root = document.querySelector('[data-root="true"]')
-    if (!viewport || !root) return
+    const card = document.querySelector(selector)
+    if (!viewport || !card) return
     const v = viewport.getBoundingClientRect()
-    const c = root.getBoundingClientRect()
+    const c = card.getBoundingClientRect()
     viewport.scrollTo({ top: 0, left: viewport.scrollLeft + c.left + c.width / 2 - (v.left + v.width / 2) })
-  })
+  }, target)
+}
+
+/** 在下拉框里选一项；选项还没出现或下拉框又收起时重新点开（与 p10 相同）。 */
+async function choose(page, select, label) {
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    await select.click()
+    const option = page.locator('.el-select-dropdown__item:visible', { hasText: label }).first()
+    if (await option.waitFor({ timeout: 3000 }).then(() => true, () => false)) {
+      await option.click()
+      return
+    }
+  }
+  throw new Error(`no option ${label}`)
 }
 
 // 员工页面的截图用 1600×1000 的窗口：导图（高约 730 像素）在 75% 高度的滚动区域里放得下。
@@ -260,6 +274,16 @@ async function staffPage(browser) {
       (await page.locator('[data-testid^="staff-node-"]').count()) === others.length + 1,
     { company, rootText },
   )
+  // 交接客户（§39.6）：只在客服岗位的卡片上，企业所有者和其他岗位（名下没有客户时）没有。
+  const handover = {}
+  for (const username of ['admin', ...others]) {
+    handover[username] = await page.locator(`[data-testid="handover-${username}"]`).count()
+  }
+  check(
+    '交接客户 is only on the 客服 card (小艾), not on the owner or the other positions',
+    Object.entries(handover).every(([username, n]) => n === (username === 'alice' ? 1 : 0)),
+    handover,
+  )
   const states = {}
   for (const username of others) states[username] = await disabledButtons(page, username)
   check(
@@ -324,6 +348,10 @@ async function staffPage(browser) {
   await frameDiagram(page)
   await settle(page)
   await page.screenshot({ path: `${SHOTS}/p27-02-staff-list.png` })
+  // 客服小艾的卡片上有"交接客户"，旁边的主管、财务没有。
+  await frameDiagram(page, '[data-testid="staff-node-sam"]')
+  await settle(page)
+  await page.screenshot({ path: `${SHOTS}/p27-02b-handover-agent-only.png` })
 
   // 自己的密码不能在这里重置（接口也拒绝）。
   const own = await request(`${API}/api/v1/staff/${(await json(`${API}/api/v1/me`, { token: state.admin })).id}/password`, {
@@ -332,6 +360,33 @@ async function staffPage(browser) {
     body: {},
   })
   check('the API refuses to reset your own password', own.status === 422, own.status)
+
+  // 财务名下还有客户（例如从客服调岗过来）：她的卡片上也有"交接客户"，交接给小艾后就没有了。
+  const staffItems = async () => (await json(`${API}/api/v1/staff`, { token: state.admin })).items
+  const fay = (await staffItems()).find((s) => s.username === 'fay')
+  await json(`${API}/api/v1/customers`, {
+    method: 'POST',
+    token: state.admin,
+    body: { display_name: `调岗前的客户 ${RUN}`, owner_id: fay.id },
+  })
+  await page.reload()
+  await page.locator('[data-testid="staff-node-admin"]').waitFor()
+  const fayHandover = page.locator('[data-testid="handover-fay"]')
+  const shown = await fayHandover.waitFor({ timeout: 10000 }).then(() => true, () => false)
+  if (shown) {
+    await fayHandover.click()
+    const handoverDialog = page.locator('.el-dialog:visible', { hasText: '交接客户 · 财务小芳' })
+    await handoverDialog.waitFor()
+    await choose(page, handoverDialog.locator('.el-select'), '小艾')
+    await handoverDialog.getByRole('button', { name: '交接', exact: true }).click()
+  }
+  const gone = await fayHandover.waitFor({ state: 'detached', timeout: 10000 }).then(() => true, () => false)
+  const left = (await staffItems()).find((s) => s.username === 'fay').customers
+  check(
+    '财务 with a customer still in her name has 交接客户 until it is handed over to 小艾',
+    shown && gone && left === 0,
+    { shown, gone, left },
+  )
 }
 
 // ---- 3. 人事只能重置权限不高于自己的员工 ----
