@@ -30,8 +30,8 @@ const PASSWORD = 'demo-pass-2026'
 const DESKTOP = { width: 1440, height: 900 }
 const PHONE = { width: 390, height: 844 }
 
-const AGENT_PAGES = ['首页', '工作台', '会话记录', '待办', '订单', '合同', '资料', '个人待办', '客户', '知识库', 'AI 助理']
-const CUSTOM_PAGES = ['首页', '工作台', '会话记录', '待办', '订单', '应收账款', '合同', '资料', '个人待办', '客户', 'AI 助理']
+const AGENT_PAGES = ['首页', '工作台', '会话记录', '待办', '订单', '合同', '资料', '个人待办', '客户', '商机', '知识库', 'AI 助理']
+const CUSTOM_PAGES = ['首页', '工作台', '会话记录', '待办', '订单', '应收账款', '合同', '资料', '个人待办', '客户', '商机', 'AI 助理']
 
 const summary = { tenant: TENANT, checks: [], consoleErrors: [] }
 const check = (name, ok, detail) =>
