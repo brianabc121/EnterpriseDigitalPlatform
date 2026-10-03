@@ -670,7 +670,7 @@ def contract_messages(
     return [{"role": "system", "content": system}, {"role": "user", "content": "\n\n".join(parts)}]
 
 
-def prospect_messages(
+def opportunity_messages(
     *,
     transcript: list[tuple[str, str]],
     intent: str,
@@ -701,7 +701,7 @@ def prospect_messages(
     return [{"role": "system", "content": system}, {"role": "user", "content": "\n\n".join(parts)}]
 
 
-def prospect_message_messages(
+def opportunity_message_messages(
     *,
     company: str,
     customer: str,

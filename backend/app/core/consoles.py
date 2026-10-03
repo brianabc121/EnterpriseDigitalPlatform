@@ -170,6 +170,9 @@ PROFILE_PERMISSIONS: dict[ConsoleProfile, frozenset[Permission]] = {
             Permission.ORDER_READ,
             Permission.ORDER_PAYMENT,
             Permission.CUSTOMER_READ,
+            # 商机只看不改（设计文档 §40.11）。
+            Permission.OPPORTUNITY_READ,
+            Permission.OPPORTUNITY_READ_ALL,
             Permission.TASK_USE,
             Permission.ASSISTANT_USE,
             Permission.TOKEN_VIEW,

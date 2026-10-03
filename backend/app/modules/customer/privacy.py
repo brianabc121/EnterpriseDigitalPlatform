@@ -41,6 +41,10 @@ from app.modules.files.service import key_of_url
 from app.modules.history.models import RecordType, RecordVersion
 from app.modules.iam.models import Staff
 from app.modules.iam.principal import Principal
+from app.modules.opportunities import service as opportunity_service
+from app.modules.opportunities.models import LEVEL_LABELS as OPPORTUNITY_LEVEL_LABELS
+from app.modules.opportunities.models import METHOD_LABELS, Opportunity, OpportunityActivity
+from app.modules.opportunities.models import STATUS_LABELS as OPPORTUNITY_STATUS_LABELS
 from app.modules.orders import service as order_service
 from app.modules.orders import settings as order_settings
 from app.modules.orders.models import (
@@ -50,10 +54,6 @@ from app.modules.orders.models import (
     OrderPayment,
 )
 from app.modules.orders.models import STATUS_LABELS as ORDER_STATUS_LABELS
-from app.modules.prospects import service as prospect_service
-from app.modules.prospects.models import LEVEL_LABELS as PROSPECT_LEVEL_LABELS
-from app.modules.prospects.models import METHOD_LABELS, CustomerProspect, ProspectFollowup
-from app.modules.prospects.models import STATUS_LABELS as PROSPECT_STATUS_LABELS
 from app.modules.security.models import PrivacyRequest
 from app.modules.todos import fields as todo_fields
 from app.modules.todos.models import STATUS_LABELS, Todo, TodoType
@@ -152,8 +152,8 @@ async def merge_customers(
     )
     moved: dict[str, int] = {}
     # 意向客户：同一客户只能有一条待确认或跟进中的，合并成一条。
-    if count := await prospect_service.merge_customers(session, target.id, ids):
-        moved["customer_prospects"] = count
+    if count := await opportunity_service.merge_customers(session, target.id, ids):
+        moved["opportunities"] = count
     for model in _MOVED:
         result = await session.execute(
             update(model).where(model.customer_id.in_(ids)).values(customer_id=target.id)
@@ -179,36 +179,39 @@ async def merge_customers(
 # ---- 个人信息查询 ----
 
 
-async def _prospect_documents(
+async def _opportunity_documents(
     session: AsyncSession, customer_id: uuid.UUID, names: dict[uuid.UUID, str]
 ) -> list[dict[str, Any]]:
     """意向客户的记录（想要什么、顾虑、状态）和跟进记录。"""
     rows = (
         await session.scalars(
-            select(CustomerProspect)
-            .where(CustomerProspect.customer_id == customer_id)
-            .order_by(CustomerProspect.created_at)
+            select(Opportunity)
+            .where(Opportunity.customer_id == customer_id)
+            .order_by(Opportunity.created_at)
         )
     ).all()
     documents = []
-    for prospect in rows:
+    for opportunity in rows:
         followups = (
             await session.scalars(
-                select(ProspectFollowup)
-                .where(ProspectFollowup.prospect_id == prospect.id)
-                .order_by(ProspectFollowup.created_at)
+                select(OpportunityActivity)
+                .where(
+                    OpportunityActivity.opportunity_id == opportunity.id,
+                    OpportunityActivity.kind.in_(("followup", "note", "session")),
+                )
+                .order_by(OpportunityActivity.created_at)
             )
         ).all()
         documents.append(
             {
-                "status": PROSPECT_STATUS_LABELS.get(prospect.status, prospect.status),
-                "level": PROSPECT_LEVEL_LABELS.get(prospect.level, prospect.level),
-                "interest": prospect.interest,
-                "concerns": prospect.concerns,
-                "follower": names.get(prospect.follower_id) if prospect.follower_id else None,
-                "lost_reason": prospect.lost_reason,
-                "created_at": _iso(prospect.created_at),
-                "closed_at": _iso(prospect.closed_at),
+                "status": OPPORTUNITY_STATUS_LABELS.get(opportunity.status, opportunity.status),
+                "level": OPPORTUNITY_LEVEL_LABELS.get(opportunity.level, opportunity.level),
+                "interest": opportunity.interest,
+                "concerns": opportunity.concerns,
+                "owner": names.get(opportunity.owner_id) if opportunity.owner_id else None,
+                "lost_reason": opportunity.lost_reason,
+                "created_at": _iso(opportunity.created_at),
+                "closed_at": _iso(opportunity.closed_at),
                 "followups": [
                     {
                         "method": METHOD_LABELS.get(f.method, f.method),
@@ -289,7 +292,7 @@ async def personal_data(
         )
     ).all()
     order_documents = [await _order_document(ctx, session, order) for order in orders]
-    prospects = await _prospect_documents(session, customer.id, names)
+    opportunities = await _opportunity_documents(session, customer.id, names)
     history = (
         await session.scalars(
             select(CustomerOwnerHistory)
@@ -368,7 +371,7 @@ async def personal_data(
             for (t, type_name), values in zip(todos, todo_values, strict=True)
         ],
         orders=order_documents,
-        prospects=prospects,
+        opportunities=opportunities,
         owner_history=[
             {
                 "from": names.get(h.from_owner_id) if h.from_owner_id else None,

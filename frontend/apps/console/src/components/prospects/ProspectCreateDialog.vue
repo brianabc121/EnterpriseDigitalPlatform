@@ -31,7 +31,7 @@ const form = reactive({
   interest: '',
   concerns: '',
   nextFollowAt: '',
-  followerId: '',
+  ownerId: '',
 })
 const saving = ref(false)
 const followDays = ref(3)
@@ -41,7 +41,7 @@ const searching = ref(false)
 const staff = ref<Schemas['StaffOut'][]>([])
 
 const listed = computed(() => {
-  const status = info.value?.prospect?.status
+  const status = info.value?.opportunity?.status
   return status === 'active' || status === 'suggested' ? status : null
 })
 
@@ -57,7 +57,7 @@ async function searchCustomers(q: string): Promise<void> {
 async function loadInfo(customerId: string): Promise<void> {
   info.value = null
   if (!customerId) return
-  const { data } = await api.GET('/api/v1/prospects/customer/{customer_id}', {
+  const { data } = await api.GET('/api/v1/opportunities/customer/{customer_id}', {
     params: { path: { customer_id: customerId } },
   })
   info.value = data ?? null
@@ -70,11 +70,11 @@ async function reset(): Promise<void> {
     interest: '',
     concerns: '',
     nextFollowAt: '',
-    followerId: '',
+    ownerId: '',
   })
   info.value = null
   const [settings] = await Promise.all([
-    api.GET('/api/v1/prospects/settings'),
+    api.GET('/api/v1/opportunities/settings'),
     props.customer ? loadInfo(props.customer.id) : searchCustomers(''),
     canAssign.value && staff.value.length === 0
       ? api.GET('/api/v1/staff').then(({ data }) => {
@@ -91,14 +91,14 @@ async function save(): Promise<void> {
     return
   }
   saving.value = true
-  const { data, error } = await api.POST('/api/v1/prospects', {
+  const { data, error } = await api.POST('/api/v1/opportunities', {
     body: {
       customer_id: form.customerId,
       level: form.level,
       interest: form.interest.trim() || null,
       concerns: form.concerns.trim() || null,
       next_follow_at: form.nextFollowAt || null,
-      follower_id: form.followerId || null,
+      owner_id: form.ownerId || null,
     },
   })
   saving.value = false
@@ -209,10 +209,10 @@ watch(
       </el-form-item>
       <el-form-item v-if="canAssign" label="跟进人">
         <el-select
-          v-model="form.followerId"
+          v-model="form.ownerId"
           clearable
           placeholder="默认客户的归属坐席"
-          data-testid="prospect-follower"
+          data-testid="prospect-owner"
         >
           <el-option v-for="s in staff" :key="s.id" :label="s.display_name" :value="s.id" />
         </el-select>

@@ -38,10 +38,10 @@ from app.modules.kb.service import reindex_all
 from app.modules.lifecycle.closure import run_purges
 from app.modules.lifecycle.export import run_exports
 from app.modules.materials import jobs as material_jobs
+from app.modules.opportunities import ai as opportunities_ai
 from app.modules.orders.jobs import run_collections as run_order_collections
 from app.modules.orders.jobs import run_draft_followups as run_order_followups
 from app.modules.products.service import embed_pending as embed_products
-from app.modules.prospects import ai as prospects_ai
 from app.modules.security.keys import TenantKeyring
 from app.modules.security.retention import run_retention
 from app.modules.security.rotation import rewrap_master
@@ -384,7 +384,7 @@ async def wake_run(settings: Settings, code: str, kind: str, force: bool) -> dic
         await ctx.aclose()
 
 
-async def prospects_scan(settings: Settings, code: str | None) -> dict[str, Any]:
+async def opportunities_scan(settings: Settings, code: str | None) -> dict[str, Any]:
     """立即按会话找一遍意向客户（设计文档 §35.3）：成交、客户又来咨询、AI 转入，返回各项的数量。"""
     ctx = AppContext.create(settings)
     try:
@@ -394,7 +394,7 @@ async def prospects_scan(settings: Settings, code: str | None) -> dict[str, Any]
                 tenant_id = await session.scalar(select(Tenant.id).where(Tenant.code == code))
             if tenant_id is None:
                 raise SystemExit(f"租户不存在：{code}")
-        return await prospects_ai.scan(ctx, tenant_id=tenant_id)
+        return await opportunities_ai.scan(ctx, tenant_id=tenant_id)
     finally:
         await ctx.aclose()
 
@@ -499,10 +499,12 @@ def main(argv: list[str] | None = None) -> int:
     wake.add_argument(
         "--force", action="store_true", help="不看增量更新索引，全部重新检查（同“立即唤醒”）"
     )
-    prospects = commands.add_parser(
-        "prospects-scan", help="立即按最近结束的会话找一遍意向客户（成交、又来咨询、AI 转入）"
+    opportunities = commands.add_parser(
+        "opportunities-scan",
+        aliases=["prospects-scan"],
+        help="立即按最近结束的会话找一遍意向客户（成交、又来咨询、AI 转入）",
     )
-    prospects.add_argument("tenant", nargs="?", help="租户代码；不填时处理全部租户")
+    opportunities.add_argument("tenant", nargs="?", help="租户代码；不填时处理全部租户")
     openapi = commands.add_parser("export-openapi", help="导出 OpenAPI 描述（供前端生成类型）")
     openapi.add_argument("output", nargs="?", type=Path)
 
@@ -605,8 +607,8 @@ def main(argv: list[str] | None = None) -> int:
         result = asyncio.run(wake_run(get_settings(), args.tenant, args.kind, args.force))
         print(json.dumps(result, ensure_ascii=False))
         return 0 if result["status"] in ("done", "skipped") else 1
-    elif args.command == "prospects-scan":
-        print(json.dumps(asyncio.run(prospects_scan(get_settings(), args.tenant))))
+    elif args.command in ("opportunities-scan", "prospects-scan"):
+        print(json.dumps(asyncio.run(opportunities_scan(get_settings(), args.tenant))))
     elif args.command == "export-openapi":
         export_openapi(args.output)
     elif args.command == "transport-keygen":

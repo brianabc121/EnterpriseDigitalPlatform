@@ -10,7 +10,7 @@
 //    什么、顾虑、7 天后跟进，跟进人小艾），依据的会话可以点开；访客又来说要下单：记"客户又来咨询了"、
 //    等级调高；这个客户的订单确认后自动成交，"本月成交"加一。
 // 4. 意向客户设置改成"只建议"：另一位访客咨询后进"待确认"，管理员确认转入。
-// 5. AI 唤醒的每日巡检提醒"管理员 有 1 位意向客户该跟进了"，提醒的链接打开今天该跟进的列表。
+// 5. AI 唤醒的每日巡检提醒"管理员 有 1 条商机该跟进了"，提醒的链接打开今天该跟进的列表。
 // 6. 放弃（写原因）和重新跟进。
 // 7. 小艾只看到自己跟进的意向客户（客户不归她也能看到），没有意向客户设置。
 //
@@ -335,7 +335,7 @@ async function staffConverts(page) {
   await area(form, 'prospect-follow-content').fill('微信发了活动介绍，客户说下周和业委会商量')
   await form.locator('[data-testid="prospect-follow-save"]').click()
   await success(page, '已记一次跟进')
-  const timeline = drawer.locator('[data-testid="prospect-followups"]')
+  const timeline = drawer.locator('[data-testid="prospect-activities"]')
   await timeline.locator('text=业委会').waitFor()
   const entry = await text(timeline)
   check('a follow-up is recorded with its method and author', entry.includes('微信') && entry.includes('管理员'), entry)
@@ -373,9 +373,9 @@ async function aiConverts(browser, admin, alice) {
   await alice.locator('[data-testid="agent-status"]', { hasText: '在线' }).waitFor({ timeout: 15_000 })
   const visitor = await openVisitor(browser)
   await serveAndClose(alice, visitor, FIRST_ASK, '意向明确')
-  await cli('prospects-scan', TENANT)
+  await cli('opportunities-scan', TENANT)
   const page = await until('the AI prospect', async () => {
-    const list = await json(`${API}/api/v1/prospects?view=active`, { token: state.admin })
+    const list = await json(`${API}/api/v1/opportunities?view=active`, { token: state.admin })
     return list.items.find((p) => p.source === 'ai') ?? null
   })
   state.aiCustomerId = page.customer_id
@@ -406,9 +406,9 @@ async function aiConverts(browser, admin, alice) {
 
   // 客户又来咨询了：说要下单——系统记一条跟进，等级调高。
   await serveAndClose(alice, visitor, RETURN_ASK, '准备下单')
-  await cli('prospects-scan', TENANT)
+  await cli('opportunities-scan', TENANT)
   await until('the return visit follow-up', async () => {
-    const list = await json(`${API}/api/v1/prospects?view=active&customer_id=${state.aiCustomerId}`, {
+    const list = await json(`${API}/api/v1/opportunities?view=active&customer_id=${state.aiCustomerId}`, {
       token: state.admin,
     })
     const item = list.items[0]
@@ -416,7 +416,7 @@ async function aiConverts(browser, admin, alice) {
   })
   await prospects(admin)
   const again = await openProspect(admin, state.aiName)
-  const timeline = await text(again.locator('[data-testid="prospect-followups"]'))
+  const timeline = await text(again.locator('[data-testid="prospect-activities"]'))
   check(
     'a return visit is recorded by the system and the level goes up to 高',
     timeline.includes('客户又来咨询了（准备下单）') && timeline.includes('系统') && (await text(again)).includes('意向高'),
@@ -463,14 +463,14 @@ async function suggestion(browser, admin, alice) {
   await dialog.locator('[data-testid="prospect-ai-mode"] label', { hasText: '只建议' }).click()
   await dialog.locator('[data-testid="prospect-settings-save"]').click()
   await success(admin, '已保存意向客户设置')
-  const saved = await json(`${API}/api/v1/prospects/settings`, { token: state.admin })
+  const saved = await json(`${API}/api/v1/opportunities/settings`, { token: state.admin })
   check('settings switch AI to suggest only', saved.settings.ai_mode === 'suggest', saved)
 
   const visitor = await openVisitor(browser)
   await serveAndClose(alice, visitor, '可视门铃有货吗？什么时候能发货', '意向明确')
-  await cli('prospects-scan', TENANT)
+  await cli('opportunities-scan', TENANT)
   await until('the AI suggestion', async () => {
-    const list = await json(`${API}/api/v1/prospects?view=suggested`, { token: state.admin })
+    const list = await json(`${API}/api/v1/opportunities?view=suggested`, { token: state.admin })
     return list.items[0] ?? null
   })
   await prospects(admin, 'suggested')
@@ -504,8 +504,8 @@ async function wakeReminder(admin) {
   const findings = await json(`${API}/api/v1/wake/findings?view=all&status=open&limit=50`, { token: state.admin })
   const finding = findings.items.find((f) => f.check_code === 'prospect_due')
   check(
-    'AI wake-up reminds the follower: 管理员 有 1 位意向客户该跟进了',
-    finding && finding.title === '管理员 有 1 位意向客户该跟进了' && finding.detail.startsWith('王先生'),
+    'AI wake-up reminds the follower: 管理员 有 1 条商机该跟进了',
+    finding && finding.title === '管理员 有 1 条商机该跟进了' && finding.detail.startsWith('王先生'),
     findings.items.map((f) => f.title),
   )
   if (!finding) return

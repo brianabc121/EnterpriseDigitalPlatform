@@ -19,6 +19,7 @@ from app.modules.billing.models import Plan, Subscription, SubscriptionStatus
 from app.modules.billing.schemas import SubscriptionCreate
 from app.modules.channels.service import default_web_channel
 from app.modules.iam.models import Role, Staff, StaffRole
+from app.modules.opportunities.service import seed_stages
 from app.modules.routing.models import RoutingPolicy
 from app.modules.tenancy.models import PlatformUser, PlatformUserStatus, Tenant, TenantStatus
 from app.modules.tenancy.schemas import TenantCreate, TenantOut, TenantUpdate
@@ -97,6 +98,7 @@ async def provision_tenant(
     session.add(default_web_channel(tenant.id, tenant.code))
     session.add(RoutingPolicy(id=new_id(), tenant_id=tenant.id, name="默认策略", is_default=True))
     add_todo_presets(session, tenant.id)
+    await seed_stages(session, tenant.id)
     admin = Staff(
         id=new_id(),
         tenant_id=tenant.id,

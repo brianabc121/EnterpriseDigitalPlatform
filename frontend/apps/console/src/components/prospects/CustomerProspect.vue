@@ -23,7 +23,7 @@ const openId = ref<string | null>(null)
 const today = isoDate(new Date())
 
 async function load(): Promise<void> {
-  const { data } = await api.GET('/api/v1/prospects/customer/{customer_id}', {
+  const { data } = await api.GET('/api/v1/opportunities/customer/{customer_id}', {
     params: { path: { customer_id: props.customerId } },
   })
   info.value = data ?? null
@@ -35,30 +35,30 @@ onMounted(load)
 <template>
   <section v-if="info" class="block" data-testid="customer-prospect">
     <h3>意向客户</h3>
-    <template v-if="info.prospect">
+    <template v-if="info.opportunity">
       <div class="line">
-        <el-tag :type="STATUS_TAG[info.prospect.status]" size="small" data-testid="customer-prospect-status">
-          {{ STATUS_LABEL[info.prospect.status] }}
+        <el-tag :type="STATUS_TAG[info.opportunity.status]" size="small" data-testid="customer-prospect-status">
+          {{ STATUS_LABEL[info.opportunity.status] }}
         </el-tag>
-        <el-tag :type="LEVEL_TAG[info.prospect.level]" size="small" effect="plain">
-          意向{{ LEVEL_LABEL[info.prospect.level] }}
+        <el-tag :type="LEVEL_TAG[info.opportunity.level]" size="small" effect="plain">
+          意向{{ LEVEL_LABEL[info.opportunity.level] }}
         </el-tag>
         <span
-          v-if="info.prospect.status === 'active' && info.prospect.next_follow_at"
+          v-if="info.opportunity.status === 'active' && info.opportunity.next_follow_at"
           class="due"
-          :class="{ overdue: info.prospect.overdue }"
+          :class="{ overdue: info.opportunity.overdue }"
         >
-          下次跟进 {{ dueText(info.prospect.next_follow_at, today) }}
+          下次跟进 {{ dueText(info.opportunity.next_follow_at, today) }}
         </span>
       </div>
-      <div v-if="info.prospect.follower_name" class="muted">跟进人 {{ info.prospect.follower_name }}</div>
+      <div v-if="info.opportunity.owner_name" class="muted">跟进人 {{ info.opportunity.owner_name }}</div>
       <el-button
         size="small"
         class="action"
         data-testid="customer-prospect-open"
-        @click="openId = info.prospect.id"
+        @click="openId = info.opportunity.id"
       >
-        {{ info.prospect.status === 'active' ? '查看与跟进' : '查看' }}
+        {{ info.opportunity.status === 'active' ? '查看与跟进' : '查看' }}
       </el-button>
     </template>
     <template v-else>

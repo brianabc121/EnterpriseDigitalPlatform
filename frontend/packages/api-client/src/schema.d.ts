@@ -3782,6 +3782,396 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/opportunities": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Opportunities
+         * @description 看得到的商机，以及各快捷视图的数量和本月赢单数。
+         */
+        get: operations["list_opportunities_api_v1_opportunities_get"];
+        put?: never;
+        /**
+         * Create Opportunity
+         * @description 新建商机（把客户转入；同一客户只能有一条待确认或跟进中的）。
+         */
+        post: operations["create_opportunity_api_v1_opportunities_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/opportunities/board": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Board
+         * @description 看板：每个阶段一列，列头有数量和预计金额合计。
+         */
+        get: operations["board_api_v1_opportunities_board_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/opportunities/customer/{customer_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Customer Opportunity
+         * @description 客户资料里的商机：最近的一条（待确认、跟进中的优先），以及最近 30 天确认的订单。
+         */
+        get: operations["customer_opportunity_api_v1_opportunities_customer__customer_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/opportunities/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Settings */
+        get: operations["get_settings_api_v1_opportunities_settings_get"];
+        /** Save Settings */
+        put: operations["save_settings_api_v1_opportunities_settings_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/opportunities/stages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Stages */
+        get: operations["list_stages_api_v1_opportunities_stages_get"];
+        put?: never;
+        /**
+         * Create Stage
+         * @description 新增一个进行中的阶段。
+         */
+        post: operations["create_stage_api_v1_opportunities_stages_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/opportunities/stages/order": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Reorder Stages
+         * @description 调整进行中的阶段的先后（列出全部进行中的阶段）。
+         */
+        put: operations["reorder_stages_api_v1_opportunities_stages_order_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/opportunities/stages/{stage_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Stage
+         * @description 删除一个进行中的阶段：还有商机时要指定并到哪个阶段。
+         */
+        delete: operations["delete_stage_api_v1_opportunities_stages__stage_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update Stage */
+        patch: operations["update_stage_api_v1_opportunities_stages__stage_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/opportunities/stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Stats
+         * @description 顶部数字。
+         */
+        get: operations["stats_api_v1_opportunities_stats_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/opportunities/{opportunity_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Opportunity */
+        get: operations["get_opportunity_api_v1_opportunities__opportunity_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update Opportunity
+         * @description 修改名称、等级、想要什么、顾虑、预计金额、预计成交日、概率、下次跟进日期、关联商品、
+         *     负责人（改成别人需要分配商机的权限）。
+         */
+        patch: operations["update_opportunity_api_v1_opportunities__opportunity_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/opportunities/{opportunity_id}/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Accept
+         * @description 确认 AI 的建议，转入商机。
+         */
+        post: operations["accept_api_v1_opportunities__opportunity_id__accept_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/opportunities/{opportunity_id}/activities": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Activities
+         * @description 时间线：跟进、备注和系统记的事件，新的在前。
+         */
+        get: operations["list_activities_api_v1_opportunities__opportunity_id__activities_get"];
+        put?: never;
+        /**
+         * Add Activity
+         * @description 记一次跟进（下次跟进日期不填时按默认天数）或备注。
+         */
+        post: operations["add_activity_api_v1_opportunities__opportunity_id__activities_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/opportunities/{opportunity_id}/assign": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Assign
+         * @description 换负责人（改成别人需要分配商机的权限）。
+         */
+        post: operations["assign_api_v1_opportunities__opportunity_id__assign_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/opportunities/{opportunity_id}/dismiss": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Dismiss
+         * @description 忽略 AI 的建议（30 天内不再建议这个客户）。
+         */
+        post: operations["dismiss_api_v1_opportunities__opportunity_id__dismiss_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/opportunities/{opportunity_id}/followups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add Activity
+         * @description 记一次跟进（下次跟进日期不填时按默认天数）或备注。
+         */
+        post: operations["add_activity_api_v1_opportunities__opportunity_id__followups_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/opportunities/{opportunity_id}/lost": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mark Lost
+         * @description 输单：选原因分类，可以写说明。
+         */
+        post: operations["mark_lost_api_v1_opportunities__opportunity_id__lost_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/opportunities/{opportunity_id}/message": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Write Message
+         * @description AI 写跟进话术（需要套餐包含 AI）：员工修改后自己发送。
+         */
+        post: operations["write_message_api_v1_opportunities__opportunity_id__message_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/opportunities/{opportunity_id}/reopen": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reopen
+         * @description 重新跟进：输单的回到已沟通；赢单的新开一条商机（返回新的那条）。
+         */
+        post: operations["reopen_api_v1_opportunities__opportunity_id__reopen_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/opportunities/{opportunity_id}/stage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Move Stage
+         * @description 换阶段（看板拖拽）：拖到赢单可以带订单或合同，拖到输单要选原因。
+         */
+        post: operations["move_stage_api_v1_opportunities__opportunity_id__stage_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/opportunities/{opportunity_id}/won": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mark Won
+         * @description 手动赢单（可以关联这个客户的订单或合同）。
+         */
+        post: operations["mark_won_api_v1_opportunities__opportunity_id__won_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/orders": {
         parameters: {
             query?: never;
@@ -5154,226 +5544,6 @@ export interface paths {
         get: operations["trend_api_v1_profit_trend_get"];
         put?: never;
         post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/prospects": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List Prospects
-         * @description 看得到的意向客户，以及各页签的数量和本月成交数。
-         */
-        get: operations["list_prospects_api_v1_prospects_get"];
-        put?: never;
-        /**
-         * Create Prospect
-         * @description 把客户转入意向客户（同一客户只能有一条待确认或跟进中的）。
-         */
-        post: operations["create_prospect_api_v1_prospects_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/prospects/customer/{customer_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Customer Prospect
-         * @description 客户资料里的意向：最近的一条（待确认、跟进中的优先），以及最近 30 天确认的订单。
-         */
-        get: operations["customer_prospect_api_v1_prospects_customer__customer_id__get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/prospects/settings": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get Settings */
-        get: operations["get_settings_api_v1_prospects_settings_get"];
-        /** Save Settings */
-        put: operations["save_settings_api_v1_prospects_settings_put"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/prospects/{prospect_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get Prospect */
-        get: operations["get_prospect_api_v1_prospects__prospect_id__get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        /**
-         * Update Prospect
-         * @description 修改等级、想要什么、顾虑、下次跟进日期、跟进人（改成别人需要分配客户的权限）。
-         */
-        patch: operations["update_prospect_api_v1_prospects__prospect_id__patch"];
-        trace?: never;
-    };
-    "/api/v1/prospects/{prospect_id}/accept": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Accept
-         * @description 确认 AI 的建议，转入意向客户。
-         */
-        post: operations["accept_api_v1_prospects__prospect_id__accept_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/prospects/{prospect_id}/dismiss": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Dismiss
-         * @description 忽略 AI 的建议（30 天内不再建议这个客户）。
-         */
-        post: operations["dismiss_api_v1_prospects__prospect_id__dismiss_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/prospects/{prospect_id}/followups": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Add Followup
-         * @description 记一次跟进：下次跟进日期不填时按默认天数。
-         */
-        post: operations["add_followup_api_v1_prospects__prospect_id__followups_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/prospects/{prospect_id}/lost": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Mark Lost */
-        post: operations["mark_lost_api_v1_prospects__prospect_id__lost_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/prospects/{prospect_id}/message": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Write Message
-         * @description AI 写跟进话术（需要套餐包含 AI）：员工修改后自己发送。
-         */
-        post: operations["write_message_api_v1_prospects__prospect_id__message_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/prospects/{prospect_id}/reopen": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Reopen
-         * @description 已成交、已放弃的重新跟进（下次跟进日期不填时按默认天数）。
-         */
-        post: operations["reopen_api_v1_prospects__prospect_id__reopen_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/prospects/{prospect_id}/won": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Mark Won
-         * @description 手动标记成交（可以关联这个客户的订单）。
-         */
-        post: operations["mark_won_api_v1_prospects__prospect_id__won_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -10140,6 +10310,30 @@ export interface components {
             /** Resource Type */
             resource_type: string | null;
         };
+        /**
+         * AutoAdvance
+         * @description 自动推进到哪个阶段（阶段代码，§40.5）；为空时这条规则关闭。只往前不往后；赢单的自动推进不能关。
+         */
+        AutoAdvance: {
+            /**
+             * Contract Final
+             * @description 合同定稿后
+             * @default negotiating
+             */
+            contract_final: string | null;
+            /**
+             * First Followup
+             * @description 第一次跟进后
+             * @default contacted
+             */
+            first_followup: string | null;
+            /**
+             * Quote
+             * @description 报价待办完成、订单提交审核后
+             * @default quoted
+             */
+            quote: string | null;
+        };
         /** BatchFailure */
         BatchFailure: {
             /** Error */
@@ -10212,6 +10406,24 @@ export interface components {
              * @description 告诉员工怎么用这个码
              */
             hint: string;
+        };
+        /** BoardColumn */
+        BoardColumn: {
+            /**
+             * Amount Sum
+             * @description 这一列的预计金额合计
+             */
+            amount_sum: string | null;
+            /** Items */
+            items: components["schemas"]["OpportunitySummary"][];
+            stage: components["schemas"]["StageOut"];
+            /** Total */
+            total: number;
+            /**
+             * Truncated
+             * @description 这一列还有没显示的
+             */
+            truncated: boolean;
         };
         /**
          * BomHistory
@@ -12005,6 +12217,16 @@ export interface components {
             identities: components["schemas"]["CustomerIdentityOut"][];
             /** Notes */
             notes: string | null;
+            /**
+             * Opportunity Stage
+             * @description 进行中的商机的阶段名称
+             */
+            opportunity_stage?: string | null;
+            /**
+             * Opportunity Status
+             * @description 商机：suggested 待确认（AI 建议）、active 跟进中；没有进行中的商机时为空
+             */
+            opportunity_status?: string | null;
             /** Owner Display Name */
             owner_display_name: string | null;
             /** Owner Id */
@@ -12014,11 +12236,6 @@ export interface components {
              * @description 手机号（掩码）
              */
             phone?: string | null;
-            /**
-             * Prospect Status
-             * @description 意向客户：suggested 待确认（AI 建议）、active 跟进中；不在名单里为空
-             */
-            prospect_status?: string | null;
             /** Source Channel */
             source_channel: string;
             /** Tags */
@@ -12078,6 +12295,19 @@ export interface components {
              */
             source_ids: string[];
         };
+        /**
+         * CustomerOpportunityInfo
+         * @description 客户资料里的商机。
+         */
+        CustomerOpportunityInfo: {
+            /** @description 最近的商机；没有时为空 */
+            opportunity: components["schemas"]["OpportunityBrief"] | null;
+            /**
+             * Recent Deal At
+             * @description 最近 30 天确认的订单的确认时间（转入时提示：老客户有新需求也可以转入）
+             */
+            recent_deal_at: string | null;
+        };
         /** CustomerOut */
         CustomerOut: {
             /** Company */
@@ -12099,6 +12329,16 @@ export interface components {
              * Format: uuid
              */
             id: string;
+            /**
+             * Opportunity Stage
+             * @description 进行中的商机的阶段名称
+             */
+            opportunity_stage?: string | null;
+            /**
+             * Opportunity Status
+             * @description 商机：suggested 待确认（AI 建议）、active 跟进中；没有进行中的商机时为空
+             */
+            opportunity_status?: string | null;
             /** Owner Display Name */
             owner_display_name: string | null;
             /** Owner Id */
@@ -12108,11 +12348,6 @@ export interface components {
              * @description 手机号（掩码）
              */
             phone?: string | null;
-            /**
-             * Prospect Status
-             * @description 意向客户：suggested 待确认（AI 建议）、active 跟进中；不在名单里为空
-             */
-            prospect_status?: string | null;
             /** Source Channel */
             source_channel: string;
             /** Tags */
@@ -12124,19 +12359,6 @@ export interface components {
             items: components["schemas"]["CustomerOut"][];
             /** Total */
             total: number;
-        };
-        /**
-         * CustomerProspectInfo
-         * @description 客户资料里的意向客户。
-         */
-        CustomerProspectInfo: {
-            /** @description 最近的意向记录；没有时为空 */
-            prospect: components["schemas"]["ProspectBrief"] | null;
-            /**
-             * Recent Deal At
-             * @description 最近 30 天确认的订单的确认时间（转入时提示：老客户有新需求也可以转入）
-             */
-            recent_deal_at: string | null;
         };
         /** CustomerReceivableOut */
         CustomerReceivableOut: {
@@ -13407,10 +13629,19 @@ export interface components {
             /** Userid */
             userid: string;
         };
-        /** FollowupCreate */
+        /**
+         * FollowupCreate
+         * @description 记一次跟进或备注。
+         */
         FollowupCreate: {
             /** Content */
             content: string;
+            /**
+             * Kind
+             * @default followup
+             * @enum {string}
+             */
+            kind: "followup" | "note";
             /**
              * Method
              * @default phone
@@ -13419,7 +13650,7 @@ export interface components {
             method: "phone" | "wechat" | "chat" | "visit" | "other";
             /**
              * Next Follow At
-             * @description 不填时按设置的默认天数
+             * @description 不填时按设置的默认天数（备注不改）
              */
             next_follow_at?: string | null;
         };
@@ -16533,6 +16764,13 @@ export interface components {
             /** Username */
             username: string;
         };
+        /** LostReason */
+        LostReason: {
+            /** Code */
+            code: string;
+            /** Name */
+            name: string;
+        };
         /**
          * MailAccountIn
          * @description 添加或修改邮箱。修改时不填授权码表示不变。
@@ -18069,6 +18307,584 @@ export interface components {
              */
             type: string;
         };
+        /** OpportunityActivityOut */
+        OpportunityActivityOut: {
+            /** Content */
+            content: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "followup" | "note" | "created" | "stage" | "owner" | "field" | "session" | "todo" | "order" | "contract" | "payment" | "ai";
+            /** Linked Id */
+            linked_id: string | null;
+            /** Linked Type */
+            linked_type: string | null;
+            /**
+             * Method
+             * @enum {string}
+             */
+            method: "phone" | "wechat" | "chat" | "visit" | "other";
+            /** Next Follow At */
+            next_follow_at: string | null;
+            /** Properties */
+            properties?: {
+                [key: string]: unknown;
+            };
+            /** Session Id */
+            session_id: string | null;
+            /** Staff Id */
+            staff_id: string | null;
+            /**
+             * Staff Name
+             * @description 记录人；为空时是系统记的
+             */
+            staff_name: string | null;
+            /** Title */
+            title: string | null;
+        };
+        /** OpportunityAssign */
+        OpportunityAssign: {
+            /**
+             * Owner Id
+             * @description 负责人；为空时没有负责人
+             */
+            owner_id: string | null;
+        };
+        /** OpportunityBoard */
+        OpportunityBoard: {
+            /** Amount Visible */
+            amount_visible: boolean;
+            /** Columns */
+            columns: components["schemas"]["BoardColumn"][];
+        };
+        /**
+         * OpportunityBrief
+         * @description 客户资料里显示的商机（最近的一条，待确认、跟进中的优先）。
+         */
+        OpportunityBrief: {
+            /** Amount */
+            amount: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Level
+             * @enum {string}
+             */
+            level: "high" | "medium" | "low";
+            /** Name */
+            name: string;
+            /** Next Follow At */
+            next_follow_at: string | null;
+            /** Overdue */
+            overdue: boolean;
+            /** Owner Name */
+            owner_name: string | null;
+            /**
+             * Stage Kind
+             * @enum {string}
+             */
+            stage_kind: "open" | "won" | "lost";
+            /** Stage Name */
+            stage_name: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "suggested" | "active" | "won" | "lost" | "dismissed";
+        };
+        /** OpportunityCreate */
+        OpportunityCreate: {
+            /** Amount */
+            amount?: number | string | null;
+            /** Concerns */
+            concerns?: string | null;
+            /**
+             * Customer Id
+             * Format: uuid
+             */
+            customer_id: string;
+            /** Expected Close At */
+            expected_close_at?: string | null;
+            /** Interest */
+            interest?: string | null;
+            /**
+             * Level
+             * @default medium
+             * @enum {string}
+             */
+            level: "high" | "medium" | "low";
+            /**
+             * Name
+             * @description 不填时按想要什么或客户称呼
+             */
+            name?: string | null;
+            /**
+             * Next Follow At
+             * @description 不填时按设置的默认天数
+             */
+            next_follow_at?: string | null;
+            /**
+             * Owner Id
+             * @description 负责人；不填时是客户的归属坐席（没有时是自己）
+             */
+            owner_id?: string | null;
+            /** Products */
+            products?: components["schemas"]["ProductRef"][];
+            /**
+             * Stage Id
+             * @description 不填时是第一个进行中的阶段
+             */
+            stage_id?: string | null;
+        };
+        /** OpportunityLost */
+        OpportunityLost: {
+            /** Reason */
+            reason?: string | null;
+            /**
+             * Reason Code
+             * @description 输单原因分类（商机设置里的）
+             */
+            reason_code: string;
+        };
+        /**
+         * OpportunityMessage
+         * @description AI 写的跟进话术：员工修改后自己发送。
+         */
+        OpportunityMessage: {
+            /**
+             * Knowledge
+             * @description 参考的知识标题
+             */
+            knowledge?: string[];
+            /** Text */
+            text: string;
+        };
+        /** OpportunityOut */
+        OpportunityOut: {
+            /** Activities */
+            activities: components["schemas"]["OpportunityActivityOut"][];
+            /**
+             * Amount
+             * @description 预计金额；设置为只有管理者可见而自己不能看时为空
+             */
+            amount: string | null;
+            /** Amount Visible */
+            amount_visible: boolean;
+            /**
+             * Can Assign
+             * @description 可以把负责人改成别人
+             */
+            can_assign: boolean;
+            /**
+             * Can Manage
+             * @description 可以修改、跟进、换阶段
+             */
+            can_manage: boolean;
+            /** Closed At */
+            closed_at: string | null;
+            /** Concerns */
+            concerns: string | null;
+            /** Contract Id */
+            contract_id: string | null;
+            /** Contract No */
+            contract_no: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Created By Name */
+            created_by_name: string | null;
+            /** Customer Company */
+            customer_company: string | null;
+            /**
+             * Customer Id
+             * Format: uuid
+             */
+            customer_id: string;
+            /** Customer Name */
+            customer_name: string;
+            /** Days In Stage */
+            days_in_stage: number;
+            /**
+             * Due Today
+             * @description 跟进中、今天该跟进
+             */
+            due_today: boolean;
+            /** Expected Close At */
+            expected_close_at: string | null;
+            /** Follow Count */
+            follow_count: number;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Interest */
+            interest: string | null;
+            /** Last Activity At */
+            last_activity_at: string | null;
+            /** Last Followed At */
+            last_followed_at: string | null;
+            /**
+             * Level
+             * @enum {string}
+             */
+            level: "high" | "medium" | "low";
+            /** Lost Reason */
+            lost_reason: string | null;
+            /** Lost Reason Code */
+            lost_reason_code: string | null;
+            /** Lost Reason Name */
+            lost_reason_name: string | null;
+            /** Name */
+            name: string;
+            /** Next Follow At */
+            next_follow_at: string | null;
+            /** Order Id */
+            order_id: string | null;
+            /** Order No */
+            order_no: string | null;
+            /**
+             * Overdue
+             * @description 跟进中、下次跟进日期已过
+             */
+            overdue: boolean;
+            /** Owner Id */
+            owner_id: string | null;
+            /** Owner Name */
+            owner_name: string | null;
+            /**
+             * Probability
+             * @description 成交概率（%）：商机自己的，没有时是阶段的
+             */
+            probability: number;
+            /** Products */
+            products?: components["schemas"]["ProductRef"][];
+            /** Session Id */
+            session_id: string | null;
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "ai" | "staff";
+            /** Stage Code */
+            stage_code: string;
+            /**
+             * Stage Entered At
+             * Format: date-time
+             */
+            stage_entered_at: string;
+            /**
+             * Stage Id
+             * Format: uuid
+             */
+            stage_id: string;
+            /**
+             * Stage Kind
+             * @enum {string}
+             */
+            stage_kind: "open" | "won" | "lost";
+            /** Stage Name */
+            stage_name: string;
+            /**
+             * Stale
+             * @description 跟进中、在当前阶段超过阶段的停滞天数没有动态
+             */
+            stale: boolean;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "suggested" | "active" | "won" | "lost" | "dismissed";
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** OpportunityPage */
+        OpportunityPage: {
+            /** Amount Visible */
+            amount_visible: boolean;
+            /**
+             * Counts
+             * @description 各快捷视图的数量
+             */
+            counts: {
+                [key: string]: number;
+            };
+            /** Items */
+            items: components["schemas"]["OpportunitySummary"][];
+            /** Total */
+            total: number;
+            /**
+             * Won This Month
+             * @description 本月赢单（企业时区）
+             */
+            won_this_month: number;
+        };
+        /** OpportunityReopen */
+        OpportunityReopen: {
+            /** Next Follow At */
+            next_follow_at?: string | null;
+        };
+        /** OpportunitySettings */
+        OpportunitySettings: {
+            /**
+             * Ai Mode
+             * @description AI 转入：auto 自动转入，suggest 只建议（员工确认），off 关闭
+             * @default auto
+             * @enum {string}
+             */
+            ai_mode: "auto" | "suggest" | "off";
+            /**
+             * Amount Visibility
+             * @description 预计金额对谁可见：all 全部，managers 只有能分配商机的员工
+             * @default all
+             * @enum {string}
+             */
+            amount_visibility: "all" | "managers";
+            /**
+             * Assignment
+             * @description 新线索分给谁：owner 客户的归属坐席，round_robin 轮流分给技能组
+             * @default owner
+             * @enum {string}
+             */
+            assignment: "owner" | "round_robin";
+            /**
+             * Assignment Group Id
+             * @description 轮流分配的技能组
+             */
+            assignment_group_id?: string | null;
+            auto_advance?: components["schemas"]["AutoAdvance"];
+            /**
+             * Follow Days
+             * @description 默认几天后跟进
+             * @default 3
+             */
+            follow_days: number;
+            /** Lost Reasons */
+            lost_reasons?: components["schemas"]["LostReason"][];
+            /**
+             * Min Stage
+             * @description AI 转入的最低意向（意图判断的下单意向）：2 有兴趣，3 意向明确，4 准备下单
+             * @default 2
+             */
+            min_stage: number;
+        };
+        /** OpportunitySettingsOut */
+        OpportunitySettingsOut: {
+            /** Can Edit */
+            can_edit: boolean;
+            settings: components["schemas"]["OpportunitySettings"];
+            /** Stages */
+            stages: components["schemas"]["StageOut"][];
+        };
+        /**
+         * OpportunityStats
+         * @description 顶部数字。
+         */
+        OpportunityStats: {
+            /** Active */
+            active: number;
+            /** Mine */
+            mine: number;
+            /** Overdue */
+            overdue: number;
+            /** Stale */
+            stale: number;
+            /** Suggested */
+            suggested: number;
+            /** Today */
+            today: number;
+            /** Won Amount This Month */
+            won_amount_this_month: string | null;
+            /** Won This Month */
+            won_this_month: number;
+        };
+        /** OpportunitySummary */
+        OpportunitySummary: {
+            /**
+             * Amount
+             * @description 预计金额；设置为只有管理者可见而自己不能看时为空
+             */
+            amount: string | null;
+            /** Closed At */
+            closed_at: string | null;
+            /** Concerns */
+            concerns: string | null;
+            /** Contract Id */
+            contract_id: string | null;
+            /** Contract No */
+            contract_no: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Created By Name */
+            created_by_name: string | null;
+            /** Customer Company */
+            customer_company: string | null;
+            /**
+             * Customer Id
+             * Format: uuid
+             */
+            customer_id: string;
+            /** Customer Name */
+            customer_name: string;
+            /** Days In Stage */
+            days_in_stage: number;
+            /**
+             * Due Today
+             * @description 跟进中、今天该跟进
+             */
+            due_today: boolean;
+            /** Expected Close At */
+            expected_close_at: string | null;
+            /** Follow Count */
+            follow_count: number;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Interest */
+            interest: string | null;
+            /** Last Activity At */
+            last_activity_at: string | null;
+            /** Last Followed At */
+            last_followed_at: string | null;
+            /**
+             * Level
+             * @enum {string}
+             */
+            level: "high" | "medium" | "low";
+            /** Lost Reason */
+            lost_reason: string | null;
+            /** Lost Reason Code */
+            lost_reason_code: string | null;
+            /** Lost Reason Name */
+            lost_reason_name: string | null;
+            /** Name */
+            name: string;
+            /** Next Follow At */
+            next_follow_at: string | null;
+            /** Order Id */
+            order_id: string | null;
+            /** Order No */
+            order_no: string | null;
+            /**
+             * Overdue
+             * @description 跟进中、下次跟进日期已过
+             */
+            overdue: boolean;
+            /** Owner Id */
+            owner_id: string | null;
+            /** Owner Name */
+            owner_name: string | null;
+            /**
+             * Probability
+             * @description 成交概率（%）：商机自己的，没有时是阶段的
+             */
+            probability: number;
+            /** Products */
+            products?: components["schemas"]["ProductRef"][];
+            /** Session Id */
+            session_id: string | null;
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "ai" | "staff";
+            /** Stage Code */
+            stage_code: string;
+            /**
+             * Stage Entered At
+             * Format: date-time
+             */
+            stage_entered_at: string;
+            /**
+             * Stage Id
+             * Format: uuid
+             */
+            stage_id: string;
+            /**
+             * Stage Kind
+             * @enum {string}
+             */
+            stage_kind: "open" | "won" | "lost";
+            /** Stage Name */
+            stage_name: string;
+            /**
+             * Stale
+             * @description 跟进中、在当前阶段超过阶段的停滞天数没有动态
+             */
+            stale: boolean;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "suggested" | "active" | "won" | "lost" | "dismissed";
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** OpportunityUpdate */
+        OpportunityUpdate: {
+            /** Amount */
+            amount?: number | string | null;
+            /** Concerns */
+            concerns?: string | null;
+            /** Expected Close At */
+            expected_close_at?: string | null;
+            /** Interest */
+            interest?: string | null;
+            /** Level */
+            level?: ("high" | "medium" | "low") | null;
+            /** Name */
+            name?: string | null;
+            /** Next Follow At */
+            next_follow_at?: string | null;
+            /** Owner Id */
+            owner_id?: string | null;
+            /** Probability */
+            probability?: number | null;
+            /** Products */
+            products?: components["schemas"]["ProductRef"][] | null;
+        };
+        /** OpportunityWon */
+        OpportunityWon: {
+            /**
+             * Contract Id
+             * @description 成交的合同（可以不填）
+             */
+            contract_id?: string | null;
+            /** Note */
+            note?: string | null;
+            /**
+             * Order Id
+             * @description 成交的订单（可以不填）
+             */
+            order_id?: string | null;
+        };
         /** OpsResult */
         OpsResult: {
             /** Done */
@@ -19550,7 +20366,7 @@ export interface components {
          * Permission
          * @enum {string}
          */
-        Permission: "dashboard:view" | "workbench:use" | "customer:read" | "customer:read_all" | "customer:create" | "customer:assign" | "customer:view_sensitive" | "customer:export" | "customer:manage" | "session:read_all" | "session:read_team" | "session:transfer" | "session:transfer_any" | "session:monitor" | "routing:manage" | "staff:read" | "staff:manage" | "quick_reply:manage" | "kb:read" | "kb:manage" | "kb:publish" | "form_kb:manage" | "report:view" | "settings:manage" | "broadcast:manage" | "tenant:manage" | "audit:read" | "todo:read" | "todo:handle" | "todo:assign" | "todo:config" | "todo:export" | "order:read" | "order:create" | "order:review" | "order:price" | "order:payment" | "order:credit" | "order:export" | "order:config" | "product:manage" | "product:view_cost" | "inventory:manage" | "warehouse:confirm" | "production:work" | "production:assign" | "integration:manage" | "task:use" | "task:assign" | "task:read_all" | "assistant:use" | "finance:view" | "finance:manage" | "print:manage" | "profit:view" | "profit:manage" | "contract:use" | "contract:manage" | "material:use" | "material:manage" | "token:view";
+        Permission: "dashboard:view" | "workbench:use" | "customer:read" | "customer:read_all" | "customer:create" | "customer:assign" | "customer:view_sensitive" | "customer:export" | "customer:manage" | "session:read_all" | "session:read_team" | "session:transfer" | "session:transfer_any" | "session:monitor" | "routing:manage" | "staff:read" | "staff:manage" | "quick_reply:manage" | "kb:read" | "kb:manage" | "kb:publish" | "form_kb:manage" | "report:view" | "settings:manage" | "broadcast:manage" | "tenant:manage" | "audit:read" | "todo:read" | "todo:handle" | "todo:assign" | "todo:config" | "todo:export" | "order:read" | "order:create" | "order:review" | "order:price" | "order:payment" | "order:credit" | "order:export" | "order:config" | "product:manage" | "product:view_cost" | "inventory:manage" | "warehouse:confirm" | "production:work" | "production:assign" | "integration:manage" | "task:use" | "task:assign" | "task:read_all" | "assistant:use" | "finance:view" | "finance:manage" | "print:manage" | "profit:view" | "profit:manage" | "contract:use" | "contract:manage" | "material:use" | "material:manage" | "token:view" | "opportunity:read" | "opportunity:read_all" | "opportunity:manage" | "opportunity:assign" | "opportunity:export";
         /** PermissionInfo */
         PermissionInfo: {
             code: components["schemas"]["Permission"];
@@ -19597,6 +20413,13 @@ export interface components {
                 [key: string]: unknown;
             }[];
             /**
+             * Opportunities
+             * @description 意向客户的记录和跟进记录
+             */
+            opportunities?: {
+                [key: string]: unknown;
+            }[];
+            /**
              * Orders
              * @description 订单（收货信息为明文）
              */
@@ -19605,13 +20428,6 @@ export interface components {
             }[];
             /** Owner History */
             owner_history: {
-                [key: string]: unknown;
-            }[];
-            /**
-             * Prospects
-             * @description 意向客户的记录和跟进记录
-             */
-            prospects?: {
                 [key: string]: unknown;
             }[];
             /** Sessions */
@@ -20536,6 +21352,21 @@ export interface components {
             /** Total */
             total: number;
         };
+        /**
+         * ProductRef
+         * @description 关联的商品。
+         */
+        ProductRef: {
+            /** Name */
+            name: string;
+            /** Product Id */
+            product_id?: string | null;
+            /**
+             * Quantity
+             * @default 1
+             */
+            quantity: number;
+        };
         /** ProductSearchResult */
         ProductSearchResult: {
             /** Items */
@@ -21011,346 +21842,6 @@ export interface components {
             note: string | null;
             /** Version */
             version: number;
-        };
-        /**
-         * ProspectBrief
-         * @description 客户资料里显示的意向（最近的一条，待确认、跟进中的优先）。
-         */
-        ProspectBrief: {
-            /** Follower Name */
-            follower_name: string | null;
-            /**
-             * Id
-             * Format: uuid
-             */
-            id: string;
-            /**
-             * Level
-             * @enum {string}
-             */
-            level: "high" | "medium" | "low";
-            /** Next Follow At */
-            next_follow_at: string | null;
-            /** Overdue */
-            overdue: boolean;
-            /**
-             * Status
-             * @enum {string}
-             */
-            status: "suggested" | "active" | "won" | "lost" | "dismissed";
-        };
-        /** ProspectCreate */
-        ProspectCreate: {
-            /** Concerns */
-            concerns?: string | null;
-            /**
-             * Customer Id
-             * Format: uuid
-             */
-            customer_id: string;
-            /**
-             * Follower Id
-             * @description 跟进人；不填时是客户的归属坐席（没有时是自己）
-             */
-            follower_id?: string | null;
-            /** Interest */
-            interest?: string | null;
-            /**
-             * Level
-             * @default medium
-             * @enum {string}
-             */
-            level: "high" | "medium" | "low";
-            /**
-             * Next Follow At
-             * @description 不填时按设置的默认天数
-             */
-            next_follow_at?: string | null;
-        };
-        /** ProspectFollowupOut */
-        ProspectFollowupOut: {
-            /** Content */
-            content: string;
-            /**
-             * Created At
-             * Format: date-time
-             */
-            created_at: string;
-            /**
-             * Id
-             * Format: uuid
-             */
-            id: string;
-            /**
-             * Method
-             * @enum {string}
-             */
-            method: "phone" | "wechat" | "chat" | "visit" | "other";
-            /** Next Follow At */
-            next_follow_at: string | null;
-            /** Session Id */
-            session_id: string | null;
-            /** Staff Id */
-            staff_id: string | null;
-            /**
-             * Staff Name
-             * @description 记录人；为空时是系统记的
-             */
-            staff_name: string | null;
-        };
-        /** ProspectLost */
-        ProspectLost: {
-            /** Reason */
-            reason: string;
-        };
-        /**
-         * ProspectMessage
-         * @description AI 写的跟进话术：员工修改后自己发送。
-         */
-        ProspectMessage: {
-            /**
-             * Knowledge
-             * @description 参考的知识标题
-             */
-            knowledge?: string[];
-            /** Text */
-            text: string;
-        };
-        /** ProspectOut */
-        ProspectOut: {
-            /**
-             * Can Assign
-             * @description 可以把跟进人改成别人
-             */
-            can_assign: boolean;
-            /** Closed At */
-            closed_at: string | null;
-            /** Concerns */
-            concerns: string | null;
-            /**
-             * Created At
-             * Format: date-time
-             */
-            created_at: string;
-            /** Created By Name */
-            created_by_name: string | null;
-            /** Customer Company */
-            customer_company: string | null;
-            /**
-             * Customer Id
-             * Format: uuid
-             */
-            customer_id: string;
-            /** Customer Name */
-            customer_name: string;
-            /**
-             * Due Today
-             * @description 跟进中、今天该跟进
-             */
-            due_today: boolean;
-            /** Follow Count */
-            follow_count: number;
-            /** Follower Id */
-            follower_id: string | null;
-            /** Follower Name */
-            follower_name: string | null;
-            /** Followups */
-            followups: components["schemas"]["ProspectFollowupOut"][];
-            /**
-             * Id
-             * Format: uuid
-             */
-            id: string;
-            /** Interest */
-            interest: string | null;
-            /** Last Followed At */
-            last_followed_at: string | null;
-            /**
-             * Level
-             * @enum {string}
-             */
-            level: "high" | "medium" | "low";
-            /** Lost Reason */
-            lost_reason: string | null;
-            /** Next Follow At */
-            next_follow_at: string | null;
-            /** Order Id */
-            order_id: string | null;
-            /** Order No */
-            order_no: string | null;
-            /**
-             * Overdue
-             * @description 跟进中、下次跟进日期已过
-             */
-            overdue: boolean;
-            /** Session Id */
-            session_id: string | null;
-            /**
-             * Source
-             * @enum {string}
-             */
-            source: "ai" | "staff";
-            /**
-             * Status
-             * @enum {string}
-             */
-            status: "suggested" | "active" | "won" | "lost" | "dismissed";
-            /**
-             * Updated At
-             * Format: date-time
-             */
-            updated_at: string;
-        };
-        /** ProspectPage */
-        ProspectPage: {
-            /**
-             * Counts
-             * @description 各页签的数量
-             */
-            counts: {
-                [key: string]: number;
-            };
-            /** Items */
-            items: components["schemas"]["ProspectSummary"][];
-            /** Total */
-            total: number;
-            /**
-             * Won This Month
-             * @description 本月成交（企业时区）
-             */
-            won_this_month: number;
-        };
-        /** ProspectReopen */
-        ProspectReopen: {
-            /** Next Follow At */
-            next_follow_at?: string | null;
-        };
-        /** ProspectSettings */
-        ProspectSettings: {
-            /**
-             * Ai Mode
-             * @description AI 转入：auto 自动转入，suggest 只建议（员工确认），off 关闭
-             * @default auto
-             * @enum {string}
-             */
-            ai_mode: "auto" | "suggest" | "off";
-            /**
-             * Follow Days
-             * @description 默认几天后跟进
-             * @default 3
-             */
-            follow_days: number;
-            /**
-             * Min Stage
-             * @description AI 转入的最低意向（意图判断的下单意向）：2 有兴趣，3 意向明确，4 准备下单
-             * @default 2
-             */
-            min_stage: number;
-        };
-        /** ProspectSettingsOut */
-        ProspectSettingsOut: {
-            /** Can Edit */
-            can_edit: boolean;
-            settings: components["schemas"]["ProspectSettings"];
-        };
-        /** ProspectSummary */
-        ProspectSummary: {
-            /** Closed At */
-            closed_at: string | null;
-            /** Concerns */
-            concerns: string | null;
-            /**
-             * Created At
-             * Format: date-time
-             */
-            created_at: string;
-            /** Created By Name */
-            created_by_name: string | null;
-            /** Customer Company */
-            customer_company: string | null;
-            /**
-             * Customer Id
-             * Format: uuid
-             */
-            customer_id: string;
-            /** Customer Name */
-            customer_name: string;
-            /**
-             * Due Today
-             * @description 跟进中、今天该跟进
-             */
-            due_today: boolean;
-            /** Follow Count */
-            follow_count: number;
-            /** Follower Id */
-            follower_id: string | null;
-            /** Follower Name */
-            follower_name: string | null;
-            /**
-             * Id
-             * Format: uuid
-             */
-            id: string;
-            /** Interest */
-            interest: string | null;
-            /** Last Followed At */
-            last_followed_at: string | null;
-            /**
-             * Level
-             * @enum {string}
-             */
-            level: "high" | "medium" | "low";
-            /** Lost Reason */
-            lost_reason: string | null;
-            /** Next Follow At */
-            next_follow_at: string | null;
-            /** Order Id */
-            order_id: string | null;
-            /** Order No */
-            order_no: string | null;
-            /**
-             * Overdue
-             * @description 跟进中、下次跟进日期已过
-             */
-            overdue: boolean;
-            /** Session Id */
-            session_id: string | null;
-            /**
-             * Source
-             * @enum {string}
-             */
-            source: "ai" | "staff";
-            /**
-             * Status
-             * @enum {string}
-             */
-            status: "suggested" | "active" | "won" | "lost" | "dismissed";
-            /**
-             * Updated At
-             * Format: date-time
-             */
-            updated_at: string;
-        };
-        /** ProspectUpdate */
-        ProspectUpdate: {
-            /** Concerns */
-            concerns?: string | null;
-            /** Follower Id */
-            follower_id?: string | null;
-            /** Interest */
-            interest?: string | null;
-            /** Level */
-            level?: ("high" | "medium" | "low") | null;
-            /** Next Follow At */
-            next_follow_at?: string | null;
-        };
-        /** ProspectWon */
-        ProspectWon: {
-            /**
-             * Order Id
-             * @description 成交的订单（可以不填）
-             */
-            order_id?: string | null;
         };
         /** ProviderList */
         ProviderList: {
@@ -23398,6 +23889,102 @@ export interface components {
              * @description 停用后立即退出登录、下线，接待中的会话退回队列；名下客户需要另行交接
              */
             status?: ("active" | "disabled") | null;
+        };
+        /** StageCreate */
+        StageCreate: {
+            /**
+             * After Id
+             * @description 放在这个阶段后面；不填时放在最后一个进行中的阶段后面
+             */
+            after_id?: string | null;
+            /** Color */
+            color?: string | null;
+            /** Name */
+            name: string;
+            /**
+             * Probability
+             * @default 50
+             */
+            probability: number;
+            /**
+             * Stale Days
+             * @default 7
+             */
+            stale_days: number | null;
+        };
+        /**
+         * StageMove
+         * @description 换阶段（看板拖拽）：拖到赢单可以带订单或合同，拖到输单要选原因。
+         */
+        StageMove: {
+            /** Contract Id */
+            contract_id?: string | null;
+            /** Lost Reason */
+            lost_reason?: string | null;
+            /** Lost Reason Code */
+            lost_reason_code?: string | null;
+            /** Order Id */
+            order_id?: string | null;
+            /**
+             * Position
+             * @description 在这一列里的位置
+             */
+            position?: number | null;
+            /**
+             * Stage Id
+             * Format: uuid
+             */
+            stage_id: string;
+        };
+        /** StageOrder */
+        StageOrder: {
+            /**
+             * Ids
+             * @description 进行中的阶段的先后
+             */
+            ids: string[];
+        };
+        /** StageOut */
+        StageOut: {
+            /** Code */
+            code: string;
+            /** Color */
+            color: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "open" | "won" | "lost";
+            /** Name */
+            name: string;
+            /** Position */
+            position: number;
+            /** Probability */
+            probability: number;
+            /** Stale Days */
+            stale_days: number | null;
+        };
+        /** StageUpdate */
+        StageUpdate: {
+            /**
+             * Clear Stale Days
+             * @description 不算停滞
+             * @default false
+             */
+            clear_stale_days: boolean;
+            /** Color */
+            color?: string | null;
+            /** Name */
+            name?: string | null;
+            /** Probability */
+            probability?: number | null;
+            /** Stale Days */
+            stale_days?: number | null;
         };
         /**
          * Statement
@@ -45245,6 +45832,1964 @@ export interface operations {
             };
         };
     };
+    list_opportunities_api_v1_opportunities_get: {
+        parameters: {
+            query?: {
+                /** @description 快捷视图 */
+                view?: "active" | "mine" | "today" | "overdue" | "closing" | "stale" | "suggested" | "won" | "lost" | "all";
+                stage_id?: string | null;
+                level?: ("high" | "medium" | "low") | null;
+                source?: ("ai" | "staff") | null;
+                owner_id?: string | null;
+                customer_id?: string | null;
+                amount_min?: number | string | null;
+                amount_max?: number | string | null;
+                /** @description 预计成交月份 YYYY-MM */
+                close_month?: string | null;
+                /** @description 只看停滞的 */
+                stale?: boolean;
+                /** @description 商机名称、客户名称、公司、手机号 */
+                q?: string | null;
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OpportunityPage"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    create_opportunity_api_v1_opportunities_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OpportunityCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OpportunityOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    board_api_v1_opportunities_board_get: {
+        parameters: {
+            query?: {
+                level?: ("high" | "medium" | "low") | null;
+                source?: ("ai" | "staff") | null;
+                owner_id?: string | null;
+                q?: string | null;
+                /** @description 只看我负责的 */
+                mine?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OpportunityBoard"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    customer_opportunity_api_v1_opportunities_customer__customer_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                customer_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomerOpportunityInfo"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_settings_api_v1_opportunities_settings_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OpportunitySettingsOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    save_settings_api_v1_opportunities_settings_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OpportunitySettings"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OpportunitySettingsOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    list_stages_api_v1_opportunities_stages_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StageOut"][];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    create_stage_api_v1_opportunities_stages_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StageCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StageOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    reorder_stages_api_v1_opportunities_stages_order_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StageOrder"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StageOut"][];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    delete_stage_api_v1_opportunities_stages__stage_id__delete: {
+        parameters: {
+            query?: {
+                /** @description 这个阶段的商机并到哪个阶段 */
+                merge_into?: string | null;
+            };
+            header?: never;
+            path: {
+                stage_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    update_stage_api_v1_opportunities_stages__stage_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                stage_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StageUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StageOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    stats_api_v1_opportunities_stats_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OpportunityStats"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_opportunity_api_v1_opportunities__opportunity_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                opportunity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OpportunityOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    update_opportunity_api_v1_opportunities__opportunity_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                opportunity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OpportunityUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OpportunityOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    accept_api_v1_opportunities__opportunity_id__accept_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                opportunity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OpportunityOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    list_activities_api_v1_opportunities__opportunity_id__activities_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                opportunity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OpportunityActivityOut"][];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    add_activity_api_v1_opportunities__opportunity_id__activities_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                opportunity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FollowupCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OpportunityOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    assign_api_v1_opportunities__opportunity_id__assign_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                opportunity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OpportunityAssign"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OpportunityOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    dismiss_api_v1_opportunities__opportunity_id__dismiss_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                opportunity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    add_activity_api_v1_opportunities__opportunity_id__followups_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                opportunity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FollowupCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OpportunityOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    mark_lost_api_v1_opportunities__opportunity_id__lost_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                opportunity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OpportunityLost"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OpportunityOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    write_message_api_v1_opportunities__opportunity_id__message_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                opportunity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OpportunityMessage"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    reopen_api_v1_opportunities__opportunity_id__reopen_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                opportunity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["OpportunityReopen"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OpportunityOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    move_stage_api_v1_opportunities__opportunity_id__stage_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                opportunity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StageMove"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OpportunityOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    mark_won_api_v1_opportunities__opportunity_id__won_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                opportunity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["OpportunityWon"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OpportunityOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     list_orders_api_v1_orders_get: {
         parameters: {
             query?: {
@@ -51417,1099 +53962,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ProfitTrend"];
-                };
-            };
-            /** @description Bad Request */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Unauthorized */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Forbidden */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Not Found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Conflict */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Unprocessable Entity */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-        };
-    };
-    list_prospects_api_v1_prospects_get: {
-        parameters: {
-            query?: {
-                /** @description 页签 */
-                view?: "active" | "today" | "overdue" | "suggested" | "won" | "lost" | "all";
-                level?: ("high" | "medium" | "low") | null;
-                source?: ("ai" | "staff") | null;
-                follower_id?: string | null;
-                customer_id?: string | null;
-                /** @description 客户名称、公司、手机号 */
-                q?: string | null;
-                limit?: number;
-                offset?: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProspectPage"];
-                };
-            };
-            /** @description Bad Request */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Unauthorized */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Forbidden */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Not Found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Conflict */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Unprocessable Entity */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-        };
-    };
-    create_prospect_api_v1_prospects_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ProspectCreate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProspectOut"];
-                };
-            };
-            /** @description Bad Request */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Unauthorized */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Forbidden */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Not Found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Conflict */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Unprocessable Entity */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-        };
-    };
-    customer_prospect_api_v1_prospects_customer__customer_id__get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                customer_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CustomerProspectInfo"];
-                };
-            };
-            /** @description Bad Request */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Unauthorized */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Forbidden */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Not Found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Conflict */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Unprocessable Entity */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-        };
-    };
-    get_settings_api_v1_prospects_settings_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProspectSettingsOut"];
-                };
-            };
-            /** @description Bad Request */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Unauthorized */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Forbidden */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Not Found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Conflict */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Unprocessable Entity */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-        };
-    };
-    save_settings_api_v1_prospects_settings_put: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ProspectSettings"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProspectSettingsOut"];
-                };
-            };
-            /** @description Bad Request */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Unauthorized */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Forbidden */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Not Found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Conflict */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Unprocessable Entity */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-        };
-    };
-    get_prospect_api_v1_prospects__prospect_id__get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                prospect_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProspectOut"];
-                };
-            };
-            /** @description Bad Request */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Unauthorized */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Forbidden */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Not Found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Conflict */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Unprocessable Entity */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-        };
-    };
-    update_prospect_api_v1_prospects__prospect_id__patch: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                prospect_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ProspectUpdate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProspectOut"];
-                };
-            };
-            /** @description Bad Request */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Unauthorized */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Forbidden */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Not Found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Conflict */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Unprocessable Entity */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-        };
-    };
-    accept_api_v1_prospects__prospect_id__accept_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                prospect_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProspectOut"];
-                };
-            };
-            /** @description Bad Request */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Unauthorized */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Forbidden */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Not Found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Conflict */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Unprocessable Entity */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-        };
-    };
-    dismiss_api_v1_prospects__prospect_id__dismiss_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                prospect_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Bad Request */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Unauthorized */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Forbidden */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Not Found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Conflict */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Unprocessable Entity */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-        };
-    };
-    add_followup_api_v1_prospects__prospect_id__followups_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                prospect_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["FollowupCreate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProspectOut"];
-                };
-            };
-            /** @description Bad Request */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Unauthorized */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Forbidden */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Not Found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Conflict */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Unprocessable Entity */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-        };
-    };
-    mark_lost_api_v1_prospects__prospect_id__lost_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                prospect_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ProspectLost"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProspectOut"];
-                };
-            };
-            /** @description Bad Request */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Unauthorized */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Forbidden */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Not Found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Conflict */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Unprocessable Entity */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-        };
-    };
-    write_message_api_v1_prospects__prospect_id__message_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                prospect_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProspectMessage"];
-                };
-            };
-            /** @description Bad Request */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Unauthorized */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Forbidden */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Not Found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Conflict */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Unprocessable Entity */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-        };
-    };
-    reopen_api_v1_prospects__prospect_id__reopen_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                prospect_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: {
-            content: {
-                "application/json": components["schemas"]["ProspectReopen"] | null;
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProspectOut"];
-                };
-            };
-            /** @description Bad Request */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Unauthorized */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Forbidden */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Not Found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Conflict */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Unprocessable Entity */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-        };
-    };
-    mark_won_api_v1_prospects__prospect_id__won_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                prospect_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: {
-            content: {
-                "application/json": components["schemas"]["ProspectWon"] | null;
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProspectOut"];
                 };
             };
             /** @description Bad Request */

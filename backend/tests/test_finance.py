@@ -28,6 +28,8 @@ FINANCE_PERMISSIONS = {
     "dashboard:view",
     "finance:manage",
     "finance:view",
+    "opportunity:read",
+    "opportunity:read_all",
     "order:payment",
     "order:read",
     "profit:manage",

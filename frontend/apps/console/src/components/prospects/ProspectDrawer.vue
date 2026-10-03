@@ -41,7 +41,7 @@ const edit = reactive({
   interest: '',
   concerns: '',
   nextFollowAt: '',
-  followerId: '',
+  ownerId: '',
 })
 const follow = reactive({ method: 'phone' as FollowMethod, content: '', nextFollowAt: '' })
 const message = reactive({ text: '', knowledge: [] as string[], shown: false })
@@ -54,7 +54,7 @@ const open = computed({
 })
 const actions = computed(() => actionsOf(prospect.value?.status ?? 'dismissed'))
 const editable = computed(() => prospect.value?.status === 'active' || prospect.value?.status === 'suggested')
-const canPickFollower = computed(
+const canPickOwner = computed(
   () => !!prospect.value?.can_assign && auth.can('staff:read'),
 )
 const today = computed(() => isoDate(new Date()))
@@ -67,15 +67,15 @@ function fill(data: Prospect): void {
     interest: data.interest ?? '',
     concerns: data.concerns ?? '',
     nextFollowAt: data.next_follow_at ?? '',
-    followerId: data.follower_id ?? '',
+    ownerId: data.owner_id ?? '',
   })
 }
 
 async function load(): Promise<void> {
   if (!props.prospectId) return
   loading.value = true
-  const { data, error } = await api.GET('/api/v1/prospects/{prospect_id}', {
-    params: { path: { prospect_id: props.prospectId } },
+  const { data, error } = await api.GET('/api/v1/opportunities/{opportunity_id}', {
+    params: { path: { opportunity_id: props.prospectId } },
   })
   loading.value = false
   if (!data) {
@@ -84,14 +84,14 @@ async function load(): Promise<void> {
     return
   }
   fill(data)
-  if (canPickFollower.value && staff.value.length === 0) {
+  if (canPickOwner.value && staff.value.length === 0) {
     const { data: list } = await api.GET('/api/v1/staff')
     staff.value = list?.items.filter((s) => s.status === 'active') ?? []
   }
 }
 
 function path() {
-  return { params: { path: { prospect_id: props.prospectId ?? '' } } }
+  return { params: { path: { opportunity_id: props.prospectId ?? '' } } }
 }
 
 async function done(
@@ -115,19 +115,19 @@ async function done(
 async function saveInfo(): Promise<void> {
   const current = prospect.value
   if (!current) return
-  const body: Schemas['ProspectUpdate'] = {}
+  const body: Schemas['OpportunityUpdate'] = {}
   if (edit.level !== current.level) body.level = edit.level
   if (edit.interest.trim() !== (current.interest ?? '')) body.interest = edit.interest
   if (edit.concerns.trim() !== (current.concerns ?? '')) body.concerns = edit.concerns
   if ((edit.nextFollowAt || null) !== current.next_follow_at) body.next_follow_at = edit.nextFollowAt || null
-  if (canPickFollower.value && (edit.followerId || null) !== current.follower_id) {
-    body.follower_id = edit.followerId || null
+  if (canPickOwner.value && (edit.ownerId || null) !== current.owner_id) {
+    body.owner_id = edit.ownerId || null
   }
   if (Object.keys(body).length === 0) {
     ElMessage.info('没有修改')
     return
   }
-  await done('save', api.PATCH('/api/v1/prospects/{prospect_id}', { ...path(), body }), '已保存')
+  await done('save', api.PATCH('/api/v1/opportunities/{opportunity_id}', { ...path(), body }), '已保存')
 }
 
 async function addFollowup(): Promise<void> {
@@ -137,9 +137,10 @@ async function addFollowup(): Promise<void> {
   }
   const saved = await done(
     'follow',
-    api.POST('/api/v1/prospects/{prospect_id}/followups', {
+    api.POST('/api/v1/opportunities/{opportunity_id}/followups', {
       ...path(),
       body: {
+        kind: 'followup',
         method: follow.method,
         content: follow.content.trim(),
         next_follow_at: follow.nextFollowAt || null,
@@ -160,7 +161,7 @@ async function markWon(): Promise<void> {
   } catch {
     return
   }
-  await done('won', api.POST('/api/v1/prospects/{prospect_id}/won', path()), '已标记成交')
+  await done('won', api.POST('/api/v1/opportunities/{opportunity_id}/won', path()), '已标记成交')
 }
 
 async function markLost(): Promise<void> {
@@ -179,22 +180,25 @@ async function markLost(): Promise<void> {
   }
   await done(
     'lost',
-    api.POST('/api/v1/prospects/{prospect_id}/lost', { ...path(), body: { reason } }),
+    api.POST('/api/v1/opportunities/{opportunity_id}/lost', {
+      ...path(),
+      body: { reason_code: 'other', reason },
+    }),
     '已放弃跟进',
   )
 }
 
 async function reopen(): Promise<void> {
-  await done('reopen', api.POST('/api/v1/prospects/{prospect_id}/reopen', path()), '已重新跟进')
+  await done('reopen', api.POST('/api/v1/opportunities/{opportunity_id}/reopen', path()), '已重新跟进')
 }
 
 async function accept(): Promise<void> {
-  await done('accept', api.POST('/api/v1/prospects/{prospect_id}/accept', path()), '已转入意向客户')
+  await done('accept', api.POST('/api/v1/opportunities/{opportunity_id}/accept', path()), '已转入意向客户')
 }
 
 async function dismiss(): Promise<void> {
   busy.value = 'dismiss'
-  const { error, response } = await api.POST('/api/v1/prospects/{prospect_id}/dismiss', path())
+  const { error, response } = await api.POST('/api/v1/opportunities/{opportunity_id}/dismiss', path())
   busy.value = ''
   if (!response.ok) {
     ElMessage.error(errorMessage(error))
@@ -207,7 +211,7 @@ async function dismiss(): Promise<void> {
 
 async function writeMessage(): Promise<void> {
   busy.value = 'message'
-  const { data, error } = await api.POST('/api/v1/prospects/{prospect_id}/message', path())
+  const { data, error } = await api.POST('/api/v1/opportunities/{opportunity_id}/message', path())
   busy.value = ''
   if (!data) {
     ElMessage.error(errorMessage(error))
@@ -336,15 +340,15 @@ watch(
             </el-form-item>
             <el-form-item label="跟进人">
               <el-select
-                v-if="canPickFollower"
-                v-model="edit.followerId"
+                v-if="canPickOwner"
+                v-model="edit.ownerId"
                 clearable
                 placeholder="没有跟进人"
-                data-testid="prospect-edit-follower"
+                data-testid="prospect-edit-owner"
               >
                 <el-option v-for="s in staff" :key="s.id" :label="s.display_name" :value="s.id" />
               </el-select>
-              <span v-else>{{ prospect.follower_name ?? '没有跟进人' }}</span>
+              <span v-else>{{ prospect.owner_name ?? '没有跟进人' }}</span>
             </el-form-item>
             <el-form-item v-if="editable">
               <el-button
@@ -498,9 +502,9 @@ watch(
 
         <section class="block">
           <h4>跟进记录</h4>
-          <el-timeline v-if="prospect.followups.length" data-testid="prospect-followups">
+          <el-timeline v-if="prospect.activities.length" data-testid="prospect-activities">
             <el-timeline-item
-              v-for="item in prospect.followups"
+              v-for="item in prospect.activities"
               :key="item.id"
               :timestamp="formatDateTime(item.created_at)"
               placement="top"
@@ -518,7 +522,7 @@ watch(
                   查看会话
                 </el-button>
               </div>
-              <p class="content">{{ item.content }}</p>
+              <p class="content">{{ item.content ?? item.title }}</p>
               <div v-if="item.next_follow_at" class="muted small">下次跟进 {{ item.next_follow_at }}</div>
             </el-timeline-item>
           </el-timeline>

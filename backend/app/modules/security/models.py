@@ -50,8 +50,8 @@ class TenantSetting(Base):
     wake: Mapped[dict[str, Any]] = mapped_column(server_default="{}")
     # 合同设置（contracts/settings.py 的 ContractSettings，设计文档 §34.7）。
     contracts: Mapped[dict[str, Any]] = mapped_column(server_default="{}")
-    # 意向客户的设置（prospects/settings.py 的 ProspectSettings，设计文档 §35.6）。
-    prospects: Mapped[dict[str, Any]] = mapped_column(server_default="{}")
+    # 意向客户的设置（opportunities/settings.py 的 OpportunitySettings，设计文档 §35.6）。
+    opportunities: Mapped[dict[str, Any]] = mapped_column(server_default="{}")
     updated_by: Mapped[uuid.UUID | None]
     updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
 
