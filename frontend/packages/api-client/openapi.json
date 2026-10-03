@@ -35155,12 +35155,6 @@
             "title": "Created At",
             "type": "string"
           },
-          "customers": {
-            "default": 0,
-            "description": "名下的客户数（员工列表里有；客服岗位和名下还有客户的员工卡片上有交接客户，§39.6）",
-            "title": "Customers",
-            "type": "integer"
-          },
           "diagram_direction": {
             "anyOf": [
               {

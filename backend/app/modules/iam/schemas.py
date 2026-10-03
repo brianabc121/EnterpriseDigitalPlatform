@@ -190,10 +190,6 @@ class StaffOut(BaseModel):
     status: str
     roles: list[str]
     created_at: datetime
-    customers: int = Field(
-        default=0,
-        description="名下的客户数（员工列表里有；客服岗位和名下还有客户的员工卡片上有交接客户，§39.6）",
-    )
     access: StaffAccessOut | None = Field(description="按员工设置的页面和权限（§31）；按角色时为空")
     permissions: list[Permission] = Field(
         description="有效权限：角色的权限 + 多给的 − 去掉的（不含仓管另外获得的确认权限）"

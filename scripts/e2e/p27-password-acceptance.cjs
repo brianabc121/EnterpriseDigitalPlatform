@@ -7,8 +7,8 @@
 //    自己的卡片上是"修改密码"、没有删除；"交接客户"只在客服（小艾）的卡片上（§39.6）。为小艾自动
 //    生成新密码（只显示一次，可以复制），卡片上标"待改密码"；再为其他系统角色的员工逐个重置，用新密码都能登录、
 //    都要先设置新密码，旧密码不能登录；工人已经打开的页面立即回到登录页；手动为人事设置密码、不要求修改。
-//    财务名下还有客户时她的卡片上也有"交接客户"，交接给小艾后就没有了。卡片上写着"用户名：…"，左上角显示
-//    "企业所有者（张总）"（§39.7）。
+//    财务名下有客户，她的卡片上也没有"交接客户"；小艾的交接窗口里只能选客服、主管和企业所有者（张总、主管老孙），
+//    交给主管老孙；接口不让交给出纳。卡片上写着"用户名：…"，左上角显示"企业所有者（张总）"（§39.7）。
 // 3. 人事登录：企业所有者的卡片上"编辑"、"重置密码"置灰并提示（只能由本人或平台管理），没有"停用"和删除；权限高于自己的员工
 //    （客服等）的"重置密码"、"停用"、删除都置灰并提示，访客的都能用；自己的卡片不能删除。
 // 4. 小艾用新密码登录后只能进入"设置新密码"页面（说明谁在什么时候重置的），其他页面和接口都不行；设置后进入控制台。
@@ -198,19 +198,6 @@ async function frameDiagram(page, target = '[data-root="true"]') {
   }, target)
 }
 
-/** 在下拉框里选一项；选项还没出现或下拉框又收起时重新点开（与 p10 相同）。 */
-async function choose(page, select, label) {
-  for (let attempt = 0; attempt < 3; attempt += 1) {
-    await select.click()
-    const option = page.locator('.el-select-dropdown__item:visible', { hasText: label }).first()
-    if (await option.waitFor({ timeout: 3000 }).then(() => true, () => false)) {
-      await option.click()
-      return
-    }
-  }
-  throw new Error(`no option ${label}`)
-}
-
 // 员工页面的截图用 1600×1000 的窗口：导图（高约 730 像素）在 75% 高度的滚动区域里放得下。
 const STAFF_VIEWPORT = { width: 1600, height: 1000 }
 
@@ -374,31 +361,47 @@ async function staffPage(browser) {
   })
   check('the API refuses to reset your own password', own.status === 422, own.status)
 
-  // 财务名下还有客户（例如从客服调岗过来）：她的卡片上也有"交接客户"，交接给小艾后就没有了。
-  const staffItems = async () => (await json(`${API}/api/v1/staff`, { token: state.admin })).items
-  const fay = (await staffItems()).find((s) => s.username === 'fay')
-  await json(`${API}/api/v1/customers`, {
-    method: 'POST',
-    token: state.admin,
-    body: { display_name: `调岗前的客户 ${RUN}`, owner_id: fay.id },
-  })
+  // 交接客户（§39.6）：财务名下有客户，她的卡片上也没有"交接客户"；小艾的交接窗口里只能选客服、主管和企业所有者
+  // （这里是张总和主管老孙），交给主管老孙；接口也不让交给出纳。
+  const staffItems = (await json(`${API}/api/v1/staff`, { token: state.admin })).items
+  const idOf = (username) => staffItems.find((s) => s.username === username).id
+  const aliceCustomer = `小艾的客户 ${RUN}`
+  for (const [username, name] of [['fay', `财务名下的客户 ${RUN}`], ['alice', aliceCustomer]]) {
+    await json(`${API}/api/v1/customers`, {
+      method: 'POST',
+      token: state.admin,
+      body: { display_name: name, owner_id: idOf(username) },
+    })
+  }
   await page.reload()
   await page.locator('[data-testid="staff-node-admin"]').waitFor()
-  const fayHandover = page.locator('[data-testid="handover-fay"]')
-  const shown = await fayHandover.waitFor({ timeout: 10000 }).then(() => true, () => false)
-  if (shown) {
-    await fayHandover.click()
-    const handoverDialog = page.locator('.el-dialog:visible', { hasText: '交接客户 · 财务小芳' })
-    await handoverDialog.waitFor()
-    await choose(page, handoverDialog.locator('.el-select'), '小艾')
-    await handoverDialog.getByRole('button', { name: '交接', exact: true }).click()
-  }
-  const gone = await fayHandover.waitFor({ state: 'detached', timeout: 10000 }).then(() => true, () => false)
-  const left = (await staffItems()).find((s) => s.username === 'fay').customers
+  const fayButtons = await page.locator('[data-testid="handover-fay"]').count()
+  await page.locator('[data-testid="handover-alice"]').click()
+  const handoverDialog = page.locator('.el-dialog:visible', { hasText: '交接客户 · 小艾' })
+  await handoverDialog.waitFor()
+  await handoverDialog.locator('[data-testid="handover-receiver"]').click()
+  const options = page.locator('.el-select-dropdown__item:visible')
+  await options.first().waitFor()
+  const receivers = (await options.allInnerTexts()).map((text) => text.trim())
+  await settle(page)
+  await page.screenshot({ path: `${SHOTS}/p27-02c-handover-receivers.png` })
+  await options.filter({ hasText: '主管老孙' }).first().click()
+  await handoverDialog.getByRole('button', { name: '交接', exact: true }).click()
+  await page.locator('.el-message--success').last().waitFor()
+  const customers = (await json(`${API}/api/v1/customers?q=${encodeURIComponent(aliceCustomer)}`, { token: state.admin })).items
+  const receivedBy = customers.find((c) => c.display_name === aliceCustomer)?.owner_display_name
+  const refused = await request(`${API}/api/v1/customers/handover/${idOf('fay')}`, {
+    method: 'POST',
+    token: state.admin,
+    body: { to_owner_id: idOf('qian') },
+  })
   check(
-    '财务 with a customer still in her name has 交接客户 until it is handed over to 小艾',
-    shown && gone && left === 0,
-    { shown, gone, left },
+    '交接客户: 财务 with a customer has none; 小艾 can hand over only to 张总 and 主管老孙; the API refuses 出纳',
+    fayButtons === 0 &&
+      JSON.stringify([...receivers].sort()) === JSON.stringify(['张总', '主管老孙'].sort()) &&
+      receivedBy === '主管老孙' &&
+      refused.status === 422,
+    { fayButtons, receivers, receivedBy, refused: refused.status },
   )
 }
 

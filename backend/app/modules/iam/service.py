@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
-from sqlalchemy import func, select, update
+from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -25,7 +25,6 @@ from app.db.errors import violated_unique_constraint
 from app.db.session import bind_tenant
 from app.modules.audit.service import record_audit
 from app.modules.billing.entitlements import check_limit
-from app.modules.customer.models import Customer
 from app.modules.iam import access, diagram, owner
 from app.modules.iam.models import RefreshToken, Role, Staff, StaffRole, StaffStatus
 from app.modules.iam.principal import Principal
@@ -262,14 +261,11 @@ async def list_roles(session: AsyncSession) -> list[Role]:
     return list((await session.scalars(select(Role).order_by(Role.created_at, Role.code))).all())
 
 
-def staff_out(
-    staff: Staff, roles: Iterable[Role], *, owner: bool = False, customers: int = 0
-) -> StaffOut:
+def staff_out(staff: Staff, roles: Iterable[Role], *, owner: bool = False) -> StaffOut:
     roles = list(roles)
     return StaffOut(
         id=staff.id,
         is_owner=owner,
-        customers=customers,
         diagram_parent_id=staff.diagram_parent_id,
         diagram_direction=staff.diagram_direction,
         username=staff.username,
@@ -291,17 +287,7 @@ async def list_staff(session: AsyncSession) -> list[StaffOut]:
     owner_id = next(
         (s.id for s in staff_rows if any(r.code == TENANT_ADMIN_ROLE for r in held[s.id])), None
     )
-    # 名下的客户数：员工卡片上按它和岗位显示"交接客户"（§39.6）。
-    counts = await session.execute(
-        select(Customer.owner_id, func.count())
-        .where(Customer.owner_id.is_not(None))
-        .group_by(Customer.owner_id)
-    )
-    customers = {staff_id: n for staff_id, n in counts if staff_id is not None}
-    return [
-        staff_out(s, held[s.id], owner=s.id == owner_id, customers=customers.get(s.id, 0))
-        for s in staff_rows
-    ]
+    return [staff_out(s, held[s.id], owner=s.id == owner_id) for s in staff_rows]
 
 
 async def create_staff(

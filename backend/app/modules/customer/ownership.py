@@ -9,6 +9,8 @@ from app.core.errors import NotFound, Unprocessable
 from app.core.ids import new_id
 from app.modules.customer.models import Customer, CustomerOwnerHistory, OwnerChangeReason
 from app.modules.customer.schemas import OwnerHistoryOut
+from app.modules.iam import console as consoles
+from app.modules.iam import service as iam_service
 from app.modules.iam.models import Staff, StaffStatus
 from app.modules.iam.principal import Principal
 from app.modules.routing.models import SkillGroupMember
@@ -96,6 +98,52 @@ async def transfer_customers(
     return changes
 
 
+async def _receives_handover(session: AsyncSession, staff_id: uuid.UUID) -> bool:
+    staff = await session.get(Staff, staff_id)
+    if staff is None:
+        return False
+    roles = await iam_service.roles_of(session, staff_id)
+    return consoles.receives_handover(roles, iam_service.effective_permissions(staff, roles))
+
+
+async def handover_receivers(
+    session: AsyncSession,
+    from_staff_id: uuid.UUID,
+    *,
+    to_owner_id: uuid.UUID | None,
+    to_group_id: uuid.UUID | None,
+) -> list[uuid.UUID]:
+    """交接客户的接收人：指定的员工，或者技能组里启用的成员（不含交出客户的员工）。只能是客服、主管和
+    企业所有者（设计文档 §39.6），技能组里的其他成员不参与分配。"""
+    if to_owner_id is not None:
+        if to_owner_id == from_staff_id:
+            raise Unprocessable("不能交接给自己")
+        await active_staff(session, to_owner_id)
+        if not await _receives_handover(session, to_owner_id):
+            raise Unprocessable("客户只能交接给客服、主管或企业所有者")
+        return [to_owner_id]
+    members = (
+        await session.scalars(
+            select(SkillGroupMember.staff_id)
+            .join(
+                Staff,
+                (Staff.tenant_id == SkillGroupMember.tenant_id)
+                & (Staff.id == SkillGroupMember.staff_id),
+            )
+            .where(
+                SkillGroupMember.skill_group_id == to_group_id,
+                SkillGroupMember.staff_id != from_staff_id,
+                Staff.status == StaffStatus.ACTIVE,
+            )
+            .order_by(SkillGroupMember.staff_id)
+        )
+    ).all()
+    receivers = [m for m in members if await _receives_handover(session, m)]
+    if not receivers:
+        raise Unprocessable("技能组里没有可以接手的客服、主管或企业所有者")
+    return receivers
+
+
 async def hand_over(
     session: AsyncSession,
     principal: Principal,
@@ -106,37 +154,14 @@ async def hand_over(
     note: str | None,
 ) -> list[CustomerOwnerHistory]:
     """离职或调岗交接：把某位员工名下的全部客户转给指定员工，或平均分给技能组的成员
-    （按成员当前名下的客户数，少的优先）。"""
+    （按成员当前名下的客户数，少的优先）。接手的只能是客服、主管和企业所有者。"""
     if (to_owner_id is None) == (to_group_id is None):
         raise Unprocessable("请指定接手的员工或技能组")
     if await session.get(Staff, from_staff_id) is None:
         raise NotFound("员工不存在")
-    if to_owner_id is not None:
-        await active_staff(session, to_owner_id)
-        targets = [to_owner_id]
-    else:
-        targets = list(
-            (
-                await session.scalars(
-                    select(SkillGroupMember.staff_id)
-                    .join(
-                        Staff,
-                        (Staff.tenant_id == SkillGroupMember.tenant_id)
-                        & (Staff.id == SkillGroupMember.staff_id),
-                    )
-                    .where(
-                        SkillGroupMember.skill_group_id == to_group_id,
-                        SkillGroupMember.staff_id != from_staff_id,
-                        Staff.status == StaffStatus.ACTIVE,
-                    )
-                    .order_by(SkillGroupMember.staff_id)
-                )
-            ).all()
-        )
-        if not targets:
-            raise Unprocessable("技能组里没有可以接手的员工")
-    if from_staff_id in targets:
-        raise Unprocessable("不能交接给自己")
+    targets = await handover_receivers(
+        session, from_staff_id, to_owner_id=to_owner_id, to_group_id=to_group_id
+    )
     customers = (
         await session.scalars(
             select(Customer).where(Customer.owner_id == from_staff_id).order_by(Customer.created_at)

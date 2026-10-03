@@ -36,12 +36,24 @@ export function assignableRoles<T extends { code: string }>(roles: readonly T[])
 }
 
 /**
- * 卡片上有没有"交接客户"（§39.6）：客服岗位的员工有（角色的岗位是客服，§25.15）；其他岗位没有，名下还有客户的
- * （例如从客服调岗）也有，交接完就不再显示。consoles 是角色编码到岗位的对照。
+ * 卡片上有没有"交接客户"（§39.6）：只有客服岗位的员工有（角色的岗位是客服，§25.15），其他岗位一律没有。
+ * consoles 是角色编码到岗位的对照。
  */
-export function showsHandover(
-  member: { roles: readonly string[]; customers?: number },
+export function showsHandover(member: { roles: readonly string[] }, consoles: ReadonlyMap<string, string>): boolean {
+  return member.roles.some((code) => consoles.get(code) === 'agent')
+}
+
+/**
+ * 交接客户的接收人（§39.6）：客服、主管和企业所有者。客服、主管按角色的岗位，还要能接待客户（有工作台）；
+ * 按权限判断岗位的自定义角色（例如只管员工的"人事"）不算。和后端的规则一致。
+ */
+export function receivesHandover(
+  member: { roles: readonly string[]; permissions: readonly string[] },
   consoles: ReadonlyMap<string, string>,
 ): boolean {
-  return (member.customers ?? 0) > 0 || member.roles.some((code) => consoles.get(code) === 'agent')
+  if (member.roles.includes(OWNER_ROLE)) return true
+  return (
+    member.permissions.includes('workbench:use') &&
+    member.roles.some((code) => ['agent', 'supervisor'].includes(consoles.get(code) ?? ''))
+  )
 }

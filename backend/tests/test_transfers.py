@@ -239,11 +239,6 @@ async def test_only_the_assignee_or_a_supervisor_can_transfer(desk: Desk) -> Non
     assert (await transfer(desk, bob, session_id, to_staff_id=bob.staff_id)).status_code == 404
 
 
-async def _customers_by_staff(desk: Desk) -> dict[str, int]:
-    staff = (await desk.client.get("/api/v1/staff", headers=desk.admin)).json()["items"]
-    return {s["username"]: s["customers"] for s in staff}
-
-
 async def test_customer_transfer_handover_and_history(desk: Desk) -> None:
     alice = await desk.agent("alice", online=False)
     bob = await desk.agent("bob", online=False)
@@ -270,9 +265,6 @@ async def test_customer_transfer_handover_and_history(desk: Desk) -> None:
     )
     assert moved.json() == {"transferred": 1, "wecom": None}
 
-    # 员工列表里有名下的客户数（员工卡片按它和岗位显示"交接客户"，§39.6）。
-    assert await _customers_by_staff(desk) == {"admin": 0, "alice": 3, "bob": 1, "carol": 0}
-
     group = await desk.client.post(
         "/api/v1/skill-groups",
         headers=desk.admin,
@@ -289,7 +281,6 @@ async def test_customer_transfer_handover_and_history(desk: Desk) -> None:
     assert handed.json() == {"transferred": 3, "wecom": None}
     owners = await desk.sql("SELECT owner_id, count(*) AS n FROM customers GROUP BY owner_id")
     assert {r["owner_id"]: r["n"] for r in owners} == {bob.staff_id: 2, carol.staff_id: 2}
-    assert await _customers_by_staff(desk) == {"admin": 0, "alice": 0, "bob": 2, "carol": 2}
     alice_customers = await desk.client.get("/api/v1/customers", headers=alice.headers)
     assert alice_customers.json()["total"] == 0
 
@@ -301,3 +292,69 @@ async def test_customer_transfer_handover_and_history(desk: Desk) -> None:
         "Bob",
         "调整",
     )
+
+
+async def test_handover_goes_only_to_agents_supervisors_and_the_owner(desk: Desk) -> None:
+    """交接客户的接收人只能是客服、主管和企业所有者（设计文档 §39.6）。"""
+    amy = await desk.agent("amy", online=False)
+    customer = await desk.client.post(
+        "/api/v1/customers",
+        headers=desk.admin,
+        json={"display_name": "甲", "owner_id": str(amy.staff_id)},
+    )
+    assert customer.status_code == 201, customer.text
+    fay = await desk.agent("fay", roles=["finance"], online=False)
+    hr = await desk.client.post(
+        "/api/v1/roles",
+        headers=desk.admin,
+        json={"code": "hr", "name": "人事", "permissions": ["staff:read", "staff:manage"]},
+    )
+    assert hr.status_code == 201, hr.text
+    # 只管员工的"人事"按权限判断岗位是主管，但不能接待客户，也不能接手。
+    assert hr.json()["console"] == "supervisor"
+    hrm = await desk.agent("hrm", roles=["hr"], online=False)
+
+    async def hand_over(**body: str) -> httpx.Response:
+        return await desk.client.post(
+            f"/api/v1/customers/handover/{amy.staff_id}", headers=desk.admin, json=body
+        )
+
+    for other in (fay, hrm):
+        refused = await hand_over(to_owner_id=str(other.staff_id))
+        assert refused.status_code == 422, refused.text
+        assert refused.json()["error"]["message"] == "客户只能交接给客服、主管或企业所有者"
+    group = await desk.client.post(
+        "/api/v1/skill-groups",
+        headers=desk.admin,
+        json={"name": "后台", "members": [{"staff_id": str(fay.staff_id)}]},
+    )
+    refused = await hand_over(to_group_id=group.json()["id"])
+    assert refused.status_code == 422
+    assert "客服、主管或企业所有者" in refused.json()["error"]["message"]
+
+    boss = await desk.agent("boss", roles=["supervisor"], online=False)
+    assert (await hand_over(to_owner_id=str(boss.staff_id))).json()["transferred"] == 1
+    # 企业所有者也可以接手；技能组里只有客服、主管、企业所有者参与分配。
+    owner = (await desk.client.get("/api/v1/me", headers=desk.admin)).json()["id"]
+    boss_handover = await desk.client.post(
+        f"/api/v1/customers/handover/{boss.staff_id}",
+        headers=desk.admin,
+        json={"to_owner_id": owner},
+    )
+    assert boss_handover.json()["transferred"] == 1
+    mixed = await desk.client.post(
+        "/api/v1/skill-groups",
+        headers=desk.admin,
+        json={
+            "name": "接手组",
+            "members": [{"staff_id": str(fay.staff_id)}, {"staff_id": str(amy.staff_id)}],
+        },
+    )
+    handed = await desk.client.post(
+        f"/api/v1/customers/handover/{owner}",
+        headers=desk.admin,
+        json={"to_group_id": mixed.json()["id"]},
+    )
+    assert handed.json()["transferred"] == 1
+    [row] = await desk.sql("SELECT owner_id FROM customers")
+    assert row["owner_id"] == amy.staff_id

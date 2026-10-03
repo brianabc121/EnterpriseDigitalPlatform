@@ -24,7 +24,7 @@ from app.core.consoles import (
     ConsoleMenu,
     ConsoleProfile,
 )
-from app.core.permissions import Permission
+from app.core.permissions import TENANT_ADMIN_ROLE, Permission
 from app.modules.iam.models import Role
 from app.modules.iam.service import role_permissions
 from app.modules.security.models import TenantSetting
@@ -63,6 +63,20 @@ def role_profile(role: Role) -> ConsoleProfile:
     if role.console:
         return ConsoleProfile(role.console)
     return auto_profile(role_permissions(role))
+
+
+# 交接客户的接收人（设计文档 §39.6）：客服、主管和企业所有者。
+HANDOVER_PROFILES = frozenset({ConsoleProfile.AGENT, ConsoleProfile.SUPERVISOR})
+
+
+def receives_handover(roles: Sequence[Role], permissions: Iterable[str]) -> bool:
+    """能不能接手别人交接的客户（设计文档 §39.6）：企业所有者，或者岗位是客服、主管并且能接待客户
+    （有工作台）的员工；按权限判断岗位的自定义角色（例如只管员工的"人事"）不算。"""
+    if any(role.code == TENANT_ADMIN_ROLE for role in roles):
+        return True
+    return Permission.WORKBENCH_USE in set(permissions) and any(
+        role_profile(role) in HANDOVER_PROFILES for role in roles
+    )
 
 
 def profiles_for(roles: Sequence[Role], permissions: Iterable[str]) -> list[ConsoleProfile]:
