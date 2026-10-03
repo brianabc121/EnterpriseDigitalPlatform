@@ -1,4 +1,4 @@
-// P24 / P28 验收：商机（设计文档 §40，原意向客户 §35）——员工转入、看板拖拽换阶段、跟进、AI 写跟进话术、访客咨询后
+// P28 验收：商机（设计文档 §40，原意向客户 §35）——员工转入、看板拖拽换阶段、跟进、AI 写跟进话术、访客咨询后
 // AI 转入、客户又来咨询、订单确认后自动赢单、只建议时确认 AI 的建议、"商机该跟进了"的提醒、输单和重新跟进、坐席的
 // 查看范围，在浏览器里走通。
 //
@@ -15,9 +15,11 @@
 // 6. 输单（选原因、写说明）和重新跟进（回到已沟通）。
 // 7. 小艾有"商机"菜单，只看到自己负责的商机（客户不归她也能看到），没有商机设置。
 // 8. 管理员首页的商机数字（进行中、本周要跟进、停滞、本月赢单金额）、报表的"销售"页签、导出 CSV。
+// 9. 商机设置：加一个阶段后看板立刻多一列，再删掉；预计金额只给管理者看后小艾的列表没有金额列；赢单的
+//    "再开一个商机"是新的一条；财务小芳只能看不能新建。
 //
 // 前置：与 p22-wake-acceptance.cjs 相同（后端、实时消费进程、调度进程接到模拟大模型 :8900），另需访客
-// Widget（:5175）。运行：NODE_PATH=$(npm root -g) PLATFORM_PASSWORD=<密码> node scripts/e2e/p24-prospect-acceptance.cjs
+// Widget（:5175）。运行：NODE_PATH=$(npm root -g) PLATFORM_PASSWORD=<密码> node scripts/e2e/p28-opportunity-acceptance.cjs
 const { chromium } = require('playwright')
 const { execFile } = require('child_process')
 const { promisify } = require('util')
@@ -31,7 +33,7 @@ const WIDGET = env('WIDGET_URL', 'http://localhost:5175')
 const FAKE_LLM = env('FAKE_LLM_URL', 'http://127.0.0.1:8900/v1')
 const PLATFORM_USER = env('PLATFORM_USER', 'ops')
 const PLATFORM_PASSWORD = process.env.PLATFORM_PASSWORD
-const SHOTS = env('SHOTS', 'e2e-shots/p24')
+const SHOTS = env('SHOTS', 'e2e-shots/p28')
 const BACKEND_DIR = env('BACKEND_DIR', path.resolve(__dirname, '../../backend'))
 const RUN = Date.now().toString(36).slice(-5)
 const TENANT = `prospect-${RUN}`
@@ -83,6 +85,7 @@ async function cli(...args) {
   return JSON.parse(lines[lines.length - 1])
 }
 
+const same = (a, b) => JSON.stringify(a) === JSON.stringify(b)
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
 async function until(label, probe, timeoutMs = 90_000) {
@@ -296,7 +299,7 @@ async function staffConverts(page) {
   await amount.fill('25960')
   await amount.blur()
   await settle(page)
-  await page.screenshot({ path: `${SHOTS}/p24-01-convert.png` })
+  await page.screenshot({ path: `${SHOTS}/p28-01-convert.png` })
   await dialog.locator('[data-testid="opp-create-save"]').click()
   await success(page, '已转入商机')
   const status = await text(panel.locator('[data-testid="customer-opportunity-status"]'))
@@ -321,7 +324,7 @@ async function staffConverts(page) {
   const tag = page.locator(`[data-testid="customer-opportunity-tag-${state.wangId}"]`)
   await tag.waitFor()
   check('the customer list tags 王先生 with the stage 新线索', (await text(tag)) === '新线索')
-  await page.screenshot({ path: `${SHOTS}/p24-02-customer-tag.png` })
+  await page.screenshot({ path: `${SHOTS}/p28-02-customer-tag.png` })
 
   // 客户页的"商机看板"按钮打开看板。
   await page.locator('[data-testid="customer-opportunities-link"]').click()
@@ -342,7 +345,7 @@ async function staffConverts(page) {
     { cardText, newCount },
   )
   await settle(page)
-  await page.screenshot({ path: `${SHOTS}/p24-03-board.png` })
+  await page.screenshot({ path: `${SHOTS}/p28-03-board.png` })
 
   // 拖到"已沟通"换阶段；卡片菜单"移到…"到"已报价"；拖到"赢单"弹出确认。
   const cardId = (await card.getAttribute('data-testid')).replace('opp-card-', '')
@@ -362,7 +365,7 @@ async function staffConverts(page) {
   await wonDialog.waitFor()
   check('dropping on 赢单 asks for confirmation instead of closing at once', await wonDialog.isVisible())
   await settle(page)
-  await page.screenshot({ path: `${SHOTS}/p24-04-won-dialog.png` })
+  await page.screenshot({ path: `${SHOTS}/p28-04-won-dialog.png` })
   await wonDialog.locator('button', { hasText: '取消' }).click()
   await wonDialog.waitFor({ state: 'hidden' })
 
@@ -427,7 +430,7 @@ async function staffConverts(page) {
   const due = await text(drawer.locator('[data-testid="opp-due"]'))
   check('moving the next follow-up to today shows 今天', due === '今天', due)
   await settle(page)
-  await page.screenshot({ path: `${SHOTS}/p24-05-drawer.png` })
+  await page.screenshot({ path: `${SHOTS}/p28-05-drawer.png` })
   await closeDrawer(page)
 }
 
@@ -484,7 +487,7 @@ async function aiConverts(browser, admin, alice) {
   await session.locator('text=智能门锁有货吗').first().waitFor()
   check('the source session opens from the opportunity', true)
   await settle(admin)
-  await admin.screenshot({ path: `${SHOTS}/p24-06-ai-session.png` })
+  await admin.screenshot({ path: `${SHOTS}/p28-06-ai-session.png` })
   await closeNamed(admin, 'session-drawer')
   await closeNamed(admin, 'opp-drawer')
 
@@ -507,7 +510,7 @@ async function aiConverts(browser, admin, alice) {
     timeline,
   )
   await settle(admin)
-  await admin.screenshot({ path: `${SHOTS}/p24-07-return.png` })
+  await admin.screenshot({ path: `${SHOTS}/p28-07-return.png` })
   await closeDrawer(admin)
 
   // 这个客户的订单确认后自动赢单。
@@ -534,7 +537,7 @@ async function aiConverts(browser, admin, alice) {
     wonText,
   )
   await settle(admin)
-  await admin.screenshot({ path: `${SHOTS}/p24-08-won.png` })
+  await admin.screenshot({ path: `${SHOTS}/p28-08-won.png` })
   await closeDrawer(admin)
 }
 
@@ -546,7 +549,7 @@ async function suggestion(browser, admin, alice) {
   const dialog = admin.locator('[data-testid="opp-settings"]')
   await dialog.waitFor()
   await settle(admin)
-  await admin.screenshot({ path: `${SHOTS}/p24-09-settings.png` })
+  await admin.screenshot({ path: `${SHOTS}/p28-09-settings.png` })
   await dialog.locator('.el-tabs__item', { hasText: 'AI 转入' }).click()
   await dialog.locator('[data-testid="opp-ai-mode"] label', { hasText: '只建议' }).click()
   await dialog.locator('[data-testid="opp-settings-save"]').click()
@@ -568,7 +571,7 @@ async function suggestion(browser, admin, alice) {
   const drawer = admin.locator('[data-testid="opp-drawer"]')
   await drawer.locator('[data-testid="opp-suggestion"]').waitFor()
   await settle(admin)
-  await admin.screenshot({ path: `${SHOTS}/p24-10-suggestion.png` })
+  await admin.screenshot({ path: `${SHOTS}/p28-10-suggestion.png` })
   await drawer.locator('[data-testid="opp-accept"]').click()
   await success(admin, '已转入商机')
   const status = await text(drawer.locator('[data-testid="opp-status"]'))
@@ -608,7 +611,7 @@ async function wakeReminder(admin) {
     cards.length === 1 && cards[0].includes('王先生') && view.startsWith('今天该跟进'),
     { cards, view },
   )
-  await admin.screenshot({ path: `${SHOTS}/p24-11-wake-link.png`, fullPage: true })
+  await admin.screenshot({ path: `${SHOTS}/p28-11-wake-link.png`, fullPage: true })
 }
 
 // ---- 6. 输单和重新跟进 ----
@@ -649,7 +652,7 @@ async function agentScope(alice) {
     menu.includes('商机') && rows.length === 2 && rows.every((r) => !r.includes('王先生')) && settings === 0,
     { rows, settings },
   )
-  await alice.screenshot({ path: `${SHOTS}/p24-12-agent.png`, fullPage: true })
+  await alice.screenshot({ path: `${SHOTS}/p28-12-agent.png`, fullPage: true })
 }
 
 // ---- 8. 首页数字、报表"销售"页签、导出 ----
@@ -669,7 +672,7 @@ async function homeReportExport(admin) {
   await admin.waitForURL(/\/opportunities/)
   await admin.waitForSelector('[data-testid="opp-board"]')
   check('the home tile opens the opportunities board', true)
-  await admin.screenshot({ path: `${SHOTS}/p24-13-home.png` })
+  await admin.screenshot({ path: `${SHOTS}/p28-13-home.png` })
 
   await admin.goto(`${CONSOLE}/reports`)
   await admin.locator('[data-testid="report-tabs"] .el-tabs__item', { hasText: '销售' }).click()
@@ -689,7 +692,7 @@ async function homeReportExport(admin) {
     { created, funnelNew, sources, owners },
   )
   await settle(admin)
-  await admin.screenshot({ path: `${SHOTS}/p24-14-sales-report.png`, fullPage: true })
+  await admin.screenshot({ path: `${SHOTS}/p28-14-sales-report.png`, fullPage: true })
 
   await opportunities(admin, 'all')
   const [download] = await Promise.all([admin.waitForEvent('download'), admin.click('[data-testid="opp-export"]')])
@@ -704,6 +707,100 @@ async function homeReportExport(admin) {
       csv.includes('已沟通'),
     { name: download.suggestedFilename(), lines: lines.length, head: lines[0] },
   )
+}
+
+// ---- 9. 阶段设置、金额可见范围、再开一个商机、财务只读 ----
+
+async function settingsAndScope(browser, admin, alice) {
+  // 加一个阶段，看板立刻多一列；再删掉。
+  await opportunities(admin, undefined, 'board')
+  await admin.click('[data-testid="opp-settings-open"]')
+  const dialog = admin.locator('[data-testid="opp-settings"]')
+  await dialog.waitFor()
+  await dialog.locator('[data-testid="opp-stage-new"]').fill('样品试用')
+  await dialog.locator('[data-testid="opp-stage-add"]').click()
+  await success(admin, '已添加阶段')
+  // 阶段名在输入框里（不是文本），按接口返回的代码找行和列。
+  const stagesNow = await json(`${API}/api/v1/opportunities/stages`, { token: state.admin })
+  const trial = stagesNow.find((s) => s.name === '样品试用')
+  await dialog.locator(`[data-testid="opp-stage-row-${trial.code}"]`).waitFor()
+  await dialog.locator('button', { hasText: '关闭' }).click()
+  const column = admin.locator(`[data-testid="opp-column-${trial.code}"]`)
+  await column.waitFor()
+  const heads = await admin.locator('[data-testid="opp-board"] .head .title').allInnerTexts()
+  check('adding a stage in the settings adds a board column at once', same(heads, ['新线索', '已沟通', '已报价', '谈判中', '样品试用', '赢单', '输单']), heads)
+  await admin.click('[data-testid="opp-settings-open"]')
+  await dialog.waitFor()
+  await dialog.locator(`[data-testid="opp-stage-delete-${trial.code}"]`).click()
+  const confirm = admin.locator('[data-testid="opp-stage-delete-dialog"]')
+  await confirm.waitFor()
+  await confirm.locator('[data-testid="opp-stage-delete-confirm"]').click()
+  await success(admin, '已删除阶段')
+  await dialog.locator('button', { hasText: '关闭' }).click()
+  await column.waitFor({ state: 'detached' })
+  check('deleting the empty stage removes its column', (await admin.locator('[data-testid="opp-board"] .column').count()) === 6)
+
+  // 预计金额只给能分配商机的员工看：小艾的列表没有金额列。
+  const list = await json(`${API}/api/v1/opportunities?view=active`, { token: state.admin })
+  const alicesOwn = list.items.find((o) => o.owner_name === '小艾')
+  await json(`${API}/api/v1/opportunities/${alicesOwn.id}`, { method: 'PATCH', token: state.admin, body: { amount: '3000' } })
+  const settings = await json(`${API}/api/v1/opportunities/settings`, { token: state.admin })
+  await json(`${API}/api/v1/opportunities/settings`, {
+    method: 'PUT',
+    token: state.admin,
+    body: { ...settings.settings, amount_visibility: 'managers' },
+  })
+  await opportunities(alice, 'all')
+  const headers = await alice.locator('[data-testid="opp-table"] th').allInnerTexts()
+  const aliceRow = await text(await rowOf(alice, alicesOwn.customer_name))
+  check(
+    'with amounts for managers only, 小艾 sees no amount column and no amount',
+    !headers.some((h) => h.includes('预计金额')) && !aliceRow.includes('¥3,000'),
+    { headers, aliceRow },
+  )
+  await opportunities(admin, 'all')
+  const adminRow = await text(await rowOf(admin, alicesOwn.customer_name))
+  check('the admin still sees the amount', adminRow.includes('¥3,000'), adminRow)
+  await json(`${API}/api/v1/opportunities/settings`, {
+    method: 'PUT',
+    token: state.admin,
+    body: { ...settings.settings, amount_visibility: 'all' },
+  })
+
+  // 赢单的"再开一个商机"是新的一条。
+  await opportunities(admin, 'won')
+  const won = await openOpportunity(admin, state.aiName)
+  await won.locator('[data-testid="opp-reopen"]').click()
+  await success(admin, '已再开一个商机')
+  const status = await text(won.locator('[data-testid="opp-status"]'))
+  const stageInfo = await text(won.locator('[data-testid="opp-stage-info"]'))
+  await closeDrawer(admin)
+  const all = await json(`${API}/api/v1/opportunities?view=all&customer_id=${state.aiCustomerId}`, { token: state.admin })
+  check(
+    'reopening a won opportunity starts a new one in 新线索 and keeps the won record',
+    status === '跟进中' && stageInfo.includes('新线索') && all.items.length === 2 && all.items.some((o) => o.status === 'won'),
+    { status, stageInfo, count: all.items.length },
+  )
+
+  // 财务只能看不能改。
+  await json(`${API}/api/v1/staff`, {
+    method: 'POST',
+    token: state.admin,
+    body: { username: 'fang', display_name: '小芳', password: PASSWORD, role_codes: ['finance'] },
+  })
+  const fang = await consoleLogin(browser, 'fang')
+  await opportunities(fang, 'all')
+  const rows = await fang.locator('[data-testid="opp-table"] .el-table__row').count()
+  const create = await fang.locator('[data-testid="opp-create-open"]').count()
+  const drawer = await openOpportunity(fang, '王先生')
+  const saveButtons = await drawer.locator('[data-testid="opp-save"]').count()
+  const wonButtons = await drawer.locator('[data-testid="opp-won"]').count()
+  check(
+    '财务 sees every opportunity but cannot create, edit or close',
+    rows === 4 && create === 0 && saveButtons === 0 && wonButtons === 0,
+    { rows, create, saveButtons, wonButtons },
+  )
+  await fang.screenshot({ path: `${SHOTS}/p28-15-finance.png` })
 }
 
 async function cleanup() {
@@ -733,6 +830,7 @@ async function cleanup() {
     await loseAndReopen(admin)
     await agentScope(alice)
     await homeReportExport(admin)
+    await settingsAndScope(browser, admin, alice)
   } catch (error) {
     summary.checks.push(`FAIL exception -> ${error.stack || error}`)
   } finally {

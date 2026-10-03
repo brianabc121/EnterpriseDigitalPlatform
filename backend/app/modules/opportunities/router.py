@@ -1,4 +1,4 @@
-"""商机的接口（设计文档 §40.13）：挂在 /api/v1/opportunities；/api/v1/prospects 是过渡期的别名
+"""商机的接口（设计文档 §40.13）：挂在 /api/v1/opportunities
 （main.py）。
 
 查看需要 opportunity:read（看得到客户的，或者自己是负责人）；新建、修改、跟进、换阶段、赢单 / 输单

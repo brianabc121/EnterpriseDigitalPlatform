@@ -5027,6 +5027,8 @@ Webhook 事件：opportunity.created、opportunity.stage_changed、opportunity.w
 | 是否新增"销售"系统角色 | 不新增：客服 / 主管的岗位已经覆盖，企业可以用自定义角色 |
 | 新线索默认分给归属坐席还是轮流分给技能组 | 归属坐席 |
 
+2026-10-04：以上全部按默认实现（P28-b～f）；旧链接 `/customers?tab=prospects` 跳到商机页面，过渡期的接口别名 `/api/v1/prospects` 在前端切换后去掉。
+
 ---
 
 ## 附录 A：参考资料（2026-09 查阅）

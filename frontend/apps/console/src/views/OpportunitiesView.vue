@@ -139,6 +139,12 @@ function onSettingsSaved(): void {
   changed()
 }
 
+/** 设置里加了、删了或者改了阶段：看板立刻多一列 / 少一列（§40.10）。 */
+function onStagesChanged(list: Stage[]): void {
+  stages.value = list
+  search()
+}
+
 watch(
   () => [route.query.view, route.query.owner, route.query.id],
   () => {
@@ -337,7 +343,7 @@ onMounted(async () => {
     <OpportunitySettingsDialog
       v-model="settingsOpen"
       @saved="onSettingsSaved"
-      @stages-changed="(list) => (stages = list)"
+      @stages-changed="onStagesChanged"
     />
   </div>
 </template>

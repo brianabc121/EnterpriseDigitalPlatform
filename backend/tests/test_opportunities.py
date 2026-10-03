@@ -647,7 +647,6 @@ async def test_message_scope_permissions_and_settings(desk: Desk, fake_llm: Fake
     )
     await call(desk, "POST", f"{P}/{made['id']}/message", 403, headers=alice.headers)
     # 过渡期的别名接口返回同样的数据。
-    assert (await call(desk, "GET", f"/api/v1/prospects/{made['id']}"))["id"] == made["id"]
 
 
 async def test_due_check_groups_by_owner_and_merge_keeps_one_record(desk: Desk) -> None:
