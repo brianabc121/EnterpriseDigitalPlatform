@@ -3,11 +3,11 @@
 //
 // 1. 准备：企业（企业所有者"张总"，开通企业时由平台创建）和每个可以分配的系统角色的员工——客服小艾、主管、财务、
 //    出纳、工厂工人、仓管，另有只能管理员工的"人事"和只能查看员工的"访客"（自定义角色）。
-// 2. 张总在"员工"页面（员工导图）：最顶部是张总（企业所有者）的卡片；每张员工卡片的"重置密码"、"停用"、删除都能用，
+// 2. 张总在"员工"页面（员工导图）：最顶部是张总（企业所有者）的卡片，上面写着企业名称；每张员工卡片的"重置密码"、"停用"、删除都能用，
 //    自己的卡片上是"修改密码"、没有删除；为小艾自动
 //    生成新密码（只显示一次，可以复制），卡片上标"待改密码"；再为其他系统角色的员工逐个重置，用新密码都能登录、
 //    都要先设置新密码，旧密码不能登录；工人已经打开的页面立即回到登录页；手动为人事设置密码、不要求修改。
-// 3. 人事登录：企业所有者的卡片上"编辑"、"重置密码"、"停用"置灰并提示（只能由本人或平台管理）；权限高于自己的员工
+// 3. 人事登录：企业所有者的卡片上"编辑"、"重置密码"置灰并提示（只能由本人或平台管理），没有"停用"和删除；权限高于自己的员工
 //    （客服等）的"重置密码"、"停用"、删除都置灰并提示，访客的都能用；自己的卡片不能删除。
 // 4. 小艾用新密码登录后只能进入"设置新密码"页面（说明谁在什么时候重置的），其他页面和接口都不行；设置后进入控制台。
 // 5. 运营后台的租户详情"管理员账号"：张总标"拥有者"；填写原因后为张总重置密码，显示临时密码和登录信息。
@@ -251,12 +251,14 @@ async function staffPage(browser) {
   const others = [...MEMBERS.map(([u]) => u), 'hrm', 'vic']
   const root = page.locator('[data-root="true"]')
   const rootText = await root.innerText()
+  const company = await root.locator('[data-testid="root-company"] strong').innerText()
   check(
-    'the top card is the enterprise owner 张总; every other staff card branches out below it',
+    'the top card is the enterprise owner 张总 under the enterprise name; every other staff card branches out below it',
     (await root.getAttribute('data-testid')) === 'staff-node-admin' &&
+      company === `重置密码验收 ${RUN}` &&
       rootText.includes('企业所有者（张总）') &&
       (await page.locator('[data-testid^="staff-node-"]').count()) === others.length + 1,
-    rootText,
+    { company, rootText },
   )
   const states = {}
   for (const username of others) states[username] = await disabledButtons(page, username)
@@ -345,12 +347,12 @@ async function hrPage(browser) {
   const ownerCard = {
     edit: await page.locator('[data-testid="edit-admin"]').isDisabled(),
     reset: await owner.reset.isDisabled(),
-    toggle: await owner.toggle.isDisabled(),
+    toggleButtons: await owner.toggle.count(),
     deleteButtons: await owner.remove.count(),
   }
   check(
-    '人事 sees the owner card on top with 编辑, 重置密码 and 停用 greyed out and no delete',
-    ownerCard.edit && ownerCard.reset && ownerCard.toggle && ownerCard.deleteButtons === 0,
+    '人事 sees the owner card on top with 编辑 and 重置密码 greyed out, and no 停用 or delete',
+    ownerCard.edit && ownerCard.reset && ownerCard.toggleButtons === 0 && ownerCard.deleteButtons === 0,
     ownerCard,
   )
   const states = {}
@@ -379,9 +381,8 @@ async function hrPage(browser) {
   const tips = { remove: await tooltip(workerDelete, '权限高于你，请让管理员删除') }
   await frameDiagram(page)
   tips.edit = await tooltip(page.locator('[data-testid="edit-admin"]'), '企业所有者的资料只能由本人修改')
-  tips.toggle = await tooltip(owner.toggle, '不能停用企业所有者')
   tips.reset = await tooltip(owner.reset, '企业所有者的密码只能由平台运维人员重置')
-  check('tooltips explain why (编辑、重置、停用、删除)', Object.values(tips).every(Boolean), tips)
+  check('tooltips explain why (编辑、重置、删除)', Object.values(tips).every(Boolean), tips)
   await settle(page)
   await page.screenshot({ path: `${SHOTS}/p27-03-hr-view.png` })
 }

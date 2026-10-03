@@ -103,7 +103,10 @@ const directions: { key: DiagramDirection; label: string }[] = [
           <el-button v-if="canManage" link type="primary" class="draft-edit" @click.stop="editCard(node.id)">完善信息</el-button>
         </template>
         <template v-else-if="byId.has(node.id)">
-          <span v-if="node.id === 'company'" class="root-caption">{{ company }} · {{ staff.length }} 位员工</span>
+          <div v-if="node.id === 'company'" class="root-company" data-testid="root-company">
+            <strong>{{ company }}</strong>
+            <span>{{ staff.length }} 位员工</span>
+          </div>
           <slot :member="byId.get(node.id)!" />
         </template>
         <span v-else>员工卡片暂不可用，请刷新</span>
@@ -138,9 +141,11 @@ const directions: { key: DiagramDirection; label: string }[] = [
 .staff-node.company { display: flex; flex-direction: column; gap: 8px; text-align: center; background: #1260ec; color: white; border: 0; border-radius: 10px; padding: 20px 16px; }
 .company strong { font-size: 20px; overflow-wrap: anywhere; }
 .company span { font-size: 13px; }
-/* 企业所有者的卡片在最顶部：上方写着企业名称和员工数。 */
-.staff-node.root:not(.company) { border-top-width: 6px; box-shadow: 0 8px 24px #1647ce1f; }
-.root-caption { display: block; margin-bottom: 10px; color: var(--el-color-primary); font-size: 12px; overflow-wrap: anywhere; }
+/* 企业所有者的卡片在最顶部：上方蓝色的一栏写着企业名称和员工数。 */
+.staff-node.root:not(.company) { border-top: 0; box-shadow: 0 8px 24px #1647ce1f; }
+.root-company { display: flex; flex-direction: column; gap: 4px; margin: -18px -18px 14px; padding: 14px 18px 12px; border-radius: 7px 7px 0 0; background: #1260ec; color: white; text-align: center; }
+.root-company strong { font-size: 18px; line-height: 1.4; overflow-wrap: anywhere; }
+.root-company span { font-size: 12px; opacity: .85; }
 .node-caption { opacity: .8; }
 .staff-node { cursor: default; }
 .staff-node:not(.company) { cursor: pointer; }

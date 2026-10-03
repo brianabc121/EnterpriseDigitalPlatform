@@ -62,7 +62,8 @@ const resetting = ref<Schemas['StaffOut'] | null>(null)
 const passwordOpen = ref(false)
 
 // 编辑、重置密码、停用/启用、删除卡片（§38.4、§39.1、§39.5）：权限高于自己的员工按钮置灰并提示，和后端的
-// 规则一致；自己的卡片不能停用（不显示）和删除（置灰）；企业所有者的卡片只有本人能编辑。
+// 规则一致；自己的卡片不能停用（不显示）和删除（置灰）；企业所有者的卡片（最顶部）没有停用和删除，只有
+// 本人能编辑。
 function manageState(member: Schemas['StaffOut']) {
   return manageAccess(member, { id: auth.me?.id ?? '', permissions: auth.permissions })
 }
@@ -312,7 +313,7 @@ onMounted(load)
                     <el-button link type="primary" size="small" :disabled="manageState(row) !== 'ok'" :data-testid="`reset-${row.username}`" @click.stop="openReset(row)">重置密码</el-button>
                   </span>
                 </el-tooltip>
-                <el-tooltip v-if="manageState(row) !== 'self'" :disabled="manageState(row) === 'ok'" :content="manageHint(manageState(row), row.status === 'active' ? '停用' : '启用') ?? ''" placement="top">
+                <el-tooltip v-if="!row.is_owner && manageState(row) !== 'self'" :disabled="manageState(row) === 'ok'" :content="manageHint(manageState(row), row.status === 'active' ? '停用' : '启用') ?? ''" placement="top">
                   <span class="action">
                     <el-button link :type="row.status === 'active' ? 'danger' : 'primary'" size="small" :disabled="manageState(row) !== 'ok'" :data-testid="`toggle-${row.username}`" @click.stop="toggleStatus(row)">
                       {{ row.status === 'active' ? '停用' : '启用' }}

@@ -72,7 +72,13 @@ async function main() {
     await page.locator('[data-root="true"]:not([data-testid="staff-node-company"])').waitFor()
     const rootText = await root.innerText()
     const rootId = await root.getAttribute('data-testid')
-    check('the top card is the enterprise owner', rootText.includes('企业所有者') && rootId !== 'staff-node-company', { rootId, rootText })
+    const company = (await root.locator('[data-testid="root-company"] strong').innerText()).trim()
+    check(
+      'the top card is the enterprise owner under the enterprise name, without 停用',
+      rootText.includes('企业所有者') && rootId !== 'staff-node-company' && company.length > 0 &&
+        (await root.locator('[data-testid^="toggle-"]').count()) === 0,
+      { rootId, company, rootText },
+    )
     for (const direction of ['left', 'right', 'down']) {
       const username = `diagram-${direction}-${RUN}`
       await root.hover()
