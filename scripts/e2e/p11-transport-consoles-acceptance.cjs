@@ -50,6 +50,7 @@ const TITLES = {
   warehouse: '仓库',
   tasks: '个人待办',
   customers: '客户',
+  opportunities: '商机',
   knowledge: '知识库',
   ai: 'AI 接待',
   wake: 'AI 唤醒',
