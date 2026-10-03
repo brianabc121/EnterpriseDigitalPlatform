@@ -26,6 +26,8 @@ const staff = (access: Schemas['StaffOut']['access'], permissions: Permission[] 
     created_at: '2026-10-02T00:00:00Z',
     access,
     permissions,
+    must_change_password: false,
+    password_changed_at: null,
   }) satisfies Schemas['StaffOut']
 
 describe('accessOf', () => {

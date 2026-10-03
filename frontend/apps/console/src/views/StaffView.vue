@@ -4,9 +4,12 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { computed, onMounted, reactive, ref } from 'vue'
 
 import { api, formatDateTime } from '../api'
+import PasswordDialog from '../components/account/PasswordDialog.vue'
 import HandoverDialog from '../components/customers/HandoverDialog.vue'
+import ResetPasswordDialog from '../components/staff/ResetPasswordDialog.vue'
 import RolesTab from '../components/staff/RolesTab.vue'
 import StaffAccessEditor from '../components/staff/StaffAccessEditor.vue'
+import { resetAccess } from '../passwords'
 import { accessBody, accessOf, accessSummary, emptyAccess, type AccessForm } from '../staffAccess'
 import { useAuthStore } from '../stores/auth'
 
@@ -42,8 +45,14 @@ const editForm = reactive<{ displayName: string; roleCodes: string[] }>({
 })
 const editAccess = ref<AccessForm>(emptyAccess())
 
+// 重置密码（§38.4）：全部角色都可以，权限高于自己的员工不能；自己那一行改为修改密码（要输入当前密码）。
 const resetOpen = ref(false)
-const resetPassword = ref('')
+const resetting = ref<Schemas['StaffOut'] | null>(null)
+const passwordOpen = ref(false)
+
+function resetState(member: Schemas['StaffOut']) {
+  return resetAccess(member, { id: auth.me?.id ?? '', permissions: auth.permissions })
+}
 
 async function load(): Promise<void> {
   loading.value = true
@@ -166,29 +175,8 @@ async function toggleStatus(member: Schemas['StaffOut']): Promise<void> {
 }
 
 function openReset(member: Schemas['StaffOut']): void {
-  editing.value = member
-  resetPassword.value = ''
+  resetting.value = member
   resetOpen.value = true
-}
-
-async function saveReset(): Promise<void> {
-  if (!editing.value) return
-  if (resetPassword.value.length < 8) {
-    ElMessage.warning('新密码至少 8 位')
-    return
-  }
-  saving.value = true
-  const { error, response } = await api.POST('/api/v1/staff/{staff_id}/password', {
-    params: { path: { staff_id: editing.value.id } },
-    body: { password: resetPassword.value },
-  })
-  saving.value = false
-  if (!response.ok) {
-    ElMessage.error(errorMessage(error))
-    return
-  }
-  ElMessage.success('已重置密码，员工需要用新密码重新登录')
-  resetOpen.value = false
 }
 
 onMounted(load)
@@ -228,11 +216,24 @@ onMounted(load)
               </el-tooltip>
             </template>
           </el-table-column>
-          <el-table-column label="状态" width="100">
+          <el-table-column label="状态" width="180">
             <template #default="{ row }">
               <el-tag :type="row.status === 'active' ? 'success' : 'info'" disable-transitions>
                 {{ row.status === 'active' ? '启用' : '停用' }}
               </el-tag>
+              <el-tooltip
+                v-if="row.must_change_password"
+                placement="top"
+                :content="`密码重置于 ${row.password_changed_at ? formatDateTime(row.password_changed_at) : '—'}，员工下次登录时要先设置新密码`"
+              >
+                <el-tag
+                  type="warning"
+                  class="role"
+                  disable-transitions
+                  :data-testid="`must-change-${row.username}`"
+                  >待改密码</el-tag
+                >
+              </el-tooltip>
             </template>
           </el-table-column>
           <el-table-column label="创建时间" width="180">
@@ -242,9 +243,35 @@ onMounted(load)
             <template #default="{ row }">
               <template v-if="canManage">
                 <el-button link type="primary" size="small" @click="openEdit(row)">编辑</el-button>
-                <el-button link type="primary" size="small" @click="openReset(row)">
-                  重置密码
+                <el-button
+                  v-if="resetState(row) === 'self'"
+                  link
+                  type="primary"
+                  size="small"
+                  :data-testid="`password-${row.username}`"
+                  @click="passwordOpen = true"
+                >
+                  修改密码
                 </el-button>
+                <el-tooltip
+                  v-else
+                  :disabled="resetState(row) === 'ok'"
+                  content="权限高于你，请让管理员重置"
+                  placement="top"
+                >
+                  <span class="action">
+                    <el-button
+                      link
+                      type="primary"
+                      size="small"
+                      :disabled="resetState(row) !== 'ok'"
+                      :data-testid="`reset-${row.username}`"
+                      @click="openReset(row)"
+                    >
+                      重置密码
+                    </el-button>
+                  </span>
+                </el-tooltip>
                 <el-button
                   v-if="row.id !== auth.me?.id"
                   link
@@ -361,20 +388,8 @@ onMounted(load)
       </template>
     </el-dialog>
 
-    <el-dialog v-model="resetOpen" title="重置密码" width="420px" data-testid="staff-reset">
-      <p class="hint">为 {{ editing?.display_name }} 设置新密码；员工现有的登录全部失效。</p>
-      <el-input
-        v-model="resetPassword"
-        type="password"
-        show-password
-        placeholder="新密码，至少 8 位"
-        autocomplete="new-password"
-      />
-      <template #footer>
-        <el-button @click="resetOpen = false">取消</el-button>
-        <el-button type="primary" :loading="saving" @click="saveReset">重置</el-button>
-      </template>
-    </el-dialog>
+    <ResetPasswordDialog v-model="resetOpen" :member="resetting" @done="load" />
+    <PasswordDialog v-model="passwordOpen" />
   </div>
 </template>
 
@@ -383,9 +398,14 @@ onMounted(load)
   margin-left: 6px;
 }
 
-.hint {
-  margin: 0 0 12px;
-  color: var(--el-text-color-secondary);
+/* 置灰的按钮外面套一层，悬停时才能显示提示；和相邻的按钮保持同样的间距。 */
+.action {
+  display: inline-flex;
+  margin-left: 12px;
+}
+
+.action + .el-button {
+  margin-left: 12px;
 }
 
 .fields {

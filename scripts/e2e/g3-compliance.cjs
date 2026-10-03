@@ -165,10 +165,15 @@ async function staffSection(page) {
   await row.locator('.el-tag', { hasText: '启用' }).waitFor()
   check('重新启用后可以登录', (await staffLogin('xiaowang', AGENT_PASSWORD)).status === 200)
 
+  // 重置窗口（§38.4）：手动设置新密码，不要求下次登录修改（这里只检查能用新密码登录）。
   await row.locator('button', { hasText: '重置密码' }).click()
-  await page.locator('.el-dialog:visible input[type="password"]').fill(RESET_PASSWORD)
-  await page.locator('.el-dialog:visible button', { hasText: '重置' }).click()
-  await page.locator('.el-message--success', { hasText: '已重置密码' }).last().waitFor()
+  const reset = page.locator('[data-testid="staff-reset"]')
+  await reset.locator('.el-radio', { hasText: '手动设置' }).click()
+  await reset.locator('[data-testid="reset-password-input"]').fill(RESET_PASSWORD)
+  await reset.locator('[data-testid="reset-must-change"]').click()
+  await reset.locator('[data-testid="reset-submit"]').click()
+  await reset.locator('[data-testid="reset-result"]').waitFor()
+  await reset.locator('[data-testid="reset-done"]').click()
   const oldLogin = await staffLogin('xiaowang', AGENT_PASSWORD)
   const newLogin = await staffLogin('xiaowang', RESET_PASSWORD)
   check('重置密码后只能用新密码登录', oldLogin.status === 401 && newLogin.status === 200, {

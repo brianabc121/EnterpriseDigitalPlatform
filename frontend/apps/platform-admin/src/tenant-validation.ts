@@ -24,3 +24,12 @@ export function tenantFieldError(field: TenantField, value: unknown): string {
   }
   return ''
 }
+
+/** 重置管理员密码的原因（§38.3）：必填，去掉首尾空格后 2～200 个字。 */
+export function resetReasonError(value: string): string {
+  const length = Array.from(value.trim()).length
+  if (!length) return '请填写重置的原因'
+  if (length < 2) return '原因至少 2 个字'
+  if (length > 200) return '原因不能超过 200 个字'
+  return ''
+}

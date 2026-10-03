@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { tenantFieldError } from './tenant-validation'
+import { resetReasonError, tenantFieldError } from './tenant-validation'
 
 describe('开通租户字段校验', () => {
   it('说明纯数字企业代码需要小写字母开头', () => {
@@ -25,5 +25,14 @@ describe('开通租户字段校验', () => {
       expect(tenantFieldError('months', value)).toContain('1～60')
     }
     expect(tenantFieldError('months', 12)).toBe('')
+  })
+})
+
+describe('重置管理员密码的原因', () => {
+  it('必填，去掉首尾空格后 2～200 个字', () => {
+    expect(resetReasonError('   ')).toBe('请填写重置的原因')
+    expect(resetReasonError(' 是 ')).toBe('原因至少 2 个字')
+    expect(resetReasonError('来电申请')).toBe('')
+    expect(resetReasonError('长'.repeat(201))).toBe('原因不能超过 200 个字')
   })
 })
