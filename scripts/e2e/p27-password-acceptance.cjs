@@ -1,11 +1,11 @@
 // P27 验收：重置密码（设计文档 §38）——企业后台为全部角色的员工重置密码，平台运营后台为企业拥有者（管理员账号）
 // 重置密码；重置后的密码是临时密码，登录后先设置新密码；之前的登录立即失效。
 //
-// 1. 准备：企业（拥有者"张总"）和每个系统角色的员工——坐席小艾、主管、知识管理员、工人、仓管、副管理员，另有
-//    只能管理员工的"人事"和只能查看员工的"访客"（自定义角色）。
-// 2. 张总在"员工"页面：每个员工都有"重置密码"，自己那一行是"修改密码"；为小艾自动生成新密码（只显示一次，可以
-//    复制），列表上标"待改密码"；再为主管、知识管理员、工人、仓管、副管理员逐个重置，用新密码都能登录、都要先
-//    设置新密码，旧密码不能登录；工人已经打开的页面立即回到登录页；手动为人事设置密码、不要求修改。
+// 1. 准备：企业（拥有者"张总"）和每个系统角色的员工——客服小艾、主管、财务、出纳、工厂工人、仓管、副管理员
+//    （企业所有者），另有只能管理员工的"人事"和只能查看员工的"访客"（自定义角色）。
+// 2. 张总在"员工"页面（员工导图的卡片）：每张员工卡片都有"重置密码"，自己的卡片上是"修改密码"；为小艾自动
+//    生成新密码（只显示一次，可以复制），卡片上标"待改密码"；再为其他系统角色的员工逐个重置，用新密码都能登录、
+//    都要先设置新密码，旧密码不能登录；工人已经打开的页面立即回到登录页；手动为人事设置密码、不要求修改。
 // 3. 人事登录：权限高于自己的员工（管理员、坐席）按钮置灰并提示，只能重置访客。
 // 4. 小艾用新密码登录后只能进入"设置新密码"页面（说明谁在什么时候重置的），其他页面和接口都不行；设置后进入控制台。
 // 5. 运营后台的租户详情"管理员账号"：张总标"拥有者"、副管理员；填写原因后为张总重置密码，显示临时密码和登录信息。
@@ -29,11 +29,12 @@ const TENANT = `pwd-${RUN}`
 const PASSWORD = 'demo-pass-2026'
 const HR_PASSWORD = 'hr-new-pass-2026'
 const REASON = '企业负责人来电，核对营业执照后申请重置'
-// 每个系统角色一个员工（租户管理员是副管理员）。
+// 每个系统角色一个员工（企业所有者是副管理员）。
 const MEMBERS = [
   ['alice', '小艾', ['agent']],
   ['sam', '主管老孙', ['supervisor']],
-  ['kim', '知识管理员小金', ['knowledge_manager']],
+  ['fay', '财务小芳', ['finance']],
+  ['qian', '出纳小钱', ['cashier']],
   ['wang', '工人老王', ['worker']],
   ['kay', '仓管小凯', ['keeper']],
   ['root2', '副管理员', ['tenant_admin']],
@@ -178,12 +179,28 @@ async function quiet(page) {
   await page.locator('.el-message').first().waitFor({ state: 'detached', timeout: 8000 }).catch(() => undefined)
 }
 
+// 员工页面是可以上下左右滚动的员工导图（10 位员工时比屏幕宽）：截图前页面和菜单滚回顶部，导图以企业卡片为中心，
+// 企业、两位管理员和中间几位员工的卡片完整地出现在画面里。
+async function frameDiagram(page) {
+  await page.evaluate(() => {
+    const viewport = document.querySelector('.tree-viewport')
+    for (const element of document.querySelectorAll('*')) {
+      if (element !== viewport && element.scrollTop > 0) element.scrollTop = 0
+    }
+    const company = document.querySelector('[data-testid="staff-node-company"]')
+    if (!viewport || !company) return
+    const v = viewport.getBoundingClientRect()
+    const c = company.getBoundingClientRect()
+    viewport.scrollTo({ top: 0, left: viewport.scrollLeft + c.left + c.width / 2 - (v.left + v.width / 2) })
+  })
+}
+
+// 员工页面的截图用 1600×1000 的窗口：导图（高约 730 像素）在 75% 高度的滚动区域里放得下。
+const STAFF_VIEWPORT = { width: 1600, height: 1000 }
+
 async function menu(page, title) {
   await page.locator('[data-testid="main-menu"]').getByText(title, { exact: true }).click()
 }
-
-const staffRow = (page, username) =>
-  page.locator('[data-testid="staff-table"] .el-table__row', { hasText: username })
 
 /** 在"员工"页面为一个员工重置密码，返回自动生成的密码（手动设置时为空）。 */
 async function resetInUi(page, username, { manual, mustChange = true } = {}) {
@@ -211,8 +228,9 @@ async function staffPage(browser) {
 
   const page = await consoleLogin(browser, 'admin')
   state.adminPage = page
+  await page.setViewportSize(STAFF_VIEWPORT)
   await menu(page, '员工')
-  await page.locator('[data-testid="staff-table"]').waitFor()
+  await page.locator('[data-testid="staff-node-admin"]').waitFor()
   const others = [...MEMBERS.map(([u]) => u), 'hrm', 'vic']
   const enabled = []
   for (const username of others) {
@@ -235,6 +253,7 @@ async function staffPage(browser) {
       (await dialog.locator('[data-testid="reset-copy"]').isVisible()),
     password,
   )
+  await frameDiagram(page)
   await settle(page)
   await page.screenshot({ path: `${SHOTS}/p27-01-reset-generated.png` })
   await dialog.locator('[data-testid="reset-done"]').click()
@@ -257,7 +276,7 @@ async function staffPage(browser) {
     outcomes[username] = { fresh: fresh.status, mustChange: me?.must_change_password, blocked: blocked?.status }
   }
   check(
-    'all six roles (坐席、主管、知识管理员、工人、仓管、管理员) log in with the new password and must set their own first',
+    'all seven system roles (客服、主管、财务、出纳、工厂工人、仓管、企业所有者) log in with the new password and must set their own first',
     Object.values(outcomes).every((o) => o.fresh === 200 && o.mustChange === true && o.blocked === 403),
     outcomes,
   )
@@ -275,6 +294,7 @@ async function staffPage(browser) {
     (await manual.dialog.locator('[data-testid="reset-result-password"]').count()) === 0,
   )
   await manual.dialog.locator('[data-testid="reset-done"]').click()
+  await frameDiagram(page)
   await settle(page)
   await page.screenshot({ path: `${SHOTS}/p27-02-staff-list.png` })
 
@@ -300,8 +320,9 @@ async function hrPage(browser) {
   // 手动设置、不要求修改的密码：直接进入控制台。
   const page = await consoleLogin(browser, 'hrm', HR_PASSWORD)
   check('人事 logs in with the manual password without a forced change', page.url().includes('/password') === false)
+  await page.setViewportSize(STAFF_VIEWPORT)
   await menu(page, '员工')
-  await page.locator('[data-testid="staff-table"]').waitFor()
+  await page.locator('[data-testid="staff-node-hrm"]').waitFor()
   const disabled = {}
   for (const username of ['admin', 'root2', 'alice', 'vic']) {
     disabled[username] = await page.locator(`[data-testid="reset-${username}"]`).isDisabled()
@@ -311,7 +332,10 @@ async function hrPage(browser) {
     disabled.admin && disabled.root2 && disabled.alice && !disabled.vic,
     disabled,
   )
-  await page.locator('[data-testid="reset-admin"]').locator('..').hover()
+  await frameDiagram(page)
+  // 直接把鼠标移到按钮上（hover() 可能为了让按钮完整出现而横向滚动导图）。
+  const box = await page.locator('[data-testid="reset-admin"]').locator('..').boundingBox()
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
   const tip = page.locator('.el-popper:visible', { hasText: '权限高于你，请让管理员重置' })
   await tip.waitFor()
   check('a tooltip explains why', await tip.isVisible())

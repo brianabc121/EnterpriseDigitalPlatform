@@ -7,7 +7,7 @@
 // 4. 这个员工登录后进入"订单"，菜单是勾选的页面（没有知识库、报表），打开知识库是"没有访问权限"；点"首页"
 //    照常打开首页，刷新首页又进入"订单"；应收账款能打开。
 // 5. 编辑这个员工：保留自定义的勾选；改回"按角色"后标签消失，员工重新登录进入首页，知识库回来了。
-// 6. 选"租户管理员"角色时不能自定义。
+// 6. 选"企业所有者"（租户管理员）角色时不能自定义。
 // 7. 有员工管理权限的组长：自己没有的权限不能勾；勾"报表"页面提示权限不能给出；勾"客户"自动勾上
 //    "查看客户"（多给），保存成功。
 // 8. 手机上对话框不超出屏幕。
@@ -332,12 +332,12 @@ async function editSection(browser, admin) {
 
   await admin.locator('button', { hasText: '新建员工' }).click()
   const create = admin.locator('[data-testid="staff-create"]')
-  await chooseRole(create, '租户管理员', true)
+  await chooseRole(create, '企业所有者', true)
   const locked = await until(async () =>
     (await create.locator('[data-testid="staff-access"]').innerText()).includes('不能单独调整'),
   )
   const customDisabled = await create.locator('[data-testid="access-mode-custom"]').getAttribute('class')
-  check('选了"租户管理员"不能自定义（提示不能单独调整）', locked && /is-disabled/.test(customDisabled ?? ''), customDisabled)
+  check('选了"企业所有者"不能自定义（提示不能单独调整）', locked && /is-disabled/.test(customDisabled ?? ''), customDisabled)
   await shot(admin, '6-create-admin-locked')
   await create.locator('button', { hasText: '取消' }).click()
 }
@@ -353,7 +353,7 @@ async function leadSection(browser) {
   await fill(dialog, '用户名', 'zhuli')
   await fill(dialog, '姓名', '助理小李')
   await fill(dialog, '初始密码', PASSWORD)
-  await chooseRole(dialog, '坐席', false)
+  await chooseRole(dialog, '客服', false)
   await chooseRole(dialog, '助理', true)
   await until(async () => (await preview(dialog)).includes('个人待办'))
   await dialog.locator('[data-testid="access-mode-custom"]').click()

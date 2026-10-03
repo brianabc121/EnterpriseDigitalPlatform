@@ -153,7 +153,7 @@ async function staffSection(page) {
   await dialog.locator('button', { hasText: '保存' }).click()
   await row.locator('.el-tag', { hasText: '主管' }).waitFor()
   const rowText = await row.innerText()
-  check('编辑员工的姓名和角色', rowText.includes('王小明') && rowText.includes('坐席'), rowText)
+  check('编辑员工的姓名和角色', rowText.includes('王小明') && rowText.includes('客服'), rowText)
 
   await page.locator('[data-testid="toggle-xiaowang"]').click()
   await confirmBox(page, '停用')

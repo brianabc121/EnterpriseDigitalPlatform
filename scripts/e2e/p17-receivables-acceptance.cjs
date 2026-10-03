@@ -7,7 +7,8 @@
 //    点"已逾期"只剩三笔，点账龄"逾期 31–60 天"只剩货到付款的那笔。
 // 3. 按客户：李女士未收 ¥2,996.00、王先生 ¥1,397.00；王先生的对账单期末未收 ¥1,397.00、五行明细，可以
 //    打印；"查看订单"回到按订单并按客户筛选。
-// 4. 管理员在"员工 → 角色"新建"财务"角色：岗位选"财务"，一键填入默认权限（9 项），保存后岗位显示"财务"。
+// 4. 管理员在"员工 → 角色"新建"会计"角色（系统已有"财务"角色）：岗位选"财务"，一键填入默认权限（11 项），
+//    保存后岗位显示"财务"。
 // 5. 财务小蔡：菜单只有首页、订单、应收账款、个人待办、客户、AI 助理、Token 计费；首页是应收的一块；能看到全部五笔
 //    应收。跟进暂欠的订单（承诺付款日和备注，列表显示）；给货到付款的订单发起催收（列表显示催收待办）；
 //    登记在线收款那笔的收款后剩四笔，本月已收变为 ¥1,798.00；导出 CSV。
@@ -324,14 +325,14 @@ async function receivablesPage(admin, ctx) {
   check('"查看订单"回到按订单并按客户筛选（李女士 3 笔）', filtered === 3, filtered)
 }
 
-// 4. 管理员新建"财务"角色：岗位"财务"、一键填入默认权限。
+// 4. 管理员新建"会计"角色：岗位"财务"、一键填入默认权限（系统角色"财务"已有同样的权限）。
 async function financeRole(admin, ctx) {
   await admin.goto(`${CONSOLE}/staff`)
   await admin.locator('.el-tabs__item', { hasText: '角色' }).click()
   await admin.locator('[data-testid="new-role"]').click()
   const dialog = admin.locator('[data-testid="role-dialog"]')
-  await dialog.locator('input[placeholder="小写字母开头，如 quality"]').fill('finance')
-  await dialog.locator('.el-form-item', { hasText: '名称' }).locator('input').fill('财务')
+  await dialog.locator('input[placeholder="小写字母开头，如 quality"]').fill('accountant')
+  await dialog.locator('.el-form-item', { hasText: '名称' }).locator('input').fill('会计')
   await dialog.locator('[data-testid="role-console"]').click()
   await admin.locator('.el-select-dropdown__item:visible', { hasText: '财务' }).click()
   await dialog.locator('[data-testid="role-fill-defaults"]').click()
@@ -340,8 +341,8 @@ async function financeRole(admin, ctx) {
     .locator('[data-testid^="perm-"].is-checked:not([data-testid^="perm-module"])')
     .allInnerTexts()
   check(
-    '选了岗位"财务"后一键填入默认权限：查看应收账款、跟进催收导出、查看订单、登记收款、Token 计费等 9 项',
-    checked.length === 9 &&
+    '选了岗位"财务"后一键填入默认权限：查看应收账款、跟进催收导出、查看订单、登记收款、盈利报表、Token 计费等 11 项',
+    checked.length === 11 &&
       checked.some((t) => t.includes('应收账款')) &&
       checked.some((t) => t.includes('登记收款')) &&
       checked.some((t) => t.includes('tokens')),
@@ -349,7 +350,7 @@ async function financeRole(admin, ctx) {
   )
   await shot(admin, '4-finance-role')
   await dialog.locator('button', { hasText: '保存' }).click()
-  const console_ = admin.locator('[data-testid="role-console-finance"]')
+  const console_ = admin.locator('[data-testid="role-console-accountant"]')
   await console_.waitFor()
   const label = await console_.innerText()
   check('保存后角色列表显示岗位"财务"', label === '财务', label)
@@ -365,8 +366,8 @@ async function financeSection(browser, ctx) {
   const cai = await consoleLogin(browser, 'cai')
   const menu = await menus(cai)
   check(
-    '财务的菜单只有首页、订单、应收账款、个人待办、客户、AI 助理、Token 计费',
-    same(menu, ['首页', '订单', '应收账款', '个人待办', '客户', 'AI 助理', 'Token 计费']),
+    '财务的菜单只有首页、订单、应收账款、个人待办、客户、AI 助理、盈利报表、Token 计费',
+    same(menu, ['首页', '订单', '应收账款', '个人待办', '客户', 'AI 助理', '盈利报表', 'Token 计费']),
     menu,
   )
   await cai.locator('[data-testid="home-finance-receivables"]').waitFor()
