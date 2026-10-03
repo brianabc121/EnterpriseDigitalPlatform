@@ -23,6 +23,7 @@ AGENT = {
     "dashboard:view", "workbench:use", "customer:read", "customer:create", "kb:read",
     "session:transfer", "todo:read", "todo:handle", "order:read", "order:create",
     "order:review", "order:payment", "contract:use", "material:use", "task:use", "assistant:use",
+    "opportunity:read", "opportunity:manage",
 }  # fmt: skip
 AGENT_MENUS = [
     "dashboard", "workbench", "sessions", "todos", "orders", "contracts", "materials", "tasks",
