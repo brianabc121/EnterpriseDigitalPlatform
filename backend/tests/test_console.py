@@ -102,6 +102,24 @@ async def test_each_role_has_its_own_console(desk: Desk) -> None:
     }  # fmt: skip
 
 
+async def test_me_names_the_roles_for_the_console_header(desk: Desk) -> None:
+    """控制台左上角的"角色（姓名）"（设计文档 §39.7）：系统角色用现在的名称，数据库里还留着
+    以前的名称也一样；自定义角色用保存的名称。"""
+    me = await call(desk, desk.admin, "GET", "/api/v1/me")
+    assert me["role_names"] == {"tenant_admin": "企业所有者"}
+
+    knowledge = await create_knowledge_role(desk.client, desk.admin_token)
+    await desk.sql(
+        "UPDATE roles SET name = '坐席' WHERE tenant_id = $1 AND code = 'agent'", desk.tenant_id
+    )
+    chen = await desk.agent("chen", roles=["agent", knowledge], online=False)
+    me = await call(desk, chen.headers, "GET", "/api/v1/me")
+    assert (me["display_name"], me["role_names"]) == (
+        "Chen",
+        {"agent": "客服", knowledge: "知识管理员"},
+    )
+
+
 async def test_keeper_role_confirms_documents_and_replaces_the_worker_fallback(desk: Desk) -> None:
     wang = await desk.agent("wang", roles=["worker"], online=False)
     cang = await desk.agent("cang", roles=["keeper"], online=False)

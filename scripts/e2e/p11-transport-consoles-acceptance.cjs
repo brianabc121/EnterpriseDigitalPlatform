@@ -17,6 +17,7 @@
 // 9. 管理员新建自定义角色"拣货员"：不选岗位时按权限判断（仓管），选成"工人"后，有这个角色的员工
 //    只看到"加工"。
 // 10. 手机：仓管首页没有横向滚动。
+// 11. 每个角色进入控制台后，左上角"EDP 智能客服"旁边显示自己的"角色（姓名）"（设计文档 §39.7），手机上也完整显示。
 //
 // 前置：后端（传输加密为 optional 或 required）、控制台。
 // 运行：NODE_PATH=$(npm root -g) PLATFORM_PASSWORD=<平台账号密码> node scripts/e2e/p11-transport-consoles-acceptance.cjs
@@ -255,6 +256,15 @@ async function menus(page) {
   return items.map((text) => text.replace(/\d+\+?/g, '').trim())
 }
 
+// 左上角"EDP 智能客服"旁边的"角色（姓名）"（§39.7）：记下每个角色看到的，最后一起检查；放不下被截断时记为截断。
+const identities = {}
+async function identity(page, label) {
+  const element = page.locator('[data-testid="console-identity"]')
+  await element.waitFor()
+  const cut = await element.evaluate((el) => el.scrollWidth > el.clientWidth)
+  identities[label] = cut ? `（截断）${await element.innerText()}` : (await element.innerText()).trim()
+}
+
 async function tile(page, testid) {
   const text = await page.locator(`[data-testid="${testid}"] .value`).innerText()
   return Number(text.trim())
@@ -279,6 +289,7 @@ async function adminSection(browser) {
   const wire = { requests: [], responses: [] }
   const page = await consoleLogin(browser, 'admin', { wire })
   await page.locator('[data-testid="home-team"]').waitFor()
+  await identity(page, 'admin')
   await page.locator('[data-testid="rt-serving"]').waitFor()
   await page.locator('[data-testid="home-documents-pending"]').waitFor()
   await shot(page, '1-admin-home')
@@ -333,6 +344,7 @@ async function agentSection(browser, ctx) {
   const page = await consoleLogin(browser, 'mei')
   await page.locator('[data-testid="home-agent"]').waitFor()
   await page.locator('[data-testid="home-todos-overdue"]').waitFor()
+  await identity(page, 'mei')
   await shot(page, '2-agent-home')
   const menu = await menus(page)
   check(
@@ -384,6 +396,7 @@ async function agentSection(browser, ctx) {
 async function keeperSection(browser, ctx) {
   const page = await consoleLogin(browser, 'cang')
   await page.locator('[data-testid="home-keeper"]').waitFor()
+  await identity(page, 'cang')
   const rows = page.locator('[data-testid="home-pending-document"]')
   await rows.first().waitFor()
   await shot(page, '4-keeper-home')
@@ -431,6 +444,7 @@ async function keeperSection(browser, ctx) {
 async function phoneSection(browser) {
   const page = await consoleLogin(browser, 'cang', { viewport: PHONE })
   await page.locator('[data-testid="home-keeper"]').waitFor()
+  await identity(page, 'cang-phone')
   await shot(page, '12-keeper-phone')
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)
   check('手机：仓管首页没有横向滚动', overflow <= 0, { overflow })
@@ -440,6 +454,7 @@ async function phoneSection(browser) {
 async function workerSection(browser) {
   const page = await consoleLogin(browser, 'wang')
   await page.waitForURL(/\/production/)
+  await identity(page, 'wang')
   const menu = await menus(page)
   await page.goto(`${CONSOLE}/`)
   await page.waitForURL(/\/production/)
@@ -451,6 +466,7 @@ async function workerSection(browser) {
 async function knowledgeSection(browser) {
   const page = await consoleLogin(browser, 'kate')
   await page.locator('[data-testid="home-knowledge"]').waitFor()
+  await identity(page, 'kate')
   await page.locator('[data-testid="home-kb-expiring-item"]').first().waitFor()
   await shot(page, '8-knowledge-home')
   const menu = await menus(page)
@@ -476,6 +492,7 @@ async function combinedSection(browser) {
   const page = await consoleLogin(browser, 'chen')
   await page.locator('[data-testid="home-agent"]').waitFor()
   await page.locator('[data-testid="home-keeper"]').waitFor()
+  await identity(page, 'chen')
   await shot(page, '9-agent-keeper-home')
   const menu = await menus(page)
   const profiles = await page.locator('[data-testid="home-profiles"]').innerText()
@@ -558,6 +575,20 @@ async function run(browser) {
   await consoleSettingsSection(admin, browser)
   await customRoleSection(admin, browser, ctx)
   await phoneSection(browser)
+  const expected = {
+    admin: '企业所有者（管理员）',
+    mei: '客服（客服小美）',
+    cang: '仓管（仓管小陈）',
+    wang: '工厂工人（工人老王）',
+    kate: '知识管理员（知识管理员小凯）',
+    chen: '客服 / 仓管（客服兼仓管老陈）',
+    'cang-phone': '仓管（仓管小陈）',
+  }
+  check(
+    '每个角色进入控制台后，左上角"EDP 智能客服"旁边显示自己的"角色（姓名）"，手机上也完整显示',
+    same(Object.entries(identities).sort(), Object.entries(expected).sort()),
+    identities,
+  )
   check('没有前端脚本错误', summary.consoleErrors.length === 0, summary.consoleErrors)
 }
 

@@ -19554,6 +19554,14 @@
             ],
             "description": "当前套餐；不按套餐计费的租户为空"
           },
+          "role_names": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "角色的名称（编码 → 名称）：控制台左上角显示“角色（姓名）”（§39.7）",
+            "title": "Role Names",
+            "type": "object"
+          },
           "roles": {
             "items": {
               "type": "string"

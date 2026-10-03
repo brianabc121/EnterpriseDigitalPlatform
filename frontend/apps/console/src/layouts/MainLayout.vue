@@ -8,6 +8,7 @@ import PasswordDialog from '../components/account/PasswordDialog.vue'
 import NotificationBell from '../components/layout/NotificationBell.vue'
 import { MENU_ICONS as icons } from '../menuIcons'
 import { ORDERS_CHANGED } from '../orders'
+import { roleTitle } from '../roleNames'
 import { TASKS_CHANGED } from '../tasks'
 import { TODOS_CHANGED } from '../todos'
 import { useAuthStore } from '../stores/auth'
@@ -19,6 +20,11 @@ const router = useRouter()
 
 // 按岗位显示的菜单（§25.15）；角标只给显示的菜单取数。
 const menus = computed(() => auth.menus)
+// 左上角"EDP 智能客服"旁边显示当前员工的"角色（姓名）"（§39.7），和员工卡片的标题一样。
+const identity = computed(() => {
+  const me = auth.me
+  return me ? `${roleTitle(me.roles, (code) => me.role_names?.[code])}（${me.display_name}）` : ''
+})
 const shown = (name: string): boolean => menus.value.some((item) => item.name === name)
 const noticeClosed = ref(sessionStorage.getItem('edp:billing-notice') === auth.me?.billing_notice)
 
@@ -228,7 +234,10 @@ async function logout(): Promise<void> {
     </el-aside>
     <el-container>
       <el-header class="header">
-        <span class="tenant">{{ auth.me?.tenant.name }}</span>
+        <span class="left">
+          <span v-if="identity" class="identity" data-testid="console-identity">{{ identity }}</span>
+          <span class="tenant">{{ auth.me?.tenant.name }}</span>
+        </span>
         <span class="right">
           <NotificationBell />
           <el-dropdown data-testid="user-menu" @command="onCommand">
@@ -283,6 +292,7 @@ async function logout(): Promise<void> {
 
 .right {
   display: flex;
+  flex-shrink: 0;
   align-items: center;
 }
 
@@ -322,8 +332,38 @@ async function logout(): Promise<void> {
   border-bottom: 1px solid var(--el-border-color-light);
 }
 
-.tenant {
+/* 左边是"角色（姓名）"和企业名称：放不下时先缩短企业名称。 */
+.left {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  margin-right: 12px;
+}
+
+.identity {
+  flex: 0 0 auto;
+  max-width: 100%;
+  padding: 2px 10px;
+  border-radius: 12px;
+  background: var(--el-color-primary-light-9);
+  color: var(--el-color-primary);
+  font-size: 13px;
   font-weight: 500;
+  line-height: 20px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tenant {
+  flex: 0 1 auto;
+  min-width: 0;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .user {
@@ -343,10 +383,8 @@ async function logout(): Promise<void> {
     padding: 0 12px;
   }
 
-  .tenant {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+  .left {
+    gap: 8px;
     margin-right: 8px;
   }
 

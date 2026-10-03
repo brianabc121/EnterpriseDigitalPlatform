@@ -70,6 +70,10 @@ class MeResponse(BaseModel):
     display_name: str
     tenant: TenantBrief
     roles: list[str]
+    role_names: dict[str, str] = Field(
+        default_factory=dict,
+        description="角色的名称（编码 → 名称）：控制台左上角显示“角色（姓名）”（§39.7）",
+    )
     # 使用枚举类型：生成的前端类型会包含全部权限点，菜单配置写错会在编译期报错。
     permissions: list[Permission]
     features: dict[str, bool] = Field(
